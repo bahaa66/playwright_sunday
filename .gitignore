@@ -34,3 +34,12 @@ cogynt_workstation_ingest-*.tar
 # secrets files as long as you replace their contents by environment
 # variables.
 /config/*.secret.exs
+/config/devops.exs
+
+/.elixir_ls/
+
+# Configurations for Visual Studio Code
+.vscode
+.DS_Store
+*.plt
+*.plt.hash
