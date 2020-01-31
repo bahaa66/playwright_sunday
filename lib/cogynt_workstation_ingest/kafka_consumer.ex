@@ -13,7 +13,7 @@ defmodule CogyntWorkstationIngest.KafkaConsumer do
   @impl true
   def handle_message_set(message_set, %{event_definition: event_definition} = state) do
     # Push message set to the :queue of the producer
-    EventProducer.populate_state(message_set)
+    EventProducer.enqueue(message_set)
     {:sync_commit, state}
   end
 end

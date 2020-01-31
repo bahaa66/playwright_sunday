@@ -28,12 +28,12 @@ defmodule CogyntWorkstationIngest.EventPipeline do
     )
   end
 
-  def transform(event, {:event_definition, event_definition}) do
-    IO.inspect(event, label: "@@@ Transformaton Event")
-    IO.inspect(event_definition, label: "@@@ Transformation opts")
+  def transform(event, opts) do
+    #IO.inspect(event, label: "@@@ Transformaton Event")
+    #IO.inspect(opts[:event_definition], label: "@@@ Transformation opts")
 
     %Message{
-      data: %{event: event, event_definition: event_definition},
+      data: %{event: event, event_definition: opts[:event_definition]},
       acknowledger: {__MODULE__, :ack_id, :ack_data}
     }
   end
@@ -49,7 +49,7 @@ defmodule CogyntWorkstationIngest.EventPipeline do
     # This is handling a single message that is being sent from the
     # Producer
     # IO.inspect(message, label: "@@@ Handle Message data: ")
-    message
+    IO.inspect(message, label: "@@@ Handle_message data")
   end
 
   # defp process_data(_data) do

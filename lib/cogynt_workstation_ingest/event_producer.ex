@@ -3,8 +3,6 @@ defmodule CogyntWorkstationIngest.EventProducer do
   require Logger
   alias KafkaEx.Protocol.Fetch.Message
 
-  @message_set "message_set_key"
-
   # -------------------- #
   # --- client calls --- #
   # -------------------- #
@@ -13,30 +11,15 @@ defmodule CogyntWorkstationIngest.EventProducer do
   end
 
   @impl true
-  def init(broadway_args) do
-    table_name = broadway_args[:table]
-    key = broadway_args[:cache_key]
-
-    {:ok, _table} = create_ets_table(table_name)
-
-    Process.flag(:trap_exit, true)
-
-    {
-      :producer,
-      %{
-        message_list: message_list(table_name, key),
-        cache_key: key,
-        producer_name: broadway_args[:name],
-        table_name: table_name
-      }
-    }
+  def init(_args) do
+    {:producer, %{queue: :queue.new(), demand: 0}}
   end
 
-  def populate_state(message_set) when is_list(message_set) do
+  def enqueue(message_set) when is_list(message_set) do
     # TODO figure out how to call specific name of Broadway producer for callbacks
     GenServer.cast(
       :"Elixir.CogyntWorkstationIngest.EventPipelineTEST.Broadway.Producer_0",
-      {:populate_state, message_set}
+      {:enqueue, message_set}
     )
   end
 
@@ -44,73 +27,82 @@ defmodule CogyntWorkstationIngest.EventProducer do
   # --- server callbacks --- #
   # ------------------------ #
   @impl true
-  def handle_cast({:populate_state, message_set}, state) do
-    IO.inspect(state, label: "@@@ STATE")
-
-    events =
-      Enum.reduce(message_set, [], fn json_message, acc ->
+  def handle_cast({:enqueue, message_set}, %{queue: queue, demand: 0} = state) do
+    queue =
+      Enum.reduce(message_set, queue, fn json_message, acc ->
         case Jason.decode(json_message) do
           {:ok, message} ->
-            acc ++ [message]
+            :queue.in(message, acc)
 
           {:error, error} ->
             Logger.error("Failed to decode json_message. Error: #{inspect(error)}")
         end
       end)
 
-    IO.inspect(events, label: "@@@ Decoded events")
-    update_table(state.cache_key, events)
-
-    {:noreply, state}
+    new_state = Map.put(state, :queue, queue)
+    IO.inspect(new_state, label: "@@@ State returned")
+    {:noreply, [], new_state}
   end
 
   @impl true
-  def handle_demand(demand, state) when demand > 0 do
-    IO.inspect(demand, label: "@@@ Demand from processors")
-    IO.inspect(state.message_list, label: "@@@ Current message_list")
+  def handle_cast({:enqueue, message_set}, %{queue: queue, demand: demand} = state) do
+    queue =
+      Enum.reduce(message_set, queue, fn json_message, acc ->
+        case Jason.decode(json_message) do
+          {:ok, message} ->
+            :queue.in(message, acc)
 
-    {to_dispatch, remaining} = Enum.split(state.message_list, demand)
+          {:error, error} ->
+            Logger.error("Failed to decode json_message. Error: #{inspect(error)}")
+        end
+      end)
 
-    IO.inspect(remaining, label: "@@@ Items remaining after #{Enum.count(to_dispatch)} dispatched")
+    IO.inspect(queue, label: "@@@ Q after Enqueue")
+    {messages, new_state} = fetch_and_release_demand(demand, queue, state)
+    IO.inspect(new_state, label: "@@@ State returned")
+    {:noreply, messages, new_state}
+  end
 
-    updated_state = Map.put(state, :message_list, remaining)
+  @impl true
+  def handle_demand(incoming_demand, %{queue: queue, demand: demand} = state)
+      when incoming_demand > 0 do
+    IO.inspect(incoming_demand, label: "@@@ Incoming Demand")
+    IO.inspect(demand, label: "@@@ Stored Demand")
 
-    {:noreply, to_dispatch, updated_state}
+    total_demand = incoming_demand + demand
+
+    {messages, new_state} = fetch_and_release_demand(total_demand, queue, state)
+    IO.inspect(new_state, label: "@@@ State returned")
+    {:noreply, messages, new_state}
   end
 
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
+  defp fetch_and_release_demand(demand, queue, state) do
+    {items, queue} =
+      case :queue.len(queue) >= demand do
+        true ->
+          :queue.split(demand, queue)
 
-  # creates an ets table from data in the file system if it exists
-  # if not it generates a new empty table
-  defp create_ets_table(table_name) do
-    file_path = String.to_charlist(file_path() <> Atom.to_string(table_name) <> ".tab")
+        false ->
+          :queue.split(:queue.len(queue), queue)
+      end
 
-    case :ets.file2tab(file_path) do
-      {:ok, table} ->
-        File.rm(file_path)
-        {:ok, table}
-
-      {:error, _reason} ->
-        table = :ets.new(table_name, [:named_table, :set])
-        {:ok, table}
-    end
-  end
-
-  defp update_table(key, value) do
-    :ets.insert(table_name, {key, value})
-  end
-
-  defp message_list(table_name, key) do
-    case :ets.lookup(table_name, key) do
+    case :queue.to_list(items) do
       [] ->
-        []
+        new_state =
+          Map.put(state, :queue, queue)
+          |> Map.put(:demand, demand)
 
-      [{_key, message_set}] ->
-        message_set
+        {[], new_state}
+
+      messages ->
+        new_state =
+          Map.put(state, :queue, queue)
+          |> Map.put(:demand, demand - Enum.count(messages))
+
+        {messages, new_state}
     end
   end
-
-  defp file_path(), do: "/tmp/"
 end
