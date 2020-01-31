@@ -5,15 +5,16 @@ defmodule CogyntWorkstationIngest.Application do
 
   use Application
 
+  alias CogyntWorkstationIngest.EventSupervisor
+
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
       # Start the Ecto repository
       CogyntWorkstationIngest.Repo,
       # Start the endpoint when the application starts
-      CogyntWorkstationIngestWeb.Endpoint
-      # Starts a worker by calling: CogyntWorkstationIngest.Worker.start_link(arg)
-      # {CogyntWorkstationIngest.Worker, arg},
+      CogyntWorkstationIngestWeb.Endpoint,
+      EventSupervisor
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

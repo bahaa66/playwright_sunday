@@ -51,6 +51,6 @@ config :phoenix, :plug_init_mode, :runtime
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   username: "postgres",
   password: "postgres",
-  database: "cogynt_workstation_ingest_dev",
+  database: "cogynt_dev",
   hostname: "localhost",
   pool_size: 10
