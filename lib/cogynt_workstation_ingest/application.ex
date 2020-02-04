@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Application do
 
   use Application
 
-  alias CogyntWorkstationIngest.EventSupervisor
+  alias CogyntWorkstationIngest.Supervisors.{EventSupervisor, ConsumerGroupSupervisor}
 
   def start(_type, _args) do
     # List all child processes to be supervised
@@ -14,7 +14,10 @@ defmodule CogyntWorkstationIngest.Application do
       CogyntWorkstationIngest.Repo,
       # Start the endpoint when the application starts
       CogyntWorkstationIngestWeb.Endpoint,
-      EventSupervisor
+      # Start the DynamicSupervisor for the EventBroadway Pipeline
+      EventSupervisor,
+      # Start the DynamicSupervisor for KafkaEx ConsumerGroups
+      ConsumerGroupSupervisor
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

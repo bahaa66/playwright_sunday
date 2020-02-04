@@ -1,4 +1,4 @@
-defmodule CogyntWorkstationIngest.EventProducer do
+defmodule CogyntWorkstationIngest.Broadway.EventProducer do
   use GenStage
   require Logger
   alias KafkaEx.Protocol.Fetch.Message
@@ -15,12 +15,9 @@ defmodule CogyntWorkstationIngest.EventProducer do
     {:producer, %{queue: :queue.new(), demand: 0}}
   end
 
-  def enqueue(message_set) when is_list(message_set) do
-    # TODO figure out how to call specific name of Broadway producer for callbacks
-    GenServer.cast(
-      :"Elixir.CogyntWorkstationIngest.EventPipelineTEST.Broadway.Producer_0",
-      {:enqueue, message_set}
-    )
+  def enqueue(message_set, topic) when is_list(message_set) do
+    process_names = Broadway.producer_names(String.to_atom("BroadwayEventPipeline-#{topic}"))
+    GenServer.cast(List.first(process_names), {:enqueue, message_set})
   end
 
   # ------------------------ #
@@ -28,17 +25,8 @@ defmodule CogyntWorkstationIngest.EventProducer do
   # ------------------------ #
   @impl true
   def handle_cast({:enqueue, message_set}, %{queue: queue, demand: 0} = state) do
-    queue =
-      Enum.reduce(message_set, queue, fn json_message, acc ->
-        case Jason.decode(json_message) do
-          {:ok, message} ->
-            :queue.in(message, acc)
-
-          {:error, error} ->
-            Logger.error("Failed to decode json_message. Error: #{inspect(error)}")
-        end
-      end)
-
+    queue = parse_kafka_message_set(message_set, queue)
+    IO.inspect(queue, label: "@@@ Q after Enqueue")
     new_state = Map.put(state, :queue, queue)
     IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, [], new_state}
@@ -46,16 +34,7 @@ defmodule CogyntWorkstationIngest.EventProducer do
 
   @impl true
   def handle_cast({:enqueue, message_set}, %{queue: queue, demand: demand} = state) do
-    queue =
-      Enum.reduce(message_set, queue, fn json_message, acc ->
-        case Jason.decode(json_message) do
-          {:ok, message} ->
-            :queue.in(message, acc)
-
-          {:error, error} ->
-            Logger.error("Failed to decode json_message. Error: #{inspect(error)}")
-        end
-      end)
+    queue = parse_kafka_message_set(message_set, queue)
 
     IO.inspect(queue, label: "@@@ Q after Enqueue")
     {messages, new_state} = fetch_and_release_demand(demand, queue, state)
@@ -79,6 +58,18 @@ defmodule CogyntWorkstationIngest.EventProducer do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
+  defp parse_kafka_message_set(message_set, queue) do
+    Enum.reduce(message_set, queue, fn %Message{value: json_message}, acc ->
+      case Jason.decode(json_message) do
+        {:ok, message} ->
+          :queue.in(message, acc)
+
+        {:error, error} ->
+          Logger.error("Failed to decode json_message. Error: #{inspect(error)}")
+      end
+    end)
+  end
+
   defp fetch_and_release_demand(demand, queue, state) do
     {items, queue} =
       case :queue.len(queue) >= demand do

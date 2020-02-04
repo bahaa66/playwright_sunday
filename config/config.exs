@@ -20,14 +20,14 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
 # Kafka Configurations
 config :kafka_ex,
   # Dev Kafka
-  brokers: [
-    {
-      System.get_env("KAFKA_BROKER") || "172.16.1.100",
-      System.get_env("KAFKA_PORT") || 9092
-    }
-  ],
+  # brokers: [
+  #   {
+  #     System.get_env("KAFKA_BROKER") || "172.16.1.100",
+  #     System.get_env("KAFKA_PORT") || 9092
+  #   }
+  # ],
   # Local Kafka
-  # brokers: [{"127.0.0.1", 9092}],
+  brokers: [{"127.0.0.1", 9092}],
   auto_offset_reset: :earliest,
   kafka_version: "2.0",
   commit_interval: System.get_env("KAFKA_COMMIT_INTERVAL") || 1000,
@@ -37,9 +37,10 @@ config :kafka_ex,
   audit_topic: System.get_env("AUDIT_LOG_TOPIC") || "cogynt_audit_log"
 
 # Configures Elixir's Logger
-config :logger, :console,
-  format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id]
+# config :logger, :console,
+#   format: "$time $metadata[$level] $message\n",
+#   metadata: [:request_id]
+config :logger, :console, format: "[$level] $message\n", level: :warn
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason

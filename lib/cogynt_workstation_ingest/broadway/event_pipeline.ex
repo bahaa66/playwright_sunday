@@ -1,11 +1,11 @@
-defmodule CogyntWorkstationIngest.EventPipeline do
+defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   use Broadway
 
   alias Broadway.Message
-  alias CogyntWorkstationIngest.EventProducer
+  alias CogyntWorkstationIngest.Broadway.{EventProducer, EventProcessor}
 
   def start_link({:event_definition, event_definition} = args) do
-    name = String.to_atom("#{__MODULE__}#{event_definition.topic}")
+    name = String.to_atom("BroadwayEventPipeline-#{event_definition.topic}")
 
     producer_args = [
       {:cache_key, "#{event_definition.topic}_message_set"},
@@ -22,16 +22,15 @@ defmodule CogyntWorkstationIngest.EventPipeline do
       ],
       processors: [
         default: [
-          stages: 2
+          stages: 15,
+          max_demand: 1000,
+          min_demand: 100
         ]
       ]
     )
   end
 
   def transform(event, opts) do
-    #IO.inspect(event, label: "@@@ Transformaton Event")
-    #IO.inspect(opts[:event_definition], label: "@@@ Transformation opts")
-
     %Message{
       data: %{event: event, event_definition: opts[:event_definition]},
       acknowledger: {__MODULE__, :ack_id, :ack_data}
@@ -39,19 +38,21 @@ defmodule CogyntWorkstationIngest.EventPipeline do
   end
 
   def ack(:ack_id, _successful, _failed) do
-    # Write ack code here
+    # TODO Write ack code here
     # IO.inspect(successful, label: "@@@ Success: ")
     # IO.inspect(failed, label: "@@@ Failed: ")
   end
 
   @impl true
-  def handle_message(_, %Message{data: _data} = message, _) do
-    # This is handling a single message that is being sent from the
-    # Producer
-    # IO.inspect(message, label: "@@@ Handle Message data: ")
-    IO.inspect(message, label: "@@@ Handle_message data")
-  end
+  def handle_message(_, %Message{data: data} = message, _) do
+    result =
+      data
+      |> EventProcessor.process_event()
+      |> EventProcessor.process_event_details()
+      |> EventProcessor.process_notifications()
+      |> EventProcessor.execute_transaction()
 
-  # defp process_data(_data) do
-  # end
+    #IO.inspect(result, label: "@@@ Handle_message result")
+    message
+  end
 end
