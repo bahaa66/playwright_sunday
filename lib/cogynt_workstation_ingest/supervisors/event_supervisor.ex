@@ -5,7 +5,6 @@ defmodule CogyntWorkstationIngest.Supervisors.EventSupervisor do
   start and stop children based on event_definition and topics.
   """
   use DynamicSupervisor
-
   alias CogyntWorkstationIngest.Broadway.EventPipeline
 
   def start_link(arg) do
@@ -18,7 +17,7 @@ defmodule CogyntWorkstationIngest.Supervisors.EventSupervisor do
   end
 
   @doc """
-
+  Will start a Broadway EventPipeline for the event_definition.topic
   """
   def start_child(event_definition) do
     child_spec = %{
@@ -43,7 +42,7 @@ defmodule CogyntWorkstationIngest.Supervisors.EventSupervisor do
   end
 
   @doc """
-
+  Will stop the Broadway EventPipeline for the topic
   """
   def stop_child(topic) do
     child_name = String.to_atom("#{EventPipeline}#{topic}")

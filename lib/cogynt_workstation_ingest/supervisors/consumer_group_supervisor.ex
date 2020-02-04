@@ -5,7 +5,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   start and stop children based on event_definition and topics.
   """
   use DynamicSupervisor
-
   alias CogyntWorkstationIngest.KafkaConsumer
 
   def start_link(arg) do
@@ -18,7 +17,9 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   @doc """
-
+  Will start a KafkaEx ConsumerGroup for the event_definition.topic.
+  If the topic does not exist it will retry to start the consumer
+  until the topic exists or a maximum retry counter is hit.
   """
   def start_child(event_definition) do
     topic = event_definition.topic
@@ -40,6 +41,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
       DynamicSupervisor.start_child(__MODULE__, child_spec)
     else
+      # TODO add retry logic if the topic does not exist
       # EventConsumerRetryCache.add_event_consumer_for_retry(event_definition)
       {:ok, nil}
     end
@@ -52,7 +54,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   @doc """
-
+  Will stop the KafkaEx ConsumerGroup for the topic
   """
   def stop_child(topic) do
     child_pid = Process.whereis(consumer_group_name(topic))

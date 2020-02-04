@@ -1,4 +1,9 @@
 defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
+  @moduledoc """
+  Broadway pipeline module for the EventPipeline. Defines the producer and
+  processor configurations as well as the transform/2, ack/3 and handle_message/3
+  methods
+  """
   use Broadway
 
   alias Broadway.Message
@@ -30,6 +35,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     )
   end
 
+  @doc """
+  Transformation callback. Will transform the message that is returned
+  by the Producer into a Broadway.Message.t() to be handled by the processor
+  """
   def transform(event, opts) do
     %Message{
       data: %{event: event, event_definition: opts[:event_definition]},
@@ -37,12 +46,22 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     }
   end
 
+  @doc """
+  Acknowledge callback. Will get all success or failed messages from
+  the pipeline.
+  """
   def ack(:ack_id, _successful, _failed) do
     # TODO Write ack code here
     # IO.inspect(successful, label: "@@@ Success: ")
     # IO.inspect(failed, label: "@@@ Failed: ")
   end
 
+  @doc """
+  Handle_message callback. Takes the Broadway.Message.t() from the
+  transform callback and processes the data object. Runs the data through
+  a process_event/1, process_event_details/1, process_notifications/1,
+  process_elasticsearch_documents/1 and execute_transaction/1.
+  """
   @impl true
   def handle_message(_, %Message{data: data} = message, _) do
     result =
