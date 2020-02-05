@@ -26,7 +26,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProducer do
   @impl true
   def handle_cast({:enqueue, message_set}, %{queue: queue, demand: 0} = state) do
     queue = parse_kafka_message_set(message_set, queue)
-    IO.inspect(queue, label: "@@@ Q after Enqueue")
+    #IO.inspect(queue, label: "@@@ Q after Enqueue")
     new_state = Map.put(state, :queue, queue)
     IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, [], new_state}
@@ -36,7 +36,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProducer do
   def handle_cast({:enqueue, message_set}, %{queue: queue, demand: demand} = state) do
     queue = parse_kafka_message_set(message_set, queue)
 
-    IO.inspect(queue, label: "@@@ Q after Enqueue")
+    #IO.inspect(queue, label: "@@@ Q after Enqueue")
     {messages, new_state} = fetch_and_release_demand(demand, queue, state)
     IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, messages, new_state}

@@ -27,7 +27,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       ],
       processors: [
         default: [
-          stages: 15,
+          stages: 35,
           max_demand: 1000,
           min_demand: 100
         ]
@@ -54,6 +54,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     # TODO Write ack code here
     # IO.inspect(successful, label: "@@@ Success: ")
     # IO.inspect(failed, label: "@@@ Failed: ")
+    IO.puts("Finished")
   end
 
   @doc """
@@ -64,11 +65,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   @impl true
   def handle_message(_, %Message{data: data} = message, _) do
-    result =
+    _result =
       data
       |> EventProcessor.process_event()
       |> EventProcessor.process_event_details()
       |> EventProcessor.process_notifications()
+      |> EventProcessor.process_elasticsearch_documents()
       |> EventProcessor.execute_transaction()
 
     #IO.inspect(result, label: "@@@ Handle_message result")

@@ -45,7 +45,7 @@ defmodule CogyntWorkstationIngest.Supervisors.EventSupervisor do
   Will stop the Broadway EventPipeline for the topic
   """
   def stop_child(topic) do
-    child_name = String.to_atom("#{EventPipeline}#{topic}")
+    child_name = String.to_atom("BroadwayEventPipeline-#{topic}")
     child_pid = Process.whereis(child_name)
 
     if child_pid != nil do

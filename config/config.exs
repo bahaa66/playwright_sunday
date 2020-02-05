@@ -36,6 +36,33 @@ config :kafka_ex,
   kafka_client: System.get_env("KAFKA_CLIENT") || KafkaEx,
   audit_topic: System.get_env("AUDIT_LOG_TOPIC") || "cogynt_audit_log"
 
+# Elasticsearch configurations
+config :elasticsearch, :config,
+  enabled: System.get_env("ELASTICSEARCH_ENABLED") || true,
+  basic_authentication_enabled: true,
+  host: System.get_env("ELASTIC_URL") || "http://localhost:9200",
+  username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",
+  password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
+  elasticsearch_client: System.get_env("ELASTIC_CLIENT") || Elasticsearch,
+  utc_offset: 0
+
+# Configurations for keys in Cogynt Core events
+config :cogynt_workstation_ingest, :core_keys,
+  crud: System.get_env("CORE_KEYS_CRUD") || "$crud",
+  risk_score: System.get_env("CORE_KEYS_RISK_SCORE") || "_confidence",
+  partial: System.get_env("CORE_KEYS_PARTIAL") || "$partial",
+  events: System.get_env("CORE_KEYS_EVENTS") || "$$events",
+  description: System.get_env("CORE_KEYS_DESCRIPTION") || "$description",
+  entities: System.get_env("CORE_KEYS_ENTITIES") || "$$entities",
+  link_data_type: System.get_env("CORE_KEYS_LINK_DATA_TYPE") || :linkage,
+  update: System.get_env("CORE_KEYS_UPDATE") || "update",
+  delete: System.get_env("CORE_KEYS_DELETE") || "delete",
+  create: System.get_env("CORE_KEYS_CREATE") || "create"
+
+# EventDocument Configurations
+config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.EventDocument,
+  index_alias: System.get_env("EVENT_INDEX_ALIAS") || "event"
+
 # Configures Elixir's Logger
 # config :logger, :console,
 #   format: "$time $metadata[$level] $message\n",

@@ -43,8 +43,13 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:plug_cowboy, "~> 2.0"},
       {:ecto_enum, "~> 1.4"},
       {:broadway, "~> 0.5.0"},
-      {:kafka_ex, "~> 0.10.0"}
-      #{:elasticsearch, git: "git@github.com:Cogility/elasticsearch.git", tag: "v0.9-alpha"}
+      {:kafka_ex, "~> 0.10.0"},
+      {:elasticsearch, git: "git@github.com:Cogility/elasticsearch.git", tag: "v0.9-alpha"},
+      {:httpoison, "~> 1.5"},
+      {:timber, "~> 3.1.1"},
+      {:timber_phoenix, "~> 1.0"},
+      {:poison, ">= 0.0.0", only: [:dev, :test]},
+      {:dialyxir, "~> 0.5", only: [:dev], runtime: false}
     ]
   end
 
