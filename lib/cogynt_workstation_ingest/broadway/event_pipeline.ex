@@ -60,17 +60,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @doc """
   Handle_message callback. Takes the Broadway.Message.t() from the
   transform callback and processes the data object. Runs the data through
-  a process_event/1, process_event_details/1, process_notifications/1,
-  process_elasticsearch_documents/1 and execute_transaction/1.
+  a process_event/1, process_event_details_and_elasticsearch_docs/1,
+  process_notifications/1 and execute_transaction/1.
   """
   @impl true
   def handle_message(_, %Message{data: data} = message, _) do
     _result =
       data
       |> EventProcessor.process_event()
-      |> EventProcessor.process_event_details()
+      |> EventProcessor.process_event_details_and_elasticsearch_docs()
       |> EventProcessor.process_notifications()
-      |> EventProcessor.process_elasticsearch_documents()
       |> EventProcessor.execute_transaction()
 
     #IO.inspect(result, label: "@@@ Handle_message result")

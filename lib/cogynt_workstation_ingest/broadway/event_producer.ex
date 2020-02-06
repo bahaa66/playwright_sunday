@@ -28,7 +28,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProducer do
     queue = parse_kafka_message_set(message_set, queue)
     #IO.inspect(queue, label: "@@@ Q after Enqueue")
     new_state = Map.put(state, :queue, queue)
-    IO.inspect(new_state, label: "@@@ State returned")
+    #IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, [], new_state}
   end
 
@@ -38,7 +38,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProducer do
 
     #IO.inspect(queue, label: "@@@ Q after Enqueue")
     {messages, new_state} = fetch_and_release_demand(demand, queue, state)
-    IO.inspect(new_state, label: "@@@ State returned")
+    #IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, messages, new_state}
   end
 
@@ -51,7 +51,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProducer do
     total_demand = incoming_demand + demand
 
     {messages, new_state} = fetch_and_release_demand(total_demand, queue, state)
-    IO.inspect(new_state, label: "@@@ State returned")
+    #IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, messages, new_state}
   end
 

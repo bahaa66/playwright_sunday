@@ -67,36 +67,61 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @doc """
   Requires event, event_definition and event_id fields in the data map. Takes the
   field_name and field_value fields from the event and creates a list of event_detail
-  maps. Returns an updated data map with the :event_details value having the list.
+  maps. Also creates a list of elasticsearch docs. Returns an updated data map with
+  the :event_details and :elasticsearch_docs values.
   """
-  def process_event_details(
+  def process_event_details_and_elasticsearch_docs(
         %{event: event, event_definition: event_definition, event_id: event_id} = data
       ) do
-    event_details =
-      Stream.map(event, fn {field_name, field_value} ->
+    action = Map.get(event, @crud)
+    event = Map.drop(event, [@crud, @partial])
+
+    {event_details, elasticseach_docs} =
+      Enum.reduce(event, {[], []}, fn {field_name, field_value}, {acc_events, acc_docs} = acc ->
         field_type = event_definition.fields[field_name]
 
         case is_nil(field_value) do
           false ->
             field_value = encode_json(field_value)
 
-            %{
-              event_id: event_id,
-              field_name: field_name,
-              field_type: field_type,
-              field_value: field_value
-            }
+            # Build event_details list
+            updated_events =
+              acc_events ++
+                [
+                  %{
+                    event_id: event_id,
+                    field_name: field_name,
+                    field_type: field_type,
+                    field_value: field_value
+                  }
+                ]
+
+            # Build elasticsearch docs list
+            updated_docs =
+              acc_docs ++
+                [
+                  EventDocument.build_document(
+                    event,
+                    field_name,
+                    field_value,
+                    event_definition,
+                    event_id,
+                    action
+                  )
+                ]
+
+            {updated_events, updated_docs}
 
           true ->
-            %{}
+            acc
         end
       end)
-      |> Enum.to_list()
 
     Map.put(data, :event_details, event_details)
+    |> Map.put(:elasticsearch_docs, elasticseach_docs)
   end
 
-  def process_event_details(%{event_id: nil} = data), do: data
+  def process_event_details_and_elasticsearch_docs(%{event_id: nil} = data), do: data
 
   @doc """
   Requires event, event_definition and event_id fields in the data map. process_notifications(%{})
@@ -149,47 +174,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
-  def process_notifications(%{event_id: nil} = data), do: data
-
-  @doc """
-  Requires event, event_definition, and event_id fields in the data map.
-  process_elasticsearch_documents(%{}) will stream each field in the event and create
-  an elasticsearch event document out of its data. Returnes an updated data map with the
-  field :elasticsearch_docs storing the list of event documents.
-  """
-  def process_elasticsearch_documents(
-        %{event: event, event_definition: event_definition, event_id: event_id} = data
-      ) do
-    event_documents =
-      Stream.map(event, fn {field_name, field_value} ->
-        # field_type = event_definition.fields[field_name]
-
-        case is_nil(field_value) do
-          false ->
-            field_value = encode_json(field_value)
-
-            action = Map.get(event, @crud)
-
-            Map.drop(event, [@crud, @partial])
-            |> EventDocument.build_document(
-              field_name,
-              field_value,
-              event_definition,
-              event_id,
-              action
-            )
-
-          true ->
-            %{}
-        end
-      end)
-      |> Enum.to_list()
-
-    Map.put(data, :elasticsearch_docs, event_documents)
-  end
-
-  def process_elasticsearch_documents(%{event_id: nil} = data), do: data
-
   @doc """
   Requires :event_details, :notifications, :elasticsearch_docs, :delete_ids, and :delete_docs
   fields in the data map. Takes all the fields and executes them in one databse transaction.
@@ -198,7 +182,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         %{
           event_details: event_details,
           notifications: notifications,
-          elasticsearch_docs: _docs,
+          elasticsearch_docs: docs,
           delete_ids: event_ids,
           delete_docs: doc_ids
         } = data
@@ -211,7 +195,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           |> Multi.insert_all(:insert_notifications, Notification, notifications)
           |> Repo.transaction()
 
-        # EventDocument.bulk_upsert_document(docs)
+        EventDocument.bulk_upsert_document(docs)
 
         {:ok, data}
 
@@ -237,14 +221,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
           |> Repo.transaction()
 
-        # case Enum.empty?(doc_ids) do
-        #   true ->
-        #     EventDocument.bulk_upsert_document(docs)
+        case Enum.empty?(doc_ids) do
+          true ->
+            EventDocument.bulk_upsert_document(docs)
 
-        #   false ->
-        #     EventDocument.bulk_delete_document(doc_ids)
-        #     EventDocument.bulk_upsert_document(docs)
-        # end
+          false ->
+            EventDocument.bulk_delete_document(doc_ids)
+            EventDocument.bulk_upsert_document(docs)
+        end
 
         {:ok, data}
     end
