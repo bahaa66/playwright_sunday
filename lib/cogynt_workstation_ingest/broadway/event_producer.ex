@@ -1,7 +1,7 @@
 defmodule CogyntWorkstationIngest.Broadway.EventProducer do
   use GenStage
   require Logger
-  alias KafkaEx.Protocol.Fetch.Message
+  alias KafkaEx.Protocol.Fetch
 
   # -------------------- #
   # --- client calls --- #
@@ -20,15 +20,20 @@ defmodule CogyntWorkstationIngest.Broadway.EventProducer do
     GenServer.cast(List.first(process_names), {:enqueue, message_set})
   end
 
+  def enqueue_failed_messages(broadway_messages, topic) when is_list(broadway_messages) do
+    process_names = Broadway.producer_names(String.to_atom("BroadwayEventPipeline-#{topic}"))
+    GenServer.cast(List.first(process_names), {:enqueue_failed_messages, broadway_messages})
+  end
+
   # ------------------------ #
   # --- server callbacks --- #
   # ------------------------ #
   @impl true
   def handle_cast({:enqueue, message_set}, %{queue: queue, demand: 0} = state) do
     queue = parse_kafka_message_set(message_set, queue)
-    #IO.inspect(queue, label: "@@@ Q after Enqueue")
+    # IO.inspect(queue, label: "@@@ Q after Enqueue")
     new_state = Map.put(state, :queue, queue)
-    #IO.inspect(new_state, label: "@@@ State returned")
+    # IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, [], new_state}
   end
 
@@ -36,9 +41,22 @@ defmodule CogyntWorkstationIngest.Broadway.EventProducer do
   def handle_cast({:enqueue, message_set}, %{queue: queue, demand: demand} = state) do
     queue = parse_kafka_message_set(message_set, queue)
 
-    #IO.inspect(queue, label: "@@@ Q after Enqueue")
+    # IO.inspect(queue, label: "@@@ Q after Enqueue")
     {messages, new_state} = fetch_and_release_demand(demand, queue, state)
-    #IO.inspect(new_state, label: "@@@ State returned")
+    # IO.inspect(new_state, label: "@@@ State returned")
+    {:noreply, messages, new_state}
+  end
+
+  @impl true
+  def handle_cast(
+        {:enqueue_failed_messages, broadway_messages},
+        %{queue: queue, demand: demand} = state
+      ) do
+    queue = parse_broadway_messages(broadway_messages, queue)
+
+    # IO.inspect(queue, label: "@@@ Q after Enqueue")
+    {messages, new_state} = fetch_and_release_demand(demand, queue, state)
+    # IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, messages, new_state}
   end
 
@@ -51,7 +69,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProducer do
     total_demand = incoming_demand + demand
 
     {messages, new_state} = fetch_and_release_demand(total_demand, queue, state)
-    #IO.inspect(new_state, label: "@@@ State returned")
+    # IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, messages, new_state}
   end
 
@@ -59,7 +77,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProducer do
   # --- private methods --- #
   # ----------------------- #
   defp parse_kafka_message_set(message_set, queue) do
-    Enum.reduce(message_set, queue, fn %Message{value: json_message}, acc ->
+    Enum.reduce(message_set, queue, fn %Fetch.Message{value: json_message}, acc ->
       case Jason.decode(json_message) do
         {:ok, message} ->
           :queue.in(message, acc)
@@ -67,6 +85,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProducer do
         {:error, error} ->
           Logger.error("Failed to decode json_message. Error: #{inspect(error)}")
       end
+    end)
+  end
+
+  defp parse_broadway_messages(broadway_messages, queue) do
+    Enum.reduce(broadway_messages, queue, fn %Broadway.Message{data: %{event: event} = data},
+                                             acc ->
+      :queue.in(event, acc)
     end)
   end
 

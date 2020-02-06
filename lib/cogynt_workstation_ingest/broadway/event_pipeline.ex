@@ -31,7 +31,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           max_demand: 1000,
           min_demand: 100
         ]
-      ]
+      ],
+      context: args
     )
   end
 
@@ -51,10 +52,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   the pipeline.
   """
   def ack(:ack_id, _successful, _failed) do
-    # TODO Write ack code here
-    # IO.inspect(successful, label: "@@@ Success: ")
-    # IO.inspect(failed, label: "@@@ Failed: ")
-    IO.puts("Finished")
+  end
+
+  @impl true
+  def handle_failed(messages, {:event_definition, event_definition}) do
+    IO.inspect(messages, label: "@@@ Failed message")
+    IO.inspect(event_definition, label: "@@@ Context")
+    EventProducer.enqueue_failed_messages(messages, event_definition.topic)
   end
 
   @doc """
@@ -64,15 +68,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   process_notifications/1 and execute_transaction/1.
   """
   @impl true
-  def handle_message(_, %Message{data: data} = message, _) do
-    _result =
-      data
-      |> EventProcessor.process_event()
-      |> EventProcessor.process_event_details_and_elasticsearch_docs()
-      |> EventProcessor.process_notifications()
-      |> EventProcessor.execute_transaction()
+  def handle_message(_processor, %Message{data: data} = message, _context) do
+    data
+    |> EventProcessor.process_event()
+    |> EventProcessor.process_event_details_and_elasticsearch_docs()
+    |> EventProcessor.process_notifications()
+    |> EventProcessor.execute_transaction()
 
-    #IO.inspect(result, label: "@@@ Handle_message result")
     message
   end
 end
