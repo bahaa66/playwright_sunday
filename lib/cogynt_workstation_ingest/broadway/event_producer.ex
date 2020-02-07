@@ -89,8 +89,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProducer do
   end
 
   defp parse_broadway_messages(broadway_messages, queue) do
-    Enum.reduce(broadway_messages, queue, fn %Broadway.Message{data: %{event: event} = data},
-                                             acc ->
+    Enum.reduce(broadway_messages, queue, fn %Broadway.Message{data: %{event: event}}, acc ->
       :queue.in(event, acc)
     end)
   end

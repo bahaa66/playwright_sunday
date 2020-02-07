@@ -40,6 +40,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:postgrex, ">= 0.0.0"},
       {:gettext, "~> 0.11"},
       {:jason, "~> 1.0"},
+      {:uuid, "~> 1.1" },
       {:plug_cowboy, "~> 2.0"},
       {:ecto_enum, "~> 1.4"},
       {:broadway, "~> 0.5.0"},
@@ -49,7 +50,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:timber, "~> 3.1.1"},
       {:timber_phoenix, "~> 1.0"},
       {:poison, ">= 0.0.0", only: [:dev, :test]},
-      {:dialyxir, "~> 0.5", only: [:dev], runtime: false}
+      {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
+      {:models, git: "git@github.com:cogility/cogynt-common.git", branch: "dev", sparse: "models"}
     ]
   end
 

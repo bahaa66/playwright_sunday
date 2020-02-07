@@ -32,8 +32,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           min_demand: 100
         ]
       ],
+      partition_by: &partition/1,
       context: args
     )
+  end
+
+  defp partition(msg) do
+    case msg.data.event["published_by"] do
+      nil ->
+        :rand.uniform(1000)
+
+      id ->
+        :erlang.phash2(id)
+    end
   end
 
   @doc """
@@ -52,13 +63,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   the pipeline.
   """
   def ack(:ack_id, _successful, _failed) do
+    IO.puts("Ack'd")
   end
 
+  @doc """
+  Callback for handling any failed messages in the EventPipeline. It will
+  take the failed messages and queue them back on the producer to get tried
+  again.
+  """
   @impl true
   def handle_failed(messages, {:event_definition, event_definition}) do
-    IO.inspect(messages, label: "@@@ Failed message")
-    IO.inspect(event_definition, label: "@@@ Context")
+    IO.puts("Failed")
     EventProducer.enqueue_failed_messages(messages, event_definition.topic)
+    messages
   end
 
   @doc """

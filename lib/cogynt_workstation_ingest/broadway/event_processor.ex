@@ -5,8 +5,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   import Ecto.Query
   alias Ecto.Multi
 
-  alias CogyntWorkstationIngest.Events.{Event, EventDetail}
-  alias CogyntWorkstationIngest.Notifications.{Notification, NotificationSetting}
+  alias Models.Events.{Event, EventDetail}
+  alias Models.Notifications.{Notification, NotificationSetting}
   alias CogyntWorkstationIngest.Elasticsearch.EventDocument
   alias CogyntWorkstationIngest.Repo
 
@@ -26,7 +26,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   def process_event(%{event: %{@crud => action} = _event} = data) do
     case action do
       @update ->
-        {:ok, {new_event_id, delete_event_ids, delete_doc_ids}} = upsert_event(data)
+        {:ok, {new_event_id, delete_event_ids, delete_doc_ids}} = update_event(data)
 
         Map.put(data, :event_id, new_event_id)
         |> Map.put(:delete_ids, delete_event_ids)
@@ -60,8 +60,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       |> Repo.insert()
 
     Map.put(data, :event_id, event_id)
-    |> Map.put(:delete_ids, [])
-    |> Map.put(:delete_docs, [])
+    |> Map.put(:delete_ids, nil)
+    |> Map.put(:delete_docs, nil)
   end
 
   @doc """
@@ -187,51 +187,45 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           delete_docs: doc_ids
         } = data
       ) do
-    case is_nil(event_ids) and is_nil(doc_ids) do
-      true ->
-        _result =
+    multi =
+      case is_nil(event_ids) or Enum.empty?(event_ids) do
+        true ->
           Multi.new()
-          |> Multi.insert_all(:insert_event_detials, EventDetail, event_details)
-          |> Multi.insert_all(:insert_notifications, Notification, notifications)
-          |> Repo.transaction()
 
-        EventDocument.bulk_upsert_document(docs)
+        false ->
+          n_query =
+            from(n in Notification,
+              where: n.event_id in ^event_ids
+            )
 
-        {:ok, data}
+          e_query =
+            from(
+              e in Event,
+              where: e.id in ^event_ids
+            )
 
-      false ->
-        n_query =
-          from(n in Notification,
-            where: n.event_id in ^event_ids
-          )
+          deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
-        e_query =
-          from(
-            e in Event,
-            where: e.id in ^event_ids
-          )
-
-        deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
-
-        _result =
           Multi.new()
-          |> Multi.insert_all(:insert_event_detials, EventDetail, event_details)
-          |> Multi.insert_all(:insert_notifications, Notification, notifications)
           |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
           |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
-          |> Repo.transaction()
+      end
 
-        case Enum.empty?(doc_ids) do
-          true ->
-            EventDocument.bulk_upsert_document(docs)
+    multi
+    |> Multi.insert_all(:insert_event_detials, EventDetail, event_details)
+    |> Multi.insert_all(:insert_notifications, Notification, notifications)
+    |> Repo.transaction()
 
-          false ->
-            EventDocument.bulk_delete_document(doc_ids)
-            EventDocument.bulk_upsert_document(docs)
-        end
+    case is_nil(doc_ids) or Enum.empty?(doc_ids) do
+      true ->
+        EventDocument.bulk_upsert_document(docs)
 
-        {:ok, data}
+      false ->
+        EventDocument.bulk_delete_document(doc_ids)
+        EventDocument.bulk_upsert_document(docs)
     end
+
+    {:ok, data}
   end
 
   def execute_transaction(%{event_id: nil} = data), do: {:ok, data}
@@ -260,22 +254,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
-  defp event_exists?(event_definition) do
-    query =
-      from(e in Event,
-        where: e.event_definition_id == type(^event_definition.id, :binary_id),
-        where: is_nil(e.deleted_at)
-      )
-
-    {:ok, count} =
-      Repo.transaction(fn ->
-        Repo.stream(query)
-        |> Enum.count()
-      end)
-
-    count > 0
-  end
-
   defp fetch_data_to_delete(%{
          event: %{"published_by" => published_by} = _event,
          event_definition: event_definition
@@ -300,60 +278,36 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   defp create_event(%{event_definition: event_definition}) do
-    case event_exists?(event_definition) do
-      true ->
-        {:ok, {nil, nil, nil}}
+    {:ok, %{id: event_id}} =
+      %Event{}
+      |> Event.changeset(%{event_definition_id: event_definition.id})
+      |> Repo.insert()
 
-      false ->
-        {:ok, %{id: event_id}} =
-          %Event{}
-          |> Event.changeset(%{event_definition_id: event_definition.id})
-          |> Repo.insert()
-
-        {:ok, {event_id, nil, nil}}
-    end
+    {:ok, {event_id, nil, nil}}
   end
 
   defp delete_event(%{event_definition: event_definition} = data) do
-    case event_exists?(event_definition) do
-      true ->
-        # Delete event -> get all data to remove + create a new event
-        # append new event to the list of data to remove
-        {:ok, {event_ids, doc_ids}} = fetch_data_to_delete(data)
+    # Delete event -> get all data to remove + create a new event
+    # append new event to the list of data to remove
+    {:ok, {event_ids, doc_ids}} = fetch_data_to_delete(data)
 
-        {:ok, %{id: event_id}} =
-          %Event{}
-          |> Event.changeset(%{event_definition_id: event_definition.id})
-          |> Repo.insert()
+    {:ok, %{id: event_id}} =
+      %Event{}
+      |> Event.changeset(%{event_definition_id: event_definition.id})
+      |> Repo.insert()
 
-        {:ok, {event_id, event_ids ++ [event_id], doc_ids}}
-
-      false ->
-        {:ok, {nil, nil, nil}}
-    end
+    {:ok, {event_id, event_ids ++ [event_id], doc_ids}}
   end
 
-  defp upsert_event(%{event_definition: event_definition} = data) do
-    case event_exists?(event_definition) do
-      true ->
-        # Update event -> get all data to remove + create a new event
-        {:ok, {event_ids, doc_ids}} = fetch_data_to_delete(data)
+  defp update_event(%{event_definition: event_definition} = data) do
+    # Update event -> get all data to remove + create a new event
+    {:ok, {event_ids, doc_ids}} = fetch_data_to_delete(data)
 
-        {:ok, %{id: event_id}} =
-          %Event{}
-          |> Event.changeset(%{event_definition_id: event_definition.id})
-          |> Repo.insert()
+    {:ok, %{id: event_id}} =
+      %Event{}
+      |> Event.changeset(%{event_definition_id: event_definition.id})
+      |> Repo.insert()
 
-        {:ok, {event_id, event_ids, doc_ids}}
-
-      false ->
-        # Create event
-        {:ok, %{id: event_id}} =
-          %Event{}
-          |> Event.changeset(%{event_definition_id: event_definition.id})
-          |> Repo.insert()
-
-        {:ok, {event_id, nil, nil}}
-    end
+    {:ok, {event_id, event_ids, doc_ids}}
   end
 end
