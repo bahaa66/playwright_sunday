@@ -1,7 +1,7 @@
 defmodule CogyntWorkstationIngestWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :cogynt_workstation_ingest
 
-  socket "/socket", CogyntWorkstationIngestWeb.UserSocket,
+  socket "/socket", CogyntWorkstationIngestWeb.Channels.IngestSocket,
     websocket: true,
     longpoll: false
 
