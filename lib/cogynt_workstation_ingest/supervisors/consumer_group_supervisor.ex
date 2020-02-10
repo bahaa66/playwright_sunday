@@ -75,7 +75,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   # ----------------------- #
   defp consumer_group_options(event_definition) do
     topic = event_definition.topic
-    id = event_definition.id
+    _id = event_definition.id
     # name = "#{topic}-#{id}"
     name = "#{topic}-#{Ecto.UUID.generate()}" # for testing purposes only
 
@@ -92,9 +92,9 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     ]
   end
 
-  # ------------- #
-  # ---Configs--- #
-  # ------------- #
+  # ---------------------- #
+  # --- configurations --- #
+  # ---------------------- #
   defp config(), do: Application.get_env(:kafka_ex, :config)
   defp commit_interval(), do: config()[:commit_interval]
   defp commit_threshold(), do: config()[:commit_threshold]

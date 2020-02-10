@@ -11,12 +11,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
   def start_link({:event_definition, event_definition} = args) do
     name = String.to_atom("BroadwayEventPipeline-#{event_definition.topic}")
-
-    producer_args = [
-      {:cache_key, "#{event_definition.topic}_message_set"},
-      {:name, name},
-      {:table, :event_messages}
-    ]
+    # Optional args to pass to the init of the producer
+    producer_args = []
 
     Broadway.start_link(__MODULE__,
       name: name,
@@ -27,9 +23,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       ],
       processors: [
         default: [
-          stages: 35,
-          max_demand: 1000,
-          min_demand: 100
+          stages: processor_stages(),
+          max_demand: processor_max_demand(),
+          min_demand: processor_min_demand()
         ]
       ],
       partition_by: &partition/1,
@@ -94,4 +90,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     message
   end
+
+  # ---------------------- #
+  # --- configurations --- #
+  # ---------------------- #
+  defp config(), do: Application.get_env(:cogynt_workstation_ingest, __MODULE__)
+  defp processor_stages(), do: config()[:processor_stages]
+  defp processor_max_demand(), do: config()[:processor_max_demand]
+  defp processor_min_demand(), do: config()[:processor_min_demand]
 end

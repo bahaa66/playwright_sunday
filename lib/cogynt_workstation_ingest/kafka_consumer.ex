@@ -1,6 +1,5 @@
 defmodule CogyntWorkstationIngest.KafkaConsumer do
   use KafkaEx.GenConsumer
-
   alias CogyntWorkstationIngest.Supervisors.EventSupervisor
   alias CogyntWorkstationIngest.Broadway.EventProducer
 
@@ -13,7 +12,6 @@ defmodule CogyntWorkstationIngest.KafkaConsumer do
 
   @impl true
   def handle_message_set(message_set, %{event_definition: event_definition} = state) do
-    # Push message set to the :queue of the producer
     EventProducer.enqueue(message_set, event_definition.topic)
     {:sync_commit, state}
   end
