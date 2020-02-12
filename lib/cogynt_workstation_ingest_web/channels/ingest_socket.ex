@@ -2,7 +2,7 @@ defmodule CogyntWorkstationIngestWeb.Channels.IngestSocket do
   use Phoenix.Socket
 
   ## Channels
-  channel "consumer:*", CogyntWorkstationIngestWeb.ConsumerChannel
+  channel "ingest:*", CogyntWorkstationIngestWeb.ConsumerChannel
 
   def connect(_params, socket, _connect_info) do
     {:ok, socket}

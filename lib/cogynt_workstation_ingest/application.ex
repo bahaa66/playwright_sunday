@@ -6,6 +6,7 @@ defmodule CogyntWorkstationIngest.Application do
   use Application
 
   alias CogyntWorkstationIngest.Supervisors.{EventSupervisor, ConsumerGroupSupervisor}
+  alias CogyntWorkstationIngestWeb.Rpc.IngestHandler
 
   def start(_type, _args) do
     # List all child processes to be supervised
@@ -19,6 +20,8 @@ defmodule CogyntWorkstationIngest.Application do
       # Start the DynamicSupervisor for KafkaEx ConsumerGroups
       ConsumerGroupSupervisor
     ]
+
+    JSONRPC2.Servers.HTTP.http(IngestHandler)
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
