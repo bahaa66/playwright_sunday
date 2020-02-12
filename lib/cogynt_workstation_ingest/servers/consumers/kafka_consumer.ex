@@ -1,4 +1,4 @@
-defmodule CogyntWorkstationIngest.KafkaConsumer do
+defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
   use KafkaEx.GenConsumer
   alias CogyntWorkstationIngest.Supervisors.EventSupervisor
   alias CogyntWorkstationIngest.Broadway.EventProducer

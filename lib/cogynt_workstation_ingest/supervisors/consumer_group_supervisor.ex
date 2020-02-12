@@ -5,7 +5,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   start and stop children based on event_definition and topics.
   """
   use DynamicSupervisor
-  alias CogyntWorkstationIngest.KafkaConsumer
+  alias CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer
+  alias CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache
 
   def start_link(arg) do
     DynamicSupervisor.start_link(__MODULE__, arg, name: __MODULE__)
@@ -41,8 +42,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
       DynamicSupervisor.start_child(__MODULE__, child_spec)
     else
-      # TODO add retry logic if the topic does not exist
-      # EventConsumerRetryCache.add_event_consumer_for_retry(event_definition)
+      ConsumerRetryCache.retry_consumer(event_definition)
       {:ok, nil}
     end
   end

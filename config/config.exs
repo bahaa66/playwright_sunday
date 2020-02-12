@@ -60,13 +60,18 @@ config :cogynt_workstation_ingest, :core_keys,
   create: System.get_env("CORE_KEYS_CREATE") || "create"
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.EventPipeline,
-    processor_stages: System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || 35,
-    processor_max_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 1000,
-    processor_min_demand: System.get_env("EVENTPIPELINE_PROCESSOR_Min_DEMAND") || 100
+  processor_stages: System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || 35,
+  processor_max_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 1000,
+  processor_min_demand: System.get_env("EVENTPIPELINE_PROCESSOR_Min_DEMAND") || 100
 
 # EventDocument Configurations
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.EventDocument,
   index_alias: System.get_env("EVENT_INDEX_ALIAS") || "event"
+
+# ConsumerRetryCache Configurations
+config :cogynt, CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache,
+  time_delay: {:system, "CONSUMER_RETRY_CACHE_TIME_DELAY", type: :integer, default: 600_000},
+  retry_max: {:system, "CONSUMER_RETRY_CACHE_RETRY_MAX", type: :integer, default: 144}
 
 # Configures Elixir's Logger
 # config :logger, :console,

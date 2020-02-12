@@ -50,6 +50,8 @@ defmodule CogyntWorkstationIngest.Supervisors.EventSupervisor do
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)
+    else
+      :ok
     end
   end
 
