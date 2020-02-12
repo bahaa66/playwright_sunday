@@ -74,7 +74,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
       Logger.info("Retrying to create Consumer: #{event_definition.topic}")
       ConsumerGroupSupervisor.start_child(event_definition)
     end)
-ƒ
+
     {:noreply, %{state | timer: timer_ref}}
   end
 

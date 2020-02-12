@@ -11,13 +11,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
   def start_link({:event_definition, event_definition} = args) do
     name = String.to_atom("BroadwayEventPipeline-#{event_definition.topic}")
-    # Optional args to pass to the init of the producer
-    producer_args = []
 
     Broadway.start_link(__MODULE__,
       name: name,
       producer: [
-        module: {EventProducer, producer_args},
+        module: {EventProducer, []},
         stages: 1,
         transformer: {__MODULE__, :transform, [args]}
       ],
@@ -29,7 +27,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         ]
       ],
       partition_by: &partition/1,
-      context: args
+      context: [args]
     )
   end
 

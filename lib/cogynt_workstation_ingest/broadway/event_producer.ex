@@ -11,8 +11,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProducer do
   end
 
   @impl true
-  def init(_args) do
-    {:producer, %{queue: :queue.new(), demand: 0}}
+  def init(args) do
+    event_definition = args[:broadway][:context][:event_definition]
+    {:producer, %{queue: :queue.new(), demand: 0, event_definition: event_definition}}
   end
 
   def enqueue(message_set, topic) when is_list(message_set) do
@@ -69,6 +70,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProducer do
     total_demand = incoming_demand + demand
 
     {messages, new_state} = fetch_and_release_demand(total_demand, queue, state)
+
     # IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, messages, new_state}
   end

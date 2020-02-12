@@ -28,7 +28,7 @@ defmodule CogyntWorkstationIngest.Application do
       child_spec_supervisor(ServerSupervisor, ServerSupervisor)
     ]
 
-    JSONRPC2.Servers.HTTP.http(IngestHandler)
+    JSONRPC2.Servers.HTTP.http(IngestHandler, port: 80)
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
