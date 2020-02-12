@@ -5,7 +5,12 @@ defmodule CogyntWorkstationIngest.Application do
 
   use Application
 
-  alias CogyntWorkstationIngest.Supervisors.{EventSupervisor, ConsumerGroupSupervisor}
+  alias CogyntWorkstationIngest.Supervisors.{
+    EventSupervisor,
+    ConsumerGroupSupervisor,
+    ServerSupervisor
+  }
+
   alias CogyntWorkstationIngestWeb.Rpc.IngestHandler
 
   def start(_type, _args) do
@@ -18,7 +23,9 @@ defmodule CogyntWorkstationIngest.Application do
       # Start the DynamicSupervisor for the EventBroadway Pipeline
       EventSupervisor,
       # Start the DynamicSupervisor for KafkaEx ConsumerGroups
-      ConsumerGroupSupervisor
+      ConsumerGroupSupervisor,
+      # Start the Supervisor for all Genserver modules
+      child_spec_supervisor(ServerSupervisor, ServerSupervisor)
     ]
 
     JSONRPC2.Servers.HTTP.http(IngestHandler)
@@ -34,5 +41,19 @@ defmodule CogyntWorkstationIngest.Application do
   def config_change(changed, _new, removed) do
     CogyntWorkstationIngestWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp child_spec_supervisor(module_name, id, args \\ []) do
+    %{
+      id: id,
+      start: {
+        module_name,
+        :start_link,
+        args
+      },
+      restart: :transient,
+      shutdown: 5000,
+      type: :supervisor
+    }
   end
 end

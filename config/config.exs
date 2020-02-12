@@ -69,9 +69,9 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.EventDo
   index_alias: System.get_env("EVENT_INDEX_ALIAS") || "event"
 
 # ConsumerRetryCache Configurations
-config :cogynt, CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache,
-  time_delay: {:system, "CONSUMER_RETRY_CACHE_TIME_DELAY", type: :integer, default: 600_000},
-  retry_max: {:system, "CONSUMER_RETRY_CACHE_RETRY_MAX", type: :integer, default: 144}
+config :cogynt_workstation_ingest, CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache,
+  time_delay: System.get_env("CONSUMER_RETRY_CACHE_TIME_DELAY") || 600_000,
+  retry_max: System.get_env("CONSUMER_RETRY_CACHE_RETRY_MAX") || 144
 
 # Configures Elixir's Logger
 # config :logger, :console,

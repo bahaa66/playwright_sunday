@@ -2,6 +2,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
   @moduledoc """
   """
   use GenServer
+  require Logger
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
 
   # ------------ #
@@ -70,16 +71,17 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
     ets_records = :ets.tab2list(table_name)
 
     Enum.each(ets_records, fn {event_definition, _value_count} ->
+      Logger.info("Retrying to create Consumer: #{event_definition.topic}")
       ConsumerGroupSupervisor.start_child(event_definition)
     end)
-
+ƒ
     {:noreply, %{state | timer: timer_ref}}
   end
 
   # ---------------------- #
   # --- configurations --- #
   # ---------------------- #
-  defp config(), do: Application.get_env(:cogynt, __MODULE__)
+  defp config(), do: Application.get_env(:cogynt_workstation_ingest, __MODULE__)
   defp time_delay(), do: config()[:time_delay]
   defp retry_max(), do: config()[:retry_max]
 end
