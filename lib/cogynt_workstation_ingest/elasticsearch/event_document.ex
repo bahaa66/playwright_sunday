@@ -560,10 +560,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
   defp config(app, key), do: Application.get_env(app, key)
 
   defp index_alias(),
-    do:
-      config(:cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.EventDocument)[
-        :index_alias
-      ]
+    do: config(:cogynt_workstation_ingest, __MODULE__)[:index_alias]
 
   defp elasticsearch_enabled?(), do: config(:elasticsearch, :config)[:enabled] || false
 

@@ -16,6 +16,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @partial Application.get_env(:cogynt_workstation_ingest, :core_keys)[:partial]
   @update Application.get_env(:cogynt_workstation_ingest, :core_keys)[:update]
   @delete Application.get_env(:cogynt_workstation_ingest, :core_keys)[:delete]
+  @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
 
   @doc """
   Requires event field in the data map. Based on the crud action value
@@ -81,7 +82,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       Enum.reduce(event, {[], []}, fn {field_name, field_value}, {acc_events, acc_docs} = acc ->
         field_type = event_definition.fields[field_name]
 
-        case is_nil(field_value) do
+        case is_nil(field_value) and field_name != @entities do
           false ->
             field_value = encode_json(field_value)
 
