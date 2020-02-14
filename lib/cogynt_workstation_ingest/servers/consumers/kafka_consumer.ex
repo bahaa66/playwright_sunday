@@ -32,5 +32,5 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp link_event?(%{event_type: type}), do: type == "linkage"
+  defp link_event?(%{event_type: type}), do: type == @linkage
 end

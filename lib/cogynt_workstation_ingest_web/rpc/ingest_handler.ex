@@ -62,7 +62,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp link_event?(%{event_type: type}), do: type == "linkage"
+  defp link_event?(%{event_type: type}), do: type == @linkage
 
   defp keys_to_atoms(string_key_map) do
     for {key, val} <- string_key_map, into: %{}, do: {String.to_atom(key), val}

@@ -54,7 +54,7 @@ config :cogynt_workstation_ingest, :core_keys,
   events: System.get_env("CORE_KEYS_EVENTS") || "$$events",
   description: System.get_env("CORE_KEYS_DESCRIPTION") || "$description",
   entities: System.get_env("CORE_KEYS_ENTITIES") || "$$entities",
-  link_data_type: System.get_env("CORE_KEYS_LINK_DATA_TYPE") || :linkage,
+  link_data_type: System.get_env("CORE_KEYS_LINK_DATA_TYPE") || "linkage",
   update: System.get_env("CORE_KEYS_UPDATE") || "update",
   delete: System.get_env("CORE_KEYS_DELETE") || "delete",
   create: System.get_env("CORE_KEYS_CREATE") || "create"

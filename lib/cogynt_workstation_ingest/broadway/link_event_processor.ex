@@ -38,7 +38,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   def process_entity_ids(%{link_entities: link_entities} = data) do
     %{
       ready_to_process: ready_to_process,
-      link_ids: link_ids
+      all_ids: link_ids
     } =
       Enum.reduce_while(link_entities, %{ready_to_process: true, all_ids: %{}}, fn {key, ids},
                                                                                    acc ->
