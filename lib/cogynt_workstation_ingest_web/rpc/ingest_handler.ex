@@ -37,7 +37,6 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
     event_definition = keys_to_atoms(event_definition)
 
     with :ok <- ConsumerGroupSupervisor.stop_child(event_definition.topic),
-         :ok <- EventSupervisor.stop_child(event_definition.topic),
          true <- link_event?(event_definition),
          :ok <- LinkEventSupervisor.stop_child(event_definition.topic) do
       %{
@@ -46,10 +45,19 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
       }
     else
       false ->
-        %{
-          status: :ok,
-          body: :success
-        }
+        case EventSupervisor.stop_child(event_definition.topic) do
+          :ok ->
+            %{
+              status: :ok,
+              body: :success
+            }
+
+          {:error, error} ->
+            %{
+              status: :error,
+              body: "#{inspect(error)}"
+            }
+        end
 
       {:error, error} ->
         %{
