@@ -12,9 +12,10 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
 
     if link_event?(event_definition) do
       LinkEventSupervisor.start_child(event_definition)
+    else
+      EventSupervisor.start_child(event_definition)
     end
 
-    EventSupervisor.start_child(event_definition)
     {:ok, %{topic: topic, event_definition: event_definition}}
   end
 
@@ -22,9 +23,10 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
   def handle_message_set(message_set, %{event_definition: event_definition} = state) do
     if link_event?(event_definition) do
       LinkEventProducer.enqueue(message_set, event_definition.topic)
+    else
+      EventProducer.enqueue(message_set, event_definition.topic)
     end
 
-    EventProducer.enqueue(message_set, event_definition.topic)
     IngestClient.publish_event_definition_ids([event_definition.id])
     {:sync_commit, state}
   end

@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   use Broadway
 
   alias Broadway.Message
-  alias CogyntWorkstationIngest.Broadway.{LinkEventProducer, LinkEventProcessor}
+  alias CogyntWorkstationIngest.Broadway.{LinkEventProducer, LinkEventProcessor, EventProcessor}
 
   def start_link({:event_definition, event_definition} = args) do
     name = String.to_atom("BroadwayLinkEventPipeline-#{event_definition.topic}")
@@ -83,6 +83,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
     data
     |> LinkEventProcessor.process_entities()
     |> LinkEventProcessor.process_entity_ids()
+    |> EventProcessor.process_event()
+    |> EventProcessor.process_event_details_and_elasticsearch_docs()
+    |> EventProcessor.process_notifications()
     |> LinkEventProcessor.process_event_links()
     |> LinkEventProcessor.execute_transaction()
 

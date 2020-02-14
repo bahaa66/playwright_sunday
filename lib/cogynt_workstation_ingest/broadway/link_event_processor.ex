@@ -6,6 +6,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   alias Ecto.Multi
   alias CogyntWorkstationIngest.Repo
   alias Models.Events.{Event, EventDetail, EventLink}
+  alias Models.Notifications.{Notification}
+  alias CogyntWorkstationIngest.Elasticsearch.EventDocument
+  alias CogyntWorkstationIngestWeb.Rpc.IngestClient
 
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
 
@@ -82,13 +85,30 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   end
 
   @doc """
-  Requires the event_link field in the data map. Takes the data and runs it through a
-  database transaction.
+  Requires :event_details, :notifications, :elasticsearch_docs and :event_link fields
+  in the data map. Takes all the fields and executes them in one databse transaction.
   """
-  def execute_transaction(%{event_links: event_links} = data) do
+  def execute_transaction(
+        %{
+          event_details: event_details,
+          notifications: notifications,
+          elasticsearch_docs: docs,
+          event_links: event_links
+        } = data
+      ) do
     Multi.new()
+    |> Multi.insert_all(:insert_event_detials, EventDetail, event_details)
+    |> Multi.insert_all(:insert_notifications, Notification, notifications)
     |> Multi.insert_all(:insert_event_links, EventLink, event_links)
     |> Repo.transaction()
+
+    EventDocument.bulk_upsert_document(docs)
+
+    # TODO: Need to format the correct prams to send to Cogynt-OTP
+    # Send deleted_notifications to subscription_queue
+    # IngestClient.publish_deleted_notifications(event_ids)
+    # Send created_notifications to subscription_queue
+    # IngestClient.publish_subscriptions(notifications)
 
     {:ok, data}
   end
