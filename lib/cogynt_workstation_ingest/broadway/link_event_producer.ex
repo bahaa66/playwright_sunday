@@ -82,7 +82,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProducer do
     Enum.reduce(message_set, queue, fn %Fetch.Message{value: json_message}, acc ->
       case Jason.decode(json_message) do
         {:ok, message} ->
-          :queue.in(message, acc)
+          :queue.in(%{event: message, retry_count: 0}, acc)
 
         {:error, error} ->
           Logger.error("Failed to decode json_message. Error: #{inspect(error)}")
@@ -91,8 +91,15 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProducer do
   end
 
   defp parse_broadway_messages(broadway_messages, queue) do
-    Enum.reduce(broadway_messages, queue, fn %Broadway.Message{data: %{event: event}}, acc ->
-      :queue.in(event, acc)
+    Enum.reduce(broadway_messages, queue, fn %Broadway.Message{
+                                               data: %{event: event, retry_count: retry_count}
+                                             },
+                                             acc ->
+      if retry_count < max_retry() do
+        :queue.in(%{event: message, retry_count: retry_count + 1}, acc)
+      else
+        acc
+      end
     end)
   end
 
@@ -122,4 +129,10 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProducer do
         {messages, new_state}
     end
   end
+
+  # ---------------------- #
+  # --- configurations --- #
+  # ---------------------- #
+  defp config(), do: Application.get_env(:cogynt_workstation_ingest, __MODULE__)
+  defp max_retry(), do: config()[:max_retry]
 end

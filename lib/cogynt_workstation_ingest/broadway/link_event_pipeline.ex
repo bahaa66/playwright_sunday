@@ -45,9 +45,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   Transformation callback. Will transform the message that is returned
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
-  def transform(event, opts) do
+  def transform(%{event: event, retry_count: retry_count} = _event, opts) do
     %Message{
-      data: %{event: event, event_definition: opts[:event_definition]},
+      data: %{event: event, event_definition: opts[:event_definition], retry_count: retry_count},
       acknowledger: {__MODULE__, :ack_id, :ack_data}
     }
   end

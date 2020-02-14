@@ -69,6 +69,9 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.LinkEventPip
   processor_max_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 1000,
   processor_min_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 100
 
+config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.LinkEventProducer,
+  max_retry: System.get_env("LINKEVENTPIPELINE_PRODUCER_MAX_RETRY") || 10
+
 # EventDocument Configurations
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.EventDocument,
   index_alias: System.get_env("EVENT_INDEX_ALIAS") || "event"
