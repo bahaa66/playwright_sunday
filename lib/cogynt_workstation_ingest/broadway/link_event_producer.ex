@@ -92,7 +92,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProducer do
 
   defp parse_broadway_messages(broadway_messages, queue) do
     Enum.reduce(broadway_messages, queue, fn %Broadway.Message{
-                                               data: %{event: event, retry_count: retry_count}
+                                               data: %{event: message, retry_count: retry_count}
                                              },
                                              acc ->
       if retry_count < max_retry() do
