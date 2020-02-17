@@ -84,25 +84,60 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
     Map.put(data, :event_links, event_links)
   end
 
+  def process_event_links(%{event_id: nil} = data), do: data
+
   @doc """
-  Requires :event_details, :notifications, :elasticsearch_docs and :event_link fields
-  in the data map. Takes all the fields and executes them in one databse transaction.
+  Requires :event_details, :notifications, :elasticsearch_docs, :delete_ids, and :delete_docs
+  fields in the data map. Takes all the fields and executes them in one databse transaction.
   """
   def execute_transaction(
         %{
           event_details: event_details,
           notifications: notifications,
           elasticsearch_docs: docs,
-          event_links: event_links
+          event_links: event_links,
+          delete_ids: event_ids,
+          delete_docs: doc_ids
         } = data
       ) do
-    Multi.new()
+    multi =
+      case is_nil(event_ids) or Enum.empty?(event_ids) do
+        true ->
+          Multi.new()
+
+        false ->
+          n_query =
+            from(n in Notification,
+              where: n.event_id in ^event_ids
+            )
+
+          e_query =
+            from(
+              e in Event,
+              where: e.id in ^event_ids
+            )
+
+          deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
+
+          Multi.new()
+          |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
+          |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
+      end
+
+    multi
     |> Multi.insert_all(:insert_event_detials, EventDetail, event_details)
     |> Multi.insert_all(:insert_notifications, Notification, notifications)
     |> Multi.insert_all(:insert_event_links, EventLink, event_links)
     |> Repo.transaction()
 
-    EventDocument.bulk_upsert_document(docs)
+    case is_nil(doc_ids) or Enum.empty?(doc_ids) do
+      true ->
+        EventDocument.bulk_upsert_document(docs)
+
+      false ->
+        EventDocument.bulk_delete_document(doc_ids)
+        EventDocument.bulk_upsert_document(docs)
+    end
 
     # TODO: Need to format the correct prams to send to Cogynt-OTP
     # Send deleted_notifications to subscription_queue
@@ -112,6 +147,8 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
     {:ok, data}
   end
+
+  def execute_transaction(%{event_id: nil} = data), do: {:ok, data}
 
   # ----------------------- #
   # --- private methods --- #
@@ -157,7 +194,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
       false ->
         %{
           :ready_to_process => false,
-          :ids => nil
+          :ids => %{}
         }
     end
   end
