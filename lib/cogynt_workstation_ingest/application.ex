@@ -9,7 +9,8 @@ defmodule CogyntWorkstationIngest.Application do
     EventSupervisor,
     LinkEventSupervisor,
     ConsumerGroupSupervisor,
-    ServerSupervisor
+    ServerSupervisor,
+    DrilldownSupervisor
   }
 
   alias CogyntWorkstationIngestWeb.Rpc.IngestHandler
@@ -25,6 +26,8 @@ defmodule CogyntWorkstationIngest.Application do
       EventSupervisor,
       # Start the DynamicSupervisor for the Broadway LinkEventPipeline
       LinkEventSupervisor,
+      # Start the DynamicSupervisor for the Broadway DrilldownPipeline
+      DrilldownSupervisor,
       # Start the DynamicSupervisor for KafkaEx ConsumerGroups
       ConsumerGroupSupervisor,
       # Start the Supervisor for all Genserver modules

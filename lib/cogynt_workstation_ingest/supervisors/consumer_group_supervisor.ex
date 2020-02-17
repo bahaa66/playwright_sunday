@@ -47,10 +47,25 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def start_children(event_definitions) do
-    Enum.each(event_definitions, fn event_definition ->
-      start_child(event_definition)
-    end)
+  @doc """
+  Will start a KafkaEx ConsumerGroup for Drilldown.
+  """
+  def start_child do
+    create_drilldown_topics()
+
+    child_spec = %{
+      id: :DrillDown,
+      start: {
+        KafkaEx.ConsumerGroup,
+        :start_link,
+        consumer_group_options()
+      },
+      restart: :permanent,
+      shutdown: 5000,
+      type: :supervisor
+    }
+
+    DynamicSupervisor.start_child(__MODULE__, child_spec)
   end
 
   @doc """
@@ -66,10 +81,17 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def stop_children(topics) do
-    Enum.each(topics, fn topic ->
-      stop_child(topic)
-    end)
+  @doc """
+  Will stop the KafkaEx ConsumerGroup for Drilldown
+  """
+  def stop_child do
+    child_pid = Process.whereis(:DrillDownGroup)
+
+    if child_pid != nil do
+      DynamicSupervisor.terminate_child(__MODULE__, child_pid)
+    else
+      :ok
+    end
   end
 
   # ----------------------- #
@@ -77,9 +99,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   # ----------------------- #
   defp consumer_group_options(event_definition) do
     topic = event_definition.topic
-    _id = event_definition.id
-    # name = "#{topic}-#{id}"
-    name = "#{topic}-#{Ecto.UUID.generate()}" # for testing purposes only
+    id = event_definition.id
+    name = "#{topic}-#{id}"
 
     [
       KafkaConsumer,
@@ -94,11 +115,57 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     ]
   end
 
+  defp consumer_group_options() do
+    [
+      KafkaConsumer,
+      "Drilldown-#{UUID.uuid1()}",
+      [topic_sols(), topic_sol_events()],
+      [
+        name: :DrillDownGroup,
+        commit_interval: commit_interval(),
+        commit_threshold: commit_threshold()
+      ]
+    ]
+  end
+
+  defp create_drilldown_topics() do
+    topic_sols = topic_sols()
+    topic_sol_events = topic_sol_events()
+    partitions = partitions()
+    replication = replication()
+    topic_config = topic_config()
+
+    KafkaEx.create_topics(
+      [
+        %{
+          topic: topic_sols,
+          num_partitions: partitions,
+          replication_factor: replication,
+          replica_assignment: [],
+          config_entries: topic_config
+        },
+        %{
+          topic: topic_sol_events,
+          num_partitions: partitions,
+          replication_factor: replication,
+          replica_assignment: [],
+          config_entries: topic_config
+        }
+      ],
+      timeout: 10_000
+    )
+  end
+
+  defp consumer_group_name(topic), do: String.to_atom(topic <> "Group")
+
   # ---------------------- #
   # --- configurations --- #
   # ---------------------- #
-  defp config(), do: Application.get_env(:kafka_ex, :config)
-  defp commit_interval(), do: config()[:commit_interval]
-  defp commit_threshold(), do: config()[:commit_threshold]
-  defp consumer_group_name(topic), do: String.to_atom(topic <> "Group")
+  defp commit_interval(), do: Application.get_env(:kafka_ex, :commit_interval)
+  defp commit_threshold(), do: Application.get_env(:kafka_ex, :commit_threshold)
+  defp partitions(), do: Application.get_env(:kafka_ex, :topic_partitions)
+  defp replication(), do: Application.get_env(:kafka_ex, :topic_replication)
+  defp topic_config(), do: Application.get_env(:kafka_ex, :topic_config)
+  defp topic_sols(), do: Application.get_env(:kafka_ex, :template_solution_topic)
+  defp topic_sol_events(), do: Application.get_env(:kafka_ex, :template_solution_event_topic)
 end

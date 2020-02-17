@@ -1,11 +1,11 @@
-defmodule CogyntWorkstationIngest.Supervisors.LinkEventSupervisor do
+defmodule CogyntWorkstationIngest.Supervisors.DrilldownSupervisor do
   @moduledoc """
-  DymanicSupervisor module for Broadway LinkEventPipeline. Is started under the
+  DymanicSupervisor module for Broadway DrilldownPipeline. Is started under the
   CogyntWorkstationIngest application Supervision tree. Allows application to dynamically
   start and stop children based on event_definition and topics.
   """
   use DynamicSupervisor
-  alias CogyntWorkstationIngest.Broadway.LinkEventPipeline
+  alias CogyntWorkstationIngest.Broadway.DrilldownPipeline
 
   def start_link(arg) do
     DynamicSupervisor.start_link(__MODULE__, arg, name: __MODULE__)
@@ -17,15 +17,15 @@ defmodule CogyntWorkstationIngest.Supervisors.LinkEventSupervisor do
   end
 
   @doc """
-  Will start a Broadway LinkEventPipeline for the event_definition.topic
+  Will start a Broadway DrilldownPipeline
   """
-  def start_child(event_definition) do
+  def start_child() do
     child_spec = %{
-      id: event_definition.topic,
+      id: :BroadwayDrilldown,
       start: {
-        LinkEventPipeline,
+        DrilldownPipeline,
         :start_link,
-        [{:event_definition, event_definition}]
+        []
       },
       restart: :transient,
       shutdown: 5000,
@@ -36,11 +36,10 @@ defmodule CogyntWorkstationIngest.Supervisors.LinkEventSupervisor do
   end
 
   @doc """
-  Will stop the Broadway LinkEventPipeline for the topic
+  Will stop the Broadway DrilldownPipeline for the topic
   """
-  def stop_child(topic) do
-    child_name = String.to_atom("BroadwayLinkEventPipeline-#{topic}")
-    child_pid = Process.whereis(child_name)
+  def stop_child do
+    child_pid = Process.whereis(:BroadwayDrilldown)
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)

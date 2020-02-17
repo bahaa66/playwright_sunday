@@ -34,7 +34,13 @@ config :kafka_ex,
   commit_threshold: System.get_env("KAFKA_COMMIT_THRESHOLD") || 50,
   heartbeat_interval: System.get_env("KAFKA_HEARTBEAT_INTERVAL") || 1000,
   kafka_client: System.get_env("KAFKA_CLIENT") || KafkaEx,
-  audit_topic: System.get_env("AUDIT_LOG_TOPIC") || "cogynt_audit_log"
+  audit_topic: System.get_env("AUDIT_LOG_TOPIC") || "cogynt_audit_log",
+  template_solution_topic: System.get_env("TEMPLATE_SOLUTION_TOPIC") || "template_solutions",
+  template_solution_event_topic:
+    System.get_env("TEMPLATE_SOLUTION_EVENT_TOPIC") || "template_solution_events",
+  topic_partitions: System.get_env("TOPIC_PARTITIONS") || 1,
+  topic_replication: System.get_env("TOPIC_REPLICATION") || 1,
+  topic_config: System.get_env("TOPIC_CONFIG") || []
 
 # Elasticsearch configurations
 config :elasticsearch, :config,
@@ -69,6 +75,11 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.LinkEventPip
   processor_max_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 1000,
   processor_min_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 100
 
+config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.DrilldownPipeline,
+  processor_stages: System.get_env("DRILLDOWNPIPELINE_PROCESSOR_STAGES") || 10,
+  processor_max_demand: System.get_env("DRILLDOWNPIPELINE_PROCESSOR_MAX_DEMAND") || 100,
+  processor_min_demand: System.get_env("DRILLDOWNPIPELINE_PROCESSOR_MIN_DEMAND") || 10
+
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.LinkEventProducer,
   max_retry: System.get_env("LINKEVENTPIPELINE_PRODUCER_MAX_RETRY") || 1000
 
@@ -80,6 +91,9 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.EventDo
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache,
   time_delay: System.get_env("CONSUMER_RETRY_CACHE_TIME_DELAY") || 600_000,
   retry_max: System.get_env("CONSUMER_RETRY_CACHE_RETRY_MAX") || 144
+
+config :cogynt_workstation_ingest, CogyntWorkstationIngest.Servers.Caches.DrilldownCache,
+  time_delay: System.get_env("DRILLDOWN_CACHE_TIME_DELAY") || 1_000
 
 # Configures Elixir's Logger
 # config :logger, :console,

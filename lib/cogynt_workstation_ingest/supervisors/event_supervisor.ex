@@ -35,12 +35,6 @@ defmodule CogyntWorkstationIngest.Supervisors.EventSupervisor do
     DynamicSupervisor.start_child(__MODULE__, child_spec)
   end
 
-  def start_children(event_definitions) do
-    Enum.each(event_definitions, fn event_definition ->
-      start_child(event_definition)
-    end)
-  end
-
   @doc """
   Will stop the Broadway EventPipeline for the topic
   """
@@ -53,11 +47,5 @@ defmodule CogyntWorkstationIngest.Supervisors.EventSupervisor do
     else
       :ok
     end
-  end
-
-  def stop_children(topics) do
-    Enum.each(topics, fn topic ->
-      stop_child(topic)
-    end)
   end
 end
