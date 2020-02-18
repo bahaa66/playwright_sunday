@@ -91,7 +91,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
     Enum.reduce(message_set, queue, fn %Fetch.Message{value: json_message}, acc ->
       case Jason.decode(json_message) do
         {:ok, message} ->
-          :queue.in(message, acc)
+          :queue.in(%{event: message, retry_count: 0}, acc)
 
         {:error, error} ->
           Logger.error("Failed to decode json_message. Error: #{inspect(error)}")
