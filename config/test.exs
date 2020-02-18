@@ -13,6 +13,6 @@ config :logger, level: :warn
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   username: "postgres",
   password: "postgres",
-  database: "cogynt_workstation_ingest_test",
+  database: "cogynt_test",
   hostname: "localhost",
   pool: Ecto.Adapters.SQL.Sandbox
