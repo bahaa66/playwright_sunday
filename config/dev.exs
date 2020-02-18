@@ -53,4 +53,4 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   password: "postgres",
   database: "cogynt_dev",
   hostname: "localhost",
-  pool_size: 15
+  pool_size: 10
