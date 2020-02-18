@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   methods
   """
   use Broadway
-
+  require Logger
   alias Broadway.Message
   alias CogyntWorkstationIngest.Broadway.{EventProducer, EventProcessor}
 
@@ -45,9 +45,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   Transformation callback. Will transform the message that is returned
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
-  def transform(event, opts) do
+  def transform(%{event: event, retry_count: retry_count} = _event, opts) do
     %Message{
-      data: %{event: event, event_definition: opts[:event_definition]},
+      data: %{event: event, event_definition: opts[:event_definition], retry_count: retry_count},
       acknowledger: {__MODULE__, :ack_id, :ack_data}
     }
   end
@@ -57,7 +57,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   the pipeline.
   """
   def ack(:ack_id, _successful, _failed) do
-    IO.puts("Ack'd")
+    Logger.debug("Ack'd")
   end
 
   @doc """
@@ -66,9 +66,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   again.
   """
   @impl true
-  def handle_failed(messages, {:event_definition, event_definition}) do
-    IO.puts("Failed")
-    EventProducer.enqueue_failed_messages(messages, event_definition.topic)
+  def handle_failed(messages, args) do
+    Logger.debug("Failed")
+    EventProducer.enqueue_failed_messages(messages, args[:event_definition].topic)
     messages
   end
 

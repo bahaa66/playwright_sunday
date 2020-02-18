@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   methods
   """
   use Broadway
-
+  require Logger
   alias Broadway.Message
   alias CogyntWorkstationIngest.Broadway.{DrilldownProducer, DrilldownProcessor}
 
@@ -43,7 +43,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   the pipeline.
   """
   def ack(:ack_id, _successful, _failed) do
-    IO.puts("Ack'd")
+    Logger.debug("Ack'd")
   end
 
   @doc """
@@ -53,7 +53,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   """
   @impl true
   def handle_failed(messages, _opts) do
-    IO.puts("Failed")
+    Logger.debug("Failed")
     DrilldownProducer.enqueue_failed_messages(messages)
     messages
   end

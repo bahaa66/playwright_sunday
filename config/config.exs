@@ -31,7 +31,7 @@ config :kafka_ex,
   auto_offset_reset: :earliest,
   kafka_version: "2.0",
   commit_interval: System.get_env("KAFKA_COMMIT_INTERVAL") || 1000,
-  commit_threshold: System.get_env("KAFKA_COMMIT_THRESHOLD") || 50,
+  commit_threshold: System.get_env("KAFKA_COMMIT_THRESHOLD") || 1000,
   heartbeat_interval: System.get_env("KAFKA_HEARTBEAT_INTERVAL") || 1000,
   kafka_client: System.get_env("KAFKA_CLIENT") || KafkaEx,
   audit_topic: System.get_env("AUDIT_LOG_TOPIC") || "cogynt_audit_log",
@@ -66,22 +66,31 @@ config :cogynt_workstation_ingest, :core_keys,
   create: System.get_env("CORE_KEYS_CREATE") || "create"
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.EventPipeline,
-  processor_stages: System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || 35,
-  processor_max_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 1000,
-  processor_min_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 100
+  processor_stages: System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || 15,
+  processor_max_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 10_000,
+  processor_min_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 1000
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.LinkEventPipeline,
-  processor_stages: System.get_env("LINKEVENTPIPELINE_PROCESSOR_STAGES") || 35,
-  processor_max_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 1000,
-  processor_min_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 100
+  processor_stages: System.get_env("LINKEVENTPIPELINE_PROCESSOR_STAGES") || 15,
+  processor_max_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 10_000,
+  processor_min_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 1000
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.DrilldownPipeline,
-  processor_stages: System.get_env("DRILLDOWNPIPELINE_PROCESSOR_STAGES") || 10,
+  processor_stages: System.get_env("DRILLDOWNPIPELINE_PROCESSOR_STAGES") || 3,
   processor_max_demand: System.get_env("DRILLDOWNPIPELINE_PROCESSOR_MAX_DEMAND") || 100,
   processor_min_demand: System.get_env("DRILLDOWNPIPELINE_PROCESSOR_MIN_DEMAND") || 10
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.LinkEventProducer,
-  max_retry: System.get_env("LINKEVENTPIPELINE_PRODUCER_MAX_RETRY") || 1000
+  max_retry: System.get_env("LINKEVENTPIPELINE_PRODUCER_MAX_RETRY") || 1_400,
+  time_delay: System.get_env("LINKEVENTPIPELINE_PRODUCER_TIME_DELAY") || 60_000
+
+config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.EventProducer,
+  max_retry: System.get_env("EVENTPIPELINE_PRODUCER_MAX_RETRY") || 1400,
+  time_delay: System.get_env("EVENTPIPELINE_PRODUCER_TIME_DELAY") || 60000
+
+config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.DrilldownProducer,
+  max_retry: System.get_env("DRILLDOWNPIPELINE_PRODUCER_MAX_RETRY") || 1400,
+  time_delay: System.get_env("DRILLDOWNPIPELINE_PRODUCER_TIME_DELAY") || 60000
 
 # EventDocument Configurations
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.EventDocument,
@@ -90,7 +99,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.EventDo
 # ConsumerRetryCache Configurations
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache,
   time_delay: System.get_env("CONSUMER_RETRY_CACHE_TIME_DELAY") || 600_000,
-  retry_max: System.get_env("CONSUMER_RETRY_CACHE_RETRY_MAX") || 144
+  max_retry: System.get_env("CONSUMER_RETRY_CACHE_MAX_RETRY") || 144
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Servers.Caches.DrilldownCache,
   time_delay: System.get_env("DRILLDOWN_CACHE_TIME_DELAY") || 1_000

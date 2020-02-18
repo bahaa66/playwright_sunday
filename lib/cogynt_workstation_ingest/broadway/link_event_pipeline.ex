@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   methods
   """
   use Broadway
-
+  require Logger
   alias Broadway.Message
   alias CogyntWorkstationIngest.Broadway.{LinkEventProducer, LinkEventProcessor, EventProcessor}
 
@@ -57,7 +57,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   the pipeline.
   """
   def ack(:ack_id, _successful, _failed) do
-    IO.puts("Ack'd")
+    Logger.debug("Ack'd")
   end
 
   @doc """
@@ -66,9 +66,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   again.
   """
   @impl true
-  def handle_failed(messages, {:event_definition, event_definition}) do
-    IO.puts("Failed")
-    LinkEventProducer.enqueue_failed_messages(messages, event_definition.topic)
+  def handle_failed(messages, args) do
+    Logger.debug("Failed")
+    LinkEventProducer.enqueue_failed_messages(messages, args[:event_definition].topic)
     messages
   end
 

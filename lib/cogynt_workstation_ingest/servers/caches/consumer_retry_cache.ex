@@ -19,8 +19,6 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
     )
   end
 
-  @doc """
-  """
   def retry_consumer(event_definition) do
     GenServer.cast(__MODULE__, {:retry_consumer, event_definition})
   end
@@ -53,7 +51,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
         true = :ets.insert(table_name, {event_definition, 0})
 
       [{key, count}] ->
-        if count < retry_max() do
+        if count < max_retry() do
           true = :ets.insert(table_name, {key, count + 1})
         else
           true = :ets.delete(table_name, key)
@@ -83,5 +81,5 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
   # ---------------------- #
   defp config(), do: Application.get_env(:cogynt_workstation_ingest, __MODULE__)
   defp time_delay(), do: config()[:time_delay]
-  defp retry_max(), do: config()[:retry_max]
+  defp max_retry(), do: config()[:max_retry]
 end

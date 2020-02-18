@@ -11,9 +11,8 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProducer do
   end
 
   @impl true
-  def init(args) do
-    event_definition = args[:broadway][:context][:event_definition]
-    {:producer, %{queue: :queue.new(), demand: 0, event_definition: event_definition}}
+  def init(_args) do
+    {:producer, %{queue: :queue.new(), demand: 0, failed_messages: []}}
   end
 
   def enqueue(message_set, topic) when is_list(message_set) do
@@ -51,14 +50,14 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProducer do
   @impl true
   def handle_cast(
         {:enqueue_failed_messages, broadway_messages},
-        %{queue: queue, demand: demand} = state
+        %{queue: _queue, demand: _demand, failed_messages: failed_messages} = state
       ) do
-    queue = parse_broadway_messages(broadway_messages, queue)
-
-    # IO.inspect(queue, label: "@@@ Q after Enqueue")
-    {messages, new_state} = fetch_and_release_demand(demand, queue, state)
-    # IO.inspect(new_state, label: "@@@ State returned")
-    {:noreply, messages, new_state}
+    failed_messages = parse_broadway_messages(broadway_messages, failed_messages)
+    IO.inspect(failed_messages, label: "@@@ Failed Messages")
+    Process.send_after(__MODULE__, :tick, time_delay())
+    new_state = Map.put(state, :failed_messages, failed_messages)
+    IO.inspect(new_state, label: "@@@ State returned")
+    {:noreply, [], new_state}
   end
 
   @impl true
@@ -71,6 +70,16 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProducer do
 
     {messages, new_state} = fetch_and_release_demand(total_demand, queue, state)
 
+    # IO.inspect(new_state, label: "@@@ State returned")
+    {:noreply, messages, new_state}
+  end
+
+  @impl true
+  def handle_info(:tick, %{queue: queue, demand: demand, failed_messages: failed_messages} = state) do
+    queue = parse_failed_messages(failed_messages, queue)
+
+    # IO.inspect(queue, label: "@@@ Q after Enqueue")
+    {messages, new_state} = fetch_and_release_demand(demand, queue, state)
     # IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, messages, new_state}
   end
@@ -90,16 +99,23 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProducer do
     end)
   end
 
-  defp parse_broadway_messages(broadway_messages, queue) do
-    Enum.reduce(broadway_messages, queue, fn %Broadway.Message{
+  defp parse_broadway_messages(broadway_messages, failed_messages) do
+    Enum.reduce(broadway_messages, failed_messages, fn %Broadway.Message{
                                                data: %{event: message, retry_count: retry_count}
                                              },
                                              acc ->
       if retry_count < max_retry() do
-        :queue.in(%{event: message, retry_count: retry_count + 1}, acc)
+        Logger.debug("INC Retry Count: #{retry_count + 1}")
+        acc ++ [%{event: message, retry_count: retry_count + 1}]
       else
         acc
       end
+    end)
+  end
+
+  defp parse_failed_messages(failed_messages, queue) do
+    Enum.reduce(failed_messages, queue, fn failed_message, acc ->
+      :queue.in(failed_message, acc)
     end)
   end
 
@@ -134,5 +150,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProducer do
   # --- configurations --- #
   # ---------------------- #
   defp config(), do: Application.get_env(:cogynt_workstation_ingest, __MODULE__)
+  defp time_delay(), do: config()[:time_delay]
   defp max_retry(), do: config()[:max_retry]
 end
