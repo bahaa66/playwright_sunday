@@ -1,0 +1,3 @@
+defmodule Cogynt.Repo.Migrations.NotificationSettingUserIdNullable do
+  use Migrations.NotificationsAndNotificationSettingModifyUserIdNullable
+end

@@ -1,0 +1,3 @@
+defmodule Cogynt.Repo.Migrations.UpdateEventDefinitionPrimaryTitleAttribute do
+  use Migrations.EventDefinitionAddPrimaryTitleAttribute
+end

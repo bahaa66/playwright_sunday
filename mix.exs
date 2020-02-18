@@ -54,7 +54,13 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:timber_phoenix, "~> 1.0"},
       {:poison, ">= 0.0.0", only: [:dev, :test]},
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
-      {:models, git: "git@github.com:cogility/cogynt-common.git", branch: "dev", sparse: "models"}
+      {:paginator,
+       git: "https://github.com/duffelhq/paginator.git",
+       ref: "6740061bf629e4d7a460d581a390b52f3bebf76c"},
+      {:models,
+       git: "git@github.com:cogility/cogynt-common.git", branch: "dev", sparse: "models"},
+      {:migrations,
+       git: "git@github.com:cogility/cogynt-common.git", branch: "dev", sparse: "migrations"}
     ]
   end
 
