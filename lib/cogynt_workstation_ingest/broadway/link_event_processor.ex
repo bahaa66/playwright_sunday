@@ -117,18 +117,18 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
               where: e.id in ^event_ids
             )
 
-            # l_query =
-            #   from(
-            #     l in EventLinks,
-            #     where: l.linkage_event_id in ^event_ids
-            #   )
+            l_query =
+              from(
+                l in EventLink,
+                where: l.linkage_event_id in ^event_ids
+              )
 
           deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
           Multi.new()
           |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
           |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
-          #|> Multi.update_all(:update_event_links, l_query, set: [deleted_at: deleted_at])
+          |> Multi.update_all(:update_event_links, l_query, set: [deleted_at: deleted_at])
       end
 
     multi
