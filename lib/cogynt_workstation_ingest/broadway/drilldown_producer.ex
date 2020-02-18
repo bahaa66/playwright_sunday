@@ -53,10 +53,10 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
         %{queue: _queue, demand: _demand, failed_messages: failed_messages} = state
       ) do
     failed_messages = parse_broadway_messages(broadway_messages, failed_messages)
-    IO.inspect(failed_messages, label: "@@@ Failed Messages")
-    Process.send_after(__MODULE__, :tick, time_delay())
+    # IO.inspect(failed_messages, label: "@@@ Failed Messages")
+    Process.send_after(self(), :tick, time_delay())
     new_state = Map.put(state, :failed_messages, failed_messages)
-    IO.inspect(new_state, label: "@@@ State returned")
+    # IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, [], new_state}
   end
 
@@ -77,7 +77,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   @impl true
   def handle_info(:tick, %{queue: queue, demand: demand, failed_messages: failed_messages} = state) do
     queue = parse_failed_messages(failed_messages, queue)
-
+    state = Map.put(state, :failed_messages, %{})
     # IO.inspect(queue, label: "@@@ Q after Enqueue")
     {messages, new_state} = fetch_and_release_demand(demand, queue, state)
     # IO.inspect(new_state, label: "@@@ State returned")
