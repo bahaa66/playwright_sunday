@@ -43,7 +43,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   the pipeline.
   """
   def ack(:ack_id, _successful, _failed) do
-    Logger.debug("Ack'd")
+    Logger.info("Ack'd")
   end
 
   @doc """
@@ -53,7 +53,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   """
   @impl true
   def handle_failed(messages, _opts) do
-    Logger.debug("Failed")
+    Logger.warn("Failed")
     DrilldownProducer.enqueue_failed_messages(messages)
     messages
   end

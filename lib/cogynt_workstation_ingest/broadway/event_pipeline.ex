@@ -57,7 +57,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   the pipeline.
   """
   def ack(:ack_id, _successful, _failed) do
-    Logger.debug("Ack'd")
+    Logger.info("Ack'd")
   end
 
   @doc """
@@ -67,7 +67,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   @impl true
   def handle_failed(messages, args) do
-    Logger.debug("Failed")
+    Logger.warn("Failed")
     EventProducer.enqueue_failed_messages(messages, args[:event_definition].topic)
     messages
   end
