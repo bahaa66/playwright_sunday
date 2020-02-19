@@ -1,0 +1,3 @@
+defmodule Cogynt.Repo.Migrations.CreateEventDetailTemplateGroupItems do
+  use Migrations.CreateEventDetailTemplateGroupItems
+end

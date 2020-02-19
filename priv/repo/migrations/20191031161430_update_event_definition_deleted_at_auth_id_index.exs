@@ -1,0 +1,3 @@
+defmodule Cogynt.Repo.Migrations.UpdateEventDefinitionDeletedAtAuthIdIndex do
+  use Migrations.EventDefinitionCreateUniqueActiveEventDefinitionIndex
+end

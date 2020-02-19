@@ -5,16 +5,36 @@ defmodule CogyntWorkstationIngest.Application do
 
   use Application
 
+  alias CogyntWorkstationIngest.Supervisors.{
+    EventSupervisor,
+    LinkEventSupervisor,
+    ConsumerGroupSupervisor,
+    ServerSupervisor,
+    DrilldownSupervisor
+  }
+
+  alias CogyntWorkstationIngestWeb.Rpc.IngestHandler
+
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
       # Start the Ecto repository
       CogyntWorkstationIngest.Repo,
       # Start the endpoint when the application starts
-      CogyntWorkstationIngestWeb.Endpoint
-      # Starts a worker by calling: CogyntWorkstationIngest.Worker.start_link(arg)
-      # {CogyntWorkstationIngest.Worker, arg},
+      CogyntWorkstationIngestWeb.Endpoint,
+      # Start the DynamicSupervisor for the Broadway EventPipeline
+      EventSupervisor,
+      # Start the DynamicSupervisor for the Broadway LinkEventPipeline
+      LinkEventSupervisor,
+      # Start the DynamicSupervisor for the Broadway DrilldownPipeline
+      DrilldownSupervisor,
+      # Start the DynamicSupervisor for KafkaEx ConsumerGroups
+      ConsumerGroupSupervisor,
+      # Start the Supervisor for all Genserver modules
+      child_spec_supervisor(ServerSupervisor, ServerSupervisor)
     ]
+
+    JSONRPC2.Servers.HTTP.http(IngestHandler, port: 80)
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
@@ -27,5 +47,19 @@ defmodule CogyntWorkstationIngest.Application do
   def config_change(changed, _new, removed) do
     CogyntWorkstationIngestWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp child_spec_supervisor(module_name, id, args \\ []) do
+    %{
+      id: id,
+      start: {
+        module_name,
+        :start_link,
+        args
+      },
+      restart: :transient,
+      shutdown: 5000,
+      type: :supervisor
+    }
   end
 end
