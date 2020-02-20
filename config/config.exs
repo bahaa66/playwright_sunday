@@ -80,13 +80,9 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.DrilldownPip
   processor_max_demand: System.get_env("DRILLDOWNPIPELINE_PROCESSOR_MAX_DEMAND") || 100,
   processor_min_demand: System.get_env("DRILLDOWNPIPELINE_PROCESSOR_MIN_DEMAND") || 10
 
-config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.LinkEventProducer,
-  max_retry: System.get_env("LINKEVENTPIPELINE_PRODUCER_MAX_RETRY") || 1_400,
-  time_delay: System.get_env("LINKEVENTPIPELINE_PRODUCER_TIME_DELAY") || 60_000
-
-config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.EventProducer,
-  max_retry: System.get_env("EVENTPIPELINE_PRODUCER_MAX_RETRY") || 1400,
-  time_delay: System.get_env("EVENTPIPELINE_PRODUCER_TIME_DELAY") || 60000
+config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.Producer,
+  max_retry: System.get_env("PRODUCER_MAX_RETRY") || 1_400,
+  time_delay: System.get_env("PRODUCER_TIME_DELAY") || 60_000
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.DrilldownProducer,
   max_retry: System.get_env("DRILLDOWNPIPELINE_PRODUCER_MAX_RETRY") || 1400,

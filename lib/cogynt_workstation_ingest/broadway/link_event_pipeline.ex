@@ -7,17 +7,16 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   use Broadway
   require Logger
   alias Broadway.Message
-  alias CogyntWorkstationIngest.Broadway.{LinkEventProducer, LinkEventProcessor, EventProcessor}
+  alias CogyntWorkstationIngest.Broadway.{Producer, LinkEventProcessor, EventProcessor}
 
-  def start_link({:event_definition, event_definition} = args) do
-    name = String.to_atom("BroadwayLinkEventPipeline-#{event_definition.topic}")
+  def start_link(_args) do
 
     Broadway.start_link(__MODULE__,
-      name: name,
+      name: :BroadwayLinkEventPipeline,
       producer: [
-        module: {LinkEventProducer, []},
+        module: {Producer, []},
         stages: 1,
-        transformer: {__MODULE__, :transform, [args]}
+        transformer: {__MODULE__, :transform, []}
       ],
       processors: [
         default: [
@@ -26,8 +25,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
           min_demand: processor_min_demand()
         ]
       ],
-      partition_by: &partition/1,
-      context: [args]
+      partition_by: &partition/1
     )
   end
 
@@ -45,9 +43,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   Transformation callback. Will transform the message that is returned
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
-  def transform(%{event: event, retry_count: retry_count} = _event, opts) do
+  def transform(event, _opts) do
     %Message{
-      data: %{event: event, event_definition: opts[:event_definition], retry_count: retry_count},
+      data: event,
       acknowledger: {__MODULE__, :ack_id, :ack_data}
     }
   end
@@ -57,7 +55,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   the pipeline.
   """
   def ack(:ack_id, _successful, _failed) do
-    Logger.info("Ack'd")
+    IO.puts("Ack'd")
   end
 
   @doc """
@@ -66,9 +64,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   again.
   """
   @impl true
-  def handle_failed(messages, args) do
-    Logger.warn("Failed")
-    LinkEventProducer.enqueue_failed_messages(messages, args[:event_definition].topic)
+  def handle_failed(messages, _args) do
+    IO.puts("Failed")
+    Producer.enqueue_failed_messages(messages, :linkevent)
     messages
   end
 

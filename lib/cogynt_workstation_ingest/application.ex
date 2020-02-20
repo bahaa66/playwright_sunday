@@ -6,12 +6,12 @@ defmodule CogyntWorkstationIngest.Application do
   use Application
 
   alias CogyntWorkstationIngest.Supervisors.{
-    EventSupervisor,
-    LinkEventSupervisor,
     ConsumerGroupSupervisor,
     ServerSupervisor,
     DrilldownSupervisor
   }
+
+  alias CogyntWorkstationIngest.Broadway.{EventPipeline, LinkEventPipeline}
 
   alias CogyntWorkstationIngestWeb.Rpc.IngestHandler
 
@@ -22,10 +22,10 @@ defmodule CogyntWorkstationIngest.Application do
       CogyntWorkstationIngest.Repo,
       # Start the endpoint when the application starts
       CogyntWorkstationIngestWeb.Endpoint,
-      # Start the DynamicSupervisor for the Broadway EventPipeline
-      EventSupervisor,
-      # Start the DynamicSupervisor for the Broadway LinkEventPipeline
-      LinkEventSupervisor,
+      # Start the Supervisor for the Broadway EventPipeline
+      EventPipeline,
+      # Start the Supervisor for the Broadway LinkEventPipeline
+      LinkEventPipeline,
       # Start the DynamicSupervisor for the Broadway DrilldownPipeline
       DrilldownSupervisor,
       # Start the DynamicSupervisor for KafkaEx ConsumerGroups

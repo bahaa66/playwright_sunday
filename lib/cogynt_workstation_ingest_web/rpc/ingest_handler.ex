@@ -1,11 +1,8 @@
 defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   use JSONRPC2.Server.Handler
 
-  alias CogyntWorkstationIngest.Supervisors.{
-    ConsumerGroupSupervisor,
-    EventSupervisor,
-    LinkEventSupervisor
-  }
+  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
+  alias CogyntWorkstationIngest.Broadway.Producer
 
   @linkage Application.get_env(:cogynt_workstation_ingest, :core_keys)[:link_data_type]
 
@@ -38,14 +35,14 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
 
     with :ok <- ConsumerGroupSupervisor.stop_child(event_definition.topic),
          true <- link_event?(event_definition),
-         :ok <- LinkEventSupervisor.stop_child(event_definition.topic) do
+         :ok <- Producer.drain_queue(event_definition.id, :linkevent) do
       %{
         status: :ok,
         body: :success
       }
     else
       false ->
-        case EventSupervisor.stop_child(event_definition.topic) do
+        case Producer.drain_queue(event_definition.id, :event) do
           :ok ->
             %{
               status: :ok,
