@@ -36,9 +36,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   @impl true
   def handle_cast({:enqueue, message_set, event_definition}, %{queues: queues, demand: 0} = state) do
     queues = parse_kafka_message_set(message_set, event_definition, queues)
-    # IO.inspect(queues, label: "@@@ Qs after Enqueue")
     new_state = Map.put(state, :queues, queues)
-    # IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, [], new_state}
   end
 
@@ -48,11 +46,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
         %{queues: queues, demand: demand} = state
       ) do
     queues = parse_kafka_message_set(message_set, event_definition, queues)
-
-    # IO.inspect(queues, label: "@@@ Qs after Enqueue")
     {messages, new_state} = fetch_and_release_demand(demand, queues, state)
-    # IO.inspect(new_state, label: "@@@ State returned")
-    # IO.inspect(messages, label: "@@@ ENQUEUE MESSAGES RETURNED")
     {:noreply, messages, new_state}
   end
 
@@ -62,10 +56,8 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
         %{failed_messages: failed_messages} = state
       ) do
     failed_messages = parse_broadway_messages(broadway_messages, failed_messages)
-    # IO.inspect(failed_messages, label: "@@@ Failed Messages")
     Process.send_after(self(), :tick, time_delay())
     new_state = Map.put(state, :failed_messages, failed_messages)
-    # IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, [], new_state}
   end
 
@@ -73,22 +65,28 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   def handle_cast({:drain_queue, event_definition_id}, %{queues: queues} = state) do
     queues = Map.delete(queues, event_definition_id)
     new_state = Map.put(state, :queues, queues)
-    IO.inspect(Map.keys(queues), label: "@@@ Queues Keys after removing #{event_definition_id}")
     {:noreply, [], new_state}
   end
 
   @impl true
   def handle_demand(incoming_demand, %{queues: queues, demand: demand} = state)
       when incoming_demand > 0 do
+    Enum.each(queues, fn {id, queue} ->
+      IO.puts("#{id}: Count Before: #{:queue.len(queue)}")
+    end)
+
     IO.inspect(incoming_demand, label: "@@@ Incoming Demand")
     IO.inspect(demand, label: "@@@ Stored Demand")
-    # IO.inspect(queues, label: "@@@ Qs")
 
     total_demand = incoming_demand + demand
 
-    {messages, new_state} = fetch_and_release_demand(total_demand, queues, state)
+    {messages, %{queues: queues} = new_state} =
+      fetch_and_release_demand(total_demand, queues, state)
 
-    # IO.inspect(new_state, label: "@@@ State returned")
+    Enum.each(queues, fn {id, queue} ->
+      IO.puts("#{id}: Count After: #{:queue.len(queue)}")
+    end)
+
     {:noreply, messages, new_state}
   end
 
@@ -98,10 +96,8 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
         %{queues: queues, demand: demand, failed_messages: failed_messages} = state
       ) do
     queues = parse_failed_messages(failed_messages, queues)
-    state = Map.put(state, :failed_messages, %{})
-    # IO.inspect(queues, label: "@@@ Qs after failed messages")
+    state = Map.put(state, :failed_messages, [])
     {messages, new_state} = fetch_and_release_demand(demand, queues, state)
-    # IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, messages, new_state}
   end
 
@@ -112,7 +108,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     Enum.reduce(message_set, queues, fn %Fetch.Message{value: json_message}, acc ->
       case Jason.decode(json_message) do
         {:ok, message} ->
-          update_queues(acc, event_definition.id, %{
+          update_queue_value(acc, event_definition.id, %{
             event: message,
             event_definition: event_definition,
             retry_count: 0
@@ -135,7 +131,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
                                                        },
                                                        acc ->
       if retry_count < max_retry() do
-        IO.puts("INC Retry Count: #{retry_count + 1}")
+        IO.puts("Retrying Failed Message, Id: #{event_definition.id}. Attempt: #{retry_count + 1}")
 
         acc ++
           [%{event: message, event_definition: event_definition, retry_count: retry_count + 1}]
@@ -148,11 +144,60 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   defp parse_failed_messages(failed_messages, queues) do
     Enum.reduce(failed_messages, queues, fn %{event_definition: event_definition} = failed_message,
                                             acc ->
-      update_queues(acc, event_definition.id, failed_message)
+      update_queue_value(acc, event_definition.id, failed_message)
     end)
   end
 
-  defp update_queues(queues, event_definition_id, value) do
+  defp fetch_and_release_demand(demand, queues, state) when is_map(queues) do
+    case Enum.empty?(queues) do
+      true ->
+        state = Map.put(state, :demand, demand)
+        {[], state}
+
+      false ->
+        Enum.reduce_while(queues, {[], state}, fn {id, queue}, {acc_messages, acc_state} ->
+          if Enum.count(acc_messages) <= 0,
+            do: {
+              :cont,
+              fetch_and_release_demand(demand, queues, id, queue, acc_state)
+            },
+            else: {:halt, {acc_messages, acc_state}}
+        end)
+    end
+  end
+
+  defp fetch_and_release_demand(demand, queues, id, queue, state) do
+    {items, queue} =
+      case :queue.len(queue) >= demand do
+        true ->
+          :queue.split(demand, queue)
+
+        false ->
+          :queue.split(:queue.len(queue), queue)
+      end
+
+    case :queue.to_list(items) do
+      [] ->
+        queues = update_queue(queues, id, queue)
+
+        new_state =
+          Map.put(state, :queues, queues)
+          |> Map.put(:demand, demand)
+
+        {[], new_state}
+
+      messages ->
+        queues = update_queue(queues, id, queue)
+
+        new_state =
+          Map.put(state, :queues, queues)
+          |> Map.put(:demand, demand - Enum.count(messages))
+
+        {messages, new_state}
+    end
+  end
+
+  defp update_queue_value(queues, event_definition_id, value) do
     queue =
       case Map.has_key?(queues, event_definition_id) do
         true ->
@@ -166,49 +211,13 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     Map.put(queues, event_definition_id, queue)
   end
 
-  defp fetch_and_release_demand(demand, queues, state) when is_map(queues) do
-    case Enum.empty?(queues) do
+  defp update_queue(queues, event_definition_id, queue) do
+    case Map.has_key?(queues, event_definition_id) do
       true ->
-        state = Map.put(state, :demand, demand)
-        {[], state}
+        Map.put(queues, event_definition_id, queue)
 
       false ->
-        Enum.reduce_while(queues, {[], %{}}, fn {_event_definition_id, queue},
-                                                {acc_messages, acc_state} ->
-          if Enum.count(acc_messages) <= 0,
-            do: {
-              :cont,
-              fetch_and_release_demand(demand, queue, state)
-            },
-            else: {:halt, {acc_messages, acc_state}}
-        end)
-    end
-  end
-
-  defp fetch_and_release_demand(demand, queue, state) do
-    {items, queue} =
-      case :queue.len(queue) >= demand do
-        true ->
-          :queue.split(demand, queue)
-
-        false ->
-          :queue.split(:queue.len(queue), queue)
-      end
-
-    case :queue.to_list(items) do
-      [] ->
-        new_state =
-          Map.put(state, :queue, queue)
-          |> Map.put(:demand, demand)
-
-        {[], new_state}
-
-      messages ->
-        new_state =
-          Map.put(state, :queue, queue)
-          |> Map.put(:demand, demand - Enum.count(messages))
-
-        {messages, new_state}
+        queues
     end
   end
 
