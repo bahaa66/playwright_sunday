@@ -12,8 +12,8 @@ defmodule CogyntWorkstationIngest.Application do
   }
 
   alias CogyntWorkstationIngest.Broadway.{EventPipeline, LinkEventPipeline}
-
   alias CogyntWorkstationIngestWeb.Rpc.IngestHandler
+  alias CogyntWorkstationIngest.Utils.Startup
 
   def start(_type, _args) do
     # List all child processes to be supervised
@@ -39,7 +39,11 @@ defmodule CogyntWorkstationIngest.Application do
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: CogyntWorkstationIngest.Supervisor]
-    Supervisor.start_link(children, opts)
+    result = Supervisor.start_link(children, opts)
+
+    Startup.initialize_consumers()
+
+    result
   end
 
   # Tell Phoenix to update the endpoint configuration

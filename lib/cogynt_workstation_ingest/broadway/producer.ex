@@ -71,21 +71,13 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   @impl true
   def handle_demand(incoming_demand, %{queues: queues, demand: demand} = state)
       when incoming_demand > 0 do
-    Enum.each(queues, fn {id, queue} ->
-      IO.puts("#{id}: Count Before: #{:queue.len(queue)}")
-    end)
-
-    IO.inspect(incoming_demand, label: "@@@ Incoming Demand")
-    IO.inspect(demand, label: "@@@ Stored Demand")
+    # IO.inspect(incoming_demand, label: "@@@ Incoming Demand")
+    # IO.inspect(demand, label: "@@@ Stored Demand")
 
     total_demand = incoming_demand + demand
 
     {messages, %{queues: queues} = new_state} =
       fetch_and_release_demand(total_demand, queues, state)
-
-    Enum.each(queues, fn {id, queue} ->
-      IO.puts("#{id}: Count After: #{:queue.len(queue)}")
-    end)
 
     {:noreply, messages, new_state}
   end
@@ -131,7 +123,9 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
                                                        },
                                                        acc ->
       if retry_count < max_retry() do
-        IO.puts("Retrying Failed Message, Id: #{event_definition.id}. Attempt: #{retry_count + 1}")
+        IO.puts(
+          "Retrying Failed Message, Id: #{event_definition.id}. Attempt: #{retry_count + 1}"
+        )
 
         acc ++
           [%{event: message, event_definition: event_definition, retry_count: retry_count + 1}]
