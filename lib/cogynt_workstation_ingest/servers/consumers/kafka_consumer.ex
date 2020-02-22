@@ -1,4 +1,8 @@
 defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
+  @moduledoc """
+  KafkaEx Gensconsumer module. Pulls messages from Kakfa and commits the offsets.
+  Queues the messages to the appropriate Broadway Pipelines
+  """
   use KafkaEx.GenConsumer
 
   alias CogyntWorkstationIngest.Supervisors.DrilldownSupervisor

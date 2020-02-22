@@ -31,7 +31,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   Transformation callback. Will transform the message that is returned
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
-  def transform(%{event: event, retry_count: retry_count} = _event, _opts) do
+  def transform(%{event: event, retry_count: retry_count}, _opts) do
     %Message{
       data: %{event: event, retry_count: retry_count},
       acknowledger: {__MODULE__, :ack_id, :ack_data}
@@ -43,7 +43,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   the pipeline.
   """
   def ack(:ack_id, _successful, _failed) do
-    Logger.info("Ack'd")
+    IO.puts("Ack'd")
   end
 
   @doc """
@@ -53,7 +53,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   """
   @impl true
   def handle_failed(messages, _opts) do
-    Logger.warn("Failed")
+    IO.puts("Failed")
     DrilldownProducer.enqueue_failed_messages(messages)
     messages
   end
@@ -61,8 +61,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   @doc """
   Handle_message callback. Takes the Broadway.Message.t() from the
   transform callback and processes the data object. Runs the data through
-  a process_event/1, process_event_details_and_elasticsearch_docs/1,
-  process_notifications/1 and execute_transaction/1.
+  a process_template_data/1 and update_cache/1
   """
   @impl true
   def handle_message(_processor, %Message{data: data} = message, _context) do

@@ -31,56 +31,46 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   @impl true
   def handle_cast({:enqueue, message_set}, %{queue: queue, demand: 0} = state) do
     queue = parse_kafka_message_set(message_set, queue)
-    # IO.inspect(queue, label: "@@@ Q after Enqueue")
     new_state = Map.put(state, :queue, queue)
-    # IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, [], new_state}
   end
 
   @impl true
   def handle_cast({:enqueue, message_set}, %{queue: queue, demand: demand} = state) do
     queue = parse_kafka_message_set(message_set, queue)
-
-    # IO.inspect(queue, label: "@@@ Q after Enqueue")
     {messages, new_state} = fetch_and_release_demand(demand, queue, state)
-    # IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, messages, new_state}
   end
 
   @impl true
   def handle_cast(
         {:enqueue_failed_messages, broadway_messages},
-        %{queue: _queue, demand: _demand, failed_messages: failed_messages} = state
+        %{failed_messages: failed_messages} = state
       ) do
     failed_messages = parse_broadway_messages(broadway_messages, failed_messages)
-    # IO.inspect(failed_messages, label: "@@@ Failed Messages")
     Process.send_after(self(), :tick, time_delay())
     new_state = Map.put(state, :failed_messages, failed_messages)
-    # IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, [], new_state}
   end
 
   @impl true
   def handle_demand(incoming_demand, %{queue: queue, demand: demand} = state)
       when incoming_demand > 0 do
-    IO.inspect(incoming_demand, label: "@@@ Incoming Demand")
-    IO.inspect(demand, label: "@@@ Stored Demand")
-
+    # IO.inspect(incoming_demand, label: "@@@ Incoming Demand")
+    # IO.inspect(demand, label: "@@@ Stored Demand")
     total_demand = incoming_demand + demand
-
     {messages, new_state} = fetch_and_release_demand(total_demand, queue, state)
-
-    # IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, messages, new_state}
   end
 
   @impl true
-  def handle_info(:tick, %{queue: queue, demand: demand, failed_messages: failed_messages} = state) do
+  def handle_info(
+        :tick,
+        %{queue: queue, demand: demand, failed_messages: failed_messages} = state
+      ) do
     queue = parse_failed_messages(failed_messages, queue)
     state = Map.put(state, :failed_messages, %{})
-    # IO.inspect(queue, label: "@@@ Q after Enqueue")
     {messages, new_state} = fetch_and_release_demand(demand, queue, state)
-    # IO.inspect(new_state, label: "@@@ State returned")
     {:noreply, messages, new_state}
   end
 
@@ -101,11 +91,14 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
 
   defp parse_broadway_messages(broadway_messages, failed_messages) do
     Enum.reduce(broadway_messages, failed_messages, fn %Broadway.Message{
-                                               data: %{event: message, retry_count: retry_count}
-                                             },
-                                             acc ->
+                                                         data: %{
+                                                           event: message,
+                                                           retry_count: retry_count
+                                                         }
+                                                       },
+                                                       acc ->
       if retry_count < max_retry() do
-        Logger.debug("INC Retry Count: #{retry_count + 1}")
+        IO.puts("Failed messages retry. Attempt: #{retry_count + 1}")
         acc ++ [%{event: message, retry_count: retry_count + 1}]
       else
         acc
