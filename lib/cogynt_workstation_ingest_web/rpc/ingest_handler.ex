@@ -33,28 +33,28 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   def handle_request("stop:consumer", event_definition) when is_map(event_definition) do
     event_definition = keys_to_atoms(event_definition)
 
-    with :ok <- ConsumerGroupSupervisor.stop_child(event_definition.topic),
-         true <- link_event?(event_definition),
-         :ok <- Producer.drain_queue(event_definition.id, :linkevent) do
+    with :ok <- ConsumerGroupSupervisor.stop_child(event_definition.topic) do
+      # true <- link_event?(event_definition),
+      # :ok <- Producer.drain_queue(event_definition.id, :linkevent) do
       %{
         status: :ok,
         body: :success
       }
     else
-      false ->
-        case Producer.drain_queue(event_definition.id, :event) do
-          :ok ->
-            %{
-              status: :ok,
-              body: :success
-            }
+      # false ->
+      #   case Producer.drain_queue(event_definition.id, :event) do
+      #     :ok ->
+      #       %{
+      #         status: :ok,
+      #         body: :success
+      #       }
 
-          {:error, error} ->
-            %{
-              status: :error,
-              body: "#{inspect(error)}"
-            }
-        end
+      #     {:error, error} ->
+      #       %{
+      #         status: :error,
+      #         body: "#{inspect(error)}"
+      #       }
+      #   end
 
       {:error, error} ->
         %{

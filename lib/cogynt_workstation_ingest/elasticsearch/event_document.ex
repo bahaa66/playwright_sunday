@@ -2,6 +2,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
   @moduledoc """
   Document module for the Events index in elasticsearch
   """
+  # TODO: move to cogynt-common
 
   require Logger
 
@@ -34,8 +35,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
       ]
     }
   }
-
-  # @elasticsearch_client Application.get_env(:elasticsearch, :config)[:elasticsearch_client]
 
   @doc """
   Creates the index under the alias: events. With mapping: @initial_index_mapping

@@ -20,7 +20,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   @doc """
   Requires event field in the data map. Based on the crud action value
-  process_event(%{}) will create a single Event record in the database that is assosciated with
+  process_event/1 will create a single Event record in the database that is assosciated with
   the event_definition.id. It will also pull all the event_ids and doc_ids that need to be
   soft_deleted from the database and elasticsearch. The data map is updated with the :event_id,
   :delete_ids, :delete_docs fields.
@@ -51,7 +51,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   @doc """
-  Requires event and event_definition fields in the data map. process_event(%{}) will create a single Event
+  Requires event_definition field in the data map. process_event/1 will create a single Event
   record in the database that is assosciated with the event_definition.id. The data map
   is updated with the :event_id returned from the database.
   """
@@ -126,7 +126,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   def process_event_details_and_elasticsearch_docs(%{event_id: nil} = data), do: data
 
   @doc """
-  Requires event, event_definition and event_id fields in the data map. process_notifications(%{})
+  Requires event, event_definition and event_id fields in the data map. process_notifications/1
   will stream all notification_settings that are linked to the event_definition.id. On each
   notification_setting returned it will build a notification map. Finally it will return a list
   notification maps. Returns an updated data map with the field :notifications storing the list
@@ -152,13 +152,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                   %{
                     event_id: event_id,
                     user_id: ns.user_id,
-                    # topic: event_definition.topic, TODO do we need to pass this value ?
+                    # topic: event_definition.topic, TODO: do we need to pass this value ??
                     tag_id: ns.tag_id,
                     title: ns.title,
                     notification_setting_id: ns.id,
                     created_at: DateTime.truncate(DateTime.utc_now(), :second),
                     updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-                    # TODO Optional attribute, MUST use Map.get
+                    # TODO: do we need to pass this value ??
+                    # Optional attribute, MUST use Map.get
                     # description: Map.get(ns, :description)
                   }
 

@@ -59,7 +59,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   end
 
   @doc """
-  Callback for handling any failed messages in the EventPipeline. It will
+  Callback for handling any failed messages in the LinkEventPipeline. It will
   take the failed messages and queue them back on the producer to get tried
   again.
   """
@@ -73,8 +73,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   @doc """
   Handle_message callback. Takes the Broadway.Message.t() from the
   transform callback and processes the data object. Runs the data through
-  a process_event/1, process_event_details_and_elasticsearch_docs/1,
-  process_notifications/1 and execute_transaction/1.
+  process_entity_ids/1, process_entity_ids/1, process_event/1,
+  process_event_details_and_elasticsearch_docs/1, process_notifications/1,
+  process_event_links/1 and execute_transaction/1.
   """
   @impl true
   def handle_message(_processor, %Message{data: data} = message, _context) do
