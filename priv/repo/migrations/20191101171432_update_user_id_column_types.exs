@@ -1,3 +1,3 @@
-defmodule Cogynt.Repo.Migrations.UpdateUserIdColumnTypes do
+defmodule CogyntWorkstationIngest.Repo.Migrations.UpdateUserIdColumnTypes do
   use Migrations.NotificationsAndNotificationSettingModifyUserIdType
 end

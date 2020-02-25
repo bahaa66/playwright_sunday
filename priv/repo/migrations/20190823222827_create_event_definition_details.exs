@@ -1,3 +1,3 @@
-defmodule Cogynt.Repo.Migrations.CreateEventDefinitionDetails do
+defmodule CogyntWorkstationIngest.Repo.Migrations.CreateEventDefinitionDetails do
   use Migrations.CreateEventDefinitionDetails
 end

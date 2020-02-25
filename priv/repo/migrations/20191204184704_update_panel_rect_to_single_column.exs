@@ -1,3 +1,3 @@
-defmodule Cogynt.Repo.Migrations.UpdatePanelRectToSingleColumn do
+defmodule CogyntWorkstationIngest.Repo.Migrations.UpdatePanelRectToSingleColumn do
   use Migrations.WidgetPanelsAddRect
 end

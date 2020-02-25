@@ -1,3 +1,3 @@
-defmodule Cogynt.Repo.Migrations.UpdateUserIdsToUuid do
+defmodule CogyntWorkstationIngest.Repo.Migrations.UpdateUserIdsToUuid do
   use Migrations.NotificationsNotificationSettingsViewsAndViewTemplatesModifyUserIdType
 end

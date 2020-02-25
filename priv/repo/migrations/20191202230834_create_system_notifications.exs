@@ -1,3 +1,3 @@
-defmodule Cogynt.Repo.Migrations.CreateSystemNotifications do
+defmodule CogyntWorkstationIngest.Repo.Migrations.CreateSystemNotifications do
   use Migrations.CreateSystemNotifications
 end

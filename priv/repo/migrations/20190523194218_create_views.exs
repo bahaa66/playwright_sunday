@@ -1,3 +1,3 @@
-defmodule WS.Repo.Migrations.CreateViews do
+defmodule CogyntWorkstationIngest.Repo.Migrations.CreateViews do
   use Migrations.CreateView
 end

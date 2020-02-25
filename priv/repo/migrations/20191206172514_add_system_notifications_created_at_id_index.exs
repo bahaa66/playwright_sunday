@@ -1,3 +1,3 @@
-defmodule Cogynt.Repo.Migrations.AddSystemNotificationsCreatedAtIdIndex do
+defmodule CogyntWorkstationIngest.Repo.Migrations.AddSystemNotificationsCreatedAtIdIndex do
   use Migrations.SystemNotificationsAddCreatedAtIndex
 end

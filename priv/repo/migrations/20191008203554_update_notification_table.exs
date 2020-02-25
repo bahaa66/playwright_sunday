@@ -1,3 +1,3 @@
-defmodule Cogynt.Repo.Migrations.UpdateNotificationTable do
+defmodule CogyntWorkstationIngest.Repo.Migrations.UpdateNotificationTable do
   use Migrations.NotificationsModifyNotificationSettingId
 end

@@ -1,3 +1,3 @@
-defmodule Cogynt.Repo.Migrations.AlterSystemNotificationsTable do
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterSystemNotificationsTable do
   use Migrations.SystemNotificationsModifyMessageType
 end
