@@ -76,8 +76,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
 
     total_demand = incoming_demand + demand
 
-    {messages, %{queues: queues} = new_state} =
-      fetch_and_release_demand(total_demand, queues, state)
+    {messages, new_state} = fetch_and_release_demand(total_demand, queues, state)
 
     {:noreply, messages, new_state}
   end
