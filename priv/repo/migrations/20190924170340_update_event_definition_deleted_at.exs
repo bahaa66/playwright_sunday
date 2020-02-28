@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.UpdateEventDefinitionDeletedAt do
+  use Migrations.EventDefinitionAddDeletedAt
+end

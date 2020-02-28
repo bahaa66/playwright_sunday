@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.RemoveViewUniqueNameIndex do
+  use Migrations.ViewsDropUniqueNameIndex
+end

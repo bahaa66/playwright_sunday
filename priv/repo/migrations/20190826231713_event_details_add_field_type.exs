@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.EventDetailsAddFieldType do
+  use Migrations.EventDetailsAddFieldType
+end

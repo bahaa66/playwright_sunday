@@ -5,21 +5,45 @@ defmodule CogyntWorkstationIngest.Application do
 
   use Application
 
+  alias CogyntWorkstationIngest.Supervisors.{
+    ConsumerGroupSupervisor,
+    ServerSupervisor,
+    DrilldownSupervisor
+  }
+
+  alias CogyntWorkstationIngest.Broadway.{EventPipeline, LinkEventPipeline}
+  alias CogyntWorkstationIngestWeb.Rpc.IngestHandler
+  alias CogyntWorkstationIngest.Utils.Startup
+
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
       # Start the Ecto repository
       CogyntWorkstationIngest.Repo,
       # Start the endpoint when the application starts
-      CogyntWorkstationIngestWeb.Endpoint
-      # Starts a worker by calling: CogyntWorkstationIngest.Worker.start_link(arg)
-      # {CogyntWorkstationIngest.Worker, arg},
+      CogyntWorkstationIngestWeb.Endpoint,
+      # Start the Supervisor for the Broadway EventPipeline
+      EventPipeline,
+      # Start the Supervisor for the Broadway LinkEventPipeline
+      LinkEventPipeline,
+      # Start the DynamicSupervisor for the Broadway DrilldownPipeline
+      DrilldownSupervisor,
+      # Start the DynamicSupervisor for KafkaEx ConsumerGroups
+      ConsumerGroupSupervisor,
+      # Start the Supervisor for all Genserver modules
+      child_spec_supervisor(ServerSupervisor, ServerSupervisor)
     ]
+
+    JSONRPC2.Servers.HTTP.http(IngestHandler, port: 80)
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: CogyntWorkstationIngest.Supervisor]
-    Supervisor.start_link(children, opts)
+    result = Supervisor.start_link(children, opts)
+
+    Startup.initialize_consumers()
+
+    result
   end
 
   # Tell Phoenix to update the endpoint configuration
@@ -27,5 +51,19 @@ defmodule CogyntWorkstationIngest.Application do
   def config_change(changed, _new, removed) do
     CogyntWorkstationIngestWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp child_spec_supervisor(module_name, id, args \\ []) do
+    %{
+      id: id,
+      start: {
+        module_name,
+        :start_link,
+        args
+      },
+      restart: :transient,
+      shutdown: 5000,
+      type: :supervisor
+    }
   end
 end
