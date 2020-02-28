@@ -55,9 +55,15 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:poison, ">= 0.0.0", only: [:dev, :test]},
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
       {:models,
-       git: "git@github.com:cogility/cogynt-common.git", branch: "dev", sparse: "models"},
+       git: "git@github.com:cogility/cogynt-common.git",
+       sparse: "models",
+       tag: "v0.1.0",
+       override: true},
       {:migrations,
-       git: "git@github.com:cogility/cogynt-common.git", branch: "dev", sparse: "migrations"}
+       git: "git@github.com:cogility/cogynt-common.git",
+       sparse: "migrations",
+       tag: "v0.1.0",
+       override: true}
     ]
   end
 
