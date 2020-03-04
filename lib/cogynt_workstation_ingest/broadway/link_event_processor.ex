@@ -11,11 +11,28 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
 
   @doc """
+  Checks to make sure if a valid link event was passed through authoring. If incomplete data
+  then :validated is set to false. Otherwise it is set to true.
+  """
+  def validate_link_event(%{event: %{@entities => entities} = _event} = data) do
+    if Enum.empty?(entities) or Enum.count(entities) == 1 do
+      Map.put(data, :validated, false)
+    else
+      Map.put(data, :validated, true)
+    end
+  end
+
+  @doc """
   Requires event fields in the data map. process_entities/1 will parse the entities keys value
   and pull out just the "id" fields. Ex: ${"locations" => [1, 2, 3], "accounts" => [5, 6]}. Will
   udpate the data map with a new :link_entities value storing the return value.
   """
-  def process_entities(%{event: %{@entities => entities} = _event} = data) do
+  def process_entities(%{validated: false} = data), do: data
+  def process_entities(%{event_id: nil} = data), do: data
+
+  def process_entities(%{event: %{@entities => entities}} = data) do
+    IO.puts("entered here")
+
     link_entities =
       Enum.reduce(entities, %{}, fn {key, event_definition_list}, acc_map ->
         link_ids =
@@ -29,8 +46,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
     Map.put(data, :link_entities, link_entities)
   end
 
-  def process_entities(%{event_id: nil} = data), do: data
-
   @doc """
   Requires link_entitites field in the data map. process_entity_ids/1 iterrates through the link_entities
   and checks to make sure that each id exists in the EventDetails table. If it does then it builds a list
@@ -38,6 +53,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   Event is not ready for processing so that it is retried. Will update the data map with :link_ids
   field and store the return value.
   """
+  def process_entity_ids(%{validated: false} = data), do: data
+  def process_entity_ids(%{event_id: nil} = data), do: data
+
   def process_entity_ids(%{link_entities: link_entities} = data) do
     %{
       ready_to_process: ready_to_process,
@@ -65,6 +83,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   and child mappings for each id in link_ids. Will update the data map with :event_links field
   and with the return value.
   """
+  def process_event_links(%{validated: false} = data), do: data
+  def process_event_links(%{event_id: nil} = data), do: data
+
   def process_event_links(%{event_id: event_id, link_ids: link_ids} = data) do
     event_links =
       Enum.reduce(link_ids, [], fn {key_0, value_0}, acc_0 ->
@@ -84,12 +105,13 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
     Map.put(data, :event_links, event_links)
   end
 
-  def process_event_links(%{event_id: nil} = data), do: data
-
   @doc """
   Requires :event_links fields in the data map. Takes all the fields and
   executes them in one databse transaction.
   """
+  def execute_transaction(%{validated: false} = data), do: data
+  def execute_transaction(%{event_id: nil} = data), do: data
+
   def execute_transaction(%{delete_ids: event_ids, event_links: event_links} = data) do
     multi =
       case is_nil(event_ids) or Enum.empty?(event_ids) do
@@ -121,8 +143,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
     data
   end
-
-  def execute_transaction(%{event_id: nil} = data), do: data
 
   # ----------------------- #
   # --- private methods --- #
