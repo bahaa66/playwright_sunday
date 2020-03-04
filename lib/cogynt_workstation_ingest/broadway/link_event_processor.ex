@@ -6,8 +6,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   alias Ecto.Multi
   alias CogyntWorkstationIngest.Repo
   alias Models.Events.{Event, EventDetail, EventLink}
-  alias Models.Notifications.{Notification}
-  alias CogyntWorkstationIngest.Elasticsearch.EventDocument
   alias CogyntWorkstationIngestWeb.Rpc.IngestClient
 
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
