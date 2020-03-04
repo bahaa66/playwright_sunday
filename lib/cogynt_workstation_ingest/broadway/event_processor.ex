@@ -177,9 +177,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
+  def process_notifications(%{event_id: nil} = data), do: data
+
   @doc """
   Requires :event_details, :notifications, :elasticsearch_docs, :delete_ids, and :delete_docs
-  fields in the data map. Takes all the fields and executes them in one databse transaction.
+  fields in the data map. Takes all the fields and executes them in one databse transaction. When
+  it finishes with no errors it will update the :event_processed key to have a value of true
+  in the data map and return.
   """
   def execute_transaction(
         %{
@@ -234,10 +238,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     # Send created_notifications to subscription_queue
     # IngestClient.publish_subscriptions(notifications)
 
-    {:ok, data}
+    Map.put(data, :event_processed, true)
   end
 
-  def execute_transaction(%{event_id: nil} = data), do: {:ok, data}
+  def execute_transaction(%{event_id: nil} = data), do: data
 
   # ----------------------- #
   # --- private methods --- #

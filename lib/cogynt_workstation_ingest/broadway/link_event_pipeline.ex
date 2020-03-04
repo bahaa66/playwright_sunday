@@ -10,7 +10,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   alias CogyntWorkstationIngest.Broadway.{Producer, LinkEventProcessor, EventProcessor}
 
   def start_link(_args) do
-
     Broadway.start_link(__MODULE__,
       name: :BroadwayLinkEventPipeline,
       producer: [
@@ -78,13 +77,33 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   process_event_links/1 and execute_transaction/1.
   """
   @impl true
-  def handle_message(_processor, %Message{data: data} = message, _context) do
+  def handle_message(
+        _processor,
+        %Message{data: %{event_processed: false} = data} = message,
+        _context
+      ) do
     data
-    |> LinkEventProcessor.process_entities()
-    |> LinkEventProcessor.process_entity_ids()
     |> EventProcessor.process_event()
     |> EventProcessor.process_event_details_and_elasticsearch_docs()
     |> EventProcessor.process_notifications()
+    |> EventProcessor.execute_transaction() # Sets event_processed -> true
+    |> LinkEventProcessor.process_entities()
+    |> LinkEventProcessor.process_entity_ids()
+    |> LinkEventProcessor.process_event_links()
+    |> LinkEventProcessor.execute_transaction()
+
+    message
+  end
+
+  @impl true
+  def handle_message(
+        _processor,
+        %Message{data: %{event_processed: true} = data} = message,
+        _context
+      ) do
+    data
+    |> LinkEventProcessor.process_entities()
+    |> LinkEventProcessor.process_entity_ids()
     |> LinkEventProcessor.process_event_links()
     |> LinkEventProcessor.execute_transaction()
 
