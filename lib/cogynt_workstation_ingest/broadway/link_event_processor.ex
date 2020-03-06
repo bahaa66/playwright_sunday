@@ -31,8 +31,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   def process_entities(%{event_id: nil} = data), do: data
 
   def process_entities(%{event: %{@entities => entities}} = data) do
-    IO.puts("entered here")
-
     link_entities =
       Enum.reduce(entities, %{}, fn {key, event_definition_list}, acc_map ->
         link_ids =
