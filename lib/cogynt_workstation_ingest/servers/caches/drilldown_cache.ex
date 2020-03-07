@@ -52,16 +52,6 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
   end
 
   @impl true
-  def handle_cast({:put_data, %{sol_id: id, sol: sol}}, state) do
-    sol =
-      (state[id] || %{"events" => %{}})
-      |> Map.merge(sol)
-
-    state = Map.put(state, id, sol)
-    {:noreply, state}
-  end
-
-  @impl true
   def handle_cast({:put_data, %{sol_id: id, sol: sol, evnt: evnt}}, state) do
     sol =
       (state[id] || %{"events" => %{}})
@@ -87,6 +77,16 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
         Map.put(state, sol["id"], sol)
       end
 
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast({:put_data, %{sol_id: id, sol: sol}}, state) do
+    sol =
+      (state[id] || %{"events" => %{}})
+      |> Map.merge(sol)
+
+    state = Map.put(state, id, sol)
     {:noreply, state}
   end
 

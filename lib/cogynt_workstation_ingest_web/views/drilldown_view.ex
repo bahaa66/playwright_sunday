@@ -4,7 +4,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   import Logger, warn: false
   alias CogyntWorkstationIngestWeb.JA_Keys
   alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
-  alias CogyntWorkstatingIngest.EventView
+  alias CogyntWorkstationIngestWeb.EventView
 
   def type, do: "solutions"
 
