@@ -1,0 +1,25 @@
+version: 0.0
+os: linux
+files:
+  - source: /
+    destination: /opt/cogynt-workstation-ingest
+hooks:
+  ApplicationStop:
+    - location: scripts/stop_server.sh
+      timeout: 300
+      runas: root
+  BeforeInstall:
+    - location: scripts/clear_directory.sh
+      timeout: 300
+      runas: root
+    - location: scripts/pre_tasks.sh
+      timemout: 300
+      runas: root
+  AfterInstall:
+    - location: scripts/permission_validation.sh
+      timeout: 300
+      runas: root
+  ApplicationStart:
+    - location: scripts/start_server.sh
+      timout: 300
+      runas: root

@@ -35,6 +35,7 @@ defmodule CogyntWorkstationIngest.MixProject do
     [
       {:phoenix, "~> 1.4.0"},
       {:phoenix_pubsub, "~> 1.1"},
+      {:distillery, "~> 2.1"},
       {:phoenix_ecto, "~> 4.0"},
       {:ecto_sql, "~> 3.0"},
       {:postgrex, ">= 0.0.0"},
@@ -50,6 +51,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:kafka_ex, "~> 0.10.0"},
       {:elasticsearch, git: "git@github.com:Cogility/elasticsearch.git", tag: "v0.9-alpha"},
       {:httpoison, "~> 1.5"},
+      {:junit_formatter, "~> 3.0"},
       {:timber, "~> 3.1.1"},
       {:timber_phoenix, "~> 1.0"},
       {:poison, ">= 0.0.0", only: [:dev, :test]},
