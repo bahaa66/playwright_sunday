@@ -172,10 +172,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             |> Enum.to_list()
           end)
 
-        Map.put(data, :notifications, notifications)
+        if Enum.empty?(notifications) do
+          Map.put(data, :notifications, nil)
+        else
+          Map.put(data, :notifications, notifications)
+        end
 
       false ->
-        data
+        Map.put(data, :notifications, nil)
     end
   end
 
@@ -186,6 +190,61 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   in the data map and return.
   """
   def execute_transaction(%{event_id: nil} = data), do: Map.put(data, :event_processed, true)
+
+  def execute_transaction(
+        %{
+          event_details: event_details,
+          elasticsearch_docs: docs,
+          notifications: nil,
+          delete_ids: event_ids,
+          delete_docs: doc_ids
+        } = data
+      ) do
+    multi =
+      case is_nil(event_ids) or Enum.empty?(event_ids) do
+        true ->
+          Multi.new()
+
+        false ->
+          n_query =
+            from(n in Notification,
+              where: n.event_id in ^event_ids
+            )
+
+          e_query =
+            from(
+              e in Event,
+              where: e.id in ^event_ids
+            )
+
+          deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
+
+          Multi.new()
+          |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
+          |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
+      end
+
+    multi
+    |> Multi.insert_all(:insert_event_detials, EventDetail, event_details)
+    |> Repo.transaction()
+
+    case is_nil(doc_ids) or Enum.empty?(doc_ids) do
+      true ->
+        EventDocument.bulk_upsert_document(docs)
+
+      false ->
+        EventDocument.bulk_delete_document(doc_ids)
+        EventDocument.bulk_upsert_document(docs)
+    end
+
+    # TODO: Need to format the correct prams to send to Cogynt-OTP
+    # Send deleted_notifications to subscription_queue
+    # IngestClient.publish_deleted_notifications(event_ids)
+    # Send created_notifications to subscription_queue
+    # IngestClient.publish_subscriptions(notifications)
+
+    Map.put(data, :event_processed, true)
+  end
 
   def execute_transaction(
         %{

@@ -86,7 +86,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
     |> EventProcessor.process_event()
     |> EventProcessor.process_event_details_and_elasticsearch_docs()
     |> EventProcessor.process_notifications()
-    |> EventProcessor.execute_transaction() # Sets event_processed -> true
+    # Sets event_processed -> true
+    |> EventProcessor.execute_transaction()
+    |> LinkEventProcessor.validate_link_event()
     |> LinkEventProcessor.process_entities()
     |> LinkEventProcessor.process_entity_ids()
     |> LinkEventProcessor.process_event_links()
@@ -102,6 +104,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
         _context
       ) do
     data
+    |> LinkEventProcessor.validate_link_event()
     |> LinkEventProcessor.process_entities()
     |> LinkEventProcessor.process_entity_ids()
     |> LinkEventProcessor.process_event_links()

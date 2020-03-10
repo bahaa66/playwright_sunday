@@ -14,11 +14,17 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   Checks to make sure if a valid link event was passed through authoring. If incomplete data
   then :validated is set to false. Otherwise it is set to true.
   """
-  def validate_link_event(%{event: %{@entities => entities} = _event} = data) do
-    if Enum.empty?(entities) or Enum.count(entities) == 1 do
-      Map.put(data, :validated, false)
-    else
-      Map.put(data, :validated, true)
+  def validate_link_event(%{event: event} = data) do
+    case Map.get(event, @entities) do
+      nil ->
+        Map.put(data, :validated, false)
+
+      entities ->
+        if Enum.empty?(entities) or Enum.count(entities) == 1 do
+          Map.put(data, :validated, false)
+        else
+          Map.put(data, :validated, true)
+        end
     end
   end
 
