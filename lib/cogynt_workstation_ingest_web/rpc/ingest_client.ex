@@ -1,8 +1,7 @@
 defmodule CogyntWorkstationIngestWeb.Rpc.IngestClient do
   alias JSONRPC2.Clients.HTTP
 
-  # TODO: make configuration
-  @url "http://localhost:81/"
+  @url Application.get_env(:cogynt_workstation_ingest, :rpc)[:cogynt_otp_url]
 
   def publish_deleted_notifications(notifications) when is_list(notifications) do
     response = HTTP.call(@url, "publish:deleted_notifications", notifications)
