@@ -132,8 +132,7 @@ ingress:
       contour.heptio.com/tls-minimum-protocol-version: "TLSv1_2"
     host: 'caws.{{repl ConfigOption "hostname" }}'
     paths:
-      - /api
-      - /drilldown
+      - /api/drilldown
     tls:
     - secretName: cogynt-global-files-tls
       hosts:
@@ -150,9 +149,9 @@ ingress:
       kubernetes.io/ingress.allow-http: "true"
       contour.heptio.com/tls-minimum-protocol-version: "TLSv1_2"
     host: 'caws.{{repl ConfigOption "hostname" }}'
-    service: cogynt-core-auth-worksation-ingest
+    service: cogynt-core-auth-otp
     paths:
-      - /drilldown
+      - /auth
     tls:
     - secretName: cogynt-global-files-tls
       hosts:
