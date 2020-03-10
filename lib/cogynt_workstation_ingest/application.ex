@@ -34,7 +34,7 @@ defmodule CogyntWorkstationIngest.Application do
       child_spec_supervisor(ServerSupervisor, ServerSupervisor)
     ]
 
-    JSONRPC2.Servers.HTTP.http(IngestHandler, port: 80)
+    JSONRPC2.Servers.HTTP.http(IngestHandler, port: rpc_port())
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
@@ -66,4 +66,6 @@ defmodule CogyntWorkstationIngest.Application do
       type: :supervisor
     }
   end
+
+  defp rpc_port(), do: Application.get_env(:cogynt_workstation_ingest, :rpc)[:server_port]
 end

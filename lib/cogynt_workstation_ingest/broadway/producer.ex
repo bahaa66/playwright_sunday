@@ -71,13 +71,8 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   @impl true
   def handle_demand(incoming_demand, %{queues: queues, demand: demand} = state)
       when incoming_demand > 0 do
-    # IO.inspect(incoming_demand, label: "@@@ Incoming Demand")
-    # IO.inspect(demand, label: "@@@ Stored Demand")
-
     total_demand = incoming_demand + demand
-
     {messages, new_state} = fetch_and_release_demand(total_demand, queues, state)
-
     {:noreply, messages, new_state}
   end
 
@@ -102,6 +97,8 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
           update_queue_value(acc, event_definition.id, %{
             event: message,
             event_definition: event_definition,
+            event_processed: false,
+            event_id: nil,
             retry_count: 0
           })
 
@@ -117,6 +114,8 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
                                                          data: %{
                                                            event: message,
                                                            event_definition: event_definition,
+                                                           event_processed: processed,
+                                                           event_id: event_id,
                                                            retry_count: retry_count
                                                          }
                                                        },
@@ -127,7 +126,15 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
         )
 
         acc ++
-          [%{event: message, event_definition: event_definition, retry_count: retry_count + 1}]
+          [
+            %{
+              event: message,
+              event_definition: event_definition,
+              event_processed: processed,
+              event_id: event_id,
+              retry_count: retry_count + 1
+            }
+          ]
       else
         acc
       end
