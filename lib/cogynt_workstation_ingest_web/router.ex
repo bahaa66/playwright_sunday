@@ -5,6 +5,8 @@ defmodule CogyntWorkstationIngestWeb.Router do
     plug(:accepts, ["json"])
   end
 
+  forward "/rpc/ingest", JSONRPC2.Servers.HTTP.Plug, CogyntWorkstationIngestWeb.Rpc.IngestHandler
+
   scope "/api", CogyntWorkstationIngestWeb do
     pipe_through :api
     get "/drilldown/all/:id", DrilldownController, :index
