@@ -1,4 +1,4 @@
-defmodule CogyntWorkstationIngestWeb.Rpc.IngestClient do
+defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
   alias JSONRPC2.Clients.HTTP
 
   @domain Application.get_env(:cogynt_workstation_ingest, :rpc)[:cogynt_domain]
