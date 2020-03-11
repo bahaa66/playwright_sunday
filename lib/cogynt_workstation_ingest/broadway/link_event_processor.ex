@@ -6,7 +6,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   alias Ecto.Multi
   alias CogyntWorkstationIngest.Repo
   alias Models.Events.{Event, EventDetail, EventLink}
-  alias CogyntWorkstationIngestWeb.Rpc.IngestClient
+  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
 
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
 
@@ -141,9 +141,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
     # TODO: Need to format the correct prams to send to Cogynt-OTP
     # Send deleted_notifications to subscription_queue
-    # IngestClient.publish_deleted_notifications(event_ids)
+    # CogyntClient.publish_deleted_notifications(event_ids)
     # Send created_notifications to subscription_queue
-    # IngestClient.publish_subscriptions(notifications)
+    # CogyntClient.publish_subscriptions(notifications)
 
     data
   end

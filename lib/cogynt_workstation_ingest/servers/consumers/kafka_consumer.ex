@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
 
   alias CogyntWorkstationIngest.Supervisors.DrilldownSupervisor
   alias CogyntWorkstationIngest.Broadway.{Producer, DrilldownProducer}
-  alias CogyntWorkstationIngestWeb.Rpc.IngestClient
+  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
 
   @linkage Application.get_env(:cogynt_workstation_ingest, :core_keys)[:link_data_type]
 
@@ -30,7 +30,7 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
       Producer.enqueue(message_set, event_definition, :event)
     end
 
-    IngestClient.publish_event_definition_ids([event_definition.id])
+    CogyntClient.publish_event_definition_ids([event_definition.id])
     {:sync_commit, state}
   end
 

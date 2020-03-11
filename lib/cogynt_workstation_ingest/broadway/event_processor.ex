@@ -9,7 +9,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias Models.Notifications.{Notification, NotificationSetting}
   alias CogyntWorkstationIngest.Elasticsearch.EventDocument
   alias CogyntWorkstationIngest.Repo
-  alias CogyntWorkstationIngestWeb.Rpc.IngestClient
+  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -239,9 +239,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     # TODO: Need to format the correct prams to send to Cogynt-OTP
     # Send deleted_notifications to subscription_queue
-    # IngestClient.publish_deleted_notifications(event_ids)
+    # CogyntClient.publish_deleted_notifications(event_ids)
     # Send created_notifications to subscription_queue
-    # IngestClient.publish_subscriptions(notifications)
+    # CogyntClient.publish_subscriptions(notifications)
 
     Map.put(data, :event_processed, true)
   end
@@ -295,9 +295,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     # TODO: Need to format the correct prams to send to Cogynt-OTP
     # Send deleted_notifications to subscription_queue
-    # IngestClient.publish_deleted_notifications(event_ids)
+    # CogyntClient.publish_deleted_notifications(event_ids)
     # Send created_notifications to subscription_queue
-    # IngestClient.publish_subscriptions(notifications)
+    # CogyntClient.publish_subscriptions(notifications)
 
     Map.put(data, :event_processed, true)
   end
