@@ -130,13 +130,13 @@ ingress:
       ingress.kubernetes.io/force-ssl-redirect: "false"
       kubernetes.io/ingress.allow-http: "true"
       contour.heptio.com/tls-minimum-protocol-version: "TLSv1_2"
-    host: 'caws.{{repl ConfigOption "hostname" }}'
+    host: '{{repl (LicenseFieldValue "sd-caws")}}.{{repl (ConfigOption "hostname")}}'
     paths:
       - /api/drilldown
     tls:
     - secretName: cogynt-global-files-tls
       hosts:
-      - 'caws.{{repl ConfigOption "hostname" }}'
+      - '{{repl (LicenseFieldValue "sd-caws")}}.{{repl (ConfigOption "hostname")}}'
   auth:
     enabled: true
     port: https
@@ -148,14 +148,14 @@ ingress:
       ingress.kubernetes.io/force-ssl-redirect: "true"
       kubernetes.io/ingress.allow-http: "true"
       contour.heptio.com/tls-minimum-protocol-version: "TLSv1_2"
-    host: 'caws.{{repl ConfigOption "hostname" }}'
+    host: '{{repl (LicenseFieldValue "sd-caws")}}.{{repl (ConfigOption "hostname")}}'
     service: cogynt-core-auth-otp
     paths:
       - /auth
     tls:
     - secretName: cogynt-global-files-tls
       hosts:
-      - 'caws.{{repl ConfigOption "hostname" }}'
+      - '{{repl (LicenseFieldValue "sd-caws")}}.{{repl (ConfigOption "hostname")}}'
 
 initContainers:
   set-cert-ownership:
