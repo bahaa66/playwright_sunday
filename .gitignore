@@ -43,3 +43,10 @@ cogynt_workstation_ingest-*.tar
 .DS_Store
 *.plt
 *.plt.hash
+
+# devops resevered
+!build
+!helm
+!Makefile
+/rel/runtime_config.exs
+/config/prod.exs
