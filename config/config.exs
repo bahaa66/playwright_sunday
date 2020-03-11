@@ -10,14 +10,8 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   render_errors: [view: CogyntWorkstationIngestWeb.ErrorView, accepts: ~w(json)],
   pubsub: [name: CogyntWorkstationIngest.PubSub, adapter: Phoenix.PubSub.PG2]
 
-# rpc server/client configurations
-config :cogynt_workstation_ingest, :rpc,
-  server_port: 80,
-  cogynt_otp_url: "http://localhost:81/"
-
 # cogynt-common configurations
-config :migrations, :application,
-  repo: CogyntWorkstationIngest.Repo
+config :migrations, :application, repo: CogyntWorkstationIngest.Repo
 
 # Configures Elixir's Logger
 # config :logger, :console,

@@ -9,8 +9,8 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
 
 # rpc server/client configurations
 config :cogynt_workstation_ingest, :rpc,
-  server_port: 80,
-  cogynt_otp_url: "http://localhost:81/"
+  cogynt_domain: System.get_env("COGYNT_DOMAIN") || "http://localhost",
+  cogynt_port: System.get_env("COGYNT_PORT") || 4010
 
 # Kafka Configurations
 config :kafka_ex,

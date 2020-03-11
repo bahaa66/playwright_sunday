@@ -12,7 +12,6 @@ defmodule CogyntWorkstationIngest.Application do
   }
 
   alias CogyntWorkstationIngest.Broadway.{EventPipeline, LinkEventPipeline}
-  alias CogyntWorkstationIngestWeb.Rpc.IngestHandler
   alias CogyntWorkstationIngest.Utils.Startup
 
   def start(_type, _args) do
@@ -33,8 +32,6 @@ defmodule CogyntWorkstationIngest.Application do
       # Start the Supervisor for all Genserver modules
       child_spec_supervisor(ServerSupervisor, ServerSupervisor)
     ]
-
-    JSONRPC2.Servers.HTTP.http(IngestHandler, port: rpc_port())
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
@@ -66,6 +63,4 @@ defmodule CogyntWorkstationIngest.Application do
       type: :supervisor
     }
   end
-
-  defp rpc_port(), do: Application.get_env(:cogynt_workstation_ingest, :rpc)[:server_port]
 end
