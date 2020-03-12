@@ -51,4 +51,4 @@ RUN setcap 'cap_net_bind_service=+ep' /opt/cogility/app/erts-10.5/bin/beam.smp
 USER cogility
 
 # Run the app
-CMD ["./app/bin/cogynt-workstation-ingest", "foreground"]
+CMD ["./app/bin/cogynt_workstation_ingest", "foreground"]
