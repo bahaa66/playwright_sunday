@@ -3,7 +3,7 @@ FROM 478685488679.dkr.ecr.us-west-2.amazonaws.com/centos-elixir:1.8.2 AS builder
 
 # Set environment variables for building the application
 ARG MIX_ENV=prod
-ARG APP_NAME=dst-cogynt_workstation_ingest
+ARG APP_NAME=cogynt_workstation_ingest
 ARG TEST=1
 ARG USE_LOCAL_CEP=false
 ARG use_local=false
@@ -39,7 +39,7 @@ RUN RELEASE_DIR=`ls -d _build/${MIX_ENV}/rel/${APP_NAME}/releases/*/` && \
 # ---- Application Stage ----
 FROM 478685488679.dkr.ecr.us-west-2.amazonaws.com/centos-base:7.6 AS app
 
-ARG APP_NAME=dst-cogynt-workstation-ingest
+ARG APP_NAME=cogynt-workstation-ingest
 ARG RELEASE_VERSION=0.0.1
 ENV RELEASE_VERSION=${RELEASE_VERSION}
 
