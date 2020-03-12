@@ -1,8 +1,8 @@
 apiVersion: v1
 description: A declarative helm chart for deploying dst-cogynt-workstation-ingest
 name: dst-cogynt-workstation-ingest
-version: v1.0.5
-appVersion: v1.0.5
+version: v1.0.6
+appVersion: v1.0.6
 maintainers:
 - name: Cogility
   email: devops@cogility.com
