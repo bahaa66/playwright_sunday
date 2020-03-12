@@ -9,7 +9,7 @@ dockercfg:
 
 image:
   repository: 478685488679.dkr.ecr.us-west-2.amazonaws.com/dst-cogynt-worksation-ingest
-  tag: v1.0.1
+  tag: v1.0.2
   pullPolicy: IfNotPresent
   pullSecrets:
     - "ecruswest2registry"
