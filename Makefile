@@ -3,7 +3,7 @@
 ########################
 ## Internal variables
 ########################
-APP_NAME?=dst-cogynt-workstaion-ingest
+APP_NAME?=dst-cogynt-workstation-ingest
 APP_HOST_PORT?=3002
 AWS_REGION?=us-west-2
 DOCKERFILE?=./build/Dockerfile
