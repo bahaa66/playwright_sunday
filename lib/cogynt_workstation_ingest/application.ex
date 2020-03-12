@@ -41,7 +41,8 @@ defmodule CogyntWorkstationIngest.Application do
     opts = [strategy: :one_for_one, name: CogyntWorkstationIngest.Supervisor]
     result = Supervisor.start_link(children, opts)
 
-    Startup.initialize_consumers()
+    #temp commented out untill ecto not blocking prod from starting
+    #Startup.initialize_consumers()
 
     result
   end

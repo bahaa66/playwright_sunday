@@ -12,8 +12,8 @@ defmodule CogyntWorkstationIngest.Utils.Startup do
   # ------------------------- #
   def initialize_consumers() do
     with :ok <- Application.ensure_started(:phoenix),
-         #:ok <- Application.ensure_started(:ecto_sql),
-        # :ok <- Application.ensure_started(:ecto_enum),
+         :ok <- Application.ensure_started(:ecto_sql),
+         :ok <- Application.ensure_started(:ecto_enum),
          :ok <- Application.ensure_started(:postgrex) do
       query =
         from(
