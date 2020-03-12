@@ -39,7 +39,7 @@ RUN RELEASE_DIR=`ls -d _build/${MIX_ENV}/rel/${APP_NAME}/releases/*/` && \
 # ---- Application Stage ----
 FROM 478685488679.dkr.ecr.us-west-2.amazonaws.com/centos-base:7.6 AS app
 
-ARG APP_NAME=cogynt-workstation-ingest
+ARG APP_NAME=dst-cogynt-workstation-ingest
 ARG RELEASE_VERSION=0.0.1
 ENV RELEASE_VERSION=${RELEASE_VERSION}
 
