@@ -3,7 +3,7 @@ FROM 478685488679.dkr.ecr.us-west-2.amazonaws.com/centos-elixir:1.8.2 AS builder
 
 # Set environment variables for building the application
 ARG MIX_ENV=prod
-ARG APP_NAME=cogynt_workstation_ingest
+ARG APP_NAME=dst-cogynt_workstation_ingest
 ARG TEST=1
 ARG USE_LOCAL_CEP=false
 ARG use_local=false
