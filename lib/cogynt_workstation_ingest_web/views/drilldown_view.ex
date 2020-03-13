@@ -17,6 +17,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
     |> Map.delete("id")
     |> Map.delete(:id)
     |> Map.delete("events")
+    |> Map.delete("outcomes")
     |> Map.delete("#visited")
     |> JA_Keys.dasherize()
   end
@@ -27,7 +28,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
     identifiers: :always
 
   def children(info, _conn) do
-    IO.inspect(info, label: "@@@@ Parent in drilldown")
+    # IO.inspect(info, label: "@@@@ Parent in drilldown")
 
     (Map.values(info["events"]) || [])
     |> Enum.filter(&(not (&1["$partial"] == true and &1["_confidence"] == 0.0)))
@@ -68,6 +69,16 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
       |> Map.put("#visited", visited)
       |> IO.inspect(label: "@@@@ child")
     end)
+    |> Enum.sort_by(& &1["id"])
+  end
+
+  has_many :outcomes,
+    serializer: EventView,
+    include: true,
+    identifiers: :always
+
+  def outcomes(info, _conn) do
+    info["outcomes"]
     |> Enum.sort_by(& &1["id"])
   end
 
