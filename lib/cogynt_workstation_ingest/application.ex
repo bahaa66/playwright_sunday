@@ -12,8 +12,9 @@ defmodule CogyntWorkstationIngest.Application do
   }
 
   alias CogyntWorkstationIngest.Servers.Startup
-
   alias CogyntWorkstationIngest.Broadway.{EventPipeline, LinkEventPipeline}
+
+  @init_delay Application.get_env(:cogynt_workstation_ingest, :startup)[:init_delay]
 
   def start(_type, _args) do
     # List all child processes to be supervised
@@ -39,7 +40,7 @@ defmodule CogyntWorkstationIngest.Application do
     opts = [strategy: :one_for_one, name: CogyntWorkstationIngest.Supervisor]
     result = Supervisor.start_link(children, opts)
 
-    Process.send_after(Startup, :initialize_consumers, 5000)
+    Process.send_after(Startup, :initialize_consumers, @init_delay)
 
     result
   end

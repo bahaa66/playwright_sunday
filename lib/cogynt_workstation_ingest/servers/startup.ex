@@ -25,7 +25,7 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
 
   @impl true
   def handle_info(:initialize_consumers, state) do
-    IO.puts("***Initializing Consumers***")
+    IO.puts("@@@ Initializing Consumers")
     initialize_consumers()
     {:noreply, state}
   end
