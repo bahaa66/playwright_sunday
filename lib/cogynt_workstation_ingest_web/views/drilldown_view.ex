@@ -28,7 +28,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
     identifiers: :always
 
   def children(info, _conn) do
-    IO.inspect(info, label: "@@@@ Parent in drilldown")
+    # IO.inspect(info, label: "@@@@ Parent in drilldown")
 
     (Map.values(info["events"]) || [])
     |> Enum.filter(&(not (&1["$partial"] == true and &1["_confidence"] == 0.0)))
@@ -73,7 +73,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   end
 
   has_many :outcomes,
-    serializer: CogyntWeb.EventView,
+    serializer: EventView,
     include: true,
     identifiers: :always
 

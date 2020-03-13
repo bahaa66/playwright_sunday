@@ -53,7 +53,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
 
   @impl true
   def handle_cast({:put_data, %{sol_id: id, sol: sol, evnt: evnt} = data}, state) do
-    IO.inspect(data, label: "@@@@ Received event")
+    # IO.inspect(data, label: "@@@@ Received event")
 
     sol =
       (state[id] || %{"events" => %{}, "outcomes" => []})
@@ -97,7 +97,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
 
   @impl true
   def handle_cast({:put_data, %{sol_id: id, sol: sol}}, state) do
-    IO.inspect("@@@@ Received solution #{id}")
+    # IO.inspect("@@@@ Received solution #{id}")
 
     sol =
       (state[id] || %{"events" => %{}, "outcomes" => []})
