@@ -95,6 +95,9 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Servers.Caches.Consum
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Servers.Caches.DrilldownCache,
   time_delay: System.get_env("DRILLDOWN_CACHE_TIME_DELAY") || 1_000
 
+# startup utils configurations
+config :cogynt_workstation_ingest, :startup, init_delay: System.get_env("INIT_DELAY") || 5000
+
 # Do not include metadata nor timestamps in development logs
 config :logger, :console, format: "[$level] $message\n"
 
