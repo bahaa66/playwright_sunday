@@ -46,6 +46,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:plug, "~> 1.8"},
       {:cowboy, "~> 2.6"},
       {:plug_cowboy, "~> 2.0"},
+      {:health_checkup, "~> 0.1.0"},
       {:ecto_enum, "~> 1.4"},
       {:broadway, "~> 0.5.0"},
       {:kafka_ex, "~> 0.10.0"},
