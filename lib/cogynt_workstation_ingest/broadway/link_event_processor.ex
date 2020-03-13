@@ -6,18 +6,37 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   alias Ecto.Multi
   alias CogyntWorkstationIngest.Repo
   alias Models.Events.{Event, EventDetail, EventLink}
-  alias Models.Notifications.{Notification}
-  alias CogyntWorkstationIngest.Elasticsearch.EventDocument
-  alias CogyntWorkstationIngestWeb.Rpc.IngestClient
+  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
 
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
+
+  @doc """
+  Checks to make sure if a valid link event was passed through authoring. If incomplete data
+  then :validated is set to false. Otherwise it is set to true.
+  """
+  def validate_link_event(%{event: event} = data) do
+    case Map.get(event, @entities) do
+      nil ->
+        Map.put(data, :validated, false)
+
+      entities ->
+        if Enum.empty?(entities) or Enum.count(entities) == 1 do
+          Map.put(data, :validated, false)
+        else
+          Map.put(data, :validated, true)
+        end
+    end
+  end
 
   @doc """
   Requires event fields in the data map. process_entities/1 will parse the entities keys value
   and pull out just the "id" fields. Ex: ${"locations" => [1, 2, 3], "accounts" => [5, 6]}. Will
   udpate the data map with a new :link_entities value storing the return value.
   """
-  def process_entities(%{event: %{@entities => entities} = _event} = data) do
+  def process_entities(%{validated: false} = data), do: data
+  def process_entities(%{event_id: nil} = data), do: data
+
+  def process_entities(%{event: %{@entities => entities}} = data) do
     link_entities =
       Enum.reduce(entities, %{}, fn {key, event_definition_list}, acc_map ->
         link_ids =
@@ -38,6 +57,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   Event is not ready for processing so that it is retried. Will update the data map with :link_ids
   field and store the return value.
   """
+  def process_entity_ids(%{validated: false} = data), do: data
+  def process_entity_ids(%{event_id: nil} = data), do: data
+
   def process_entity_ids(%{link_entities: link_entities} = data) do
     %{
       ready_to_process: ready_to_process,
@@ -65,6 +87,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   and child mappings for each id in link_ids. Will update the data map with :event_links field
   and with the return value.
   """
+  def process_event_links(%{validated: false} = data), do: data
+  def process_event_links(%{event_id: nil} = data), do: data
+
   def process_event_links(%{event_id: event_id, link_ids: link_ids} = data) do
     event_links =
       Enum.reduce(link_ids, [], fn {key_0, value_0}, acc_0 ->
@@ -84,78 +109,44 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
     Map.put(data, :event_links, event_links)
   end
 
-  def process_event_links(%{event_id: nil} = data), do: data
-
   @doc """
-  Requires :event_details, :notifications, :elasticsearch_docs, :delete_ids, and :delete_docs
-  fields in the data map. Takes all the fields and executes them in one databse transaction.
+  Requires :event_links fields in the data map. Takes all the fields and
+  executes them in one databse transaction.
   """
-  def execute_transaction(
-        %{
-          event_details: event_details,
-          notifications: notifications,
-          elasticsearch_docs: docs,
-          event_links: event_links,
-          delete_ids: event_ids,
-          delete_docs: doc_ids
-        } = data
-      ) do
+  def execute_transaction(%{validated: false} = data), do: data
+  def execute_transaction(%{event_id: nil} = data), do: data
+
+  def execute_transaction(%{delete_ids: event_ids, event_links: event_links} = data) do
     multi =
       case is_nil(event_ids) or Enum.empty?(event_ids) do
         true ->
           Multi.new()
 
         false ->
-          n_query =
-            from(n in Notification,
-              where: n.event_id in ^event_ids
-            )
-
-          e_query =
+          l_query =
             from(
-              e in Event,
-              where: e.id in ^event_ids
+              l in EventLink,
+              where: l.linkage_event_id in ^event_ids
             )
-
-            l_query =
-              from(
-                l in EventLink,
-                where: l.linkage_event_id in ^event_ids
-              )
 
           deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
           Multi.new()
-          |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
-          |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
           |> Multi.update_all(:update_event_links, l_query, set: [deleted_at: deleted_at])
       end
 
     multi
-    |> Multi.insert_all(:insert_event_detials, EventDetail, event_details)
-    |> Multi.insert_all(:insert_notifications, Notification, notifications)
     |> Multi.insert_all(:insert_event_links, EventLink, event_links)
     |> Repo.transaction()
 
-    case is_nil(doc_ids) or Enum.empty?(doc_ids) do
-      true ->
-        EventDocument.bulk_upsert_document(docs)
-
-      false ->
-        EventDocument.bulk_delete_document(doc_ids)
-        EventDocument.bulk_upsert_document(docs)
-    end
-
     # TODO: Need to format the correct prams to send to Cogynt-OTP
     # Send deleted_notifications to subscription_queue
-    # IngestClient.publish_deleted_notifications(event_ids)
+    # CogyntClient.publish_deleted_notifications(event_ids)
     # Send created_notifications to subscription_queue
-    # IngestClient.publish_subscriptions(notifications)
+    # CogyntClient.publish_subscriptions(notifications)
 
-    {:ok, data}
+    data
   end
-
-  def execute_transaction(%{event_id: nil} = data), do: {:ok, data}
 
   # ----------------------- #
   # --- private methods --- #

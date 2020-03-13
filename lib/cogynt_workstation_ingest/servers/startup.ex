@@ -1,19 +1,40 @@
-defmodule CogyntWorkstationIngest.Utils.Startup do
+defmodule CogyntWorkstationIngest.Servers.Startup do
   @moduledoc """
-  Module that is used for tasks that need to run upon Application startup
+  Genserver Module that is used for tasks that need to run upon Application startup
   """
   import Ecto.Query
+  use GenServer
   alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Repo
 
-  # ------------------------- #
-  # --- application calls --- #
-  # ------------------------- #
-  def initialize_consumers() do
+  # -------------------- #
+  # --- client calls --- #
+  # -------------------- #
+  def start_link do
+    GenServer.start_link(__MODULE__, [], name: __MODULE__)
+  end
+
+  # ------------------------ #
+  # --- server callbacks --- #
+  # ------------------------ #
+  @impl true
+  def init(_args) do
+    {:ok, %{}}
+  end
+
+  @impl true
+  def handle_info(:initialize_consumers, state) do
+    IO.puts("@@@ Initializing Consumers")
+    initialize_consumers()
+    {:noreply, state}
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp initialize_consumers() do
     with :ok <- Application.ensure_started(:phoenix),
-         :ok <- Application.ensure_started(:ecto_sql),
-         :ok <- Application.ensure_started(:ecto_enum),
          :ok <- Application.ensure_started(:postgrex) do
       query =
         from(
@@ -38,9 +59,6 @@ defmodule CogyntWorkstationIngest.Utils.Startup do
     end
   end
 
-  # ----------------------- #
-  # --- private methods --- #
-  # ----------------------- #
   defp convert_event_definition(event_definition) do
     event_definition_details =
       case event_definition do

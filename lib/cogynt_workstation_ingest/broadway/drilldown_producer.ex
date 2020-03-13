@@ -56,8 +56,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   @impl true
   def handle_demand(incoming_demand, %{queue: queue, demand: demand} = state)
       when incoming_demand > 0 do
-    # IO.inspect(incoming_demand, label: "@@@ Incoming Demand")
-    # IO.inspect(demand, label: "@@@ Stored Demand")
     total_demand = incoming_demand + demand
     {messages, new_state} = fetch_and_release_demand(total_demand, queue, state)
     {:noreply, messages, new_state}

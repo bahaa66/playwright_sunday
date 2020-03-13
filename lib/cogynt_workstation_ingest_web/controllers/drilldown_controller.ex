@@ -13,7 +13,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
       data
       |> Map.values()
       |> Enum.filter(&(&1["template_type_id"] == id))
-      |> Enum.map(&Map.put(&1, "key", &1["id"]))
+      |> Enum.map(&Map.put(Map.put(&1, "key", &1["id"]), "#visited", []))
 
     render(conn, "index.json-api", data: data)
   end
@@ -23,7 +23,14 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
   """
   def show(conn, %{"id" => id}) do
     {:ok, data} = DrilldownCache.get(id)
-    data = Map.put(data, "key", data["id"])
-    render(conn, "show.json-api", data: data)
+
+    if data == nil do
+      render(conn, "404.json-api")
+    else
+      data = data
+      |> Map.put("key", data["id"])
+      |> Map.put("#visited", [])
+      render(conn, "show.json-api", data: data)
+    end
   end
 end

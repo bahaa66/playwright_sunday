@@ -42,6 +42,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:gettext, "~> 0.11"},
       {:jsonrpc2, "~> 1.0"},
       {:jason, "~> 1.0"},
+      {:ja_serializer, "~> 0.13.0"},
       {:uuid, "~> 1.1"},
       {:plug, "~> 1.8"},
       {:cowboy, "~> 2.6"},
@@ -55,17 +56,16 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:junit_formatter, "~> 3.0"},
       {:timber, "~> 3.1.1"},
       {:timber_phoenix, "~> 1.0"},
-      {:poison, ">= 0.0.0", only: [:dev, :test]},
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
       {:models,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "models",
-       tag: "v0.1.1",
+       tag: "v0.1.6-beta",
        override: true},
       {:migrations,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "migrations",
-       tag: "v0.1.1",
+       tag: "v0.1.6-beta",
        override: true}
     ]
   end

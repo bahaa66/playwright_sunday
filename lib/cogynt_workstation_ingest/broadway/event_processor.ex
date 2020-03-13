@@ -9,7 +9,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias Models.Notifications.{Notification, NotificationSetting}
   alias CogyntWorkstationIngest.Elasticsearch.EventDocument
   alias CogyntWorkstationIngest.Repo
-  alias CogyntWorkstationIngestWeb.Rpc.IngestClient
+  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -25,7 +25,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   soft_deleted from the database and elasticsearch. The data map is updated with the :event_id,
   :delete_ids, :delete_docs fields.
   """
-  def process_event(%{event: %{@crud => action} = _event} = data) do
+  def process_event(%{event: %{@crud => action}} = data) do
     case action do
       @update ->
         {:ok, {new_event_id, delete_event_ids, delete_doc_ids}} = update_event(data)
@@ -72,6 +72,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   maps. Also creates a list of elasticsearch docs. Returns an updated data map with
   the :event_details and :elasticsearch_docs values.
   """
+  def process_event_details_and_elasticsearch_docs(%{event_id: nil} = data), do: data
+
   def process_event_details_and_elasticsearch_docs(
         %{event: event, event_definition: event_definition, event_id: event_id} = data
       ) do
@@ -123,8 +125,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     |> Map.put(:elasticsearch_docs, elasticseach_docs)
   end
 
-  def process_event_details_and_elasticsearch_docs(%{event_id: nil} = data), do: data
-
   @doc """
   Requires event, event_definition and event_id fields in the data map. process_notifications/1
   will stream all notification_settings that are linked to the event_definition.id. On each
@@ -132,6 +132,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   notification maps. Returns an updated data map with the field :notifications storing the list
   of notification maps.
   """
+  def process_notifications(%{event_id: nil} = data), do: data
+
   def process_notifications(
         %{event: event, event_definition: event_definition, event_id: event_id} = data
       ) do
@@ -170,17 +172,80 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             |> Enum.to_list()
           end)
 
-        Map.put(data, :notifications, notifications)
+        if Enum.empty?(notifications) do
+          Map.put(data, :notifications, nil)
+        else
+          Map.put(data, :notifications, notifications)
+        end
 
       false ->
-        data
+        Map.put(data, :notifications, nil)
     end
   end
 
   @doc """
   Requires :event_details, :notifications, :elasticsearch_docs, :delete_ids, and :delete_docs
-  fields in the data map. Takes all the fields and executes them in one databse transaction.
+  fields in the data map. Takes all the fields and executes them in one databse transaction. When
+  it finishes with no errors it will update the :event_processed key to have a value of true
+  in the data map and return.
   """
+  def execute_transaction(%{event_id: nil} = data), do: Map.put(data, :event_processed, true)
+
+  def execute_transaction(
+        %{
+          event_details: event_details,
+          elasticsearch_docs: docs,
+          notifications: nil,
+          delete_ids: event_ids,
+          delete_docs: doc_ids
+        } = data
+      ) do
+    multi =
+      case is_nil(event_ids) or Enum.empty?(event_ids) do
+        true ->
+          Multi.new()
+
+        false ->
+          n_query =
+            from(n in Notification,
+              where: n.event_id in ^event_ids
+            )
+
+          e_query =
+            from(
+              e in Event,
+              where: e.id in ^event_ids
+            )
+
+          deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
+
+          Multi.new()
+          |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
+          |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
+      end
+
+    multi
+    |> Multi.insert_all(:insert_event_detials, EventDetail, event_details)
+    |> Repo.transaction()
+
+    case is_nil(doc_ids) or Enum.empty?(doc_ids) do
+      true ->
+        EventDocument.bulk_upsert_document(docs)
+
+      false ->
+        EventDocument.bulk_delete_document(doc_ids)
+        EventDocument.bulk_upsert_document(docs)
+    end
+
+    # TODO: Need to format the correct prams to send to Cogynt-OTP
+    # Send deleted_notifications to subscription_queue
+    # CogyntClient.publish_deleted_notifications(event_ids)
+    # Send created_notifications to subscription_queue
+    # CogyntClient.publish_subscriptions(notifications)
+
+    Map.put(data, :event_processed, true)
+  end
+
   def execute_transaction(
         %{
           event_details: event_details,
@@ -230,14 +295,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     # TODO: Need to format the correct prams to send to Cogynt-OTP
     # Send deleted_notifications to subscription_queue
-    # IngestClient.publish_deleted_notifications(event_ids)
+    # CogyntClient.publish_deleted_notifications(event_ids)
     # Send created_notifications to subscription_queue
-    # IngestClient.publish_subscriptions(notifications)
+    # CogyntClient.publish_subscriptions(notifications)
 
-    {:ok, data}
+    Map.put(data, :event_processed, true)
   end
-
-  def execute_transaction(%{event_id: nil} = data), do: {:ok, data}
 
   # ----------------------- #
   # --- private methods --- #

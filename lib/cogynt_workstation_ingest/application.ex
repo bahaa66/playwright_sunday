@@ -11,9 +11,10 @@ defmodule CogyntWorkstationIngest.Application do
     DrilldownSupervisor
   }
 
+  alias CogyntWorkstationIngest.Servers.Startup
   alias CogyntWorkstationIngest.Broadway.{EventPipeline, LinkEventPipeline}
-  alias CogyntWorkstationIngestWeb.Rpc.IngestHandler
-  alias CogyntWorkstationIngest.Utils.Startup
+
+  @init_delay Application.get_env(:cogynt_workstation_ingest, :startup)[:init_delay]
 
   def start(_type, _args) do
     # List all child processes to be supervised
@@ -34,15 +35,12 @@ defmodule CogyntWorkstationIngest.Application do
       child_spec_supervisor(ServerSupervisor, ServerSupervisor)
     ]
 
-    JSONRPC2.Servers.HTTP.http(IngestHandler, port: 80)
-
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: CogyntWorkstationIngest.Supervisor]
     result = Supervisor.start_link(children, opts)
 
-    #temp commented out untill ecto not blocking prod from starting
-    #Startup.initialize_consumers()
+    Process.send_after(Startup, :initialize_consumers, @init_delay)
 
     result
   end

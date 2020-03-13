@@ -37,7 +37,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
 
   @impl true
   def handle_info(:tick, state) do
-    ConsumerGroupSupervisor.start_child
+    ConsumerGroupSupervisor.start_child()
     {:noreply, state}
   end
 
@@ -52,39 +52,41 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
   end
 
   @impl true
-  def handle_cast({:put_data, %{sol_id: id, sol: sol}}, state) do
-    sol =
-      (state[id] || %{"events" => []})
-      |> Map.merge(sol)
-
-    state = Map.put(state, id, sol)
-    {:noreply, state}
-  end
-
-  @impl true
   def handle_cast({:put_data, %{sol_id: id, sol: sol, evnt: evnt}}, state) do
     sol =
-      (state[id] || %{"events" => []})
+      (state[id] || %{"events" => %{}})
       |> Map.merge(sol)
 
     state =
-      if id == evnt["published_by"] do
+      if sol["id"] == evnt["published_by"] do
         # event is input and published by same instance
         state
       else
-        if id == "09595f45-484d-36eb-832e-58735416862e" do
-          Logger.info(
-            "DrillDown Debug: @@@@ Event for template target 09595f45-484d-36eb-832e-58735416862e"
-          )
+        key = evnt["id"] <> "!" <> evnt["assertion_id"]
+        replace = sol["events"][key]
+
+        if replace != nil do
+          IO.inspect(evnt, label: "@@@@ Received event")
+          IO.inspect(replace, label: "@@@@ Replacing")
         end
 
         sol =
           sol
-          |> Map.put("events", [evnt | sol["events"]])
+          |> Map.put("events", Map.put(sol["events"], key, evnt))
 
-        Map.put(state, id, sol)
+        Map.put(state, sol["id"], sol)
       end
 
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast({:put_data, %{sol_id: id, sol: sol}}, state) do
+    sol =
+      (state[id] || %{"events" => %{}})
+      |> Map.merge(sol)
+
+    state = Map.put(state, id, sol)
     {:noreply, state}
   end
 
