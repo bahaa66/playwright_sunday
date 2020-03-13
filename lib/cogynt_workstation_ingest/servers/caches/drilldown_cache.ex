@@ -52,29 +52,44 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
   end
 
   @impl true
-  def handle_cast({:put_data, %{sol_id: id, sol: sol, evnt: evnt}}, state) do
+  def handle_cast({:put_data, %{sol_id: id, sol: sol, evnt: evnt} = data}, state) do
+    IO.inspect(data, label: "@@@@ Received event")
+
     sol =
-      (state[id] || %{"events" => %{}})
+      (state[id] || %{"events" => %{}, "outcomes" => []})
       |> Map.merge(sol)
 
     state =
-      if sol["id"] == evnt["published_by"] do
-        # event is input and published by same instance
-        state
-      else
-        key = evnt["id"] <> "!" <> evnt["assertion_id"]
-        replace = sol["events"][key]
+      cond do
+        not Map.has_key?(data, "aid") ->
+          sol =
+            sol
+            |> Map.put("outcomes", [evnt | sol["outcomes"]])
 
-        if replace != nil do
-          IO.inspect(evnt, label: "@@@@ Received event")
-          IO.inspect(replace, label: "@@@@ Replacing")
-        end
+          Map.put(state, sol["id"], sol)
 
-        sol =
-          sol
-          |> Map.put("events", Map.put(sol["events"], key, evnt))
+        sol["id"] == evnt["published_by"] ->
+          # event is input and published by same instance
+          state
 
-        Map.put(state, sol["id"], sol)
+        Map.has_key?(data, "aid") ->
+          key = evnt["id"] <> "!" <> evnt["assertion_id"]
+          replace = sol["events"][key]
+
+          if replace != nil do
+            IO.inspect(evnt, label: "@@@@ Received event")
+            IO.inspect(replace, label: "@@@@ Replacing")
+          end
+
+          sol =
+            sol
+            |> Map.put("events", Map.put(sol["events"], key, evnt))
+
+          Map.put(state, sol["id"], sol)
+
+        true ->
+          # should not reach here
+          state
       end
 
     {:noreply, state}
@@ -82,8 +97,10 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
 
   @impl true
   def handle_cast({:put_data, %{sol_id: id, sol: sol}}, state) do
+    IO.inspect("@@@@ Received solution #{id}")
+
     sol =
-      (state[id] || %{"events" => %{}})
+      (state[id] || %{"events" => %{}, "outcomes" => []})
       |> Map.merge(sol)
 
     state = Map.put(state, id, sol)

@@ -17,6 +17,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
     |> Map.delete("id")
     |> Map.delete(:id)
     |> Map.delete("events")
+    |> Map.delete("outcomes")
     |> Map.delete("#visited")
     |> JA_Keys.dasherize()
   end
@@ -68,6 +69,16 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
       |> Map.put("#visited", visited)
       |> IO.inspect(label: "@@@@ child")
     end)
+    |> Enum.sort_by(& &1["id"])
+  end
+
+  has_many :outcomes,
+    serializer: CogyntWeb.EventView,
+    include: true,
+    identifiers: :always
+
+  def outcomes(info, _conn) do
+    info["outcomes"]
     |> Enum.sort_by(& &1["id"])
   end
 
