@@ -5,6 +5,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   use Supervisor
 
   alias CogyntWorkstationIngest.Servers.Caches.{ConsumerRetryCache, DrilldownCache}
+  alias CogyntWorkstationIngest.Servers.Startup
 
   def start_link do
     Supervisor.start_link(__MODULE__, [], name: __MODULE__)
@@ -14,7 +15,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   def init(_) do
     children = [
       child_spec(ConsumerRetryCache),
-      child_spec(DrilldownCache)
+      child_spec(DrilldownCache),
+      child_spec(Startup)
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
