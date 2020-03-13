@@ -35,7 +35,6 @@ env:
   HTTP_PORT: 4000
   HTTPS_PORT: 8443
   LOG_LEVEL: debug
-  HTTP_PORT: 80
 
   # COGYNT_HOST: http://cogynt-dst-cogynt-worksation-ingest.{{ .Release.namespace }}
 
