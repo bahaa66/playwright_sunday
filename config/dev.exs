@@ -57,9 +57,6 @@ config :elasticsearch, :config,
   elasticsearch_client: System.get_env("ELASTIC_CLIENT") || Elasticsearch,
   utc_offset: 0
 
-config :migrations, :application,
-  repo: System.get_env("REPO_MODULE") || CogyntWorkstationIngest.Repo
-
 # Configurations for keys in Cogynt Core events
 config :cogynt_workstation_ingest, :core_keys,
   crud: System.get_env("CORE_KEYS_CRUD") || "$crud",
