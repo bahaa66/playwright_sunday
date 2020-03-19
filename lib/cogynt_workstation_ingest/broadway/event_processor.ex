@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   alias Models.Events.{Event, EventDetail}
   alias Models.Notifications.{Notification, NotificationSetting}
-  alias CogyntWorkstationIngest.Elasticsearch.EventDocument
+  alias CogyntWorkstationIngest.Elasticsearch.{EventDocument, RiskHistoryDocument}
   alias CogyntWorkstationIngest.Repo
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
 
@@ -70,7 +70,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   Requires event, event_definition and event_id fields in the data map. Takes the
   field_name and field_value fields from the event and creates a list of event_detail
   maps. Also creates a list of elasticsearch docs. Returns an updated data map with
-  the :event_details and :elasticsearch_docs values.
+  the :event_details, :risk_history_doc and :event_docs values.
   """
   def process_event_details_and_elasticsearch_docs(%{event_id: nil} = data), do: data
 
@@ -80,7 +80,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     action = Map.get(event, @crud)
     event = Map.drop(event, [@crud, @partial])
 
-    {event_details, elasticseach_docs} =
+    {event_details, event_docs} =
       Enum.reduce(event, {[], []}, fn {field_name, field_value}, {acc_events, acc_docs} = acc ->
         field_type = event_definition.fields[field_name]
 
@@ -121,8 +121,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         end
       end)
 
+    risk_doc = RiskHistoryDocument.build_document(event_id, event)
+
     Map.put(data, :event_details, event_details)
-    |> Map.put(:elasticsearch_docs, elasticseach_docs)
+    |> Map.put(:event_docs, event_docs)
+    |> Map.put(:risk_history_doc, risk_doc)
   end
 
   @doc """
@@ -184,7 +187,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   @doc """
-  Requires :event_details, :notifications, :elasticsearch_docs, :delete_ids, and :delete_docs
+  Requires :event_details, :notifications, :event_docs, :risk_history_doc, :delete_ids, and :delete_docs
   fields in the data map. Takes all the fields and executes them in one databse transaction. When
   it finishes with no errors it will update the :event_processed key to have a value of true
   in the data map and return.
@@ -194,7 +197,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   def execute_transaction(
         %{
           event_details: event_details,
-          elasticsearch_docs: docs,
+          event_docs: event_docs,
+          risk_history_doc: risk_history_doc,
           notifications: nil,
           delete_ids: event_ids,
           delete_docs: doc_ids
@@ -230,11 +234,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     case is_nil(doc_ids) or Enum.empty?(doc_ids) do
       true ->
-        EventDocument.bulk_upsert_document(docs)
+        EventDocument.bulk_upsert_document(event_docs)
 
       false ->
         EventDocument.bulk_delete_document(doc_ids)
-        EventDocument.bulk_upsert_document(docs)
+        EventDocument.bulk_upsert_document(event_docs)
+    end
+
+    if !is_nil(risk_history_doc) do
+      RiskHistoryDocument.upsert_document(risk_history_doc, risk_history_doc.id)
     end
 
     # TODO: Need to format the correct prams to send to Cogynt-OTP
@@ -250,7 +258,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         %{
           event_details: event_details,
           notifications: notifications,
-          elasticsearch_docs: docs,
+          event_docs: event_docs,
+          risk_history_doc: risk_history_doc,
           delete_ids: event_ids,
           delete_docs: doc_ids
         } = data
@@ -286,11 +295,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     case is_nil(doc_ids) or Enum.empty?(doc_ids) do
       true ->
-        EventDocument.bulk_upsert_document(docs)
+        EventDocument.bulk_upsert_document(event_docs)
 
       false ->
         EventDocument.bulk_delete_document(doc_ids)
-        EventDocument.bulk_upsert_document(docs)
+        EventDocument.bulk_upsert_document(event_docs)
+    end
+
+    if !is_nil(risk_history_doc) do
+      RiskHistoryDocument.upsert_document(risk_history_doc, risk_history_doc.id)
     end
 
     # TODO: Need to format the correct prams to send to Cogynt-OTP

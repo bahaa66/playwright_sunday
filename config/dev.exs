@@ -55,6 +55,8 @@ config :elasticsearch, :config,
   username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",
   password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
   elasticsearch_client: System.get_env("ELASTIC_CLIENT") || Elasticsearch,
+  event_index_alias: System.get_env("EVENT_INDEX_ALIAS") || "event",
+  risk_history_index_alias: System.get_env("RISK_HISTORY_INDEX_ALIAS") || "risk_history",
   utc_offset: 0
 
 # Configurations for keys in Cogynt Core events
@@ -93,10 +95,6 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.Producer,
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.DrilldownProducer,
   max_retry: System.get_env("DRILLDOWNPIPELINE_PRODUCER_MAX_RETRY") || 1400,
   time_delay: System.get_env("DRILLDOWNPIPELINE_PRODUCER_TIME_DELAY") || 60000
-
-# EventDocument Configurations
-config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.EventDocument,
-  index_alias: System.get_env("EVENT_INDEX_ALIAS") || "event"
 
 # ConsumerRetryCache Configurations
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache,

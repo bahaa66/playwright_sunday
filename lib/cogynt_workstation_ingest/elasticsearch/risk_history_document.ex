@@ -1,9 +1,7 @@
-defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
+defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
   @moduledoc """
-  Document module for the Events index in elasticsearch
+  Document module for the RiskHistory index in elasticsearch
   """
-  # TODO: move to cogynt-common
-
   require Logger
 
   @initial_index_settings %{
@@ -184,39 +182,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
   end
 
   @doc """
-  The same implementation as upsert_document(_,_) but with a list of documents
-  """
-  def bulk_upsert_document(document_data) do
-    if elasticsearch_enabled?() do
-      if document_data != nil and Enum.empty?(document_data) != true do
-        case Elasticsearch.bulk_upsert_document(index_alias(), document_data) do
-          {:ok, _result} ->
-            {:ok, :success}
-
-          {:error, error} ->
-            Logger.error(
-              "Elastic Bulk Upsert Error: Failed to bulk upsert documents for index: #{
-                index_alias()
-              }. Error: #{inspect(error)}"
-            )
-
-            {:error, error}
-        end
-      else
-        Logger.error(
-          "Elastic Bulk Upsert Error: Failed to bulk upsert documents for index: #{index_alias()}. Error: passed in empty data set"
-        )
-
-        {:error, "passed in empty data set"}
-      end
-    else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
-
-      {:ok, :elasticsearch_not_enabled}
-    end
-  end
-
-  @doc """
   Deletes a document based on its document_id
   """
   def delete_document(document_id) do
@@ -359,121 +324,23 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
     end
   end
 
-  def query_event_definition_event_count(event_definition_ids) do
-    if elasticsearch_enabled?() do
-      aggregation_key = "event_definition"
-      aggregation_sub_key = "event_count"
-
-      query = %{
-        size: 0,
-        aggregations: %{
-          event_definition: %{
-            terms: %{
-              field: "event_definition_id.keyword",
-              include: event_definition_ids
-            },
-            aggs: %{
-              event_count: %{
-                cardinality: %{
-                  field: "event_id.keyword"
-                }
-              }
-            }
-          }
-        }
+  @doc """
+  builds the document for RiskHistoryDocument
+  """
+  def build_document(event_id, event) do
+    with false <- is_nil(event["_confidence"]),
+         false <- is_nil(event["_timestamp"]),
+         false <- is_nil(event["published_by"]) do
+      %{
+        id: event_id,
+        confidence: event["_confidence"],
+        timestamp: event["_timestamp"],
+        published_by: event["published_by"]
       }
-
-      # TODO: Mock elasticsearch method
-      with {:ok, response} <-
-             Elasticsearch.query_aggs(index_alias(), query,
-               aggregation_key: aggregation_key,
-               aggregation_sub_key: aggregation_sub_key
-             ) do
-        Enum.reduce(response, %{}, fn
-          %{
-            "event_count" => event_count,
-            "event_definition" => event_definition_id
-          },
-          acc ->
-            Map.put(acc, event_definition_id, event_count)
-        end)
-      else
-        {:error, error} ->
-          Logger.error(
-            "Event Count Failure: There was a failure when querying event count for event_definitions: #{
-              inspect(error)
-            }"
-          )
-
-          nil
-      end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
-
-      {:ok, :elasticsearch_not_enabled}
+      true ->
+        nil
     end
-  end
-
-  @doc """
-  Will build and return the map that represents the event_document. Takes in the Raw Event data, event detail field_name
-  and field_value, the notification_setting title and event_definition_id, the created_at, updated_at and event_id for the event
-  and the Crud action key
-  """
-  def build_document(
-        event,
-        field_name,
-        field_value,
-        %{title: title, id: event_definition_id},
-        event_id,
-        action
-      ) do
-    {document_id, published_by} =
-      case event["published_by"] do
-        nil ->
-          # create a document_id that is the event_id + the hash of the field__name
-          {"#{event_id}#{url_encoded_hash_256(field_name)}", nil}
-
-        published_by ->
-          # create a document_id that is the published_by + the hash of the field__name
-          {"#{published_by}#{url_encoded_hash_256(field_name)}", published_by}
-      end
-
-    published_at =
-      case event["published_at"] do
-        nil -> DateTime.utc_now()
-        published_at -> published_at
-      end
-
-    %{
-      :id => document_id,
-      :created_at => DateTime.truncate(DateTime.utc_now(), :second),
-      :updated_at => DateTime.truncate(DateTime.utc_now(), :second),
-      :event_id => event_id,
-      :published_by => published_by,
-      :title => title,
-      :field_name => field_name,
-      :field_value => field_value,
-      :published_at => published_at,
-      :event_definition_id => event_definition_id
-    }
-    |> Map.put_new_lazy(:action, fn ->
-      if action == nil do
-        crud_create_value()
-      else
-        action
-      end
-    end)
-  end
-
-  @doc """
-  Creates a list of all the elasticsearch document ids that need to be deleted
-  based on the published_by id that is passed in
-  """
-  def build_document_ids(published_by, %{fields: fields}) do
-    Enum.reduce(fields, [], fn {field_name, _field_value}, acc ->
-      # create a document_id that is the published_by + the hash of the field__name
-      acc ++ ["#{published_by}#{url_encoded_hash_256(field_name)}"]
-    end)
   end
 
   @doc """
@@ -546,20 +413,13 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
     for {key, val} <- string_key_map, into: %{}, do: {String.to_atom(key), val}
   end
 
-  # Hashes the value and URL encodes it
-  defp url_encoded_hash_256(value) do
-    :crypto.hash(:sha256, value)
-    |> Base.encode64()
-    |> URI.encode_www_form()
-  end
-
   # ------------ #
   # ---Configs-- #
   # ------------ #
   defp config(app, key), do: Application.get_env(app, key)
 
   defp index_alias(),
-    do: config(:elasticsearch, :config)[:event_index_alias]
+    do: config(:elasticsearch, :config)[:risk_history_index_alias]
 
   defp elasticsearch_enabled?(), do: config(:elasticsearch, :config)[:enabled] || false
 
