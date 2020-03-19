@@ -29,7 +29,9 @@ env:
   POSTGRESQL_DATABASE: "cogynt_repo"
   ELASTIC_USERNAME: "elastic-user"
   ELASTIC_URL: "cogynt-elasticsearch-master:9200"
-  KAFKA_PORT: "31090"
+  KAFKA_BROKER: "cogynt-cp-kafka"
+  KAFKA_PORT: "9092"
+  COGYNT_PORT: "4001"
   TLS_KEY_PATH: "/opt/cogility/certs/server.key"
   TLS_CERT_PATH: "/opt/cogility/certs/server.cert"
   HTTP_PORT: 4000
@@ -64,11 +66,11 @@ envValueFrom:
       secretKeyRef:
         name: cogynt-hosts
         key: caws-host
-  - name: KAFKA_BROKER
-    valueFrom:
-      secretKeyRef:
-        name: cogynt-hosts
-        key: kafka-host
+  #- name: KAFKA_BROKER
+  #  valueFrom:
+  #    secretKeyRef:
+  #      name: cogynt-hosts
+  #      key: kafka-host
   - name: ELASTIC_PASSWORD
     valueFrom:
       secretKeyRef:
@@ -86,9 +88,9 @@ service:
     https:
       internal: 8443
       external: 443
-    http:
-      internal: 4000
-      external: 4000
+    rpc:
+      internal: 4001
+      external: 4001
   labels:
     part-of: "cogynt-dst"
   annotations:
