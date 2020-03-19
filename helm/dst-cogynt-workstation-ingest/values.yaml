@@ -31,7 +31,8 @@ env:
   ELASTIC_URL: "cogynt-elasticsearch-master:9200"
   KAFKA_BROKER: "cogynt-cp-kafka"
   KAFKA_PORT: "9092"
-  COGYNT_PORT: "4001"
+  COGYNT_OTP_SERVICE_NAME: "cogynt-dst-cogynt-otp"
+  COGYNT_OTP_SERVICE_PORT: "4000"
   TLS_KEY_PATH: "/opt/cogility/certs/server.key"
   TLS_CERT_PATH: "/opt/cogility/certs/server.cert"
   HTTP_PORT: 4000
@@ -79,8 +80,8 @@ service:
       internal: 8443
       external: 443
     http:
-      internal: 4001
-      external: 4001
+      internal: 4000
+      external: 4000
   labels:
     part-of: "cogynt-dst"
   annotations:
