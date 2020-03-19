@@ -14,23 +14,16 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
       }
     },
     mappings: %{
-      dynamic_templates: [
-        %{
-          dates_as_strings: %{
-            match_mapping_type: "date",
-            match: "field_*",
-            mapping: %{
-              type: "text",
-              fields: %{
-                raw: %{
-                  type: "keyword",
-                  ignore_above: 256
-                }
-              }
-            }
+      properties: %{
+        risk_history: %{
+          type: "nested",
+          properties: %{
+            confidence: { "type" : "text" },
+            published_by: { "type" : "text" },
+            timestamp: { "type" : "date" }
           }
         }
-      ]
+      }
     }
   }
 
@@ -333,9 +326,13 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
          false <- is_nil(event["published_by"]) do
       %{
         id: event_id,
-        confidence: event["_confidence"],
+        risk_history: [
+          %{
+            confidence: event["_confidence"],
         timestamp: event["_timestamp"],
         published_by: event["published_by"]
+          }
+        ]
       }
     else
       true ->
