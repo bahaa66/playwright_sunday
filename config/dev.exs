@@ -108,8 +108,8 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Servers.Caches.Drilld
 
 # rpc server/client configurations
 config :cogynt_workstation_ingest, :rpc,
-  cogynt_domain: System.get_env("COGYNT_DOMAIN") || "http://localhost",
-  cogynt_port: System.get_env("COGYNT_PORT") || 4010
+  cogynt_domain: System.get_env("COGYNT_OTP_SERVICE_NAME") || "http://localhost",
+  cogynt_port: System.get_env("COGYNT_OTP_SERVICE_PORT") || 4010
 
 # startup utils configurations
 config :cogynt_workstation_ingest, :startup, init_delay: System.get_env("INIT_DELAY") || 5000
