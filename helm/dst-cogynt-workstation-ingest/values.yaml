@@ -86,6 +86,9 @@ service:
     https:
       internal: 8443
       external: 443
+    http:
+      internal: 4000
+      external: 4000
   labels:
     part-of: "cogynt-dst"
   annotations:
