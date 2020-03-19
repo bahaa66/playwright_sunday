@@ -27,9 +27,11 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
     if data == nil do
       render(conn, "404.json-api")
     else
-      data = data
-      |> Map.put("key", data["id"])
-      |> Map.put("#visited", [])
+      data =
+        data
+        |> Map.put("key", data["id"])
+        |> Map.put("#visited", [])
+
       render(conn, "show.json-api", data: data)
     end
   end
