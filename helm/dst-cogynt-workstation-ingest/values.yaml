@@ -140,25 +140,6 @@ ingress:
     - secretName: cogynt-global-files-tls
       hosts:
       - '{{repl (LicenseFieldValue "sd-caws")}}.{{repl (ConfigOption "hostname")}}'
-  auth:
-    enabled: true
-    port: https
-    labels:
-      part-of: "cogynt-core"
-    annotations:
-      kubernetes.io/ingress.class: "contour"
-      projectcontour.io/ingress.class: "contour"
-      ingress.kubernetes.io/force-ssl-redirect: "true"
-      kubernetes.io/ingress.allow-http: "true"
-      contour.heptio.com/tls-minimum-protocol-version: "TLSv1_2"
-    host: '{{repl (LicenseFieldValue "sd-caws")}}.{{repl (ConfigOption "hostname")}}'
-    service: cogynt-core-auth-otp
-    paths:
-      - /auth
-    tls:
-    - secretName: cogynt-global-files-tls
-      hosts:
-      - '{{repl (LicenseFieldValue "sd-caws")}}.{{repl (ConfigOption "hostname")}}'
 
 initContainers:
   set-cert-ownership:
