@@ -62,11 +62,11 @@ envValueFrom:
       secretKeyRef:
         name: cogynt-auth
         key: secret-key-base
-  #- name: COGYNT_DOMAIN
-  #  valueFrom:
-  #    secretKeyRef:
-  #      name: cogynt-hosts
-  #      key: caws-host
+  - name: COGYNT_DOMAIN
+    valueFrom:
+      secretKeyRef:
+        name: cogynt-hosts
+        key: caws-host
   #- name: KAFKA_BROKER
   #  valueFrom:
   #    secretKeyRef:
@@ -131,7 +131,6 @@ ingress:
     annotations:
       kubernetes.io/ingress.class: "contour"
       projectcontour.io/ingress.class: "contour"
-      contour.heptio.com/websocket-routes: "/socket"
       ingress.kubernetes.io/force-ssl-redirect: "false"
       kubernetes.io/ingress.allow-http: "true"
       contour.heptio.com/tls-minimum-protocol-version: "TLSv1_2"
