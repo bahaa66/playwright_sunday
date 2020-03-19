@@ -31,7 +31,6 @@ env:
   ELASTIC_URL: "cogynt-elasticsearch-master:9200"
   KAFKA_BROKER: "cogynt-cp-kafka"
   KAFKA_PORT: "9092"
-  COGYNT_DOMAIN: "cogynt-dst-cogynt-workstation-ingest"
   COGYNT_PORT: "4001"
   TLS_KEY_PATH: "/opt/cogility/certs/server.key"
   TLS_CERT_PATH: "/opt/cogility/certs/server.cert"
