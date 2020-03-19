@@ -32,7 +32,7 @@ env:
   KAFKA_BROKER: "cogynt-cp-kafka"
   KAFKA_PORT: "9092"
   COGYNT_OTP_SERVICE_NAME: "cogynt-dst-cogynt-otp"
-  COGYNT_OTP_SERVICE_PORT: "4000"
+  COGYNT_OTP_SERVICE_PORT: 4000
   TLS_KEY_PATH: "/opt/cogility/certs/server.key"
   TLS_CERT_PATH: "/opt/cogility/certs/server.cert"
   HTTP_PORT: 4000
