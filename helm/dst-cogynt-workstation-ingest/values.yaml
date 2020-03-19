@@ -46,16 +46,6 @@ envValueFrom:
       secretKeyRef:
         name: cogynt-postgresql-password
         key: postgresql-password
-  - name: COGYNT_SESSION_DOMAIN
-    valueFrom:
-      secretKeyRef:
-        name: cogynt-hosts
-        key: hostname
-  - name: COGYNT_AUTH_SALT
-    valueFrom:
-      secretKeyRef:
-        name: cogynt-auth
-        key: auth-salt
   - name: COGYNT_SECRET_KEY_BASE
     valueFrom:
       secretKeyRef:
