@@ -22,6 +22,9 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   watchers: [],
   http_client: System.get_env("HTTP_CLIENT") || HTTPoison
 
+# Environment configurations
+config :cogynt_workstation_ingest, env: (System.get_env("ENV") || "dev") |> String.to_atom()
+
 # Kafka Configurations
 config :kafka_ex,
   # Dev Kafka
