@@ -89,7 +89,7 @@ service:
     https:
       internal: 8443
       external: 443
-    rpc:
+    http:
       internal: 4001
       external: 4001
   labels:
