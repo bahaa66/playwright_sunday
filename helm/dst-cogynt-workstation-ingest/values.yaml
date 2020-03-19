@@ -31,6 +31,7 @@ env:
   ELASTIC_URL: "cogynt-elasticsearch-master:9200"
   KAFKA_BROKER: "cogynt-cp-kafka"
   KAFKA_PORT: "9092"
+  COGYNT_DOMAIN: "cogynt-dst-cogynt-workstation-ingest"
   COGYNT_PORT: "4001"
   TLS_KEY_PATH: "/opt/cogility/certs/server.key"
   TLS_CERT_PATH: "/opt/cogility/certs/server.cert"
@@ -61,11 +62,11 @@ envValueFrom:
       secretKeyRef:
         name: cogynt-auth
         key: secret-key-base
-  - name: COGYNT_DOMAIN
-    valueFrom:
-      secretKeyRef:
-        name: cogynt-hosts
-        key: caws-host
+  #- name: COGYNT_DOMAIN
+  #  valueFrom:
+  #    secretKeyRef:
+  #      name: cogynt-hosts
+  #      key: caws-host
   #- name: KAFKA_BROKER
   #  valueFrom:
   #    secretKeyRef:
