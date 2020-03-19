@@ -18,9 +18,15 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
         risk_history: %{
           type: "nested",
           properties: %{
-            confidence: { "type" : "text" },
-            published_by: { "type" : "text" },
-            timestamp: { "type" : "date" }
+            confidence: %{
+              type: "text"
+            },
+            published_by: %{
+              type: "text"
+            },
+            timestamp: %{
+              type: "date"
+            }
           }
         }
       }
@@ -320,23 +326,19 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
   @doc """
   builds the document for RiskHistoryDocument
   """
-  def build_document(event_id, event) do
-    with false <- is_nil(event["_confidence"]),
-         false <- is_nil(event["_timestamp"]),
-         false <- is_nil(event["published_by"]) do
-      %{
-        id: event_id,
-        risk_history: [
-          %{
-            confidence: event["_confidence"],
-        timestamp: event["_timestamp"],
-        published_by: event["published_by"]
-          }
-        ]
-      }
-    else
-      true ->
+  def build_document(event) do
+    case event["published_by"] do
+      nil ->
         nil
+
+      event_id ->
+        case Elasticsearch.get_document(index_alias(), event_id) do
+          {:ok, %{"risk_history" => risk_history}} ->
+            validate_event_data(event_id, event, risk_history)
+
+          {:error, error} ->
+            validate_event_data(event_id, event)
+        end
     end
   end
 
@@ -410,6 +412,35 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
     for {key, val} <- string_key_map, into: %{}, do: {String.to_atom(key), val}
   end
 
+  defp validate_event_data(event_id, event, risk_history \\ []) do
+    # TESTING #
+    IO.inspect(risk_history, label: "@@@ RISK HISTORY")
+
+    event =
+      Map.put(event, "_confidence", 1)
+      |> Map.put("_timestamp", DateTime.utc_now())
+
+    # ------ #
+    with false <- is_nil(event["_confidence"]),
+         false <- is_nil(event["_timestamp"]) do
+      %{
+        id: event_id,
+        risk_history:
+          risk_history ++
+            [
+              %{
+                confidence: event["_confidence"],
+                timestamp: event["_timestamp"],
+                published_by: event_id
+              }
+            ]
+      }
+    else
+      true ->
+        nil
+    end
+  end
+
   # ------------ #
   # ---Configs-- #
   # ------------ #
@@ -419,7 +450,4 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
     do: config(:elasticsearch, :config)[:risk_history_index_alias]
 
   defp elasticsearch_enabled?(), do: config(:elasticsearch, :config)[:enabled] || false
-
-  defp crud_create_value(),
-    do: Application.get_env(:cogynt_workstation_ingest, :core_keys)[:create]
 end

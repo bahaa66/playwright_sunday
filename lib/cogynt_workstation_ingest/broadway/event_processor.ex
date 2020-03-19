@@ -121,11 +121,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         end
       end)
 
-    risk_doc = RiskHistoryDocument.build_document(event_id, event)
-
     Map.put(data, :event_details, event_details)
     |> Map.put(:event_docs, event_docs)
-    |> Map.put(:risk_history_doc, risk_doc)
+    |> Map.put(:risk_history_doc, RiskHistoryDocument.build_document(event))
   end
 
   @doc """
