@@ -22,6 +22,9 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   watchers: [],
   http_client: System.get_env("HTTP_CLIENT") || HTTPoison
 
+# Environment configurations
+config :cogynt_workstation_ingest, env: (System.get_env("ENV") || "dev") |> String.to_atom()
+
 # Kafka Configurations
 config :kafka_ex,
   # Dev Kafka
@@ -106,8 +109,8 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Servers.Caches.Drilld
 
 # rpc server/client configurations
 config :cogynt_workstation_ingest, :rpc,
-  cogynt_domain: System.get_env("COGYNT_OTP_SERVICE_NAME") || "http://localhost",
-  cogynt_port: System.get_env("COGYNT_OTP_SERVICE_PORT") || 4010
+  cogynt_otp_service_name: System.get_env("COGYNT_OTP_SERVICE_NAME") || "http://localhost",
+  cogynt_otp_service_port: System.get_env("COGYNT_OTP_SERVICE_PORT") || 4010
 
 # startup utils configurations
 config :cogynt_workstation_ingest, :startup, init_delay: System.get_env("INIT_DELAY") || 5000

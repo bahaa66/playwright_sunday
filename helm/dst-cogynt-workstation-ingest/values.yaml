@@ -9,7 +9,7 @@ dockercfg:
 
 image:
   repository: 478685488679.dkr.ecr.us-west-2.amazonaws.com/dst-cogynt-workstation-ingest
-  tag: v1.1.2
+  tag: v1.2.3
   pullPolicy: IfNotPresent
   pullSecrets:
     - "ecruswest2registry"
@@ -29,7 +29,10 @@ env:
   POSTGRESQL_DATABASE: "cogynt_repo"
   ELASTIC_USERNAME: "elastic-user"
   ELASTIC_URL: "cogynt-elasticsearch-master:9200"
-  KAFKA_PORT: "31090"
+  KAFKA_BROKER: "cogynt-cp-kafka"
+  KAFKA_PORT: "9092"
+  COGYNT_OTP_SERVICE_NAME: "http://cogynt-dst-cogynt-otp"
+  COGYNT_OTP_SERVICE_PORT: 4000
   TLS_KEY_PATH: "/opt/cogility/certs/server.key"
   TLS_CERT_PATH: "/opt/cogility/certs/server.cert"
   HTTP_PORT: 4000
@@ -44,16 +47,6 @@ envValueFrom:
       secretKeyRef:
         name: cogynt-postgresql-password
         key: postgresql-password
-  - name: COGYNT_SESSION_DOMAIN
-    valueFrom:
-      secretKeyRef:
-        name: cogynt-hosts
-        key: hostname
-  - name: COGYNT_AUTH_SALT
-    valueFrom:
-      secretKeyRef:
-        name: cogynt-auth
-        key: auth-salt
   - name: COGYNT_SECRET_KEY_BASE
     valueFrom:
       secretKeyRef:
@@ -64,11 +57,11 @@ envValueFrom:
       secretKeyRef:
         name: cogynt-hosts
         key: caws-host
-  - name: KAFKA_BROKER
-    valueFrom:
-      secretKeyRef:
-        name: cogynt-hosts
-        key: kafka-host
+  #- name: KAFKA_BROKER
+  #  valueFrom:
+  #    secretKeyRef:
+  #      name: cogynt-hosts
+  #      key: kafka-host
   - name: ELASTIC_PASSWORD
     valueFrom:
       secretKeyRef:
@@ -86,6 +79,9 @@ service:
     https:
       internal: 8443
       external: 443
+    http:
+      internal: 4000
+      external: 4000
   labels:
     part-of: "cogynt-dst"
   annotations:
@@ -125,32 +121,12 @@ ingress:
     annotations:
       kubernetes.io/ingress.class: "contour"
       projectcontour.io/ingress.class: "contour"
-      contour.heptio.com/websocket-routes: "/socket"
       ingress.kubernetes.io/force-ssl-redirect: "false"
       kubernetes.io/ingress.allow-http: "true"
       contour.heptio.com/tls-minimum-protocol-version: "TLSv1_2"
     host: '{{repl (LicenseFieldValue "sd-caws")}}.{{repl (ConfigOption "hostname")}}'
     paths:
       - /api/drilldown
-    tls:
-    - secretName: cogynt-global-files-tls
-      hosts:
-      - '{{repl (LicenseFieldValue "sd-caws")}}.{{repl (ConfigOption "hostname")}}'
-  auth:
-    enabled: true
-    port: https
-    labels:
-      part-of: "cogynt-core"
-    annotations:
-      kubernetes.io/ingress.class: "contour"
-      projectcontour.io/ingress.class: "contour"
-      ingress.kubernetes.io/force-ssl-redirect: "true"
-      kubernetes.io/ingress.allow-http: "true"
-      contour.heptio.com/tls-minimum-protocol-version: "TLSv1_2"
-    host: '{{repl (LicenseFieldValue "sd-caws")}}.{{repl (ConfigOption "hostname")}}'
-    service: cogynt-core-auth-otp
-    paths:
-      - /auth
     tls:
     - secretName: cogynt-global-files-tls
       hosts:
