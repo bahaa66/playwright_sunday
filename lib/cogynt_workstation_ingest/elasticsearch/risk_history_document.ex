@@ -274,8 +274,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
   builds the document for RiskHistoryDocument
   """
   def build_document(event) do
-    event = Map.put(event, "published_by", Ecto.UUID.generate())
-
     case event["published_by"] do
       nil ->
         nil
@@ -301,14 +299,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
   end
 
   defp validate_event_data(event_id, event, risk_history \\ []) do
-    # TESTING #
-    IO.inspect(risk_history, label: "@@@ RISK HISTORY")
-
-    event =
-      Map.put(event, "_confidence", 1)
-      |> Map.put("_timestamp", DateTime.utc_now())
-
-    # ------ #
     with false <- is_nil(event["_confidence"]),
          false <- is_nil(event["_timestamp"]) do
       %{
