@@ -19,13 +19,28 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
           type: "nested",
           properties: %{
             confidence: %{
-              type: "text"
+              type: "text",
+              fields: %{
+                keyword: %{
+                  type: "keyword"
+                }
+              }
             },
             published_by: %{
-              type: "text"
+              type: "text",
+              fields: %{
+                keyword: %{
+                  type: "keyword"
+                }
+              }
             },
             timestamp: %{
-              type: "date"
+              type: "date",
+              fields: %{
+                keyword: %{
+                  type: "keyword"
+                }
+              }
             }
           }
         }
@@ -231,39 +246,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
   end
 
   @doc """
-  Deletes a document based on the results of a query ran against the index
-  """
-  def delete_by_query(args) do
-    if elasticsearch_enabled?() do
-      query_data = build_term_query(args)
-
-      case Elasticsearch.delete_by_query(index_alias(), query_data) do
-        {:ok, result} ->
-          deleted = Map.get(result, "deleted")
-
-          Logger.info(
-            "Removed Record From Elastic: Delete_by_query removed #{deleted} records from ElasticSearch"
-          )
-
-          {:ok, deleted}
-
-        {:error, reason} ->
-          Logger.error(
-            "Failed To Remove Record From Elastic: Delete_by_query failed with reason #{
-              inspect(reason)
-            }"
-          )
-
-          {:error, reason}
-      end
-    else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
-
-      {:ok, :elasticsearch_not_enabled}
-    end
-  end
-
-  @doc """
   Returns true/false based on if the document exists for the document_id
   """
   def document_exists?(document_id) do
@@ -289,44 +271,11 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
   end
 
   @doc """
-  Runs a query against the index and returns the data that was found.
-  """
-  def query(query_data) do
-    if elasticsearch_enabled?() do
-      case Elasticsearch.query(index_alias(), query_data) do
-        {:ok, search_results, _total} ->
-          # TODO: This slows down the process by having to itterate through
-          # the entire list of search results again. See if there is a way to
-          # store or retrieve data from elastic and get the keys as atoms
-          updated_search_results =
-            Enum.reduce(search_results, [], fn result, acc ->
-              atom_map = for {key, val} <- result, into: %{}, do: {String.to_atom(key), val}
-
-              acc ++ [atom_map]
-            end)
-
-          {:ok, updated_search_results}
-
-        {:error, error} ->
-          Logger.error(
-            "Elastic Query Error: Failed to query Elasticsearch index: #{index_alias()}. Reason: #{
-              inspect(error)
-            }"
-          )
-
-          {:error, error}
-      end
-    else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
-
-      {:ok, :elasticsearch_not_enabled}
-    end
-  end
-
-  @doc """
   builds the document for RiskHistoryDocument
   """
   def build_document(event) do
+    event = Map.put(event, "published_by", Ecto.UUID.generate())
+
     case event["published_by"] do
       nil ->
         nil
@@ -336,71 +285,10 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
           {:ok, %{"risk_history" => risk_history}} ->
             validate_event_data(event_id, event, risk_history)
 
-          {:error, error} ->
+          {:error, _error} ->
             validate_event_data(event_id, event)
         end
     end
-  end
-
-  @doc """
-  Will take a map %{field: ".....", value: "..."} and builds the
-  term query to run against the elasticsearch index.
-  """
-  def build_term_query(%{field: field, value: value}) do
-    %{
-      query: %{
-        term: %{
-          "#{field}.keyword" => %{
-            value: "#{value}",
-            boost: "1.0"
-          }
-        }
-      }
-    }
-  end
-
-  @doc """
-   Will take a map %{field: ".....", values: ["...", "...."]} and builds the
-   terms query to run against the elasticsearch index.
-  """
-  def build_terms_query(%{field: field, values: values}) do
-    %{
-      query: %{
-        terms: %{
-          "#{field}.keyword" => values,
-          boost: "1.0"
-        }
-      }
-    }
-  end
-
-  @doc """
-  Builds a wildcard query based on the args map
-  """
-  def build_wildcard_query(args) do
-    query = %{}
-
-    Enum.reduce(args, query, fn
-      {:limit, limit}, query when is_integer(limit) ->
-        Map.put_new(query, :size, limit)
-
-      {:offset, offset}, query when is_integer(offset) ->
-        Map.put_new(query, :from, offset)
-
-      {:filter, %{matching: search_term}}, query ->
-        search_query = %{
-          :wildcard => %{
-            :field_value => %{
-              :value => "*#{search_term}*"
-            }
-          }
-        }
-
-        Map.put_new(query, :query, search_query)
-
-      _, query ->
-        query
-    end)
   end
 
   # ----------------------#
