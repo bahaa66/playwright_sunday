@@ -26,7 +26,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
                 }
               }
             },
-            published_by: %{
+            event_id: %{
               type: "text",
               fields: %{
                 keyword: %{
@@ -273,13 +273,13 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
   @doc """
   builds the document for RiskHistoryDocument
   """
-  def build_document(event) do
+  def build_document(event_id, event) do
     case event["published_by"] do
       nil ->
         nil
 
-      event_id ->
-        case Elasticsearch.get_document(index_alias(), event_id) do
+      published_by ->
+        case Elasticsearch.get_document(index_alias(), published_by) do
           {:ok, %{"risk_history" => risk_history}} ->
             validate_event_data(event_id, event, risk_history)
 
@@ -302,14 +302,14 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
     with false <- is_nil(event["_confidence"]),
          false <- is_nil(event["_timestamp"]) do
       %{
-        id: event_id,
+        id: event["published_by"],
         risk_history:
           risk_history ++
             [
               %{
                 confidence: event["_confidence"],
                 timestamp: event["_timestamp"],
-                published_by: event_id
+                event_id: event_id
               }
             ]
       }

@@ -73,19 +73,26 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
 
     with {:ok, _} <- HTTPoison.start(),
          {:ok, false} <- EventDocument.index_exists?(),
-         {:ok, _} <- EventDocument.create_index(),
-         {:ok, false} <- RiskHistoryDocument.index_exists?(),
-         {:ok, _} <- RiskHistoryDocument.create_index() do
-      IO.puts(
-        "The indexes for CogyntWorkstation have been created."
-      )
+         {:ok, _} <- EventDocument.create_index() do
+      IO.puts("The event_index for CogyntWorkstation have been created.")
 
       IO.puts("indexes complete..")
     else
       {:ok, true} ->
-        IO.puts(
-          "Indexes already exists."
-        )
+        IO.puts("event_index already exists.")
+
+        IO.puts("indexes complete..")
+    end
+
+    with {:ok, _} <- HTTPoison.start(),
+         {:ok, false} <- RiskHistoryDocument.index_exists?(),
+         {:ok, _} <- RiskHistoryDocument.create_index() do
+      IO.puts("The risk_history_index for CogyntWorkstation have been created.")
+
+      IO.puts("indexes complete..")
+    else
+      {:ok, true} ->
+        IO.puts("risk_history_index already exists.")
 
         IO.puts("indexes complete..")
     end
