@@ -4,7 +4,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
   """
   require Logger
 
-  @confidence Application.get_env(:cogynt_workstation_ingest, :core_keys)[:confidence]
+  @confidence Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
 
   @initial_index_settings %{
     settings: %{
