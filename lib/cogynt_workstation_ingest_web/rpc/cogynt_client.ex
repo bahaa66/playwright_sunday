@@ -3,9 +3,9 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
 
   @path "/rpc/cogynt"
 
-  def publish_deleted_notifications(notifications) when is_list(notifications) do
+  def publish_deleted_notifications(event_ids) when is_list(event_ids) do
     url = "#{service_name()}:#{service_port()}#{@path}"
-    response = HTTP.call(url, "publish:deleted_notifications", notifications)
+    response = HTTP.call(url, "publish:deleted_notifications", event_ids)
 
     case response do
       {:ok, %{"body" => body, "status" => status}} when status == "ok" ->
@@ -19,7 +19,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
     end
   end
 
-  def publish_subscriptions(notifications) when is_list(notifications) do
+  def publish_notifications(notifications) when is_list(notifications) do
     url = "#{service_name()}:#{service_port()}#{@path}"
     response = HTTP.call(url, "publish:subscriptions", notifications)
 
