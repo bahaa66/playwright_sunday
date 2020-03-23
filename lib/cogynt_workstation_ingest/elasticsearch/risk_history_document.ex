@@ -4,6 +4,8 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
   """
   require Logger
 
+  @confidence Application.get_env(:cogynt_workstation_ingest, :core_keys)[:confidence]
+
   @initial_index_settings %{
     settings: %{
       index: %{
@@ -299,7 +301,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
   end
 
   defp validate_event_data(event_id, event, risk_history \\ []) do
-    with false <- is_nil(event["_confidence"]),
+    with false <- is_nil(event[@confidence]),
          false <- is_nil(event["_timestamp"]) do
       %{
         id: event["published_by"],
@@ -307,7 +309,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
           risk_history ++
             [
               %{
-                confidence: event["_confidence"],
+                confidence: event[@confidence],
                 timestamp: event["_timestamp"],
                 event_id: event_id
               }
