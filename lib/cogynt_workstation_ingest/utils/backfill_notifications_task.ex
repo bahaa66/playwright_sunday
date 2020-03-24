@@ -9,7 +9,7 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
   alias Models.Notifications.{NotificationSetting, Notification}
   alias Models.Events.{Event, EventDefinition}
   alias CogyntWorkstationIngest.Repo
-  alias CogyntWorkstationIngest.Rpc.CogyntClient
+  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
 
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
   @partial Application.get_env(:cogynt_workstation_ingest, :core_keys)[:partial]
