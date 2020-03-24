@@ -4,8 +4,9 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Broadway.Producer
   alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
+  #alias CogyntWorkstationIngest.Broadway.Producer
 
-  @linkage Application.get_env(:cogynt_workstation_ingest, :core_keys)[:link_data_type]
+  #@linkage Application.get_env(:cogynt_workstation_ingest, :core_keys)[:link_data_type]
 
   def handle_request("ingest:start_consumer", event_definition) when is_map(event_definition) do
     result = ConsumerGroupSupervisor.start_child(keys_to_atoms(event_definition))
@@ -79,7 +80,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp link_event?(%{event_type: type}), do: type == @linkage
+  #defp link_event?(%{event_type: type}), do: type == @linkage
 
   defp keys_to_atoms(string_key_map) do
     for {key, val} <- string_key_map, into: %{}, do: {String.to_atom(key), val}

@@ -224,6 +224,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           Multi.new()
           |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
           |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
+
+          # Send deleted_notifications to subscription_queue
+          # TODO: improvement can possibly made to run a select during the transaction
+          # and call the cogynt-client with the returned notifications
+          CogyntClient.publish_deleted_notifications(event_ids)
       end
 
     multi
@@ -242,12 +247,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     if !is_nil(risk_history_doc) do
       RiskHistoryDocument.upsert_document(risk_history_doc, risk_history_doc.id)
     end
-
-    # TODO: Need to format the correct prams to send to Cogynt-OTP
-    # Send deleted_notifications to subscription_queue
-    # CogyntClient.publish_deleted_notifications(event_ids)
-    # Send created_notifications to subscription_queue
-    # CogyntClient.publish_subscriptions(notifications)
 
     Map.put(data, :event_processed, true)
   end
@@ -284,6 +283,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           Multi.new()
           |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
           |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
+
+          # Send deleted_notifications to subscription_queue
+          # TODO: improvement can possibly made to run a select during the transaction
+          # and call the cogynt-client with the returned notifications
+          CogyntClient.publish_deleted_notifications(event_ids)
       end
 
     multi
@@ -304,11 +308,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       RiskHistoryDocument.upsert_document(risk_history_doc, risk_history_doc.id)
     end
 
-    # TODO: Need to format the correct prams to send to Cogynt-OTP
-    # Send deleted_notifications to subscription_queue
-    # CogyntClient.publish_deleted_notifications(event_ids)
     # Send created_notifications to subscription_queue
-    # CogyntClient.publish_subscriptions(notifications)
+    CogyntClient.publish_notifications(notifications)
 
     Map.put(data, :event_processed, true)
   end
