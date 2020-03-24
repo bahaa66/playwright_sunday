@@ -75,8 +75,8 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
 
     Repo.insert_all(Notification, notifications)
 
-    # TODO: publish notifications via RPC to cogynt for subscriptions. Update
-    # notifications PR has been reviewd and merged
+    # Send created_notifications to subscription_queue
+    CogyntClient.publish_notifications(notifications)
   end
 
   defp get_notification_setting!(id), do: Repo.get!(NotificationSetting, id)

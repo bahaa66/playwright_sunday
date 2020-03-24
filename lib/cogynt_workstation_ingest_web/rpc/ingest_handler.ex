@@ -2,7 +2,6 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   use JSONRPC2.Server.Handler
 
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngest.Broadway.Producer
   alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
   #alias CogyntWorkstationIngest.Broadway.Producer
 
