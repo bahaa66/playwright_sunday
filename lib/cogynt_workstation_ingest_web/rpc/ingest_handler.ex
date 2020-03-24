@@ -3,10 +3,11 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
 
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Broadway.Producer
+  alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
 
   @linkage Application.get_env(:cogynt_workstation_ingest, :core_keys)[:link_data_type]
 
-  def handle_request("start:consumer", event_definition) when is_map(event_definition) do
+  def handle_request("ingest:start_consumer", event_definition) when is_map(event_definition) do
     result = ConsumerGroupSupervisor.start_child(keys_to_atoms(event_definition))
 
     case result do
@@ -30,7 +31,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
     end
   end
 
-  def handle_request("stop:consumer", event_definition) when is_map(event_definition) do
+  def handle_request("ingest:stop_consumer", event_definition) when is_map(event_definition) do
     event_definition = keys_to_atoms(event_definition)
 
     with :ok <- ConsumerGroupSupervisor.stop_child(event_definition.topic) do
@@ -62,6 +63,17 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
           body: "#{inspect(error)}"
         }
     end
+  end
+
+  def handle_request("ingest:backfill_notifications", %{
+        "notification_setting_id" => notification_setting_id
+      }) do
+    TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+
+    %{
+      status: :ok,
+      body: :success
+    }
   end
 
   # ----------------------- #
