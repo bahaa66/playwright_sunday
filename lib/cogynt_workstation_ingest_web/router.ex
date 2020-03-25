@@ -3,6 +3,7 @@ defmodule CogyntWorkstationIngestWeb.Router do
 
   pipeline :api do
     plug(:accepts, ["json"])
+    plug :fetch_session
   end
 
   forward "/rpc/ingest", JSONRPC2.Servers.HTTP.Plug, CogyntWorkstationIngestWeb.Rpc.IngestHandler
