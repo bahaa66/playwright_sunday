@@ -6,6 +6,10 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
   alias CogyntWorkstationIngestWeb.EventView
 
+  def render("401.json-api", _) do
+    %{errors: %{detail: "User is not authenticated"}}
+  end
+
   def type, do: "solutions"
 
   def id(info, _conn) do
