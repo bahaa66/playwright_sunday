@@ -1,5 +1,11 @@
 use Mix.Config
 
+# Session Configurations
+config :cogynt_workstation_ingest,
+  session_domain: System.get_env("COGYNT_SESSION_DOMAIN") || "localhost",
+  session_key: System.get_env("COGYNT_AUTH_SESSION_KEY") || "_cogynt_auth_key",
+  signing_salt: System.get_env("COGYNT_AUTH_SALT") || "I45Kpw9a"
+
 config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   load_from_system_env: true,
   url: [host: System.get_env("COGYNT_DOMAIN") || "localhost"],
@@ -35,7 +41,7 @@ config :kafka_ex,
     }
   ],
   # Local Kafka
-  # nbrokers: [{"127.0.0.1", 9092}],
+  # brokers: [{"127.0.0.1", 9092}],
   auto_offset_reset: :earliest,
   kafka_version: "2.0",
   commit_interval: System.get_env("KAFKA_COMMIT_INTERVAL") || 1000,
