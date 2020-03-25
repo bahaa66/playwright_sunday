@@ -73,10 +73,21 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
         |> Enum.to_list()
       end)
 
-    Repo.insert_all(Notification, notifications)
+    {_count, updated_notifications} = Repo.insert_all(Notification, notifications,
+      returning: [
+        :event_id,
+        :user_id,
+        :tag_id,
+        :id,
+        :title,
+        :notification_setting_id,
+        :created_at,
+        :updated_at
+      ]
+    )
 
     # Send created_notifications to subscription_queue
-    CogyntClient.publish_notifications(notifications)
+    CogyntClient.publish_notifications(updated_notifications)
   end
 
   defp get_notification_setting!(id), do: Repo.get!(NotificationSetting, id)
