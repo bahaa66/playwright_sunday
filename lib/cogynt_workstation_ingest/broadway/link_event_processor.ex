@@ -75,9 +75,10 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
       end)
 
     if ready_to_process == false do
-      raise "LinkEvent is not ready for processing. Events linked do not exist"
+      Map.put(data, :link_event_ready, false)
     else
-      Map.put(data, :link_ids, link_ids)
+      Map.put(data, :link_event_ready, true)
+      |> Map.put(:link_ids, link_ids)
     end
   end
 
@@ -87,6 +88,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   and with the return value.
   """
   def process_event_links(%{validated: false} = data), do: data
+  def process_event_links(%{link_event_ready: false} = data), do: data
   def process_event_links(%{event_id: nil} = data), do: data
 
   def process_event_links(%{event_id: event_id, link_ids: link_ids} = data) do
@@ -113,6 +115,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   executes them in one databse transaction.
   """
   def execute_transaction(%{validated: false} = data), do: data
+  def execute_transaction(%{link_event_ready: false} = data), do: data
   def execute_transaction(%{event_id: nil} = data), do: data
 
   def execute_transaction(%{delete_ids: event_ids, event_links: event_links} = data) do
