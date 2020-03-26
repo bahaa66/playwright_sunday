@@ -3,6 +3,12 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   require Logger
   alias KafkaEx.Protocol.Fetch
 
+  @defaults %{
+    event_processed: false,
+    event_id: nil,
+    retry_count: 0
+  }
+
   # -------------------- #
   # --- client calls --- #
   # -------------------- #
@@ -97,9 +103,9 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
           update_queue_value(acc, event_definition.id, %{
             event: message,
             event_definition: event_definition,
-            event_processed: false,
-            event_id: nil,
-            retry_count: 0
+            event_processed: @defaults.event_processed,
+            event_id: @defaults.event_id,
+            retry_count: @defaults.retry_count
           })
 
         {:error, error} ->

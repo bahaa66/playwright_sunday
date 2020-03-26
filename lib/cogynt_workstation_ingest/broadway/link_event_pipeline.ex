@@ -65,6 +65,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   @impl true
   def handle_failed(messages, _args) do
     IO.puts("Failed")
+    # IO.inspect(List.first(messages), label: "@@@ Failed Message")
     Producer.enqueue_failed_messages(messages, :linkevent)
     messages
   end
@@ -82,19 +83,19 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
         %Message{data: %{event_processed: false} = data} = message,
         _context
       ) do
-    data
-    |> EventProcessor.process_event()
-    |> EventProcessor.process_event_details_and_elasticsearch_docs()
-    |> EventProcessor.process_notifications()
-    # Sets event_processed -> true
-    |> EventProcessor.execute_transaction()
-    |> LinkEventProcessor.validate_link_event()
-    |> LinkEventProcessor.process_entities()
-    |> LinkEventProcessor.process_entity_ids()
-    |> LinkEventProcessor.process_event_links()
-    |> LinkEventProcessor.execute_transaction()
+    pipeline_state =
+      data
+      |> EventProcessor.process_event()
+      |> EventProcessor.process_event_details_and_elasticsearch_docs()
+      |> EventProcessor.process_notifications()
+      |> EventProcessor.execute_transaction()
+      |> LinkEventProcessor.validate_link_event()
+      |> LinkEventProcessor.process_entities()
+      |> LinkEventProcessor.process_entity_ids()
+      |> LinkEventProcessor.process_event_links()
+      |> LinkEventProcessor.execute_transaction()
 
-    message
+    check_for_failure_with_state(message, pipeline_state)
   end
 
   @impl true
@@ -103,14 +104,29 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
         %Message{data: %{event_processed: true} = data} = message,
         _context
       ) do
-    data
-    |> LinkEventProcessor.validate_link_event()
-    |> LinkEventProcessor.process_entities()
-    |> LinkEventProcessor.process_entity_ids()
-    |> LinkEventProcessor.process_event_links()
-    |> LinkEventProcessor.execute_transaction()
+    pipeline_state =
+      data
+      |> LinkEventProcessor.validate_link_event()
+      |> LinkEventProcessor.process_entities()
+      |> LinkEventProcessor.process_entity_ids()
+      |> LinkEventProcessor.process_event_links()
+      |> LinkEventProcessor.execute_transaction()
 
-    message
+    check_for_failure_with_state(message, pipeline_state)
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp check_for_failure_with_state(message, state) do
+    case Map.get(state, :link_event_ready) do
+      false ->
+        Map.put(message, :data, state)
+        |> Message.failed("LinkEvent is not ready for processing. Entity events DNE")
+
+      _ ->
+        message
+    end
   end
 
   # ---------------------- #

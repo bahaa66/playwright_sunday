@@ -21,7 +21,8 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
 
   def publish_notifications(notifications) when is_list(notifications) do
     url = "#{service_name()}:#{service_port()}#{@path}"
-    response = HTTP.call(url, "publish:subscriptions", notifications)
+
+    response = HTTP.call(url, "publish:subscriptions", notification_struct_to_map(notifications))
 
     case response do
       {:ok, %{"body" => body, "status" => status}} when status == "ok" ->
@@ -49,6 +50,27 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
       {:error, _} ->
         {:error, :internal_server_error}
     end
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp notification_struct_to_map(notifications) do
+    Enum.reduce(notifications, [], fn notification, acc ->
+      acc ++
+        [
+          %{
+            event_id: notification.event_id,
+            user_id: notification.user_id,
+            tag_id: notification.tag_id,
+            id: notification.id,
+            title: notification.title,
+            notification_setting_id: notification.notification_setting_id,
+            created_at: notification.created_at,
+            updated_at: notification.updated_at
+          }
+        ]
+    end)
   end
 
   # ---------------------- #

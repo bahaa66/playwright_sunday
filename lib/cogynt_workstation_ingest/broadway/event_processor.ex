@@ -84,7 +84,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       Enum.reduce(event, {[], []}, fn {field_name, field_value}, {acc_events, acc_docs} = acc ->
         field_type = event_definition.fields[field_name]
 
-        case is_nil(field_value) and field_name != @entities do
+        case is_nil(field_value) do
           false ->
             field_value = encode_json(field_value)
 
@@ -102,17 +102,21 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
             # Build elasticsearch docs list
             updated_docs =
-              acc_docs ++
-                [
-                  EventDocument.build_document(
-                    event,
-                    field_name,
-                    field_value,
-                    event_definition,
-                    event_id,
-                    action
-                  )
-                ]
+              if(field_name != @entities) do
+                acc_docs ++
+                  [
+                    EventDocument.build_document(
+                      event,
+                      field_name,
+                      field_value,
+                      event_definition,
+                      event_id,
+                      action
+                    )
+                  ]
+              else
+                acc_docs
+              end
 
             {updated_events, updated_docs}
 
@@ -221,18 +225,21 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
           deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
-          Multi.new()
-          |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
-          |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
+          multi =
+            Multi.new()
+            |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
+            |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
 
           # Send deleted_notifications to subscription_queue
           # TODO: improvement can possibly made to run a select during the transaction
           # and call the cogynt-client with the returned notifications
           CogyntClient.publish_deleted_notifications(event_ids)
+
+          multi
       end
 
     multi
-    |> Multi.insert_all(:insert_event_detials, EventDetail, event_details)
+    |> Multi.insert_all(:insert_event_details, EventDetail, event_details)
     |> Repo.transaction()
 
     case is_nil(doc_ids) or Enum.empty?(doc_ids) do
@@ -280,20 +287,35 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
           deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
-          Multi.new()
-          |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
-          |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
+          multi =
+            Multi.new()
+            |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
+            |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
 
           # Send deleted_notifications to subscription_queue
           # TODO: improvement can possibly made to run a select during the transaction
           # and call the cogynt-client with the returned notifications
           CogyntClient.publish_deleted_notifications(event_ids)
+
+          multi
       end
 
-    multi
-    |> Multi.insert_all(:insert_event_detials, EventDetail, event_details)
-    |> Multi.insert_all(:insert_notifications, Notification, notifications)
-    |> Repo.transaction()
+    {:ok, %{insert_notifications: {_count, created_notifications}}} =
+      multi
+      |> Multi.insert_all(:insert_event_details, EventDetail, event_details)
+      |> Multi.insert_all(:insert_notifications, Notification, notifications,
+        returning: [
+          :event_id,
+          :user_id,
+          :tag_id,
+          :id,
+          :title,
+          :notification_setting_id,
+          :created_at,
+          :updated_at
+        ]
+      )
+      |> Repo.transaction()
 
     case is_nil(doc_ids) or Enum.empty?(doc_ids) do
       true ->
@@ -309,7 +331,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
 
     # Send created_notifications to subscription_queue
-    CogyntClient.publish_notifications(notifications)
+    CogyntClient.publish_notifications(created_notifications)
 
     Map.put(data, :event_processed, true)
   end
@@ -339,7 +361,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   defp fetch_data_to_delete(%{
-         event: %{"published_by" => published_by} = _event,
+         event: %{"published_by" => published_by},
          event_definition: event_definition
        }) do
     query =
@@ -357,7 +379,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end)
 
     doc_ids = EventDocument.build_document_ids(published_by, event_definition)
-
     {:ok, {event_ids, doc_ids}}
   end
 

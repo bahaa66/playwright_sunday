@@ -8,7 +8,8 @@ defmodule CogyntWorkstationIngest.Application do
   alias CogyntWorkstationIngest.Supervisors.{
     ConsumerGroupSupervisor,
     ServerSupervisor,
-    DrilldownSupervisor
+    DrilldownSupervisor,
+    TaskSupervisor
   }
 
   alias CogyntWorkstationIngest.Servers.Startup
@@ -31,6 +32,8 @@ defmodule CogyntWorkstationIngest.Application do
       DrilldownSupervisor,
       # Start the DynamicSupervisor for KafkaEx ConsumerGroups
       ConsumerGroupSupervisor,
+      # The supervisor for all Task workers
+      TaskSupervisor,
       # Start the Supervisor for all Genserver modules
       child_spec_supervisor(ServerSupervisor, ServerSupervisor)
     ]
