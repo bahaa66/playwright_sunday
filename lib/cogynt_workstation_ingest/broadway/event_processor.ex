@@ -300,10 +300,22 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           multi
       end
 
-    multi
-    |> Multi.insert_all(:insert_event_details, EventDetail, event_details)
-    |> Multi.insert_all(:insert_notifications, Notification, notifications)
-    |> Repo.transaction()
+    {:ok, %{insert_notifications: {_count, created_notifications}}} =
+      multi
+      |> Multi.insert_all(:insert_event_details, EventDetail, event_details)
+      |> Multi.insert_all(:insert_notifications, Notification, notifications,
+        returning: [
+          :event_id,
+          :user_id,
+          :tag_id,
+          :id,
+          :title,
+          :notification_setting_id,
+          :created_at,
+          :updated_at
+        ]
+      )
+      |> Repo.transaction()
 
     case is_nil(doc_ids) or Enum.empty?(doc_ids) do
       true ->
@@ -319,7 +331,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
 
     # Send created_notifications to subscription_queue
-    CogyntClient.publish_notifications(notifications)
+    CogyntClient.publish_notifications(created_notifications)
 
     Map.put(data, :event_processed, true)
   end
