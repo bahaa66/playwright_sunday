@@ -361,7 +361,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   defp fetch_data_to_delete(%{
-         event: %{"published_by" => published_by} = _event,
+         event: %{"published_by" => published_by},
          event_definition: event_definition
        }) do
     query =
@@ -379,7 +379,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end)
 
     doc_ids = EventDocument.build_document_ids(published_by, event_definition)
-
     {:ok, {event_ids, doc_ids}}
   end
 
