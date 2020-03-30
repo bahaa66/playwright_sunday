@@ -427,15 +427,15 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
         event_id,
         action
       ) do
-    {document_id, published_by} =
-      case event["published_by"] do
+    {document_id, id} =
+      case event["id"] do
         nil ->
           # create a document_id that is the event_id + the hash of the field__name
           {"#{event_id}#{url_encoded_hash_256(field_name)}", nil}
 
-        published_by ->
-          # create a document_id that is the published_by + the hash of the field__name
-          {"#{published_by}#{url_encoded_hash_256(field_name)}", published_by}
+        id ->
+          # create a document_id that is the id + the hash of the field__name
+          {"#{id}#{url_encoded_hash_256(field_name)}", id}
       end
 
     published_at =
@@ -449,7 +449,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
       :created_at => DateTime.truncate(DateTime.utc_now(), :second),
       :updated_at => DateTime.truncate(DateTime.utc_now(), :second),
       :event_id => event_id,
-      :published_by => published_by,
+      :core_event_id => id,
       :title => title,
       :field_name => field_name,
       :field_value => field_value,
@@ -467,12 +467,12 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
 
   @doc """
   Creates a list of all the elasticsearch document ids that need to be deleted
-  based on the published_by id that is passed in
+  based on the id that is passed in
   """
-  def build_document_ids(published_by, %{fields: fields}) do
+  def build_document_ids(id, %{fields: fields}) do
     Enum.reduce(fields, [], fn {field_name, _field_value}, acc ->
-      # create a document_id that is the published_by + the hash of the field__name
-      acc ++ ["#{published_by}#{url_encoded_hash_256(field_name)}"]
+      # create a document_id that is the id + the hash of the field__name
+      acc ++ ["#{id}#{url_encoded_hash_256(field_name)}"]
     end)
   end
 

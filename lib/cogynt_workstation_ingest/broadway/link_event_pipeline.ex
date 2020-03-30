@@ -29,7 +29,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   end
 
   defp partition(msg) do
-    case msg.data.event["published_by"] do
+    case msg.data.event["id"] do
       nil ->
         :rand.uniform(1000)
 
@@ -65,7 +65,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   @impl true
   def handle_failed(messages, _args) do
     IO.puts("Failed")
-    # IO.inspect(List.first(messages), label: "@@@ Failed Message")
     Producer.enqueue_failed_messages(messages, :linkevent)
     messages
   end
