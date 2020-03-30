@@ -276,12 +276,12 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
   builds the document for RiskHistoryDocument
   """
   def build_document(event_id, event) do
-    case event["published_by"] do
+    case event["id"] do
       nil ->
         nil
 
-      published_by ->
-        case Elasticsearch.get_document(index_alias(), published_by) do
+      core_event_id ->
+        case Elasticsearch.get_document(index_alias(), core_event_id) do
           {:ok, %{"risk_history" => risk_history}} ->
             validate_event_data(event_id, event, risk_history)
 
@@ -304,7 +304,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
     with false <- is_nil(event[@confidence]),
          false <- is_nil(event["_timestamp"]) do
       %{
-        id: event["published_by"],
+        id: event["id"],
         risk_history:
           risk_history ++
             [

@@ -29,7 +29,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   defp partition(msg) do
-    case msg.data.event["published_by"] do
+    case msg.data.event["id"] do
       nil ->
         :rand.uniform(1000)
 
