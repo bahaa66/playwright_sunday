@@ -84,7 +84,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       Enum.reduce(event, {[], []}, fn {field_name, field_value}, {acc_events, acc_docs} = acc ->
         field_type = event_definition.fields[field_name]
 
-        case is_nil(field_value) or String.length(String.trim(field_value)) == 0 do
+        case is_nil(field_value) or field_value == "" do
           false ->
             field_value = encode_json(field_value)
 
