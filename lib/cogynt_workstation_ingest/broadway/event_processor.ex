@@ -84,7 +84,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       Enum.reduce(event, {[], []}, fn {field_name, field_value}, {acc_events, acc_docs} = acc ->
         field_type = event_definition.fields[field_name]
 
-        case is_nil(field_value) do
+        case is_nil(field_value) or field_value == "" do
           false ->
             field_value = encode_json(field_value)
 
@@ -361,14 +361,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   defp fetch_data_to_delete(%{
-         event: %{"published_by" => published_by},
+         event: %{"id" => id},
          event_definition: event_definition
        }) do
     query =
       from(d in EventDetail,
         join: e in Event,
         on: e.id == d.event_id,
-        where: d.field_value == ^published_by and is_nil(e.deleted_at),
+        where: d.field_value == ^id and is_nil(e.deleted_at),
         select: d.event_id
       )
 
@@ -378,7 +378,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         |> Enum.to_list()
       end)
 
-    doc_ids = EventDocument.build_document_ids(published_by, event_definition)
+    doc_ids = EventDocument.build_document_ids(id, event_definition)
     {:ok, {event_ids, doc_ids}}
   end
 
