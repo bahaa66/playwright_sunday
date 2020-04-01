@@ -120,6 +120,8 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   defp check_for_failure_with_state(message, state) do
     case Map.get(state, :link_event_ready) do
       false ->
+        Logger.warn("LinkEvent is not ready for processing. Entity events DNE")
+
         Map.put(message, :data, state)
         |> Message.failed("LinkEvent is not ready for processing. Entity events DNE")
 
