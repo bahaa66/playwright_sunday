@@ -1,11 +1,14 @@
 defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   use JSONRPC2.Server.Handler
 
+  import Ecto.Query, warn: false
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
-  #alias CogyntWorkstationIngest.Broadway.Producer
+  alias CogyntWorkstationIngest.Repo
+  alias Models.Events.EventDefinition
+  # alias CogyntWorkstationIngest.Broadway.Producer
 
-  #@linkage Application.get_env(:cogynt_workstation_ingest, :core_keys)[:link_data_type]
+  # @linkage Application.get_env(:cogynt_workstation_ingest, :core_keys)[:link_data_type]
 
   def handle_request("ingest:start_consumer", event_definition) when is_map(event_definition) do
     result = ConsumerGroupSupervisor.start_child(keys_to_atoms(event_definition))
@@ -76,12 +79,102 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
     }
   end
 
+  def handle_request("ingest:check_status", consumers) when is_list(consumers) do
+    try do
+      # Grab a list of existing Kafka topics
+      existing_topics = KafkaEx.metadata().topic_metadatas |> Enum.map(& &1.topic)
+      # reduce the consumer list
+      result =
+        Enum.reduce(consumers, [], fn %{"id" => id, "topic" => topic}, acc ->
+          case Enum.member?(existing_topics, topic) do
+            false ->
+              acc ++
+                [
+                  %{
+                    id: id,
+                    topic: topic,
+                    status: "topic does not exist"
+                  }
+                ]
+
+            true ->
+              case Process.whereis(consumer_group_name(topic)) do
+                nil ->
+                  active =
+                    Repo.one(
+                      from(ed in EventDefinition,
+                        where: ed.id == ^id,
+                        where: is_nil(ed.deleted_at),
+                        select: ed.active
+                      )
+                    )
+
+                  case active do
+                    nil ->
+                      acc ++
+                        [
+                          %{
+                            id: id,
+                            topic: topic,
+                            status: "has not been created yet"
+                          }
+                        ]
+
+                    false ->
+                      acc ++
+                        [
+                          %{
+                            id: id,
+                            topic: topic,
+                            status: "paused"
+                          }
+                        ]
+
+                    true ->
+                      acc ++
+                        [
+                          %{
+                            id: id,
+                            topic: topic,
+                            status: "is active, but no consumer running"
+                          }
+                        ]
+                  end
+
+                _ ->
+                  acc ++
+                    [
+                      %{
+                        id: id,
+                        topic: topic,
+                        status: "running"
+                      }
+                    ]
+              end
+          end
+        end)
+
+      %{
+        status: :ok,
+        body: result
+      }
+    rescue
+      _ ->
+        %{
+          status: :error,
+          body: :internal_server_error
+        }
+    end
+  end
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  #defp link_event?(%{event_type: type}), do: type == @linkage
+  # defp link_event?(%{event_type: type}), do: type == @linkage
 
   defp keys_to_atoms(string_key_map) do
     for {key, val} <- string_key_map, into: %{}, do: {String.to_atom(key), val}
   end
+
+  defp consumer_group_name(topic), do: String.to_atom(topic <> "Group")
 end

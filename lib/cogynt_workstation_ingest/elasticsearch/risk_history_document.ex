@@ -301,16 +301,19 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
   end
 
   defp validate_event_data(event_id, event, risk_history \\ []) do
-    with false <- is_nil(event[@confidence]),
-         false <- is_nil(event["_timestamp"]) do
+    confidence = event[@confidence]
+    timestamp = event["_timestamp"]
+
+    with false <- is_nil(confidence) and confidence == "",
+         false <- is_nil(event["_timestamp"]) and timestamp == "" do
       %{
         id: event["id"],
         risk_history:
           risk_history ++
             [
               %{
-                confidence: event[@confidence],
-                timestamp: event["_timestamp"],
+                confidence: confidence,
+                timestamp: timestamp,
                 event_id: event_id
               }
             ]
