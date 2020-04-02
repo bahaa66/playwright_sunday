@@ -8,11 +8,13 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
   alias Models.Events.{
     Event,
+    EventDefinition,
     EventDetail,
     EventLink
   }
 
   alias Models.Notifications.Notification
+  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
 
   # ---------------------------- #
   # --- Event Schema Methods --- #
@@ -76,6 +78,53 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.one()
   end
 
+  # -------------------------------------- #
+  # --- EventDefinition Schema Methods --- #
+  # -------------------------------------- #
+  @doc """
+  Returns a list of all active EventDefinitions
+  ## Examples
+      iex> get_active_event_definitions(id)
+      {:ok, [%EventDefinition{}]}
+      iex> get_active_event_definitions(invalid_id)
+      {:error, reason}
+  """
+  def get_active_event_definitions() do
+    Repo.all(
+      from(
+        ed in EventDefinition,
+        where: is_nil(ed.deleted_at),
+        where: ed.active == true
+      )
+    )
+  end
+
+  @doc """
+  Returns a list of all active EventDefinitions
+  ## Examples
+      iex> get_event_definition!(id)
+      {:ok, [%EventDefinition{}]}
+      iex> get_event_definition!(invalid_id)
+       ** (Ecto.NoResultsError)
+  """
+  def get_event_definition!(id) do
+    Repo.get!(EventDefinition, id)
+    |> Repo.preload(:event_definition_details)
+  end
+
+  @doc """
+  Returns a single EventDefinition struct from the query
+  ## Examples
+      iex> get_event_definition_by(%{id: id})
+      {:ok, %EventDefinition{...}}
+      iex> get_event_definition_by(%{id: invalid_id})
+      nil
+  """
+  def get_event_definition_by(clauses), do: Repo.get_by(EventDefinition, clauses)
+
+  # ------------------------------- #
+  # --- Event Processor Methods --- #
+  # ------------------------------- #
   @doc """
   Builds a Multi transactional object based on the args and executes the transaction.
   ## Examples
@@ -227,5 +276,66 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     multi
     |> Multi.insert_all(:insert_event_links, EventLink, event_links)
     |> Repo.transaction()
+  end
+
+  # ----------------------------------- #
+  # --- Application Startup Methods --- #
+  # ----------------------------------- #
+  def initalize_consumers_with_active_event_definitions() do
+    query =
+      from(
+        ed in EventDefinition,
+        where: is_nil(ed.deleted_at),
+        where: ed.active == true
+      )
+
+    Repo.transaction(fn ->
+      Repo.stream(query)
+      |> Stream.each(fn ed ->
+        ed
+        |> Repo.preload(:event_definition_details)
+        |> event_definition_struct_to_map()
+        |> ConsumerGroupSupervisor.start_child()
+      end)
+      |> Enum.to_list()
+    end)
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp event_definition_struct_to_map(event_definition) do
+    event_definition_details =
+      case event_definition do
+        %{event_definition_details: %Ecto.Association.NotLoaded{}} ->
+          []
+
+        %{event_definition_details: details} ->
+          details
+
+        _ ->
+          []
+      end
+
+    %{
+      id: event_definition.id,
+      title: event_definition.title,
+      topic: event_definition.topic,
+      event_type: event_definition.event_type,
+      deleted_at: event_definition.deleted_at,
+      authoring_event_definition_id: event_definition.authoring_event_definition_id,
+      active: event_definition.active,
+      created_at: event_definition.created_at,
+      updated_at: event_definition.updated_at,
+      primary_title_attribute: event_definition.primary_title_attribute,
+      fields:
+        Enum.reduce(event_definition_details, %{}, fn
+          %{field_name: n, field_type: t}, acc ->
+            Map.put_new(acc, n, t)
+
+          _, acc ->
+            acc
+        end)
+    }
   end
 end
