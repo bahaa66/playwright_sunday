@@ -98,10 +98,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
             true ->
               case Process.whereis(consumer_group_name(topic)) do
                 nil ->
-                  event_definition =
-                    EventsContext.get_event_definition_by(%{id: id, deleted_at: nil})
-
-                  case event_definition.active do
+                  case EventsContext.get_non_deleted_event_definiton(id) do
                     nil ->
                       acc ++
                         [

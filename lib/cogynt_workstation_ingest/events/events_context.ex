@@ -100,6 +100,19 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   @doc """
+
+  """
+  def get_non_deleted_event_definiton(id) do
+    Repo.one(
+      from(ed in EventDefinition,
+        where: ed.id == ^id,
+        where: is_nil(ed.deleted_at),
+        select: ed.active
+      )
+    )
+  end
+
+  @doc """
   Returns a list of all active EventDefinitions
   ## Examples
       iex> get_event_definition!(id)
@@ -153,7 +166,10 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         false ->
           n_query =
             from(n in Notification,
-              where: n.event_id in ^event_ids
+              where: n.event_id in ^event_ids,
+              select:
+                {n.event_id, n.user_id, n.tag_id, n.id, n.title, n.notification_setting_id,
+                 n.created_at, n.updated_at, n.deleted_at}
             )
 
           e_query =
@@ -166,20 +182,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
           Multi.new()
           |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
-          |> Multi.update_all(:update_notifications, n_query,
-            set: [deleted_at: deleted_at],
-            returning: [
-              :event_id,
-              :user_id,
-              :tag_id,
-              :id,
-              :title,
-              :notification_setting_id,
-              :created_at,
-              :updated_at,
-              :deleted_at
-            ]
-          )
+          |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
       end
 
     multi
@@ -200,7 +203,10 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         false ->
           n_query =
             from(n in Notification,
-              where: n.event_id in ^event_ids
+              where: n.event_id in ^event_ids,
+              select:
+                {n.event_id, n.user_id, n.tag_id, n.id, n.title, n.notification_setting_id,
+                 n.created_at, n.updated_at, n.deleted_at}
             )
 
           e_query =
@@ -213,20 +219,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
           Multi.new()
           |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
-          |> Multi.update_all(:update_notifications, n_query,
-            set: [deleted_at: deleted_at],
-            returning: [
-              :event_id,
-              :user_id,
-              :tag_id,
-              :id,
-              :title,
-              :notification_setting_id,
-              :created_at,
-              :updated_at,
-              :deleted_at
-            ]
-          )
+          |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
       end
 
     multi

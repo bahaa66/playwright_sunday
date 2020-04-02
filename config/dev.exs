@@ -34,14 +34,14 @@ config :cogynt_workstation_ingest, env: (System.get_env("ENV") || "dev") |> Stri
 # Kafka Configurations
 config :kafka_ex,
   # Dev Kafka
-  brokers: [
-    {
-      System.get_env("KAFKA_BROKER") || "172.16.1.100",
-      (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
-    }
-  ],
+  # brokers: [
+  #   {
+  #     System.get_env("KAFKA_BROKER") || "172.16.1.100",
+  #     (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
+  #   }
+  # ],
   # Local Kafka
-  # brokers: [{"127.0.0.1", 9092}],
+  brokers: [{"127.0.0.1", 9092}],
   auto_offset_reset: :earliest,
   kafka_version: "2.0",
   commit_interval: System.get_env("KAFKA_COMMIT_INTERVAL") || 1000,
@@ -84,13 +84,13 @@ config :cogynt_workstation_ingest, :core_keys,
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.EventPipeline,
   processor_stages: System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || 22,
-  processor_max_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 10_000,
-  processor_min_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 5_000
+  processor_max_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 100,
+  processor_min_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 10
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.LinkEventPipeline,
   processor_stages: System.get_env("LINKEVENTPIPELINE_PROCESSOR_STAGES") || 10,
-  processor_max_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 10_000,
-  processor_min_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 5_000
+  processor_max_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 100,
+  processor_min_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 10
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.DrilldownPipeline,
   processor_stages: System.get_env("DRILLDOWNPIPELINE_PROCESSOR_STAGES") || 3,
@@ -120,10 +120,6 @@ config :cogynt_workstation_ingest, :rpc,
 
 # startup utils configurations
 config :cogynt_workstation_ingest, :startup, init_delay: System.get_env("INIT_DELAY") || 5000
-
-# Do not include metadata nor timestamps in development logs
-config :logger,
-  level: (System.get_env("LOG_LEVEL") || "debug") |> String.to_atom()
 
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.
