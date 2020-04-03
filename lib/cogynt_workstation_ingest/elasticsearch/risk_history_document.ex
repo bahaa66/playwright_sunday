@@ -304,8 +304,8 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
     confidence = event[@confidence]
     timestamp = event["_timestamp"]
 
-    with false <- is_nil(confidence) and confidence == "",
-         false <- is_nil(event["_timestamp"]) and timestamp == "" do
+    with false <- is_nil(confidence) or confidence == "",
+         false <- is_nil(event["_timestamp"]) or timestamp == "" do
       %{
         id: event["id"],
         risk_history:
