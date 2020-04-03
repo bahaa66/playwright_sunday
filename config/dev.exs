@@ -83,14 +83,14 @@ config :cogynt_workstation_ingest, :core_keys,
 
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.EventPipeline,
-  processor_stages: System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || 22,
-  processor_max_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 10_000,
-  processor_min_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 5_000
+  processor_stages: System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || 10,
+  processor_max_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 100,
+  processor_min_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 10
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.LinkEventPipeline,
   processor_stages: System.get_env("LINKEVENTPIPELINE_PROCESSOR_STAGES") || 10,
-  processor_max_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 10_000,
-  processor_min_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 5_000
+  processor_max_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 100,
+  processor_min_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 10
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.DrilldownPipeline,
   processor_stages: System.get_env("DRILLDOWNPIPELINE_PROCESSOR_STAGES") || 3,
