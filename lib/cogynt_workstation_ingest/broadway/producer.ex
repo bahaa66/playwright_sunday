@@ -178,8 +178,6 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
          messages,
          %{demand: demand} = state
        ) do
-    IO.inspect(fetch_count, label: "@@@ FETCH COUNT")
-
     {items, queue} =
       case :queue.len(queue) >= fetch_count do
         true ->
