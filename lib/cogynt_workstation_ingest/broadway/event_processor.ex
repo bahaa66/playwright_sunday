@@ -353,7 +353,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     partial = Map.get(event, @partial)
     risk_score = Map.get(event, @risk_score)
 
-    if partial == nil or partial == false or risk_score > 0 do
+    if partial == nil or partial == false or (risk_score != nil and risk_score > 0) do
       true
     else
       false
