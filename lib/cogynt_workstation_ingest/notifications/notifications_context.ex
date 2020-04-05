@@ -77,10 +77,11 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
               }
 
             false ->
-              %{}
+              nil
           end
         end)
         |> Enum.to_list()
+        |> Enum.filter(& &1)
       end)
 
     case status do
@@ -110,8 +111,9 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     {:ok, notifications} =
       Repo.transaction(fn ->
         Repo.stream(event_query)
+        |> Repo.stream_preload(10, :event_details)
         |> Stream.map(fn event ->
-          with true <- publish_notification?(event),
+          with true <- publish_notification?(event.event_details),
                true <-
                  !is_nil(
                    Enum.find(event_definition.event_definition_details, fn d ->
@@ -134,10 +136,11 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
             }
           else
             _ ->
-              %{}
+              nil
           end
         end)
         |> Enum.to_list()
+        |> Enum.filter(& &1)
       end)
 
     {_count, updated_notifications} =
@@ -160,11 +163,28 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp publish_notification?(event) do
-    partial = Map.get(event, @partial)
-    risk_score = Map.get(event, @risk_score)
+  defp publish_notification?(event_details) do
+    partial =
+      Enum.find(event_details, fn detail ->
+        detail.field_name == @partial and detail.field_value == "true"
+      end)
 
-    if partial == nil or partial == false or (risk_score != nil and risk_score > 0) do
+    risk_score =
+      Enum.find(event_details, fn detail ->
+        if detail.field_name == @risk_score and detail.field_value != nil do
+          case Float.parse(detail.field_value) do
+            :error ->
+              nil
+
+            {risk_score_val, _extra} ->
+              risk_score_val > 0
+          end
+        else
+          nil
+        end
+      end)
+
+    if partial == nil and risk_score != nil do
       true
     else
       false

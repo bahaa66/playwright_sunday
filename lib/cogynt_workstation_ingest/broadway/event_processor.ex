@@ -15,6 +15,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @update Application.get_env(:cogynt_workstation_ingest, :core_keys)[:update]
   @delete Application.get_env(:cogynt_workstation_ingest, :core_keys)[:delete]
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
+  @elastic_blacklist [@entities, @crud, @partial]
 
   @doc """
   Requires event field in the data map. Based on the crud action value
@@ -78,7 +79,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         %{event: event, event_definition: event_definition, event_id: event_id} = data
       ) do
     action = Map.get(event, @crud)
-    event = Map.drop(event, [@crud, @partial])
+    # event = Map.drop(event, [@crud, @partial])
 
     {event_details, event_docs} =
       Enum.reduce(event, {[], []}, fn {field_name, field_value}, {acc_events, acc_docs} = acc ->
@@ -101,8 +102,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                 ]
 
             # Build elasticsearch docs list
+            # If event is delete action or field_name is in blacklist we do not need to insert into elasticƒ
             updated_docs =
-              if(field_name != @entities) do
+              if Enum.member?(@elastic_blacklist, field_name) == false and action != @delete do
                 acc_docs ++
                   [
                     EventDocument.build_document(
@@ -191,17 +193,17 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         raise "execute_transaction/1 failed"
     end
 
-    case is_nil(doc_ids) or Enum.empty?(doc_ids) do
+    # update elasticsearch documents
+    case is_nil(doc_ids) do
       true ->
-        EventDocument.bulk_upsert_document(event_docs)
+        {:ok, _} = EventDocument.bulk_upsert_document(event_docs)
 
       false ->
-        EventDocument.bulk_delete_document(doc_ids)
-        EventDocument.bulk_upsert_document(event_docs)
+        {:ok, _} = EventDocument.bulk_delete_document(doc_ids)
     end
 
     if !is_nil(risk_history_doc) do
-      RiskHistoryDocument.upsert_document(risk_history_doc, risk_history_doc.id)
+      {:ok, _} = RiskHistoryDocument.upsert_document(risk_history_doc, risk_history_doc.id)
     end
 
     Map.put(data, :event_processed, true)
@@ -237,17 +239,17 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         raise "execute_transaction/1 failed"
     end
 
-    case is_nil(doc_ids) or Enum.empty?(doc_ids) do
+    # update elasticsearch documents
+    case is_nil(doc_ids) do
       true ->
-        EventDocument.bulk_upsert_document(event_docs)
+        {:ok, _} = EventDocument.bulk_upsert_document(event_docs)
 
       false ->
-        EventDocument.bulk_delete_document(doc_ids)
-        EventDocument.bulk_upsert_document(event_docs)
+        {:ok, _} = EventDocument.bulk_delete_document(doc_ids)
     end
 
     if !is_nil(risk_history_doc) do
-      RiskHistoryDocument.upsert_document(risk_history_doc, risk_history_doc.id)
+      {:ok, _} = RiskHistoryDocument.upsert_document(risk_history_doc, risk_history_doc.id)
     end
 
     Map.put(data, :event_processed, true)
