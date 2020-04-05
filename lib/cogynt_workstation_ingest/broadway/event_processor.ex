@@ -172,10 +172,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                   }
 
                 false ->
-                  %{}
+                  nil
               end
             end)
             |> Enum.to_list()
+            |> Enum.filter(& &1)
           end)
 
         if Enum.empty?(notifications) do
