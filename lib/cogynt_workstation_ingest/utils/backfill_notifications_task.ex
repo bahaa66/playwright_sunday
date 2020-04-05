@@ -123,7 +123,7 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
         end
       end)
 
-    if partial == nil and risk_score != nil do
+    if partial == nil or risk_score != nil do
       true
     else
       false
