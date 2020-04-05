@@ -110,11 +110,20 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
 
     risk_score =
       Enum.find(event_details, fn detail ->
-        detail.field_name == @risk_score and detail.field_value != nil and
-          String.to_float(detail.field_value) > 0
+        if detail.field_name == @risk_score and detail.field_value != nil do
+          case Float.parse(detail.field_value) do
+            :error ->
+              nil
+
+            {risk_score_val, _extra} ->
+              risk_score_val > 0
+          end
+        else
+          nil
+        end
       end)
 
-    if partial == nil or risk_score != nil do
+    if partial == nil and risk_score != nil do
       true
     else
       false
