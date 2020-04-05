@@ -68,10 +68,11 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
             }
           else
             _ ->
-              %{}
+              nil
           end
         end)
         |> Enum.to_list()
+        |> Enum.filter(list, & &1)
       end)
 
     {_count, updated_notifications} =
