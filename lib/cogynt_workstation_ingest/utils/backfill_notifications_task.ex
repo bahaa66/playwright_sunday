@@ -43,8 +43,9 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
     {:ok, notifications} =
       Repo.transaction(fn ->
         Repo.stream(event_query)
+        |> Repo.stream_preload(10, :event_details)
         |> Stream.map(fn event ->
-          with true <- publish_notification?(event),
+          with true <- publish_notification?(event.event_details),
                true <-
                  !is_nil(
                    Enum.find(event_definition.event_definition_details, fn d ->
@@ -73,18 +74,19 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
         |> Enum.to_list()
       end)
 
-    {_count, updated_notifications} = Repo.insert_all(Notification, notifications,
-      returning: [
-        :event_id,
-        :user_id,
-        :tag_id,
-        :id,
-        :title,
-        :notification_setting_id,
-        :created_at,
-        :updated_at
-      ]
-    )
+    {_count, updated_notifications} =
+      Repo.insert_all(Notification, notifications,
+        returning: [
+          :event_id,
+          :user_id,
+          :tag_id,
+          :id,
+          :title,
+          :notification_setting_id,
+          :created_at,
+          :updated_at
+        ]
+      )
 
     # Send created_notifications to subscription_queue
     CogyntClient.publish_notifications(updated_notifications)
@@ -99,11 +101,19 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
 
   defp get_notification_by(clauses), do: Repo.get_by(Notification, clauses)
 
-  defp publish_notification?(event) do
-    partial = Map.get(event, @partial)
-    risk_score = Map.get(event, @risk_score)
+  defp publish_notification?(event_details) do
+    partial =
+      Enum.find(event_details, fn detail ->
+        detail.field_name == @partial and detail.field_value == "true"
+      end)
 
-    if partial == nil or partial == false or (risk_score != nil and risk_score > 0) do
+    risk_score =
+      Enum.find(event_details, fn detail ->
+        detail.field_name == @risk_score and detail.field_value != nil and
+          String.to_float(detail.field_value) > 0
+      end)
+
+    if partial == nil or risk_score != nil do
       true
     else
       false

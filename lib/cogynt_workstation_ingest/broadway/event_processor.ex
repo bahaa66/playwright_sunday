@@ -17,6 +17,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @update Application.get_env(:cogynt_workstation_ingest, :core_keys)[:update]
   @delete Application.get_env(:cogynt_workstation_ingest, :core_keys)[:delete]
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
+  @elastic_blacklist [@entities, @crud, @partial]
 
   @doc """
   Requires event field in the data map. Based on the crud action value
@@ -78,7 +79,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         %{event: event, event_definition: event_definition, event_id: event_id} = data
       ) do
     action = Map.get(event, @crud)
-    event = Map.drop(event, [@crud, @partial])
+    # event = Map.drop(event, [@crud, @partial])
 
     {event_details, event_docs} =
       Enum.reduce(event, {[], []}, fn {field_name, field_value}, {acc_events, acc_docs} = acc ->
@@ -102,7 +103,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
             # Build elasticsearch docs list
             updated_docs =
-              if(field_name != @entities) do
+              if Enum.member?(@elastic_blacklist, field_name) == false do
                 acc_docs ++
                   [
                     EventDocument.build_document(
