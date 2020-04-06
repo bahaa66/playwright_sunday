@@ -17,7 +17,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @update Application.get_env(:cogynt_workstation_ingest, :core_keys)[:update]
   @delete Application.get_env(:cogynt_workstation_ingest, :core_keys)[:delete]
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
-  @elastic_blacklist [@entities, @crud, @partial]
+  @elastic_blacklist [@entities, @crud, @partial, @risk_score]
 
   @doc """
   Requires event field in the data map. Based on the crud action value

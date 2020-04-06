@@ -301,27 +301,51 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
   end
 
   defp validate_event_data(event_id, event, risk_history \\ []) do
-    confidence = event[@confidence]
-    timestamp = event["_timestamp"]
+    try do
+      confidence = event[@confidence]
+      timestamp = event["_timestamp"]
 
-    with false <- is_nil(confidence) or confidence == "",
-         false <- is_nil(event["_timestamp"]) or timestamp == "" do
-      %{
-        id: event["id"],
-        risk_history:
-          risk_history ++
-            [
-              %{
-                confidence: confidence,
-                timestamp: timestamp,
-                event_id: event_id
-              }
-            ]
-      }
-    else
-      true ->
+      with false <- is_nil(confidence) or confidence == "",
+           false <- is_nil(event["_timestamp"]) or timestamp == "" do
+        %{
+          id: event["id"],
+          risk_history:
+            risk_history ++
+              [
+                %{
+                  confidence: convert_risk_score_to_float(confidence),
+                  timestamp: timestamp,
+                  event_id: event_id
+                }
+              ]
+        }
+      else
+        true ->
+          nil
+      end
+    rescue
+      _ ->
         nil
     end
+  end
+
+  defp convert_risk_score_to_float(confidence) when is_binary(confidence) do
+    case Float.parse(confidence) do
+      {float, _} ->
+        float
+
+      :error ->
+        # TODO: Log bad risk_score data passed
+        raise "string value passed in cannot be parsed as a float"
+    end
+  end
+
+  defp convert_risk_score_to_float(confidence) when is_float(confidence) do
+    confidence
+  end
+
+  defp convert_risk_score_to_float(confidence) when is_integer(confidence) do
+    confidence / 1
   end
 
   # ------------ #
