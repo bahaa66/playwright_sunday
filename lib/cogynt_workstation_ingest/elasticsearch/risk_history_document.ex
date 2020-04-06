@@ -348,6 +348,8 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
     confidence / 1
   end
 
+  defp convert_risk_score_to_float(confidence), do: raise "unexpected value passed for risk_score"
+
   # ------------ #
   # ---Configs-- #
   # ------------ #
