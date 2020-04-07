@@ -2,13 +2,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @moduledoc """
   Module that acts as the Broadway Processor for the EventPipeline.
   """
-  import Ecto.Query
-  alias Ecto.Multi
+  require Logger
 
-  alias Models.Events.{Event, EventDetail}
-  alias Models.Notifications.{Notification, NotificationSetting}
+  alias CogyntWorkstationIngest.Events.EventsContext
+  alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Elasticsearch.{EventDocument, RiskHistoryDocument}
-  alias CogyntWorkstationIngest.Repo
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
@@ -57,14 +55,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   is updated with the :event_id returned from the database.
   """
   def process_event(%{event_definition: event_definition} = data) do
-    {:ok, %{id: event_id}} =
-      %Event{}
-      |> Event.changeset(%{event_definition_id: event_definition.id})
-      |> Repo.insert()
+    case EventsContext.create_event(%{event_definition_id: event_definition.id}) do
+      {:ok, %{id: event_id}} ->
+        Map.put(data, :event_id, event_id)
+        |> Map.put(:delete_ids, nil)
+        |> Map.put(:delete_docs, nil)
 
-    Map.put(data, :event_id, event_id)
-    |> Map.put(:delete_ids, nil)
-    |> Map.put(:delete_docs, nil)
+      {:error, reason} ->
+        Logger.error("process_event/1 failed with reason: #{inspect(reason)}")
+        raise "process_event/1 failed"
+    end
   end
 
   @doc """
@@ -146,44 +146,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       ) do
     case publish_notification?(event) do
       true ->
-        ns_query =
-          from(ns in NotificationSetting,
-            where: ns.event_definition_id == type(^event_definition.id, :binary_id),
-            where: ns.active == true
-          )
+        case NotificationsContext.process_notifications(%{
+               event_definition: event_definition,
+               event_id: event_id
+             }) do
+          {:ok, notifications} ->
+            Map.put(data, :notifications, notifications)
 
-        {:ok, notifications} =
-          Repo.transaction(fn ->
-            Repo.stream(ns_query)
-            |> Stream.map(fn ns ->
-              case Map.has_key?(event_definition.fields, ns.title) do
-                true ->
-                  %{
-                    event_id: event_id,
-                    user_id: ns.user_id,
-                    # topic: event_definition.topic, TODO: do we need to pass this value ??
-                    tag_id: ns.tag_id,
-                    title: ns.title,
-                    notification_setting_id: ns.id,
-                    created_at: DateTime.truncate(DateTime.utc_now(), :second),
-                    updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-                    # TODO: do we need to pass this value ??
-                    # Optional attribute, MUST use Map.get
-                    # description: Map.get(ns, :description)
-                  }
-
-                false ->
-                  nil
-              end
-            end)
-            |> Enum.to_list()
-            |> Enum.filter(& &1)
-          end)
-
-        if Enum.empty?(notifications) do
-          Map.put(data, :notifications, nil)
-        else
-          Map.put(data, :notifications, notifications)
+          {:error, reason} ->
+            Logger.error("process_notifications/1 failed with reason: #{inspect(reason)}")
+            raise "process_notifications/1 failed"
         end
 
       false ->
@@ -201,49 +173,25 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   def execute_transaction(
         %{
-          event_details: event_details,
+          event_details: _event_details,
           event_docs: event_docs,
           risk_history_doc: risk_history_doc,
           notifications: nil,
-          delete_ids: event_ids,
+          delete_ids: _event_ids,
           delete_docs: doc_ids
         } = data
       ) do
-    multi =
-      case is_nil(event_ids) or Enum.empty?(event_ids) do
-        true ->
-          Multi.new()
+    case EventsContext.execute_event_processor_transaction(data) do
+      {:ok, %{update_notifications: {_count, deleted_notifications}}} ->
+        CogyntClient.publish_deleted_notifications(deleted_notifications)
 
-        false ->
-          n_query =
-            from(n in Notification,
-              where: n.event_id in ^event_ids
-            )
+      {:ok, _} ->
+        nil
 
-          e_query =
-            from(
-              e in Event,
-              where: e.id in ^event_ids
-            )
-
-          deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
-
-          multi =
-            Multi.new()
-            |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
-            |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
-
-          # Send deleted_notifications to subscription_queue
-          # TODO: improvement can possibly made to run a select during the transaction
-          # and call the cogynt-client with the returned notifications
-          CogyntClient.publish_deleted_notifications(event_ids)
-
-          multi
-      end
-
-    multi
-    |> Multi.insert_all(:insert_event_details, EventDetail, event_details)
-    |> Repo.transaction()
+      {:error, reason} ->
+        Logger.error("execute_transaction/1 failed with reason: #{inspect(reason)}")
+        raise "execute_transaction/1 failed"
+    end
 
     # update elasticsearch documents
     case is_nil(doc_ids) do
@@ -263,62 +211,33 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   def execute_transaction(
         %{
-          event_details: event_details,
-          notifications: notifications,
+          event_details: _event_details,
+          notifications: _notifications,
           event_docs: event_docs,
           risk_history_doc: risk_history_doc,
-          delete_ids: event_ids,
+          delete_ids: _event_ids,
           delete_docs: doc_ids
         } = data
       ) do
-    multi =
-      case is_nil(event_ids) or Enum.empty?(event_ids) do
-        true ->
-          Multi.new()
+    case EventsContext.execute_event_processor_transaction(data) do
+      {:ok,
+       %{
+         insert_notifications: {_count_created, created_notifications},
+         update_notifications: {_count_deleted, deleted_notifications}
+       }} ->
+        CogyntClient.publish_deleted_notifications(deleted_notifications)
+        CogyntClient.publish_notifications(created_notifications)
 
-        false ->
-          n_query =
-            from(n in Notification,
-              where: n.event_id in ^event_ids
-            )
+      {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
+        CogyntClient.publish_notifications(created_notifications)
 
-          e_query =
-            from(
-              e in Event,
-              where: e.id in ^event_ids
-            )
+      {:ok, _} ->
+        nil
 
-          deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
-
-          multi =
-            Multi.new()
-            |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
-            |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
-
-          # Send deleted_notifications to subscription_queue
-          # TODO: improvement can possibly made to run a select during the transaction
-          # and call the cogynt-client with the returned notifications
-          CogyntClient.publish_deleted_notifications(event_ids)
-
-          multi
-      end
-
-    {:ok, %{insert_notifications: {_count, created_notifications}}} =
-      multi
-      |> Multi.insert_all(:insert_event_details, EventDetail, event_details)
-      |> Multi.insert_all(:insert_notifications, Notification, notifications,
-        returning: [
-          :event_id,
-          :user_id,
-          :tag_id,
-          :id,
-          :title,
-          :notification_setting_id,
-          :created_at,
-          :updated_at
-        ]
-      )
-      |> Repo.transaction()
+      {:error, reason} ->
+        Logger.error("execute_transaction/1 failed with reason: #{inspect(reason)}")
+        raise "execute_transaction/1 failed"
+    end
 
     # update elasticsearch documents
     case is_nil(doc_ids) do
@@ -332,9 +251,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     if !is_nil(risk_history_doc) do
       {:ok, _} = RiskHistoryDocument.upsert_document(risk_history_doc, risk_history_doc.id)
     end
-
-    # Send created_notifications to subscription_queue
-    CogyntClient.publish_notifications(created_notifications)
 
     Map.put(data, :event_processed, true)
   end
@@ -367,31 +283,26 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
          event: %{"id" => id},
          event_definition: event_definition
        }) do
-    query =
-      from(d in EventDetail,
-        join: e in Event,
-        on: e.id == d.event_id,
-        where: d.field_value == ^id and is_nil(e.deleted_at),
-        select: d.event_id
-      )
+    case EventsContext.fetch_event_ids(id) do
+      {:ok, event_ids} ->
+        doc_ids = EventDocument.build_document_ids(id, event_definition)
+        {:ok, {event_ids, doc_ids}}
 
-    {:ok, event_ids} =
-      Repo.transaction(fn ->
-        Repo.stream(query)
-        |> Enum.to_list()
-      end)
-
-    doc_ids = EventDocument.build_document_ids(id, event_definition)
-    {:ok, {event_ids, doc_ids}}
+      {:error, reason} ->
+        Logger.error("fetch_data_to_delete/1 failed with reason: #{inspect(reason)}")
+        raise "fetch_data_to_delete/1 failed"
+    end
   end
 
   defp create_event(%{event_definition: event_definition}) do
-    {:ok, %{id: event_id}} =
-      %Event{}
-      |> Event.changeset(%{event_definition_id: event_definition.id})
-      |> Repo.insert()
+    case EventsContext.create_event(%{event_definition_id: event_definition.id}) do
+      {:ok, %{id: event_id}} ->
+        {:ok, {event_id, nil, nil}}
 
-    {:ok, {event_id, nil, nil}}
+      {:error, reason} ->
+        Logger.error("create_event/1 failed with reason: #{inspect(reason)}")
+        raise "create_event/1 failed"
+    end
   end
 
   defp delete_event(%{event_definition: event_definition} = data) do
@@ -399,23 +310,27 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     # append new event to the list of data to remove
     {:ok, {event_ids, doc_ids}} = fetch_data_to_delete(data)
 
-    {:ok, %{id: event_id}} =
-      %Event{}
-      |> Event.changeset(%{event_definition_id: event_definition.id})
-      |> Repo.insert()
+    case EventsContext.create_event(%{event_definition_id: event_definition.id}) do
+      {:ok, %{id: event_id}} ->
+        {:ok, {event_id, event_ids ++ [event_id], doc_ids}}
 
-    {:ok, {event_id, event_ids ++ [event_id], doc_ids}}
+      {:error, reason} ->
+        Logger.error("delete_event/1 failed with reason: #{inspect(reason)}")
+        raise "delete_event/1 failed"
+    end
   end
 
   defp update_event(%{event_definition: event_definition} = data) do
     # Update event -> get all data to remove + create a new event
     {:ok, {event_ids, doc_ids}} = fetch_data_to_delete(data)
 
-    {:ok, %{id: event_id}} =
-      %Event{}
-      |> Event.changeset(%{event_definition_id: event_definition.id})
-      |> Repo.insert()
+    case EventsContext.create_event(%{event_definition_id: event_definition.id}) do
+      {:ok, %{id: event_id}} ->
+        {:ok, {event_id, event_ids, doc_ids}}
 
-    {:ok, {event_id, event_ids, doc_ids}}
+      {:error, reason} ->
+        Logger.error("update_event/1 failed with reason: #{inspect(reason)}")
+        raise "update_event/1 failed"
+    end
   end
 end

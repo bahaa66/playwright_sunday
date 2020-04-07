@@ -14,10 +14,10 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
 config :migrations, :application, repo: CogyntWorkstationIngest.Repo
 
 # Configures Elixir's Logger
-# config :logger, :console,
-#   format: "$time $metadata[$level] $message\n",
-#   metadata: [:request_id]
-config :logger, :console, format: "[$level] $message\n", level: :warn
+config :logger, :console,
+  format: "$time $metadata[$level] $message\n",
+  metadata: [:request_id],
+  level: :error
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason

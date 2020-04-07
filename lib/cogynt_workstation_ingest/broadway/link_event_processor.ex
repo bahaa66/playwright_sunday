@@ -2,11 +2,8 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   @moduledoc """
   Module that acts as the Broadway Processor for the LinkEventPipeline.
   """
-  import Ecto.Query
-  alias Ecto.Multi
-  alias CogyntWorkstationIngest.Repo
-  alias Models.Events.{Event, EventDetail, EventLink}
-
+  require Logger
+  alias CogyntWorkstationIngest.Events.EventsContext
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
 
   @doc """
@@ -118,30 +115,15 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   def execute_transaction(%{link_event_ready: false} = data), do: data
   def execute_transaction(%{event_id: nil} = data), do: data
 
-  def execute_transaction(%{delete_ids: event_ids, event_links: event_links} = data) do
-    multi =
-      case is_nil(event_ids) or Enum.empty?(event_ids) do
-        true ->
-          Multi.new()
+  def execute_transaction(%{delete_ids: _event_ids, event_links: _event_links} = data) do
+    case EventsContext.execute_link_event_processor_transaction(data) do
+      {:ok, _result} ->
+        data
 
-        false ->
-          l_query =
-            from(
-              l in EventLink,
-              where: l.linkage_event_id in ^event_ids
-            )
-
-          deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
-
-          Multi.new()
-          |> Multi.update_all(:update_event_links, l_query, set: [deleted_at: deleted_at])
-      end
-
-    multi
-    |> Multi.insert_all(:insert_event_links, EventLink, event_links)
-    |> Repo.transaction()
-
-    data
+      {:error, reason} ->
+        Logger.error("execute_transaction/1 failed with reason: #{inspect(reason)}")
+        raise "execute_transaction/1 failed"
+    end
   end
 
   # ----------------------- #
@@ -165,18 +147,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   end
 
   defp build_accumulator(key, value, %{ids: ids}) do
-    event_id =
-      from(
-        e in Event,
-        join: ed in EventDetail,
-        on: e.id == ed.event_id,
-        where: ed.field_name == "id",
-        where: ed.field_value == ^value,
-        where: is_nil(e.deleted_at),
-        limit: 1,
-        select: e.id
-      )
-      |> Repo.one()
+    event_id = EventsContext.fetch_event_id(value)
 
     case event_id != nil do
       true ->
