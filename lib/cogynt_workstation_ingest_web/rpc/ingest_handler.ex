@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
   alias CogyntWorkstationIngest.Events.EventsContext
+
   # alias CogyntWorkstationIngest.Broadway.Producer
 
   # @linkage Application.get_env(:cogynt_workstation_ingest, :core_keys)[:link_data_type]
@@ -70,6 +71,17 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
         "notification_setting_id" => notification_setting_id
       }) do
     TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+
+    %{
+      status: :ok,
+      body: :success
+    }
+  end
+
+  def handle_request("ingest:update_notifications", %{
+        "notification_setting_id" => notification_setting_id
+      }) do
+    TaskSupervisor.start_child(%{update_notifications: notification_setting_id})
 
     %{
       status: :ok,

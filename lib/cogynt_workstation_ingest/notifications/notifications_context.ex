@@ -25,6 +25,16 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   """
   def get_notification_setting!(id), do: Repo.get!(NotificationSetting, id)
 
+  @doc """
+  Gets a single notification_setting for the id
+  ## Examples
+      iex> get_notification_setting(id)
+      %NotificationSetting{}
+      iex> get_notification_setting(invalid_id)
+      nil
+  """
+  def get_notification_setting(id), do: Repo.get(NotificationSetting, id)
+
   # ---------------------------- #
   # --- Notification Methods --- #
   # ---------------------------- #
@@ -158,6 +168,47 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       )
 
     {:ok, updated_notifications}
+  end
+
+  def update_notification_setting_notifications(
+        %NotificationSetting{
+          id: id,
+          tag_id: tag_id,
+          deleted_at: deleted_at
+        },
+        callback
+      ) do
+    Repo.transaction(fn ->
+      from(n in Notification, where: n.notification_setting_id == ^id, select: n.id)
+      |> where(notification_setting_id: ^id)
+      |> Repo.stream(max_rows: 2000)
+      |> Stream.chunk_every(2000)
+      |> Task.async_stream(
+        fn notification_ids ->
+          case Repo.update_all(
+                 from(n in Notification,
+                   where: n.id in ^notification_ids,
+                   select: %{
+                     event_id: n.event_id,
+                     user_id: n.user_id,
+                     tag_id: n.tag_id,
+                     id: n.id,
+                     title: n.title,
+                     notification_setting_id: n.notification_setting_id,
+                     created_at: n.created_at,
+                     updated_at: n.updated_at
+                   }
+                 ),
+                 set: [tag_id: tag_id, deleted_at: deleted_at]
+               ) do
+            {_count, updated_notifications} ->
+              callback.(updated_notifications)
+          end
+        end,
+        max_concurrency: 10
+      )
+      |> Stream.run()
+    end)
   end
 
   # ----------------------- #
