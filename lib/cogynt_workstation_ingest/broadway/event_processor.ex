@@ -2,8 +2,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @moduledoc """
   Module that acts as the Broadway Processor for the EventPipeline.
   """
-  require Logger
-
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Elasticsearch.{EventDocument, RiskHistoryDocument}
@@ -62,7 +60,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         |> Map.put(:delete_docs, nil)
 
       {:error, reason} ->
-        Logger.error("process_event/1 failed with reason: #{inspect(reason)}")
+        CogyntLogger.error(
+          "Event Processor",
+          "process_event/1 failed with reason: #{inspect(reason)}"
+        )
+
         raise "process_event/1 failed"
     end
   end
@@ -154,7 +156,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             Map.put(data, :notifications, notifications)
 
           {:error, reason} ->
-            Logger.error("process_notifications/1 failed with reason: #{inspect(reason)}")
+            CogyntLogger.error(
+              "Event Processor",
+              "process_notifications/1 failed with reason: #{inspect(reason)}"
+            )
+
             raise "process_notifications/1 failed"
         end
 
@@ -189,7 +195,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         nil
 
       {:error, reason} ->
-        Logger.error("execute_transaction/1 failed with reason: #{inspect(reason)}")
+        CogyntLogger.error(
+          "Event Processor",
+          "execute_transaction/1 failed with reason: #{inspect(reason)}"
+        )
+
         raise "execute_transaction/1 failed"
     end
 
@@ -235,7 +245,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         nil
 
       {:error, reason} ->
-        Logger.error("execute_transaction/1 failed with reason: #{inspect(reason)}")
+        CogyntLogger.error(
+          "Event Processor",
+          "execute_transaction/1 failed with reason: #{inspect(reason)}"
+        )
+
         raise "execute_transaction/1 failed"
     end
 
@@ -289,7 +303,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         {:ok, {event_ids, doc_ids}}
 
       {:error, reason} ->
-        Logger.error("fetch_data_to_delete/1 failed with reason: #{inspect(reason)}")
+        CogyntLogger.error(
+          "Event Processor",
+          "fetch_data_to_delete/1 failed with reason: #{inspect(reason)}"
+        )
+
         raise "fetch_data_to_delete/1 failed"
     end
   end
@@ -300,7 +318,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         {:ok, {event_id, nil, nil}}
 
       {:error, reason} ->
-        Logger.error("create_event/1 failed with reason: #{inspect(reason)}")
+        CogyntLogger.error(
+          "Event Processor",
+          "create_event/1 failed with reason: #{inspect(reason)}"
+        )
+
         raise "create_event/1 failed"
     end
   end
@@ -315,7 +337,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         {:ok, {event_id, event_ids ++ [event_id], doc_ids}}
 
       {:error, reason} ->
-        Logger.error("delete_event/1 failed with reason: #{inspect(reason)}")
+        CogyntLogger.error(
+          "Event Processor",
+          "delete_event/1 failed with reason: #{inspect(reason)}"
+        )
+
         raise "delete_event/1 failed"
     end
   end
@@ -329,7 +355,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         {:ok, {event_id, event_ids, doc_ids}}
 
       {:error, reason} ->
-        Logger.error("update_event/1 failed with reason: #{inspect(reason)}")
+        CogyntLogger.error(
+          "Event Processor",
+          "update_event/1 failed with reason: #{inspect(reason)}"
+        )
+
         raise "update_event/1 failed"
     end
   end

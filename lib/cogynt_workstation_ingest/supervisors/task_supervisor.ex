@@ -3,7 +3,6 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
   Dynamic Supervisor for all CogyntWorkstationIngest modules that implement Task.
   """
   use DynamicSupervisor
-  require Logger
 
   def start_link(arg) do
     DynamicSupervisor.start_link(__MODULE__, arg, name: __MODULE__)
@@ -27,7 +26,7 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
         )
 
       _ ->
-        Logger.warn("TaskSupervisor Error: Invalid args passed. Args: #{inspect(args)}")
+        CogyntLogger.warn("TaskSupervisor Error", "Invalid args passed. Args: #{inspect(args)}")
     end)
   end
 end
