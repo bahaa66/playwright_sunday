@@ -73,6 +73,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         %{event: event, event_definition: event_definition, event_id: event_id} = data
       ) do
     action = Map.get(event, crud())
+    event = format_lexicon_data(event)
     # event = Map.drop(event, [@crud, @partial])
 
     {event_details, event_docs} =
@@ -264,6 +265,22 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
+  defp format_lexicon_data(event) do
+    case Map.get(event, lexicons()) do
+      nil ->
+        event
+
+      val ->
+        try do
+          Map.put(event, lexicons(), List.flatten(val))
+        rescue
+          _ ->
+            IO.puts("Lexicon value incorrect format #{val}")
+            Map.delete(event, lexicons())
+        end
+    end
+  end
+
   defp encode_json(value) do
     case String.valid?(value) do
       true ->
@@ -366,5 +383,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   defp update(), do: config()[:update]
   defp delete(), do: config()[:delete]
   defp entities(), do: config()[:entities]
+  defp lexicons(), do: config()[:lexicons]
   defp elastic_blacklist(), do: [entities(), crud(), partial(), risk_score()]
 end
