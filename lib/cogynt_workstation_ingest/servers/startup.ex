@@ -3,7 +3,6 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
   Genserver Module that is used for tasks that need to run upon Application startup
   """
   use GenServer
-  require Logger
   alias CogyntWorkstationIngest.Events.EventsContext
 
   # -------------------- #
@@ -23,7 +22,7 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
 
   @impl true
   def handle_info(:initialize_consumers, state) do
-    Logger.info("@@@ Initializing Consumers")
+    CogyntLogger.info("Startup", "Initializing Consumers")
     initialize_consumers()
     {:noreply, state}
   end
@@ -37,7 +36,7 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
       EventsContext.initalize_consumers_with_active_event_definitions()
     else
       {:error, error} ->
-        Logger.error("App not started. #{inspect(error)}")
+        CogyntLogger.error("Startup", "App not started. #{inspect(error)}")
     end
   end
 end

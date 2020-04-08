@@ -1,7 +1,6 @@
 defmodule CogyntWorkstationIngestWeb.DrilldownView do
   use CogyntWorkstationIngestWeb, :view
   use JaSerializer.PhoenixView
-  import Logger, warn: false
   alias CogyntWorkstationIngestWeb.JA_Keys
   alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
   alias CogyntWorkstationIngestWeb.EventView
@@ -47,7 +46,11 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
           IO.inspect(inst, label: "@@@@ Instance causing recursion")
           nil
         else
-          Logger.debug("@@@@ Instance #{inst["id"]} parent #{info["key"]}")
+          CogyntLogger.info(
+            "Drilldown View",
+            "@@@@ Instance #{inst["id"]} parent #{info["key"]}"
+          )
+
           inst
         end
       else

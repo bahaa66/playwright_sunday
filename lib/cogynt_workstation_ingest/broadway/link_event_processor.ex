@@ -2,7 +2,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   @moduledoc """
   Module that acts as the Broadway Processor for the LinkEventPipeline.
   """
-  require Logger
   alias CogyntWorkstationIngest.Events.EventsContext
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
 
@@ -121,7 +120,11 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         data
 
       {:error, reason} ->
-        Logger.error("execute_transaction/1 failed with reason: #{inspect(reason)}")
+        CogyntLogger.error(
+          "LinkEvent Processor",
+          "execute_transaction/1 failed with reason: #{inspect(reason)}"
+        )
+
         raise "execute_transaction/1 failed"
     end
   end

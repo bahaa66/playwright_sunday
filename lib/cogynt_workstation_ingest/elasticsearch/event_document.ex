@@ -4,8 +4,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
   """
   # TODO: move to cogynt-common
 
-  require Logger
-
   @initial_index_settings %{
     settings: %{
       index: %{
@@ -52,16 +50,20 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
           {:ok, result}
 
         {:error, error} ->
-          Logger.error(
-            "Creating Elastic Index Error: Failed to create index: #{index_alias()}. Error: #{
-              inspect(error)
-            }"
+          CogyntLogger.error(
+            "Creating Elastic Index Error",
+            "Failed to create index: #{index_alias()}. Error: #{inspect(error)}",
+            true
           )
 
           {:error, error}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -81,26 +83,30 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
               {:ok, result}
 
             {:error, error} ->
-              Logger.error(
-                "Deleting Elastic Index Error: Failed to delete index #{index_alias()}. Error: #{
-                  inspect(error)
-                }"
+              CogyntLogger.error(
+                "Deleting Elastic Index Error",
+                "Failed to delete index #{index_alias()}. Error: #{inspect(error)}",
+                true
               )
 
               {:error, error}
           end
 
         {:error, error} ->
-          Logger.error(
-            "Elastic Index Not Found: Failed to get index: #{index_alias()}. Error: #{
-              inspect(error)
-            }"
+          CogyntLogger.error(
+            "Elastic Index Not Found",
+            "Failed to get index: #{index_alias()}. Error: #{inspect(error)}",
+            true
           )
 
           {:error, error}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -126,7 +132,11 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
           {:ok, false}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -148,10 +158,10 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
               {:ok, convert_keys_to_atoms(result)}
 
             {:error, error} ->
-              Logger.error(
-                "Elastic Update Failed: Failed to update document for index: #{index}. Error: #{
-                  inspect(error)
-                }"
+              CogyntLogger.error(
+                "Elastic Update Failed",
+                "Failed to update document for index: #{index}. Error: #{inspect(error)}",
+                true
               )
 
               {:error, error}
@@ -164,10 +174,10 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
               {:ok, convert_keys_to_atoms(new_doc)}
 
             {:error, error} ->
-              Logger.error(
-                "Elastic Create Document Error: Failed to create document for index: #{index}. Error: #{
-                  inspect(error)
-                }"
+              CogyntLogger.error(
+                "Elastic Create Document Error",
+                "Failed to create document for index: #{index}. Error: #{inspect(error)}",
+                true
               )
 
               {:error, error}
@@ -177,7 +187,11 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
           {:ok, :elasticsearch_not_enabled}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -194,23 +208,31 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
             {:ok, :success}
 
           {:error, error} ->
-            Logger.error(
-              "Elastic Bulk Upsert Error: Failed to bulk upsert documents for index: #{
-                index_alias()
-              }. Error: #{inspect(error)}"
+            CogyntLogger.error(
+              "Elastic Bulk Upsert Error",
+              "Failed to bulk upsert documents for index: #{index_alias()}. Error: #{
+                inspect(error)
+              }",
+              true
             )
 
             {:error, error}
         end
       else
-        Logger.error(
-          "Elastic Bulk Upsert Error: Failed to bulk upsert documents for index: #{index_alias()}. Error: passed in empty data set"
+        CogyntLogger.error(
+          "Elastic Bulk Upsert Error",
+          "Failed to bulk upsert documents for index: #{index_alias()}. Error: passed in empty data set",
+          true
         )
 
         {:error, "passed in empty data set"}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -226,16 +248,20 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
           {:ok, document_id}
 
         {:error, error} ->
-          Logger.error(
-            "Elastic Delete Document Error: Failed to delete document for index: #{index_alias()}. Reason: #{
-              inspect(error)
-            }"
+          CogyntLogger.error(
+            "Elastic Delete Document Error",
+            "Failed to delete document for index: #{index_alias()}. Reason: #{inspect(error)}",
+            true
           )
 
           {:error, error}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -251,16 +277,20 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
           {:ok, :success}
 
         {:error, error} ->
-          Logger.error(
-            "Elastic Bulk Delete Error: Failed to bulk delete documents for index: #{
-              index_alias()
-            }. Error: #{inspect(error)}"
+          CogyntLogger.error(
+            "Elastic Bulk Delete Error",
+            "Failed to bulk delete documents for index: #{index_alias()}. Error: #{inspect(error)}",
+            true
           )
 
           {:error, error}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -277,23 +307,28 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
         {:ok, result} ->
           deleted = Map.get(result, "deleted")
 
-          Logger.info(
-            "Removed Record From Elastic: Delete_by_query removed #{deleted} records from ElasticSearch"
+          CogyntLogger.info(
+            "Removed Record From Elastic",
+            "Delete_by_query removed #{deleted} records from ElasticSearch"
           )
 
           {:ok, deleted}
 
         {:error, reason} ->
-          Logger.error(
-            "Failed To Remove Record From Elastic: Delete_by_query failed with reason #{
-              inspect(reason)
-            }"
+          CogyntLogger.error(
+            "Failed To Remove Record From Elastic",
+            "Delete_by_query failed with reason #{inspect(reason)}",
+            true
           )
 
           {:error, reason}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -309,16 +344,20 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
           {:ok, true}
 
         {:error, error} ->
-          Logger.warn(
-            "Elastic Document Not Found: Failed to look up document for index: #{index_alias()}. Reason: #{
-              inspect(error)
-            }"
+          CogyntLogger.warn(
+            "Elastic Document Not Found",
+            "Failed to look up document for index: #{index_alias()}. Reason: #{inspect(error)}",
+            true
           )
 
           {:error, false}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -344,16 +383,20 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
           {:ok, updated_search_results}
 
         {:error, error} ->
-          Logger.error(
-            "Elastic Query Error: Failed to query Elasticsearch index: #{index_alias()}. Reason: #{
-              inspect(error)
-            }"
+          CogyntLogger.error(
+            "Elastic Query Error",
+            "Failed to query Elasticsearch index: #{index_alias()}. Reason: #{inspect(error)}",
+            true
           )
 
           {:error, error}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -399,16 +442,22 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocument do
         end)
       else
         {:error, error} ->
-          Logger.error(
-            "Event Count Failure: There was a failure when querying event count for event_definitions: #{
+          CogyntLogger.error(
+            "Event Count Failure",
+            "There was a failure when querying event count for event_definitions: #{
               inspect(error)
-            }"
+            }",
+            true
           )
 
           nil
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end

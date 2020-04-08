@@ -1,6 +1,5 @@
 defmodule CogyntWorkstationIngest.Broadway.Producer do
   use GenStage
-  require Logger
   alias KafkaEx.Protocol.Fetch
 
   @defaults %{
@@ -109,7 +108,11 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
           })
 
         {:error, error} ->
-          Logger.error("Failed to decode json_message. Error: #{inspect(error)}")
+          CogyntLogger.error(
+            "Producer",
+            "Failed to decode json_message. Error: #{inspect(error)}"
+          )
+
           acc
       end
     end)
