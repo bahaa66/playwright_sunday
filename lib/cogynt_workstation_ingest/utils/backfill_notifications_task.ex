@@ -40,39 +40,40 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
         where: is_nil(e.deleted_at)
       )
 
-    {:ok, notifications} =
-      Repo.transaction(fn ->
-        Repo.stream(event_query)
-        |> Repo.stream_preload(1000, :event_details)
-        |> Stream.map(fn event ->
-          with true <- publish_notification?(event.event_details),
-               true <-
-                 !is_nil(
-                   Enum.find(event_definition.event_definition_details, fn d ->
-                     d.field_name == notification_setting.title
-                   end)
-                 ),
-               nil <-
-                 get_notification_by(
-                   event_id: event.id,
-                   notification_setting_id: notification_setting.id
-                 ) do
-            %{
-              event_id: event.id,
-              user_id: notification_setting.user_id,
-              tag_id: notification_setting.tag_id,
-              title: notification_setting.title,
-              notification_setting_id: notification_setting.id,
-              created_at: DateTime.truncate(DateTime.utc_now(), :second),
-              updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-            }
-          else
-            _ ->
-              nil
-          end
-        end)
-        |> Enum.to_list()
-        |> Enum.filter(& &1)
+    events =
+      Repo.all(event_query)
+      |> Repo.preload(:event_details)
+
+    notifications =
+      Enum.reduce(events, [], fn event, acc ->
+        with true <- publish_notification?(event.event_details),
+             true <-
+               !is_nil(
+                 Enum.find(event_definition.event_definition_details, fn d ->
+                   d.field_name == notification_setting.title
+                 end)
+               ),
+             nil <-
+               get_notification_by(
+                 event_id: event.id,
+                 notification_setting_id: notification_setting.id
+               ) do
+          acc ++
+            [
+              %{
+                event_id: event.id,
+                user_id: notification_setting.user_id,
+                tag_id: notification_setting.tag_id,
+                title: notification_setting.title,
+                notification_setting_id: notification_setting.id,
+                created_at: DateTime.truncate(DateTime.utc_now(), :second),
+                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+              }
+            ]
+        else
+          _ ->
+            acc
+        end
       end)
 
     {_count, updated_notifications} =
