@@ -2,8 +2,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
   @moduledoc """
   Document module for the RiskHistory index in elasticsearch
   """
-  require Logger
-
   @confidence Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
 
   @initial_index_settings %{
@@ -66,16 +64,20 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
           {:ok, result}
 
         {:error, error} ->
-          Logger.error(
-            "Creating Elastic Index Error: Failed to create index: #{index_alias()}. Error: #{
-              inspect(error)
-            }"
+          CogyntLogger.error(
+            "Creating Elastic Index Error",
+            "Failed to create index: #{index_alias()}. Error: #{inspect(error)}",
+            true
           )
 
           {:error, error}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -95,26 +97,30 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
               {:ok, result}
 
             {:error, error} ->
-              Logger.error(
-                "Deleting Elastic Index Error: Failed to delete index #{index_alias()}. Error: #{
-                  inspect(error)
-                }"
+              CogyntLogger.error(
+                "Deleting Elastic Index Error",
+                "Failed to delete index #{index_alias()}. Error: #{inspect(error)}",
+                true
               )
 
               {:error, error}
           end
 
         {:error, error} ->
-          Logger.error(
-            "Elastic Index Not Found: Failed to get index: #{index_alias()}. Error: #{
-              inspect(error)
-            }"
+          CogyntLogger.error(
+            "Elastic Index Not Found",
+            "Failed to get index: #{index_alias()}. Error: #{inspect(error)}",
+            true
           )
 
           {:error, error}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -140,7 +146,11 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
           {:ok, false}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -162,10 +172,10 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
               {:ok, convert_keys_to_atoms(result)}
 
             {:error, error} ->
-              Logger.error(
-                "Elastic Update Failed: Failed to update document for index: #{index}. Error: #{
-                  inspect(error)
-                }"
+              CogyntLogger.error(
+                "Elastic Update Failed",
+                "Failed to update document for index: #{index}. Error: #{inspect(error)}",
+                true
               )
 
               {:error, error}
@@ -178,10 +188,10 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
               {:ok, convert_keys_to_atoms(new_doc)}
 
             {:error, error} ->
-              Logger.error(
-                "Elastic Create Document Error: Failed to create document for index: #{index}. Error: #{
-                  inspect(error)
-                }"
+              CogyntLogger.error(
+                "Elastic Create Document Error",
+                "Failed to create document for index: #{index}. Error: #{inspect(error)}",
+                true
               )
 
               {:error, error}
@@ -191,7 +201,11 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
           {:ok, :elasticsearch_not_enabled}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -207,16 +221,20 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
           {:ok, document_id}
 
         {:error, error} ->
-          Logger.error(
-            "Elastic Delete Document Error: Failed to delete document for index: #{index_alias()}. Reason: #{
-              inspect(error)
-            }"
+          CogyntLogger.error(
+            "Elastic Delete Document Error",
+            "Failed to delete document for index: #{index_alias()}. Reason: #{inspect(error)}",
+            true
           )
 
           {:error, error}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -232,16 +250,20 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
           {:ok, :success}
 
         {:error, error} ->
-          Logger.error(
-            "Elastic Bulk Delete Error: Failed to bulk delete documents for index: #{
-              index_alias()
-            }. Error: #{inspect(error)}"
+          CogyntLogger.error(
+            "Elastic Bulk Delete Error",
+            "Failed to bulk delete documents for index: #{index_alias()}. Error: #{inspect(error)}",
+            true
           )
 
           {:error, error}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -257,16 +279,20 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
           {:ok, true}
 
         {:error, error} ->
-          Logger.warn(
-            "Elastic Document Not Found: Failed to look up document for index: #{index_alias()}. Reason: #{
-              inspect(error)
-            }"
+          CogyntLogger.warn(
+            "Elastic Document Not Found",
+            "Failed to look up document for index: #{index_alias()}. Reason: #{inspect(error)}",
+            true
           )
 
           {:error, false}
       end
     else
-      Logger.warn("Elasticsearch Disabled: Elasticsearch is not enabled for this environment")
+      CogyntLogger.warn(
+        "Elasticsearch Disabled",
+        "Elasticsearch is not enabled for this environment",
+        true
+      )
 
       {:ok, :elasticsearch_not_enabled}
     end
@@ -335,7 +361,12 @@ defmodule CogyntWorkstationIngest.Elasticsearch.RiskHistoryDocument do
         float
 
       :error ->
-        # TODO: Log bad risk_score data passed
+        CogyntLogger.error(
+          "RiskHistory Doc",
+          "RiskScore, string value passed in cannot be parsed as a float",
+          true
+        )
+
         raise "string value passed in cannot be parsed as a float"
     end
   end

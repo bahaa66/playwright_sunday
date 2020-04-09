@@ -1,6 +1,5 @@
 defmodule CogyntWorkstationIngest.Broadway.Producer do
   use GenStage
-  require Logger
   alias KafkaEx.Protocol.Fetch
 
   @defaults %{
@@ -109,7 +108,11 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
           })
 
         {:error, error} ->
-          Logger.error("Failed to decode json_message. Error: #{inspect(error)}")
+          CogyntLogger.error(
+            "Producer",
+            "Failed to decode json_message. Error: #{inspect(error)}"
+          )
+
           acc
       end
     end)
@@ -161,22 +164,27 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
         {[], state}
 
       false ->
-        Enum.reduce_while(queues, {[], state}, fn {id, queue}, {acc_messages, acc_state} ->
-          if Enum.count(acc_messages) <= 0,
-            do: {
-              :cont,
-              fetch_and_release_demand(demand, queues, id, queue, acc_state)
-            },
-            else: {:halt, {acc_messages, acc_state}}
+        fetch_count = div(demand, Enum.count(queues))
+        new_state = {[], state}
+
+        Enum.reduce(queues, new_state, fn {id, queue}, {acc_messages, acc_state} ->
+          fetch_demand_per_queue(fetch_count, queues, id, queue, acc_messages, acc_state)
         end)
     end
   end
 
-  defp fetch_and_release_demand(demand, queues, id, queue, state) do
+  defp fetch_demand_per_queue(
+         fetch_count,
+         queues,
+         id,
+         queue,
+         messages,
+         %{demand: demand} = state
+       ) do
     {items, queue} =
-      case :queue.len(queue) >= demand do
+      case :queue.len(queue) >= fetch_count do
         true ->
-          :queue.split(demand, queue)
+          :queue.split(fetch_count, queue)
 
         false ->
           :queue.split(:queue.len(queue), queue)
@@ -190,16 +198,16 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
           Map.put(state, :queues, queues)
           |> Map.put(:demand, demand)
 
-        {[], new_state}
+        {messages, new_state}
 
-      messages ->
+      new_messages ->
         queues = update_queue(queues, id, queue)
 
         new_state =
           Map.put(state, :queues, queues)
           |> Map.put(:demand, demand - Enum.count(messages))
 
-        {messages, new_state}
+        {messages ++ new_messages, new_state}
     end
   end
 

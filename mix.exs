@@ -66,6 +66,11 @@ defmodule CogyntWorkstationIngest.MixProject do
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "migrations",
        tag: "v0.1.6",
+       override: true},
+      {:utils,
+       git: "git@github.com:cogility/cogynt-common.git",
+       sparse: "utils",
+       tag: "v0.1.9-beta",
        override: true}
     ]
   end

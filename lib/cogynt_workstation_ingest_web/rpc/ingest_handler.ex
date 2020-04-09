@@ -1,11 +1,9 @@
 defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   use JSONRPC2.Server.Handler
 
-  import Ecto.Query, warn: false
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
-  alias CogyntWorkstationIngest.Repo
-  alias Models.Events.EventDefinition
+  alias CogyntWorkstationIngest.Events.EventsContext
   # alias CogyntWorkstationIngest.Broadway.Producer
 
   # @linkage Application.get_env(:cogynt_workstation_ingest, :core_keys)[:link_data_type]
@@ -100,16 +98,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
             true ->
               case Process.whereis(consumer_group_name(topic)) do
                 nil ->
-                  active =
-                    Repo.one(
-                      from(ed in EventDefinition,
-                        where: ed.id == ^id,
-                        where: is_nil(ed.deleted_at),
-                        select: ed.active
-                      )
-                    )
-
-                  case active do
+                  case EventsContext.get_non_deleted_event_definiton(id) do
                     nil ->
                       acc ++
                         [

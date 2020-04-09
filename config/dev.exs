@@ -122,10 +122,6 @@ config :cogynt_workstation_ingest, :rpc,
 # startup utils configurations
 config :cogynt_workstation_ingest, :startup, init_delay: System.get_env("INIT_DELAY") || 5000
 
-# Do not include metadata nor timestamps in development logs
-config :logger,
-  level: (System.get_env("LOG_LEVEL") || "debug") |> String.to_atom()
-
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.
 config :phoenix, :stacktrace_depth, 20

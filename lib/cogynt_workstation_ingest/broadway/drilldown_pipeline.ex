@@ -5,7 +5,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   methods
   """
   use Broadway
-  require Logger
   alias Broadway.Message
   alias CogyntWorkstationIngest.Broadway.{DrilldownProducer, DrilldownProcessor}
 
