@@ -1,12 +1,14 @@
 defmodule CogyntWorkstationIngest.Broadway.Producer do
   use GenStage
   alias KafkaEx.Protocol.Fetch
+  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
 
   @defaults %{
     event_processed: false,
     event_id: nil,
     retry_count: 0
   }
+  @linkage Application.get_env(:cogynt_workstation_ingest, :core_keys)[:link_data_type]
 
   # -------------------- #
   # --- client calls --- #
@@ -28,6 +30,11 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   def enqueue_failed_messages(broadway_messages, type) when is_list(broadway_messages) do
     producer_name = type_to_name(type)
     GenServer.cast(producer_name, {:enqueue_failed_messages, broadway_messages})
+  end
+
+  def is_processing?(event_definition_id, type) do
+    producer_name = type_to_name(type)
+    GenServer.call(producer_name, {:is_processing, event_definition_id})
   end
 
   def drain_queue(event_definition_id, type) do
@@ -52,6 +59,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
       ) do
     queues = parse_kafka_message_set(message_set, event_definition, queues)
     {messages, new_state} = fetch_and_release_demand(demand, queues, state)
+    IO.inspect(Enum.count(messages), label: "@@@ MESSAGE COUNT")
     {:noreply, messages, new_state}
   end
 
@@ -67,6 +75,26 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   end
 
   @impl true
+  def handle_call({:is_processing, event_definition_id}, _from, %{queues: queues} = state) do
+    is_processing =
+      case Map.has_key?(queues, event_definition_id) do
+        true ->
+          queue = Map.get(queues, event_definition_id)
+
+          if :queue.len(queue) > 0 do
+            true
+          else
+            false
+          end
+
+        false ->
+          false
+      end
+
+    {:reply, is_processing, [], state}
+  end
+
+  @impl true
   def handle_cast({:drain_queue, event_definition_id}, %{queues: queues} = state) do
     queues = Map.delete(queues, event_definition_id)
     new_state = Map.put(state, :queues, queues)
@@ -76,6 +104,8 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   @impl true
   def handle_demand(incoming_demand, %{queues: queues, demand: demand} = state)
       when incoming_demand > 0 do
+    IO.inspect(incoming_demand, label: "@@@ Incoming Demand")
+    IO.inspect(demand, label: "@@@ Demand")
     total_demand = incoming_demand + demand
     {messages, new_state} = fetch_and_release_demand(total_demand, queues, state)
     {:noreply, messages, new_state}
@@ -157,14 +187,15 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     end)
   end
 
-  defp fetch_and_release_demand(demand, queues, state) when is_map(queues) do
+  defp fetch_and_release_demand(total_demand, queues, state) when is_map(queues) do
     case Enum.empty?(queues) do
       true ->
-        state = Map.put(state, :demand, demand)
+        state = Map.put(state, :demand, total_demand)
         {[], state}
 
       false ->
-        fetch_count = div(demand, Enum.count(queues))
+        fetch_count = div(total_demand, Enum.count(queues))
+        state = Map.put(state, :demand, total_demand)
         new_state = {[], state}
 
         Enum.reduce(queues, new_state, fn {id, queue}, {acc_messages, acc_state} ->
@@ -181,6 +212,8 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
          messages,
          %{demand: demand} = state
        ) do
+    IO.inspect(:queue.len(queue), label: "@@@ SIZE")
+
     {items, queue} =
       case :queue.len(queue) >= fetch_count do
         true ->
@@ -192,16 +225,18 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
 
     case :queue.to_list(items) do
       [] ->
-        queues = update_queue(queues, id, queue)
-
-        new_state =
-          Map.put(state, :queues, queues)
-          |> Map.put(:demand, demand)
-
-        {messages, new_state}
+        {messages, state}
 
       new_messages ->
-        queues = update_queue(queues, id, queue)
+        queues =
+          case :queue.len(queue) == 0 do
+            true ->
+              CogyntClient.publish_consumer_status(id, nil)
+              Map.delete(queues, id)
+
+            false ->
+              update_queue(queues, id, queue)
+          end
 
         new_state =
           Map.put(state, :queues, queues)
@@ -238,10 +273,10 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   defp type_to_name(type) do
     default_name =
       case type do
-        :linkevent ->
+        @linkage ->
           :BroadwayLinkEventPipeline
 
-        :event ->
+        _ ->
           :BroadwayEventPipeline
       end
 

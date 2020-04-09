@@ -4,24 +4,24 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
   alias CogyntWorkstationIngest.Events.EventsContext
-  # alias CogyntWorkstationIngest.Broadway.Producer
-
-  # @linkage Application.get_env(:cogynt_workstation_ingest, :core_keys)[:link_data_type]
+  alias CogyntWorkstationIngest.Broadway.Producer
+  alias Models.Enums.ConsumerStatusTypeEnum
+  alias Models.Events.EventDefinition
 
   def handle_request("ingest:start_consumer", event_definition) when is_map(event_definition) do
     result = ConsumerGroupSupervisor.start_child(keys_to_atoms(event_definition))
 
     case result do
-      {:ok, nil} ->
-        %{
-          status: :error,
-          body: :topic_does_not_exist
-        }
-
       {:ok, pid} ->
         %{
           status: :ok,
           body: "#{inspect(pid)}"
+        }
+
+      {:error, nil} ->
+        %{
+          status: :error,
+          body: :topic_does_not_exist
         }
 
       {:error, error} ->
@@ -36,28 +36,11 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
     event_definition = keys_to_atoms(event_definition)
 
     with :ok <- ConsumerGroupSupervisor.stop_child(event_definition.topic) do
-      # true <- link_event?(event_definition),
-      # :ok <- Producer.drain_queue(event_definition.id, :linkevent) do
       %{
         status: :ok,
         body: :success
       }
     else
-      # false ->
-      #   case Producer.drain_queue(event_definition.id, :event) do
-      #     :ok ->
-      #       %{
-      #         status: :ok,
-      #         body: :success
-      #       }
-
-      #     {:error, error} ->
-      #       %{
-      #         status: :error,
-      #         body: "#{inspect(error)}"
-      #       }
-      #   end
-
       {:error, error} ->
         %{
           status: :error,
@@ -81,7 +64,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
     try do
       # Grab a list of existing Kafka topics
       existing_topics = KafkaEx.metadata().topic_metadatas |> Enum.map(& &1.topic)
-      # reduce the consumer list
+
       result =
         Enum.reduce(consumers, [], fn %{"id" => id, "topic" => topic}, acc ->
           case Enum.member?(existing_topics, topic) do
@@ -91,43 +74,59 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                   %{
                     id: id,
                     topic: topic,
-                    status: "topic does not exist"
+                    status: ConsumerStatusTypeEnum.topic_does_not_exist()
                   }
                 ]
 
             true ->
               case Process.whereis(consumer_group_name(topic)) do
                 nil ->
-                  case EventsContext.get_non_deleted_event_definiton(id) do
+                  case EventsContext.get_event_definition(id) do
                     nil ->
                       acc ++
                         [
                           %{
                             id: id,
                             topic: topic,
-                            status: "has not been created yet"
+                            status: ConsumerStatusTypeEnum.has_not_been_created()
                           }
                         ]
 
-                    false ->
-                      acc ++
-                        [
-                          %{
-                            id: id,
-                            topic: topic,
-                            status: "paused"
-                          }
-                        ]
+                    %EventDefinition{} = event_definition ->
+                      case event_definition.active do
+                        true ->
+                          acc ++
+                            [
+                              %{
+                                id: id,
+                                topic: topic,
+                                status: ConsumerStatusTypeEnum.is_active_but_no_consumer_running()
+                              }
+                            ]
 
-                    true ->
-                      acc ++
-                        [
-                          %{
-                            id: id,
-                            topic: topic,
-                            status: "is active, but no consumer running"
-                          }
-                        ]
+                        false ->
+                          case Producer.is_processing?(id, event_definition.event_type) do
+                            true ->
+                              acc ++
+                                [
+                                  %{
+                                    id: id,
+                                    topic: topic,
+                                    status: ConsumerStatusTypeEnum.paused_and_processing()
+                                  }
+                                ]
+
+                            false ->
+                              acc ++
+                                [
+                                  %{
+                                    id: id,
+                                    topic: topic,
+                                    status: ConsumerStatusTypeEnum.paused_and_finished()
+                                  }
+                                ]
+                          end
+                      end
                   end
 
                 _ ->
@@ -136,7 +135,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                       %{
                         id: id,
                         topic: topic,
-                        status: "running"
+                        status: ConsumerStatusTypeEnum.running()
                       }
                     ]
               end
@@ -159,8 +158,6 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  # defp link_event?(%{event_type: type}), do: type == @linkage
-
   defp keys_to_atoms(string_key_map) do
     for {key, val} <- string_key_map, into: %{}, do: {String.to_atom(key), val}
   end

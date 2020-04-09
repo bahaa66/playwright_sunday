@@ -100,29 +100,29 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   @doc """
-
-  """
-  def get_non_deleted_event_definiton(id) do
-    Repo.one(
-      from(ed in EventDefinition,
-        where: ed.id == ^id,
-        where: is_nil(ed.deleted_at),
-        select: ed.active
-      )
-    )
-  end
-
-  @doc """
-  Returns a list of all active EventDefinitions
+  Returns the EventDefinition for id. Raises an error if it does
+  not exist
   ## Examples
       iex> get_event_definition!(id)
-      {:ok, [%EventDefinition{}]}
+      {:ok, %EventDefinition{}}
       iex> get_event_definition!(invalid_id)
        ** (Ecto.NoResultsError)
   """
   def get_event_definition!(id) do
     Repo.get!(EventDefinition, id)
     |> Repo.preload(:event_definition_details)
+  end
+
+  @doc """
+  Returns the EventDefinition for id.
+  ## Examples
+      iex> get_event_definition(id)
+      {:ok, %EventDefinition{}}
+      iex> get_event_definition(invalid_id)
+       nil
+  """
+  def get_event_definition(id) do
+    Repo.get(EventDefinition, id)
   end
 
   @doc """
