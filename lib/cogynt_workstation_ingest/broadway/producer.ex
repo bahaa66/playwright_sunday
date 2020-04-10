@@ -235,6 +235,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
           case :queue.len(queue) == 0 do
             true ->
               CogyntClient.publish_consumer_status(id, nil)
+              CogyntClient.publish_event_definition_ids([id])
               Map.delete(queues, id)
 
             false ->

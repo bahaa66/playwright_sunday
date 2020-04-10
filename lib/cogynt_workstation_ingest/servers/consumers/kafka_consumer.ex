@@ -7,7 +7,6 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
 
   alias CogyntWorkstationIngest.Supervisors.DrilldownSupervisor
   alias CogyntWorkstationIngest.Broadway.{Producer, DrilldownProducer}
-  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
 
   @impl true
   def init(topic, _partition, %{event_definition: event_definition}) do
@@ -24,8 +23,6 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
   def handle_message_set(message_set, %{event_definition: event_definition} = state) do
     type = event_definition.event_type
     Producer.enqueue(message_set, event_definition, type)
-
-    CogyntClient.publish_event_definition_ids([event_definition.id])
     {:sync_commit, state}
   end
 
