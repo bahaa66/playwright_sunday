@@ -8,9 +8,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   alias Broadway.Message
   alias CogyntWorkstationIngest.Broadway.{Producer, EventProcessor}
 
+  @pipeline_name :BroadwayEventPipeline
+
   def start_link(_args) do
     Broadway.start_link(__MODULE__,
-      name: :BroadwayEventPipeline,
+      name: @pipeline_name,
       producer: [
         module: {Producer, []},
         stages: 1,
@@ -64,7 +66,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @impl true
   def handle_failed(messages, _args) do
     IO.puts("Failed")
-    Producer.enqueue_failed_messages(messages, :event)
+    Producer.enqueue_failed_messages(messages, @pipeline_name)
     messages
   end
 

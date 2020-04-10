@@ -25,22 +25,22 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   end
 
   def enqueue(message_set, event_definition, type) when is_list(message_set) do
-    producer_name = type_to_name(type)
+    producer_name = event_type_to_name(type)
     GenServer.cast(producer_name, {:enqueue, message_set, event_definition})
   end
 
   def enqueue_failed_messages(broadway_messages, type) when is_list(broadway_messages) do
-    producer_name = type_to_name(type)
+    producer_name = broadway_type_to_name(type)
     GenServer.cast(producer_name, {:enqueue_failed_messages, broadway_messages})
   end
 
   def is_processing?(event_definition_id, type) do
-    producer_name = type_to_name(type)
+    producer_name = event_type_to_name(type)
     GenServer.call(producer_name, {:is_processing, event_definition_id})
   end
 
   def drain_queue(event_definition_id, type) do
-    producer_name = type_to_name(type)
+    producer_name = event_type_to_name(type)
     GenServer.cast(producer_name, {:drain_queue, event_definition_id})
   end
 
@@ -278,9 +278,9 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     end
   end
 
-  defp type_to_name(type) do
+  defp event_type_to_name(event_type) do
     default_name =
-      case type do
+      case event_type do
         @linkage ->
           :BroadwayLinkEventPipeline
 
@@ -289,6 +289,11 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
       end
 
     producer_names = Broadway.producer_names(default_name)
+    List.first(producer_names)
+  end
+
+  defp broadway_type_to_name(broadway_type) do
+    producer_names = Broadway.producer_names(broadway_type)
     List.first(producer_names)
   end
 
