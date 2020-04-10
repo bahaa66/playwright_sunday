@@ -284,7 +284,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           Map.put(event, @lexicons, List.flatten(val))
         rescue
           _ ->
-            IO.puts("Lexicon value incorrect format #{val}")
+            CogyntLogger.error("Invalid Authoring Data", "Lexicon value incorrect format #{val}")
             Map.delete(event, @lexicons)
         end
     end
