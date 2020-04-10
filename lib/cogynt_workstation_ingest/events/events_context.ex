@@ -60,9 +60,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   Returns a single event_id based on the id event_detail field.
   ## Examples
       iex> fetch_event_id(id)
-      {:ok, event_id}
+      UUID
       iex> fetch_event_id(invalid_id)
-      {:error, reason}
+      nil
   """
   def fetch_event_id(id) do
     from(
