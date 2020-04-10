@@ -70,7 +70,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:utils,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "utils",
-       tag: "v0.1.9-beta",
+       tag: "v0.1.11-beta",
        override: true}
     ]
   end
