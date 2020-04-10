@@ -315,19 +315,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
          event: %{"id" => id},
          event_definition: event_definition
        }) do
-    case EventsContext.fetch_event_ids(id) do
-      {:ok, event_ids} ->
-        doc_ids = EventDocument.build_document_ids(id, event_definition)
-        {:ok, {event_ids, doc_ids}}
-
-      {:error, reason} ->
-        CogyntLogger.error(
-          "Event Processor",
-          "fetch_data_to_delete/1 failed with reason: #{inspect(reason)}"
-        )
-
-        raise "fetch_data_to_delete/1 failed"
-    end
+    event_ids = EventsContext.fetch_event_ids(id)
+    doc_ids = EventDocument.build_document_ids(id, event_definition)
+    {:ok, {event_ids, doc_ids}}
   end
 
   defp create_event(%{event_definition: event_definition}) do
