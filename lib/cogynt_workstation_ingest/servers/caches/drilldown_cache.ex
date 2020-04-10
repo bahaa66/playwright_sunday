@@ -4,7 +4,6 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
   in the state
   """
   use GenServer
-  require Logger
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
 
   # -------------------- #

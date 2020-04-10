@@ -5,7 +5,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   methods
   """
   use Broadway
-  require Logger
   alias Broadway.Message
   alias CogyntWorkstationIngest.Broadway.{Producer, EventProcessor}
 

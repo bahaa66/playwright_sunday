@@ -68,19 +68,6 @@ config :elasticsearch, :config,
   risk_history_index_alias: System.get_env("RISK_HISTORY_INDEX_ALIAS") || "risk_history",
   utc_offset: 0
 
-# Configurations for keys in Cogynt Core events
-config :cogynt_workstation_ingest, :core_keys,
-  crud: System.get_env("CORE_KEYS_CRUD") || "$crud",
-  risk_score: System.get_env("CORE_KEYS_RISK_SCORE") || "_confidence",
-  partial: System.get_env("CORE_KEYS_PARTIAL") || "$partial",
-  events: System.get_env("CORE_KEYS_EVENTS") || "$$events",
-  description: System.get_env("CORE_KEYS_DESCRIPTION") || "$description",
-  entities: System.get_env("CORE_KEYS_ENTITIES") || "$$entities",
-  link_data_type: System.get_env("CORE_KEYS_LINK_DATA_TYPE") || "linkage",
-  update: System.get_env("CORE_KEYS_UPDATE") || "update",
-  delete: System.get_env("CORE_KEYS_DELETE") || "delete",
-  create: System.get_env("CORE_KEYS_CREATE") || "create"
-
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.EventPipeline,
   processor_stages: System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || 10,

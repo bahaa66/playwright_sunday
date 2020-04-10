@@ -1,6 +1,5 @@
 defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   use GenStage
-  require Logger
   alias KafkaEx.Protocol.Fetch
 
   # -------------------- #
@@ -82,7 +81,10 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
           :queue.in(%{event: message, retry_count: 0}, acc)
 
         {:error, error} ->
-          Logger.error("Failed to decode json_message. Error: #{inspect(error)}")
+          CogyntLogger.error(
+            "Drilldown Producer",
+            "Failed to decode json_message. Error: #{inspect(error)}"
+          )
       end
     end)
   end
@@ -96,7 +98,11 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
                                                        },
                                                        acc ->
       if retry_count < max_retry() do
-        IO.puts("Failed messages retry. Attempt: #{retry_count + 1}")
+        CogyntLogger.warn(
+          "Drilldown Producer",
+          "Failed messages retry. Attempt: #{retry_count + 1}"
+        )
+
         acc ++ [%{event: message, retry_count: retry_count + 1}]
       else
         acc

@@ -5,7 +5,6 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
   given interval of the configurations.
   """
   use GenServer
-  require Logger
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
 
   # -------------------- #

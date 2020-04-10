@@ -4,7 +4,6 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
   async task.
   """
   use Task
-  require Logger
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
 
@@ -13,7 +12,10 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
   end
 
   def run(id) do
-    Logger.info("Backfill Notifications Task: Running backfill notifications task for ID: #{id}")
+    CogyntLogger.info(
+      "Backfill Notifications Task",
+      "Running backfill notifications task for ID: #{id}"
+    )
 
     backfill_notifications(id)
   end

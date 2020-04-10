@@ -13,6 +13,20 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
 # cogynt-common configurations
 config :migrations, :application, repo: CogyntWorkstationIngest.Repo
 
+# Configurations for keys in Cogynt Core events
+config :cogynt_workstation_ingest, :core_keys,
+  crud: "$crud",
+  risk_score: "_confidence",
+  partial: "$partial",
+  events: "$$events",
+  description: "$description",
+  entities: "$$entities",
+  lexicons: "$matches",
+  link_data_type: "linkage",
+  update: "update",
+  delete: "delete",
+  create: "create"
+
 # Configures Elixir's Logger
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",

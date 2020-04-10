@@ -1,12 +1,13 @@
 defmodule CogyntWorkstationIngest.Broadway.Producer do
   use GenStage
-  require Logger
   alias KafkaEx.Protocol.Fetch
 
   @defaults %{
     event_processed: false,
     event_id: nil,
-    retry_count: 0
+    retry_count: 0,
+    delete_ids: nil,
+    delete_docs: nil
   }
 
   # -------------------- #
@@ -105,11 +106,17 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
             event_definition: event_definition,
             event_processed: @defaults.event_processed,
             event_id: @defaults.event_id,
-            retry_count: @defaults.retry_count
+            retry_count: @defaults.retry_count,
+            delete_ids: @defaults.delete_ids,
+            delete_docs: @defaults.delete_docs
           })
 
         {:error, error} ->
-          Logger.error("Failed to decode json_message. Error: #{inspect(error)}")
+          CogyntLogger.error(
+            "Producer",
+            "Failed to decode json_message. Error: #{inspect(error)}"
+          )
+
           acc
       end
     end)
@@ -122,7 +129,9 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
                                                            event_definition: event_definition,
                                                            event_processed: processed,
                                                            event_id: event_id,
-                                                           retry_count: retry_count
+                                                           retry_count: retry_count,
+                                                           delete_ids: delete_event_ids,
+                                                           delete_docs: delete_doc_ids
                                                          }
                                                        },
                                                        acc ->
@@ -138,7 +147,9 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
               event_definition: event_definition,
               event_processed: processed,
               event_id: event_id,
-              retry_count: retry_count + 1
+              retry_count: retry_count + 1,
+              delete_ids: delete_event_ids,
+              delete_docs: delete_doc_ids
             }
           ]
       else
