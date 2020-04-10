@@ -103,13 +103,13 @@ probes:
       scheme: HTTPS
       port: https
 
-# resources:
-#  limits:
-#    cpu: 100m
-#    memory: 128Mi
-#  requests:
-#    cpu: 80m
-#    memory: 64Mi
+  resources:
+    limits:
+      memory: 4096Mi
+      cpu: 500m
+    requests:
+      cpu: 100m
+      memory: 2048Mi
 
 # Ingress for load balancer
 ingress:
