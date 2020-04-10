@@ -6,6 +6,10 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
   """
   use GenServer
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
+  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
+  alias CogyntWorkstationIngest.Events.EventsContext
+  alias Models.Enums.ConsumerStatusTypeEnum
+  alias Models.Events.EventDefinition
 
   # -------------------- #
   # --- client calls --- #
@@ -71,8 +75,22 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
     ets_records = :ets.tab2list(table_name)
 
     Enum.each(ets_records, fn {event_definition, _value_count} ->
-      IO.puts("Retrying to create Consumer: #{event_definition.topic}")
-      ConsumerGroupSupervisor.start_child(event_definition)
+      CogyntLogger.info(
+        "Topic Does Not Exist",
+        "Retrying to create Consumer: #{event_definition.topic}"
+      )
+
+      with %EventDefinition{} = new_ed <- EventsContext.get_event_definition(event_definition.id),
+           true <- is_nil(new_ed.deleted_at),
+           {:ok, _pid} <- ConsumerGroupSupervisor.start_child(event_definition) do
+        CogyntClient.publish_consumer_status(
+          event_definition.id,
+          event_definition.topic,
+          ConsumerStatusTypeEnum.running()
+        )
+      else
+        _ -> nil
+      end
     end)
 
     {:noreply, %{state | timer: timer_ref}}

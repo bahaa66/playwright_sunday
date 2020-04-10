@@ -37,9 +37,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   Builds a list of event_ids based on the event_id.
   ## Examples
       iex> fetch_event_ids(id)
-      {:ok, [%{}]}
+      [%{}]
       iex> fetch_event_ids(invalid_id)
-      {:error, reason}
+      nil
   """
   def fetch_event_ids(event_id) do
     query =
@@ -50,10 +50,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         select: d.event_id
       )
 
-    Repo.transaction(fn ->
-      Repo.stream(query)
-      |> Enum.to_list()
-    end)
+    Repo.all(query)
   end
 
   @doc """
@@ -100,29 +97,29 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   @doc """
-
-  """
-  def get_non_deleted_event_definiton(id) do
-    Repo.one(
-      from(ed in EventDefinition,
-        where: ed.id == ^id,
-        where: is_nil(ed.deleted_at),
-        select: ed.active
-      )
-    )
-  end
-
-  @doc """
-  Returns a list of all active EventDefinitions
+  Returns the EventDefinition for id. Raises an error if it does
+  not exist
   ## Examples
       iex> get_event_definition!(id)
-      {:ok, [%EventDefinition{}]}
+      {:ok, %EventDefinition{}}
       iex> get_event_definition!(invalid_id)
        ** (Ecto.NoResultsError)
   """
   def get_event_definition!(id) do
     Repo.get!(EventDefinition, id)
     |> Repo.preload(:event_definition_details)
+  end
+
+  @doc """
+  Returns the EventDefinition for id.
+  ## Examples
+      iex> get_event_definition(id)
+      {:ok, %EventDefinition{}}
+      iex> get_event_definition(invalid_id)
+       nil
+  """
+  def get_event_definition(id) do
+    Repo.get(EventDefinition, id)
   end
 
   @doc """
@@ -178,11 +175,17 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
               where: e.id in ^event_ids
             )
 
+          l_query =
+            from(l in EventLink,
+              where: l.parent_event_id in ^event_ids or l.child_event_id in ^event_ids
+            )
+
           deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
           Multi.new()
           |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
           |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
+          |> Multi.update_all(:update_event_links, l_query, set: [deleted_at: deleted_at])
       end
 
     multi
@@ -215,11 +218,17 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
               where: e.id in ^event_ids
             )
 
+          l_query =
+            from(l in EventLink,
+              where: l.parent_event_id in ^event_ids or l.child_event_id in ^event_ids
+            )
+
           deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
           Multi.new()
           |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
           |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
+          |> Multi.update_all(:update_event_links, l_query, set: [deleted_at: deleted_at])
       end
 
     multi
