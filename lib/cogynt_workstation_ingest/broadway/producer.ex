@@ -61,7 +61,6 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
       ) do
     queues = parse_kafka_message_set(message_set, event_definition, queues)
     {messages, new_state} = fetch_and_release_demand(demand, queues, state)
-    IO.inspect(Enum.count(messages), label: "@@@ MESSAGE COUNT")
     {:noreply, messages, new_state}
   end
 
@@ -106,8 +105,6 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   @impl true
   def handle_demand(incoming_demand, %{queues: queues, demand: demand} = state)
       when incoming_demand > 0 do
-    IO.inspect(incoming_demand, label: "@@@ Incoming Demand")
-    IO.inspect(demand, label: "@@@ Demand")
     total_demand = incoming_demand + demand
     {messages, new_state} = fetch_and_release_demand(total_demand, queues, state)
     {:noreply, messages, new_state}
@@ -220,8 +217,6 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
          messages,
          %{demand: demand} = state
        ) do
-    IO.inspect(:queue.len(queue), label: "@@@ SIZE")
-
     {items, queue} =
       case :queue.len(queue) >= fetch_count do
         true ->

@@ -21,7 +21,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
       {:error, nil} ->
         %{
           status: :error,
-          body: :topic_does_not_exist
+          body: ConsumerStatusTypeEnum.topic_does_not_exist()
         }
 
       {:error, error} ->
