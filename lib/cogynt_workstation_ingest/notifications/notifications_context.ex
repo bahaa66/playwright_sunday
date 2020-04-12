@@ -111,7 +111,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     {:ok, notifications} =
       Repo.transaction(fn ->
         Repo.stream(event_query)
-        |> Repo.stream_preload(10, :event_details)
+        |> Repo.stream_preload(1000, :event_details)
         |> Stream.map(fn event ->
           with true <- publish_notification?(event.event_details),
                true <-
