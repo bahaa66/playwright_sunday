@@ -86,7 +86,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
         CogyntClient.publish_consumer_status(
           event_definition.id,
           event_definition.topic,
-          ConsumerStatusTypeEnum.running()
+          ConsumerStatusTypeEnum.status[:running]
         )
       else
         _ -> nil

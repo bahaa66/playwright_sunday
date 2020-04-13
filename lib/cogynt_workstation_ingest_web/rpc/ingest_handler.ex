@@ -21,7 +21,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
       {:error, nil} ->
         %{
           status: :error,
-          body: ConsumerStatusTypeEnum.topic_does_not_exist()
+          body: ConsumerStatusTypeEnum.status[:topic_does_not_exist]
         }
 
       {:error, error} ->
@@ -74,7 +74,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                   %{
                     id: id,
                     topic: topic,
-                    status: ConsumerStatusTypeEnum.topic_does_not_exist()
+                    status: ConsumerStatusTypeEnum.status[:topic_does_not_exist]
                   }
                 ]
 
@@ -88,7 +88,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                           %{
                             id: id,
                             topic: topic,
-                            status: ConsumerStatusTypeEnum.has_not_been_created()
+                            status: ConsumerStatusTypeEnum.status[:has_not_been_created]
                           }
                         ]
 
@@ -100,7 +100,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                               %{
                                 id: id,
                                 topic: topic,
-                                status: ConsumerStatusTypeEnum.is_active_but_no_consumer_running()
+                                status: ConsumerStatusTypeEnum.status[:is_active_but_no_consumer_running]
                               }
                             ]
 
@@ -112,7 +112,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                                   %{
                                     id: id,
                                     topic: topic,
-                                    status: ConsumerStatusTypeEnum.paused_and_processing()
+                                    status: ConsumerStatusTypeEnum.status[:paused_and_processing]
                                   }
                                 ]
 
@@ -122,7 +122,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                                   %{
                                     id: id,
                                     topic: topic,
-                                    status: ConsumerStatusTypeEnum.paused_and_finished()
+                                    status: ConsumerStatusTypeEnum.status[:paused_and_finished]
                                   }
                                 ]
                           end
@@ -135,7 +135,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                       %{
                         id: id,
                         topic: topic,
-                        status: ConsumerStatusTypeEnum.running()
+                        status: ConsumerStatusTypeEnum.status[:running]
                       }
                     ]
               end
