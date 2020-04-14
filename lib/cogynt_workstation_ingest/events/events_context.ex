@@ -75,27 +75,25 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.one()
   end
 
+  @doc """
+  Paginates through Events based on the event_definition_id.
+  Returns the page_number as a %Scrivener.Page{} object.
+  ## Examples
+      iex> paginate_events_by_event_definition_id("4123449c-2de0-482f-bea8-5efdb837be08", 1, 10)
+      %Scrivener.Page{...}
+  """
+  def paginate_events_by_event_definition_id(id, page_number, page_size) do
+    from(e in Event)
+    |> where([e], e.event_definition_id == type(^id, :binary_id))
+    |> where([e], is_nil(e.deleted_at))
+    |> order_by(desc: :created_at)
+    |> preload(:event_details)
+    |> Repo.paginate(page: page_number, page_size: page_size)
+  end
+
   # -------------------------------------- #
   # --- EventDefinition Schema Methods --- #
   # -------------------------------------- #
-  @doc """
-  Returns a list of all active EventDefinitions
-  ## Examples
-      iex> get_active_event_definitions(id)
-      {:ok, [%EventDefinition{}]}
-      iex> get_active_event_definitions(invalid_id)
-      {:error, reason}
-  """
-  def get_active_event_definitions() do
-    Repo.all(
-      from(
-        ed in EventDefinition,
-        where: is_nil(ed.deleted_at),
-        where: ed.active == true
-      )
-    )
-  end
-
   @doc """
   Returns the EventDefinition for id. Raises an error if it does
   not exist
@@ -120,6 +118,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   """
   def get_event_definition(id) do
     Repo.get(EventDefinition, id)
+    |> Repo.preload(:event_definition_details)
   end
 
   @doc """
@@ -284,15 +283,14 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # --- Application Startup Methods --- #
   # ----------------------------------- #
   def initalize_consumers_with_active_event_definitions() do
-    query =
-      from(
-        ed in EventDefinition,
-        where: is_nil(ed.deleted_at),
-        where: ed.active == true
-      )
-
     Repo.transaction(fn ->
-      Repo.stream(query)
+      Repo.stream(
+        from(
+          ed in EventDefinition,
+          where: is_nil(ed.deleted_at),
+          where: ed.active == true
+        )
+      )
       |> Stream.each(fn ed ->
         ed
         |> Repo.preload(:event_definition_details)
