@@ -54,14 +54,14 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
         CogyntClient.publish_consumer_status(
           id,
           topic,
-          ConsumerStatusTypeEnum.paused_and_processing()
+          ConsumerStatusTypeEnum.status[:paused_and_processing]
         )
 
       false ->
         CogyntClient.publish_consumer_status(
           id,
           topic,
-          ConsumerStatusTypeEnum.paused_and_finished()
+          ConsumerStatusTypeEnum.status[:paused_and_finished]
         )
     end
 

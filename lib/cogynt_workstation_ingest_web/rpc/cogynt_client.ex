@@ -71,7 +71,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
       request = %{
         id: id,
         topic: event_definition.topic,
-        status: ConsumerStatusTypeEnum.paused_and_finished()
+        status: ConsumerStatusTypeEnum.status[:paused_and_finished]
       }
 
       url = "#{service_name()}:#{service_port()}#{@path}"

@@ -205,18 +205,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         raise "execute_transaction/1 failed"
     end
 
-    # update elasticsearch documents
-    case is_nil(doc_ids) do
-      true ->
-        {:ok, _} = EventDocument.bulk_upsert_document(event_docs)
-
-      false ->
-        {:ok, _} = EventDocument.bulk_delete_document(doc_ids)
-    end
-
-    if !is_nil(risk_history_doc) do
-      {:ok, _} = RiskHistoryDocument.upsert_document(risk_history_doc, risk_history_doc.id)
-    end
+    # elastic search updates
+    update_event_docs(event_docs, doc_ids)
+    update_risk_history_doc(risk_history_doc)
 
     Map.put(data, :event_processed, true)
   end
@@ -255,18 +246,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         raise "execute_transaction/1 failed"
     end
 
-    # update elasticsearch documents
-    case is_nil(doc_ids) do
-      true ->
-        {:ok, _} = EventDocument.bulk_upsert_document(event_docs)
-
-      false ->
-        {:ok, _} = EventDocument.bulk_delete_document(doc_ids)
-    end
-
-    if !is_nil(risk_history_doc) do
-      {:ok, _} = RiskHistoryDocument.upsert_document(risk_history_doc, risk_history_doc.id)
-    end
+    # elastic search updates
+    update_event_docs(event_docs, doc_ids)
+    update_risk_history_doc(risk_history_doc)
 
     Map.put(data, :event_processed, true)
   end
@@ -369,6 +351,26 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         )
 
         raise "update_event/1 failed"
+    end
+  end
+
+  defp update_event_docs(event_docs, event_doc_ids) do
+    case is_nil(event_doc_ids) or Enum.empty?(event_doc_ids) do
+      true ->
+        {:ok, _} = EventDocument.bulk_upsert_document(event_docs)
+
+      false ->
+        {:ok, _} = EventDocument.bulk_delete_document(event_doc_ids)
+    end
+  end
+
+  defp update_risk_history_doc(risk_history_doc) do
+    case !is_nil(risk_history_doc) do
+      true ->
+        {:ok, _} = RiskHistoryDocument.upsert_document(risk_history_doc, risk_history_doc.id)
+
+      false ->
+        :ok
     end
   end
 end

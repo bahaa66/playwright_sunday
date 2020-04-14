@@ -20,7 +20,7 @@ defmodule CogyntWorkstationIngest.MixProject do
   def application do
     [
       mod: {CogyntWorkstationIngest.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools, :scrivener_ecto]
     ]
   end
 
@@ -57,20 +57,21 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:timber, "~> 3.1.1"},
       {:timber_phoenix, "~> 1.0"},
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
+      {:scrivener_ecto, "~> 2.0"},
       {:models,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "models",
-       tag: "v0.1.11-beta",
+       tag: "v0.1.12-beta",
        override: true},
       {:migrations,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "migrations",
-       tag: "v0.1.11-beta",
+       tag: "v0.1.12-beta",
        override: true},
       {:utils,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "utils",
-       tag: "v0.1.11-beta",
+       tag: "v0.1.12-beta",
        override: true}
     ]
   end
