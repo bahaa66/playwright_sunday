@@ -5,12 +5,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   import Ecto.Query, warn: false
   alias CogyntWorkstationIngest.Repo
 
-  alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Notifications.{NotificationSetting, Notification}
-  alias Models.Events.Event
-
-  @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
-  @partial Application.get_env(:cogynt_workstation_ingest, :core_keys)[:partial]
 
   # ------------------------------------ #
   # --- Notification Setting Methods --- #
@@ -37,6 +32,30 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       nil
   """
   def get_notification_by(clauses), do: Repo.get_by(Notification, clauses)
+
+  @doc """
+  Returns a list of the %Notification{} stucts that were inserted.
+  ## Examples
+      iex> bulk_insert_notifications([])
+      {:ok, [%Notification{...}]}
+  """
+  def bulk_insert_notifications(notifications) when is_list(notifications) do
+    {_count, updated_notifications} =
+      Repo.insert_all(Notification, notifications,
+        returning: [
+          :event_id,
+          :user_id,
+          :tag_id,
+          :id,
+          :title,
+          :notification_setting_id,
+          :created_at,
+          :updated_at
+        ]
+      )
+
+    {:ok, updated_notifications}
+  end
 
   # ------------------------------- #
   # --- Event Processor Methods --- #
@@ -91,104 +110,6 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
         else
           {:ok, result}
         end
-    end
-  end
-
-  def backfill_notifications(id) do
-    # Grab the notification setting for the notification setting id given
-    notification_setting = get_notification_setting!(id)
-
-    # Grab the event definition that matches the notification setting and preload its details
-    event_definition =
-      EventsContext.get_event_definition!(notification_setting.event_definition_id)
-
-    event_query =
-      from(e in Event,
-        where: e.event_definition_id == type(^event_definition.id, :binary_id),
-        where: is_nil(e.deleted_at)
-      )
-
-    events =
-      Repo.all(event_query)
-      |> Repo.preload(:event_details)
-
-    notifications =
-      Enum.reduce(events, [], fn event, acc ->
-        with true <- publish_notification?(event.event_details),
-             true <-
-               !is_nil(
-                 Enum.find(event_definition.event_definition_details, fn d ->
-                   d.field_name == notification_setting.title
-                 end)
-               ),
-             nil <-
-               get_notification_by(
-                 event_id: event.id,
-                 notification_setting_id: notification_setting.id
-               ) do
-          acc ++
-            [
-              %{
-                event_id: event.id,
-                user_id: notification_setting.user_id,
-                tag_id: notification_setting.tag_id,
-                title: notification_setting.title,
-                notification_setting_id: notification_setting.id,
-                created_at: DateTime.truncate(DateTime.utc_now(), :second),
-                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-              }
-            ]
-        else
-          _ ->
-            acc
-        end
-      end)
-
-    {_count, updated_notifications} =
-      Repo.insert_all(Notification, notifications,
-        returning: [
-          :event_id,
-          :user_id,
-          :tag_id,
-          :id,
-          :title,
-          :notification_setting_id,
-          :created_at,
-          :updated_at
-        ]
-      )
-
-    {:ok, updated_notifications}
-  end
-
-  # ----------------------- #
-  # --- private methods --- #
-  # ----------------------- #
-  defp publish_notification?(event_details) do
-    partial =
-      Enum.find(event_details, fn detail ->
-        detail.field_name == @partial and detail.field_value == "true"
-      end)
-
-    risk_score =
-      Enum.find(event_details, fn detail ->
-        if detail.field_name == @risk_score and detail.field_value != nil do
-          case Float.parse(detail.field_value) do
-            :error ->
-              nil
-
-            {risk_score_val, _extra} ->
-              risk_score_val > 0
-          end
-        else
-          nil
-        end
-      end)
-
-    if partial == nil or risk_score != nil do
-      true
-    else
-      false
     end
   end
 end
