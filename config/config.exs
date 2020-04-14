@@ -31,7 +31,7 @@ config :cogynt_workstation_ingest, :core_keys,
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id],
-  level: :warn
+  level: :info
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
