@@ -244,7 +244,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
 
         new_state =
           Map.put(state, :queues, queues)
-          |> Map.put(:demand, demand - Enum.count(messages))
+          |> Map.put(:demand, demand - Enum.count(new_messages))
 
         {messages ++ new_messages, new_state}
     end
