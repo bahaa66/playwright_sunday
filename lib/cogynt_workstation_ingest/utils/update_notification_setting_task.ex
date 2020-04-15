@@ -23,7 +23,7 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
   defp update_notifications(notification_setting_id) do
     with %NotificationSetting{id: id} = notification_setting <-
            NotificationsContext.get_notification_setting(notification_setting_id) do
-      CogyntLogger.error(
+      CogyntLogger.info(
         "Update Notifications Task",
         "Running update notifications task for ID: #{notification_setting_id}"
       )
@@ -37,9 +37,9 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
       process_page(page, notification_setting)
     else
       nil ->
-        CogyntLogger.error(
+        CogyntLogger.warn(
           "Update Notifications Task",
-          "Running update notifications task for ID: #{notification_setting_id}"
+          "Notification setting not found for ID: #{notification_setting_id}"
         )
     end
   end
