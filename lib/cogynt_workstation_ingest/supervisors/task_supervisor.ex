@@ -25,10 +25,10 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
           {CogyntWorkstationIngest.Utils.BackfillNotificationsTask, id}
         )
 
-      {:update_notifications, notification_setting_id} ->
+      {:update_notification_setting, notification_setting_id} ->
         DynamicSupervisor.start_child(
           __MODULE__,
-          {CogyntWorkstationIngest.Utils.UpdateNotificationsTask, notification_setting_id}
+          {CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask, notification_setting_id}
         )
 
       _ ->
