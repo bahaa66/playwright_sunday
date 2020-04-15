@@ -34,19 +34,22 @@ config :cogynt_workstation_ingest, env: (System.get_env("ENV") || "dev") |> Stri
 # Kafka Configurations
 config :kafka_ex,
   # Dev Kafka
-  brokers: [
-    {
-      System.get_env("KAFKA_BROKER") || "172.16.1.100",
-      (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
-    }
-  ],
+  # brokers: [
+  #   {
+  #     System.get_env("KAFKA_BROKER") || "172.16.1.100",
+  #     (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
+  #   }
+  # ],
   # Local Kafka
-  # brokers: [{"127.0.0.1", 9092}],
+  brokers: [{"127.0.0.1", 9092}],
   auto_offset_reset: :earliest,
   kafka_version: "2.0",
   commit_interval: System.get_env("KAFKA_COMMIT_INTERVAL") || 1000,
   commit_threshold: System.get_env("KAFKA_COMMIT_THRESHOLD") || 1000,
-  heartbeat_interval: System.get_env("KAFKA_HEARTBEAT_INTERVAL") || 1000,
+  heartbeat_interval: System.get_env("KAFKA_HEARTBEAT_INTERVAL") || 3000,
+  sync_timeout: System.get_env("KAKFA_SYNC_TIMEOUT") || 3000,
+  max_restarts: System.get_env("KAFKA_MAX_RESTARTS") || 10,
+  max_seconds: System.get_env("KAFKA_MAX_SECONDS") || 60,
   kafka_client: System.get_env("KAFKA_CLIENT") || KafkaEx,
   audit_topic: System.get_env("AUDIT_LOG_TOPIC") || "cogynt_audit_log",
   template_solution_topic: System.get_env("TEMPLATE_SOLUTION_TOPIC") || "template_solutions",

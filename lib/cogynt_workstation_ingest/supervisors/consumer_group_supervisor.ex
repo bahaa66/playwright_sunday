@@ -65,7 +65,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         :start_link,
         consumer_group_options()
       },
-      restart: :permanent,
+      restart: :transient,
       shutdown: 5000,
       type: :supervisor
     }
@@ -115,6 +115,9 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         name: consumer_group_name(topic),
         commit_interval: commit_interval(),
         commit_threshold: commit_threshold(),
+        heartbeat_interval: heartbeat_interval(),
+        max_restarts: max_restarts(),
+        max_seconds: max_seconds(),
         extra_consumer_args: %{event_definition: event_definition}
       ]
     ]
@@ -128,7 +131,10 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       [
         name: :DrillDownGroup,
         commit_interval: commit_interval(),
-        commit_threshold: commit_threshold()
+        commit_threshold: commit_threshold(),
+        heartbeat_interval: heartbeat_interval(),
+        max_restarts: max_restarts(),
+        max_seconds: max_seconds()
       ]
     ]
   end
@@ -166,8 +172,11 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   # ---------------------- #
   # --- configurations --- #
   # ---------------------- #
+  defp heartbeat_interval(), do: Application.get_env(:kafka_ex, :heartbeat_interval)
   defp commit_interval(), do: Application.get_env(:kafka_ex, :commit_interval)
   defp commit_threshold(), do: Application.get_env(:kafka_ex, :commit_threshold)
+  defp max_restarts(), do: Application.get_env(:kafka_ex, :max_restarts)
+  defp max_seconds(), do: Application.get_env(:kafka_ex, :max_seconds)
   defp partitions(), do: Application.get_env(:kafka_ex, :topic_partitions)
   defp replication(), do: Application.get_env(:kafka_ex, :topic_replication)
   defp topic_config(), do: Application.get_env(:kafka_ex, :topic_config)
