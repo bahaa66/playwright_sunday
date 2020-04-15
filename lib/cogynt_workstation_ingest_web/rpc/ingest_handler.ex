@@ -63,7 +63,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   def handle_request("ingest:update_notifications", %{
         "notification_setting_id" => notification_setting_id
       }) do
-    TaskSupervisor.start_child(%{update_notifications: notification_setting_id})
+    TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
 
     %{
       status: :ok,
