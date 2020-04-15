@@ -18,6 +18,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     DynamicSupervisor.init(strategy: :one_for_one)
   end
 
+  # test
   @doc """
   Will start a KafkaEx ConsumerGroup for the event_definition.topic.
   If the topic does not exist it will retry to start the consumer
