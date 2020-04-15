@@ -20,6 +20,16 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   """
   def get_notification_setting!(id), do: Repo.get!(NotificationSetting, id)
 
+  @doc """
+  Gets a single notification_setting for the id
+  ## Examples
+      iex> get_notification_setting(id)
+      %NotificationSetting{}
+      iex> get_notification_setting(invalid_id)
+      nil
+  """
+  def get_notification_setting(id), do: Repo.get(NotificationSetting, id)
+
   # ---------------------------- #
   # --- Notification Methods --- #
   # ---------------------------- #
@@ -55,6 +65,73 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       )
 
     {:ok, updated_notifications}
+  end
+
+  @doc """
+  Returns a page of notifications by the args and page
+  ## Examples
+      iex> get_page_of_notifications(
+        %{
+          filter: %{
+            notifications_setting_id: "dec1dcda-7f32-11ea-bc55-0242ac130003"
+          }
+        },
+        page_number: 1
+      )
+      %Scrivener.Page{
+        entries: [%Notification{}],
+        page_number: 1,
+        page_size: 500,
+        total_entries: 1200,
+        total_pages: 3
+      }
+  """
+  def get_page_of_notifications(args, opts \\ []) do
+    page = Keyword.get(opts, :page_number, 1)
+    page_size = Keyword.get(opts, :page_size, 10)
+
+    Enum.reduce(args, from(n in Notification), fn
+      {:filter, filter}, q ->
+        filter_notifications(filter, q)
+    end)
+    |> order_by([n], desc: n.created_at, asc: n.id)
+    |> Repo.paginate(page: page, page_size: page_size)
+  end
+
+  @doc """
+  Bulk updates a list of notifications by filter and it also allows you to select the
+  columns you want to return.
+  ## Examples
+      iex> update_notifications(
+        %{
+          filter: %{
+            notificiation_setting_id: "c1607818-7f32-11ea-bc55-0242ac130003"
+          }
+        }
+      )
+      {2, [%Notification{}, %Notification{}]}
+  """
+  def update_notifcations(args, set: set) do
+    query =
+      Enum.reduce(args, from(n in Notification), fn
+        {:filter, filter}, q ->
+          filter_notifications(filter, q)
+
+        {:select, select}, q ->
+          select(q, ^select)
+      end)
+
+    Repo.update_all(query, set: set)
+  end
+
+  defp filter_notifications(filter, query) do
+    Enum.reduce(filter, query, fn
+      {:notification_ids, notification_ids}, q ->
+        where(q, [n], n.id in ^notification_ids)
+
+      {:notification_setting_id, notification_setting_id}, q ->
+        where(q, [n], n.notification_setting_id == ^notification_setting_id)
+    end)
   end
 
   # ------------------------------- #

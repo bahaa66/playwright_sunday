@@ -60,6 +60,17 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
     }
   end
 
+  def handle_request("ingest:update_notifications", %{
+        "notification_setting_id" => notification_setting_id
+      }) do
+    TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
+
+    %{
+      status: :ok,
+      body: :success
+    }
+  end
+
   def handle_request("ingest:check_status", consumers) when is_list(consumers) do
     try do
       # Grab a list of existing Kafka topics

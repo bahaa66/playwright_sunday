@@ -86,7 +86,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     from(e in Event)
     |> where([e], e.event_definition_id == type(^id, :binary_id))
     |> where([e], is_nil(e.deleted_at))
-    |> order_by(desc: :created_at)
+    |> order_by(desc: :created_at, asc: :id)
     |> preload(:event_details)
     |> Repo.paginate(page: page_number, page_size: page_size)
   end

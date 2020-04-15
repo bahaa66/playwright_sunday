@@ -25,6 +25,12 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
           {CogyntWorkstationIngest.Utils.BackfillNotificationsTask, id}
         )
 
+      {:update_notification_setting, notification_setting_id} ->
+        DynamicSupervisor.start_child(
+          __MODULE__,
+          {CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask, notification_setting_id}
+        )
+
       _ ->
         CogyntLogger.warn("TaskSupervisor Error", "Invalid args passed. Args: #{inspect(args)}")
     end)
