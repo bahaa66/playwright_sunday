@@ -21,8 +21,13 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
       {:error, nil} ->
         %{
           status: :error,
-          # ConsumerStatusTypeEnum.status[:topic_does_not_exist]
-          body: "topic does not exist"
+          body: ConsumerStatusTypeEnum.status()[:topic_does_not_exist]
+        }
+
+      {:error, :failed_to_start_consumer} ->
+        %{
+          status: :error,
+          body: :failed_to_start_consumer
         }
 
       {:error, error} ->
@@ -36,12 +41,18 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   def handle_request("ingest:stop_consumer", event_definition) when is_map(event_definition) do
     event_definition = keys_to_atoms(event_definition)
 
-    with :ok <- ConsumerGroupSupervisor.stop_child(event_definition.topic) do
+    with {:ok, :success} <- ConsumerGroupSupervisor.stop_child(event_definition.topic) do
       %{
         status: :ok,
         body: :success
       }
     else
+      {:error, :failed_to_stop_consumer} ->
+        %{
+          status: :error,
+          body: :failed_to_stop_consumer
+        }
+
       {:error, error} ->
         %{
           status: :error,
@@ -75,8 +86,8 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                   %{
                     id: id,
                     topic: topic,
-                    # ConsumerStatusTypeEnum.status()[:topic_does_not_exist]
                     status: "topic does not exist"
+                    # status: ConsumerStatusTypeEnum.status()[:topic_does_not_exist]
                   }
                 ]
 
@@ -90,8 +101,8 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                           %{
                             id: id,
                             topic: topic,
-                            # ConsumerStatusTypeEnum.status()[:has_not_been_created]
                             status: "has not been created"
+                            # status: ConsumerStatusTypeEnum.status()[:has_not_been_created]
                           }
                         ]
 
@@ -104,9 +115,10 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                                 id: id,
                                 topic: topic,
                                 status: "is active, but no consumer running"
-                                # ConsumerStatusTypeEnum.status()[
-                                #   :is_active_but_no_consumer_running
-                                # ]
+                                # status:
+                                #   ConsumerStatusTypeEnum.status()[
+                                #     :is_active_but_no_consumer_running
+                                #   ]
                               }
                             ]
 
@@ -119,7 +131,8 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                                     id: id,
                                     topic: topic,
                                     status: "paused"
-                                    # ConsumerStatusTypeEnum.status()[:paused_and_processing]
+                                    # status:
+                                    #   ConsumerStatusTypeEnum.status()[:paused_and_processing]
                                   }
                                 ]
 
@@ -129,8 +142,8 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                                   %{
                                     id: id,
                                     topic: topic,
-                                    # ConsumerStatusTypeEnum.status()[:paused_and_finished]
                                     status: "paused"
+                                    # status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
                                   }
                                 ]
                           end
@@ -143,8 +156,8 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                       %{
                         id: id,
                         topic: topic,
-                        # ConsumerStatusTypeEnum.status()[:running]
                         status: "running"
+                        # status: ConsumerStatusTypeEnum.status()[:running]
                       }
                     ]
               end
