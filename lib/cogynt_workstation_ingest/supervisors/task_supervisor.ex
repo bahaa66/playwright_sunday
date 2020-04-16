@@ -3,6 +3,7 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
   Dynamic Supervisor for all CogyntWorkstationIngest modules that implement Task.
   """
   use DynamicSupervisor
+  alias CogyntWorkstationIngest.Servers.NotificationsTaskMonitor
 
   def start_link(arg) do
     DynamicSupervisor.start_link(__MODULE__, arg, name: __MODULE__)
@@ -19,17 +20,25 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
   """
   def start_child(args) do
     Enum.each(args, fn
-      {:backfill_notifications, id} ->
-        DynamicSupervisor.start_child(
-          __MODULE__,
-          {CogyntWorkstationIngest.Utils.BackfillNotificationsTask, id}
-        )
+      {:backfill_notifications, notification_setting_id} ->
+        {:ok, pid} =
+          DynamicSupervisor.start_child(
+            __MODULE__,
+            {CogyntWorkstationIngest.Utils.BackfillNotificationsTask, notification_setting_id}
+          )
+
+        NotificationsTaskMonitor.monitor(pid, notification_setting_id)
+        {:ok, pid}
 
       {:update_notification_setting, notification_setting_id} ->
-        DynamicSupervisor.start_child(
-          __MODULE__,
-          {CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask, notification_setting_id}
-        )
+        {:ok, pid} =
+          DynamicSupervisor.start_child(
+            __MODULE__,
+            {CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask, notification_setting_id}
+          )
+
+        NotificationsTaskMonitor.monitor(pid, notification_setting_id)
+        {:ok, pid}
 
       _ ->
         CogyntLogger.warn("TaskSupervisor Error", "Invalid args passed. Args: #{inspect(args)}")
