@@ -15,7 +15,8 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
 
   @impl true
   def init(_topic, _partition, _args) do
-    DrilldownSupervisor.start_child()
+    # TODO: uncomment when drilldown is being used by this app
+    # DrilldownSupervisor.start_child()
     {:ok, %{}}
   end
 
@@ -27,8 +28,9 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
   end
 
   @impl true
-  def handle_message_set(message_set, state) do
-    DrilldownProducer.enqueue(message_set)
+  def handle_message_set(_message_set, state) do
+    # TODO: uncomment when drilldown is being used by this app
+    # DrilldownProducer.enqueue(message_set)
     {:sync_commit, state}
   end
 end
