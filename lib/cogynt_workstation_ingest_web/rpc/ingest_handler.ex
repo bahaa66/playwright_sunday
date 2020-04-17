@@ -24,12 +24,6 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
           body: ConsumerStatusTypeEnum.status()[:topic_does_not_exist]
         }
 
-      {:error, :failed_to_start_consumer} ->
-        %{
-          status: :error,
-          body: :failed_to_start_consumer
-        }
-
       {:error, error} ->
         %{
           status: :error,
@@ -47,12 +41,6 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
         body: :success
       }
     else
-      {:error, :failed_to_stop_consumer} ->
-        %{
-          status: :error,
-          body: :failed_to_stop_consumer
-        }
-
       {:error, error} ->
         %{
           status: :error,
