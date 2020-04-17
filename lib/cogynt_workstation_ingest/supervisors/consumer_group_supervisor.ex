@@ -44,15 +44,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       }
 
       {:ok, pid} = DynamicSupervisor.start_child(__MODULE__, child_spec)
-
-      case consumer_group_active?(pid) do
-        true ->
-          ConsumerMonitor.monitor(pid, id, topic, type)
-          {:ok, pid}
-
-        false ->
-          {:error, :failed_to_start_consumer}
-      end
+      ConsumerMonitor.monitor(pid, id, topic, type)
+      {:ok, pid}
     else
       ConsumerRetryCache.retry_consumer(event_definition)
       {:error, nil}
@@ -88,14 +81,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)
-
-      case consumer_group_inactive?(child_pid) do
-        true ->
-          {:ok, :success}
-
-        false ->
-          {:error, :failed_to_stop_consumer}
-      end
+      Process.sleep(1500)
+      {:ok, :success}
     else
       {:ok, :success}
     end
@@ -183,46 +170,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   defp consumer_group_name(topic), do: String.to_atom(topic <> "Group")
-
-  defp consumer_group_active?(pid, count \\ 0) do
-    try do
-      is_active = Process.alive?(pid)
-
-      if count >= 5 do
-        is_active
-      else
-        if is_active do
-          true
-        else
-          Process.sleep(1000)
-          consumer_group_active?(pid, count + 1)
-        end
-      end
-    rescue
-      _ ->
-        false
-    end
-  end
-
-  defp consumer_group_inactive?(pid, count \\ 0) do
-    try do
-      is_active = Process.alive?(pid)
-
-      if count >= 5 do
-        is_active
-      else
-        if !is_active do
-          true
-        else
-          Process.sleep(1000)
-          consumer_group_inactive?(pid, count + 1)
-        end
-      end
-    rescue
-      _ ->
-        true
-    end
-  end
 
   # ---------------------- #
   # --- configurations --- #
