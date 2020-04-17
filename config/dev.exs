@@ -1,5 +1,5 @@
 use Mix.Config
-
+#test
 # Session Configurations
 config :cogynt_workstation_ingest,
   session_domain: System.get_env("COGYNT_SESSION_DOMAIN") || "localhost",
