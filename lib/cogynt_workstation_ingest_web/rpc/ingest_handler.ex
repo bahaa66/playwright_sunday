@@ -1,6 +1,7 @@
 defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   use JSONRPC2.Server.Handler
 
+  alias CogyntWorkstationIngest.Servers.NotificationsTaskMonitor
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
   alias CogyntWorkstationIngest.Events.EventsContext
@@ -8,6 +9,9 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   alias Models.Enums.ConsumerStatusTypeEnum
   alias Models.Events.EventDefinition
 
+  # ----------------------- #
+  # --- ingestion calls --- #
+  # ----------------------- #
   def handle_request("ingest:start_consumer", event_definition) when is_map(event_definition) do
     result = ConsumerGroupSupervisor.start_child(keys_to_atoms(event_definition))
 
@@ -160,6 +164,48 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
       %{
         status: :ok,
         body: result
+      }
+    rescue
+      _ ->
+        %{
+          status: :error,
+          body: :internal_server_error
+        }
+    end
+  end
+
+  # --------------------------- #
+  # --- notifications tasks --- #
+  # --------------------------- #
+  def handle_request("notifications:check_status", notification_setting_ids)
+      when is_list(notification_setting_ids) do
+    try do
+      response =
+        Enum.reduce(notification_setting_ids, [], fn id, acc ->
+          case NotificationsTaskMonitor.is_processing?(id) do
+            true ->
+              acc ++
+                [
+                  %{
+                    id: id,
+                    status: :running
+                  }
+                ]
+
+            false ->
+              acc ++
+                [
+                  %{
+                    id: id,
+                    status: :finished
+                  }
+                ]
+          end
+        end)
+
+      %{
+        status: :ok,
+        body: response
       }
     rescue
       _ ->

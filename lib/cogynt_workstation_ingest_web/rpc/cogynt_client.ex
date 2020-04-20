@@ -71,7 +71,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
       request = %{
         id: id,
         topic: event_definition.topic,
-        status: ConsumerStatusTypeEnum.status[:paused_and_finished]
+        status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
       }
 
       url = "#{service_name()}:#{service_port()}#{@path}"
@@ -105,6 +105,30 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
 
     url = "#{service_name()}:#{service_port()}#{@path}"
     response = HTTP.call(url, "publish:consumer_status", request)
+
+    case response do
+      {:ok, %{"body" => body, "status" => status}} when status == "ok" ->
+        {:ok, body}
+
+      {:ok, %{"body" => body, "status" => status}} when status == "error" ->
+        {:error, body}
+
+      {:error, _} ->
+        {:error, :internal_server_error}
+    end
+  end
+
+  # ---------------------------------------- #
+  # --- publish notification task status --- #
+  # ---------------------------------------- #
+  def publish_notification_task_status(notification_setting_id, status) do
+    request = %{
+      id: notification_setting_id,
+      status: status
+    }
+
+    url = "#{service_name()}:#{service_port()}#{@path}"
+    response = HTTP.call(url, "publish:notification_task_status", request)
 
     case response do
       {:ok, %{"body" => body, "status" => status}} when status == "ok" ->
