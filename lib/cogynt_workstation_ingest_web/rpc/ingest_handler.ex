@@ -75,6 +75,17 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
     }
   end
 
+  def handle_request("ingest:delete_event_definition_events", %{
+        "event_definition_id" => event_definition_id
+      }) do
+    TaskSupervisor.start_child(%{delete_event_definition_events: event_definition_id})
+
+    %{
+      status: :ok,
+      body: :success
+    }
+  end
+
   def handle_request("ingest:check_status", consumers) when is_list(consumers) do
     try do
       # Grab a list of existing Kafka topics

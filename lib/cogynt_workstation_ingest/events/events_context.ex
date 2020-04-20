@@ -82,13 +82,63 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> paginate_events_by_event_definition_id("4123449c-2de0-482f-bea8-5efdb837be08", 1, 10)
       %Scrivener.Page{...}
   """
-  def paginate_events_by_event_definition_id(id, page_number, page_size) do
-    from(e in Event)
-    |> where([e], e.event_definition_id == type(^id, :binary_id))
-    |> where([e], is_nil(e.deleted_at))
-    |> order_by(desc: :created_at, asc: :id)
-    |> preload(:event_details)
+  def paginate_events_by_event_definition_id(id, page_number, page_size, opts \\ []) do
+    preload_details = Keyword.get(opts, :preload_details, true)
+    include_deleted = Keyword.get(opts, :include_deleted, false)
+
+    query =
+      from(e in Event)
+      |> where([e], e.event_definition_id == type(^id, :binary_id))
+      |> order_by(desc: :created_at, asc: :id)
+
+    query =
+      if preload_details do
+        query
+        |> preload(:event_details)
+      else
+        query
+      end
+
+    if include_deleted do
+      query
+    else
+      query
+      |> where([e], is_nil(e.deleted_at))
+    end
     |> Repo.paginate(page: page_number, page_size: page_size)
+  end
+
+  @doc """
+  Bulk updates many events.
+  ## Examples
+      iex> update_events(
+        %{
+          filter: %{
+            event_definition_id: "c1607818-7f32-11ea-bc55-0242ac130003"
+          }
+        }
+      )
+      {2, [%Event{}, %Event{}]}
+  """
+  def update_events(args, set: set) do
+    Enum.reduce(args, from(n in Event), fn
+      {:filter, filter}, q ->
+        filter_events(filter, q)
+
+      {:select, select}, q ->
+        select(q, ^select)
+    end)
+    |> Repo.update_all(set: set)
+  end
+
+  defp filter_events(filter, query) do
+    Enum.reduce(filter, query, fn
+      {:event_definition_id, event_definition_id}, q ->
+        where(q, [e], e.event_definition_id == ^event_definition_id)
+
+      {:event_ids, event_ids}, q ->
+        where(q, [e], e.id in ^event_ids)
+    end)
   end
 
   # -------------------------------------- #
