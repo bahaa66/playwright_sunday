@@ -4,7 +4,6 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
   async task.
   """
   use Task
-  require Logger
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
   alias Models.Notifications.NotificationSetting
   alias CogyntWorkstationIngest.Notifications.NotificationsContext

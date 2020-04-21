@@ -5,6 +5,12 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
   use DynamicSupervisor
   alias CogyntWorkstationIngest.Servers.NotificationsTaskMonitor
 
+  alias CogyntWorkstationIngest.Utils.{
+    BackfillNotificationsTask,
+    UpdateNotificationSettingTask,
+    DeleteEventDefinitionEventsTask
+  }
+
   def start_link(arg) do
     DynamicSupervisor.start_link(__MODULE__, arg, name: __MODULE__)
   end
@@ -24,7 +30,7 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
         {:ok, pid} =
           DynamicSupervisor.start_child(
             __MODULE__,
-            {CogyntWorkstationIngest.Utils.BackfillNotificationsTask, notification_setting_id}
+            {BackfillNotificationsTask, notification_setting_id}
           )
 
         NotificationsTaskMonitor.monitor(pid, notification_setting_id)
@@ -34,11 +40,17 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
         {:ok, pid} =
           DynamicSupervisor.start_child(
             __MODULE__,
-            {CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask, notification_setting_id}
+            {UpdateNotificationSettingTask, notification_setting_id}
           )
 
         NotificationsTaskMonitor.monitor(pid, notification_setting_id)
         {:ok, pid}
+
+      {:delete_event_definition_events, event_definition_id} ->
+        DynamicSupervisor.start_child(
+          __MODULE__,
+          {DeleteEventDefinitionEventsTask, event_definition_id}
+        )
 
       _ ->
         CogyntLogger.warn("TaskSupervisor Error", "Invalid args passed. Args: #{inspect(args)}")
