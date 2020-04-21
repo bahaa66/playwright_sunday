@@ -53,7 +53,7 @@ defmodule CogyntWorkstationIngest.Utils.DeleteEventDefinitionEventsTask do
       set: [deleted_at: deleted_at]
     )
 
-    if page.page_number == page.total_pages do
+    if page.page_number >= page.total_pages do
       CogyntLogger.info(
         "Delete Event Definition Events Task",
         "Finished processing events for event definition with the ID: #{event_definition_id}"
