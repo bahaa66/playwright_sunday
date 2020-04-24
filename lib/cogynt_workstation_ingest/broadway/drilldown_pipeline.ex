@@ -6,6 +6,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   """
   use Broadway
   alias Broadway.Message
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Broadway.{DrilldownProducer, DrilldownProcessor}
 
   def start_link() do
@@ -18,9 +19,9 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
       ],
       processors: [
         default: [
-          stages: processor_stages(),
-          max_demand: processor_max_demand(),
-          min_demand: processor_min_demand()
+          stages: Config.drilldown_processor_stages(),
+          max_demand: Config.drilldown_processor_max_demand(),
+          min_demand: Config.drilldown_processor_min_demand()
         ]
       ]
     )
@@ -70,12 +71,4 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
 
     message
   end
-
-  # ---------------------- #
-  # --- configurations --- #
-  # ---------------------- #
-  defp config(), do: Application.get_env(:cogynt_workstation_ingest, __MODULE__)
-  defp processor_stages(), do: config()[:processor_stages]
-  defp processor_max_demand(), do: config()[:processor_max_demand]
-  defp processor_min_demand(), do: config()[:processor_min_demand]
 end

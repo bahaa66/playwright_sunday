@@ -88,8 +88,15 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
 
   def handle_request("ingest:check_status", consumers) when is_list(consumers) do
     try do
+      # TODO: Temp
+      KafkaEx.create_worker(:standard,
+        consumer_group: "kafka_ex",
+        consumer_group_update_interval: 100
+      )
+
       # Grab a list of existing Kafka topics
-      existing_topics = KafkaEx.metadata().topic_metadatas |> Enum.map(& &1.topic)
+      existing_topics =
+        KafkaEx.metadata(worker_name: :standard).topic_metadatas |> Enum.map(& &1.topic)
 
       result =
         Enum.reduce(consumers, [], fn %{"id" => id, "topic" => topic}, acc ->

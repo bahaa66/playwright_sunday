@@ -6,6 +6,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   """
   use Broadway
   alias Broadway.Message
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Broadway.{Producer, LinkEventProcessor, EventProcessor}
 
   @pipeline_name :BroadwayLinkEventPipeline
@@ -20,9 +21,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
       ],
       processors: [
         default: [
-          stages: processor_stages(),
-          max_demand: processor_max_demand(),
-          min_demand: processor_min_demand()
+          stages: Config.link_event_processor_stages(),
+          max_demand: Config.link_event_processor_max_demand(),
+          min_demand: Config.link_event_processor_min_demand()
         ]
       ],
       partition_by: &partition/1
@@ -133,12 +134,4 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
         message
     end
   end
-
-  # ---------------------- #
-  # --- configurations --- #
-  # ---------------------- #
-  defp config(), do: Application.get_env(:cogynt_workstation_ingest, __MODULE__)
-  defp processor_stages(), do: config()[:processor_stages]
-  defp processor_max_demand(), do: config()[:processor_max_demand]
-  defp processor_min_demand(), do: config()[:processor_min_demand]
 end

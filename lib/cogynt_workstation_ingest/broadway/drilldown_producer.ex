@@ -1,5 +1,6 @@
 defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   use GenStage
+  alias CogyntWorkstationIngest.Config
   alias KafkaEx.Protocol.Fetch
 
   # -------------------- #
@@ -47,7 +48,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
         %{failed_messages: failed_messages} = state
       ) do
     failed_messages = parse_broadway_messages(broadway_messages, failed_messages)
-    Process.send_after(self(), :tick, time_delay())
+    Process.send_after(self(), :tick, Config.drilldown_time_delay())
     new_state = Map.put(state, :failed_messages, failed_messages)
     {:noreply, [], new_state}
   end
@@ -97,7 +98,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
                                                          }
                                                        },
                                                        acc ->
-      if retry_count < max_retry() do
+      if retry_count < Config.drilldown_max_retry() do
         CogyntLogger.warn(
           "Drilldown Producer",
           "Failed messages retry. Attempt: #{retry_count + 1}"
@@ -142,11 +143,4 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
         {messages, new_state}
     end
   end
-
-  # ---------------------- #
-  # --- configurations --- #
-  # ---------------------- #
-  defp config(), do: Application.get_env(:cogynt_workstation_ingest, __MODULE__)
-  defp time_delay(), do: config()[:time_delay]
-  defp max_retry(), do: config()[:max_retry]
 end

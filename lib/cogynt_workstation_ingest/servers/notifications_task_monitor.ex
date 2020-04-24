@@ -1,11 +1,12 @@
 defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
   @moduledoc """
-
+    Module that monitors the the status of Notification Tasks.
+    Will push the status to Cogynt-OTP via RPC call when the Tasks
+    are created and shutdown
   """
+
   use GenServer
-  alias CogyntWorkstationIngest.Broadway.Producer
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
-  alias Models.Enums.ConsumerStatusTypeEnum
 
   # -------------------- #
   # --- client calls --- #

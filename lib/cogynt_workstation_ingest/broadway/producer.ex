@@ -1,6 +1,7 @@
 defmodule CogyntWorkstationIngest.Broadway.Producer do
   use GenStage
   alias KafkaEx.Protocol.Fetch
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
 
   @defaults %{
@@ -70,7 +71,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
         %{failed_messages: failed_messages} = state
       ) do
     failed_messages = parse_broadway_messages(broadway_messages, failed_messages)
-    Process.send_after(self(), :tick, time_delay())
+    Process.send_after(self(), :tick, Config.producer_time_delay())
     new_state = Map.put(state, :failed_messages, failed_messages)
     {:noreply, [], new_state}
   end
@@ -162,7 +163,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
                                                          }
                                                        },
                                                        acc ->
-      if retry_count < max_retry() do
+      if retry_count < Config.producer_max_retry() do
         IO.puts(
           "Retrying Failed Message, Id: #{event_definition.id}. Attempt: #{retry_count + 1}"
         )
@@ -292,11 +293,4 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     producer_names = Broadway.producer_names(broadway_type)
     List.first(producer_names)
   end
-
-  # ---------------------- #
-  # --- configurations --- #
-  # ---------------------- #
-  defp config(), do: Application.get_env(:cogynt_workstation_ingest, __MODULE__)
-  defp time_delay(), do: config()[:time_delay]
-  defp max_retry(), do: config()[:max_retry]
 end
