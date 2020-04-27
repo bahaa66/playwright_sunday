@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngest.Application do
   @moduledoc false
 
   use Application
+  alias CogyntWorkstationIngest.Config
 
   alias CogyntWorkstationIngest.Supervisors.{
     ConsumerGroupSupervisor,
@@ -41,7 +42,7 @@ defmodule CogyntWorkstationIngest.Application do
     opts = [strategy: :one_for_one, name: CogyntWorkstationIngest.Supervisor]
     result = Supervisor.start_link(children, opts)
 
-    Process.send_after(Startup, :initialize_consumers, init_delay())
+    Process.send_after(Startup, :initialize_consumers, Config.startup_delay())
 
     result
   end
@@ -66,9 +67,4 @@ defmodule CogyntWorkstationIngest.Application do
       type: :supervisor
     }
   end
-
-  # ---------------------- #
-  # --- configurations --- #
-  # ---------------------- #
-  defp init_delay(), do: Application.get_env(:cogynt_workstation_ingest, :startup)[:init_delay]
 end

@@ -5,6 +5,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
   given interval of the configurations.
   """
   use GenServer
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
   alias CogyntWorkstationIngest.Events.EventsContext
@@ -37,7 +38,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
     [{:ets_table_name, table_name}, {:log_limit, log_limit}] = args
     :ets.new(table_name, [:named_table, :set])
 
-    timer_ref = Process.send_after(__MODULE__, :tick, time_delay())
+    timer_ref = Process.send_after(__MODULE__, :tick, Config.consumer_retry_time_delay())
 
     {:ok,
      %{
@@ -57,7 +58,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
         true = :ets.insert(table_name, {event_definition, 0})
 
       [{key, count}] ->
-        if count < max_retry() do
+        if count < Config.consumer_retry_max_retry() do
           true = :ets.insert(table_name, {key, count + 1})
         else
           true = :ets.delete(table_name, key)
@@ -69,7 +70,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
 
   @impl true
   def handle_info(:tick, %{ets_table_name: table_name} = state) do
-    timer_ref = Process.send_after(__MODULE__, :tick, time_delay())
+    timer_ref = Process.send_after(__MODULE__, :tick, Config.consumer_retry_time_delay())
 
     # Grab all the records in the ets table and put them into a list
     ets_records = :ets.tab2list(table_name)
@@ -86,7 +87,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
         CogyntClient.publish_consumer_status(
           event_definition.id,
           event_definition.topic,
-          ConsumerStatusTypeEnum.status[:running]
+          ConsumerStatusTypeEnum.status()[:running]
         )
       else
         _ -> nil
@@ -95,11 +96,4 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
 
     {:noreply, %{state | timer: timer_ref}}
   end
-
-  # ---------------------- #
-  # --- configurations --- #
-  # ---------------------- #
-  defp config(), do: Application.get_env(:cogynt_workstation_ingest, __MODULE__)
-  defp time_delay(), do: config()[:time_delay]
-  defp max_retry(), do: config()[:max_retry]
 end

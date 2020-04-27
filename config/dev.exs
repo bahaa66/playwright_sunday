@@ -28,26 +28,24 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   watchers: [],
   http_client: System.get_env("HTTP_CLIENT") || HTTPoison
 
-# Environment configurations
-config :cogynt_workstation_ingest, env: (System.get_env("ENV") || "dev") |> String.to_atom()
-
 # Kafka Configurations
 config :kafka_ex,
   # Dev Kafka
-  brokers: [
-    {
-      System.get_env("KAFKA_BROKER") || "172.16.1.100",
-      (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
-    }
-  ],
+  # brokers: [
+  #   {
+  #     System.get_env("KAFKA_BROKER") || "172.16.1.100",
+  #     (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
+  #   }
+  # ],
   # Local Kafka
-  # brokers: [{"127.0.0.1", 9092}],
+  brokers: [{"127.0.0.1", 9092}],
+  disable_default_worker: true,
   auto_offset_reset: :earliest,
   kafka_version: "2.0",
   commit_interval: System.get_env("KAFKA_COMMIT_INTERVAL") || 1000,
   commit_threshold: System.get_env("KAFKA_COMMIT_THRESHOLD") || 1000,
   heartbeat_interval: System.get_env("KAFKA_HEARTBEAT_INTERVAL") || 3000,
-  sync_timeout: System.get_env("KAKFA_SYNC_TIMEOUT") || 3000,
+  sync_timeout: System.get_env("KAKFA_SYNC_TIMEOUT") || 15000,
   max_restarts: System.get_env("KAFKA_MAX_RESTARTS") || 10,
   max_seconds: System.get_env("KAFKA_MAX_SECONDS") || 60,
   kafka_client: System.get_env("KAFKA_CLIENT") || KafkaEx,
@@ -72,35 +70,34 @@ config :elasticsearch, :config,
   utc_offset: 0
 
 # Broadway Pipelines configurations
-config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.EventPipeline,
+config :cogynt_workstation_ingest, :event_pipeline,
   processor_stages: System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || 10,
   processor_max_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 100,
   processor_min_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 90
 
-config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.LinkEventPipeline,
+config :cogynt_workstation_ingest, :link_event_pipeline,
   processor_stages: System.get_env("LINKEVENTPIPELINE_PROCESSOR_STAGES") || 10,
   processor_max_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 100,
   processor_min_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 90
 
-config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.DrilldownPipeline,
-  processor_stages: System.get_env("DRILLDOWNPIPELINE_PROCESSOR_STAGES") || 3,
-  processor_max_demand: System.get_env("DRILLDOWNPIPELINE_PROCESSOR_MAX_DEMAND") || 100,
-  processor_min_demand: System.get_env("DRILLDOWNPIPELINE_PROCESSOR_MIN_DEMAND") || 90
+config :cogynt_workstation_ingest, :drilldown_pipeline,
+  processor_stages: System.get_env("DRILLDOWN_PROCESSOR_STAGES") || 3,
+  processor_max_demand: System.get_env("DRILLDOWN_PROCESSOR_MAX_DEMAND") || 100,
+  processor_min_demand: System.get_env("DRILLDOWN_PROCESSOR_MIN_DEMAND") || 90
 
-config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.Producer,
+config :cogynt_workstation_ingest, :drilldown_producer,
+  max_retry: System.get_env("DRILLDOWN_MAX_RETRY") || 1_400,
+  time_delay: System.get_env("DRILLDOWN_TIME_DELAY") || 60_000
+
+config :cogynt_workstation_ingest, :producer,
   max_retry: System.get_env("PRODUCER_MAX_RETRY") || 1_400,
   time_delay: System.get_env("PRODUCER_TIME_DELAY") || 60_000
 
-config :cogynt_workstation_ingest, CogyntWorkstationIngest.Broadway.DrilldownProducer,
-  max_retry: System.get_env("DRILLDOWNPIPELINE_PRODUCER_MAX_RETRY") || 1400,
-  time_delay: System.get_env("DRILLDOWNPIPELINE_PRODUCER_TIME_DELAY") || 60000
-
-# ConsumerRetryCache Configurations
-config :cogynt_workstation_ingest, CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache,
+config :cogynt_workstation_ingest, :consumer_retry_cache,
   time_delay: System.get_env("CONSUMER_RETRY_CACHE_TIME_DELAY") || 600_000,
   max_retry: System.get_env("CONSUMER_RETRY_CACHE_MAX_RETRY") || 144
 
-config :cogynt_workstation_ingest, CogyntWorkstationIngest.Servers.Caches.DrilldownCache,
+config :cogynt_workstation_ingest, :drilldown_cache,
   time_delay: System.get_env("DRILLDOWN_CACHE_TIME_DELAY") || 1_000
 
 # rpc server/client configurations
