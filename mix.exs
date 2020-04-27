@@ -51,7 +51,6 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:ecto_enum, "~> 1.4"},
       {:broadway, "~> 0.5.0"},
       {:kafka_ex, "~> 0.10.0"},
-      {:elasticsearch, git: "git@github.com:Cogility/elasticsearch.git", tag: "v0.9-alpha"},
       {:httpoison, "~> 1.5"},
       {:junit_formatter, "~> 3.0"},
       {:timber, "~> 3.1.1"},
@@ -72,6 +71,11 @@ defmodule CogyntWorkstationIngest.MixProject do
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "utils",
        tag: "v0.1.12-beta",
+       override: true},
+      {:elasticsearch,
+       git: "git@github.com:cogility/cogynt-common.git",
+       sparse: "elasticsearch",
+       tag: "v0.1.14-beta",
        override: true}
     ]
   end

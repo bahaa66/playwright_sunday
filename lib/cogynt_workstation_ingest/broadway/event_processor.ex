@@ -4,7 +4,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   """
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
-  alias CogyntWorkstationIngest.Elasticsearch.{EventDocument, RiskHistoryDocument}
+  alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
@@ -111,7 +111,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               if Enum.member?(@elastic_blacklist, field_name) == false and action != @delete do
                 acc_docs ++
                   [
-                    EventDocument.build_document(
+                    EventDocumentBuilder.build_document(
                       event,
                       field_name,
                       field_value,
@@ -133,7 +133,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     Map.put(data, :event_details, event_details)
     |> Map.put(:event_docs, event_docs)
-    |> Map.put(:risk_history_doc, RiskHistoryDocument.build_document(event_id, event))
+    |> Map.put(:risk_history_doc, RiskHistoryDocumentBuilder.build_document(event_id, event))
   end
 
   @doc """
@@ -298,7 +298,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
          event_definition: event_definition
        }) do
     event_ids = EventsContext.fetch_event_ids(id)
-    doc_ids = EventDocument.build_document_ids(id, event_definition)
+    doc_ids = EventDocumentBuilder.build_document_ids(id, event_definition)
     {:ok, {event_ids, doc_ids}}
   end
 
