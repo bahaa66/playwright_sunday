@@ -75,7 +75,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:elasticsearch,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "elasticsearch",
-       tag: "v0.1.14-beta",
+       tag: "v0.1.16-beta",
        override: true}
     ]
   end

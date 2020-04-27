@@ -41,6 +41,9 @@ defmodule CogyntWorkstationIngest.Config do
   def signing_salt(), do: Application.get_env(:cogynt_workstation_ingest, :signing_salt)
 
   def startup_delay(), do: startup()[:init_delay]
+
+  def event_index_alias(), do: elasticsearch()[:event_index_alias]
+  def risk_history_index_alias(), do: elasticsearch()[:risk_history_index_alias]
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
@@ -65,4 +68,6 @@ defmodule CogyntWorkstationIngest.Config do
   defp rpc(), do: Application.get_env(:cogynt_workstation_ingest, :rpc)
 
   defp startup(), do: Application.get_env(:cogynt_workstation_ingest, :startup)
+
+  defp elasticsearch(), do: Application.get_env(:elasticsearch, :config)
 end
