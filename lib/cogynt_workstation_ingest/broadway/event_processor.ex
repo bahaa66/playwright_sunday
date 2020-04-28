@@ -371,8 +371,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         {:ok, _} =
           Elasticsearch.upsert_document(
             Config.risk_history_index_alias(),
-            risk_history_doc,
-            risk_history_doc.id
+            risk_history_doc.id,
+            risk_history_doc
           )
 
       false ->
