@@ -4,8 +4,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   """
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
-  alias CogyntWorkstationIngest.Elasticsearch.{EventDocument, RiskHistoryDocument}
+  alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
+  alias CogyntWorkstationIngest.Config
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -111,7 +112,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               if Enum.member?(@elastic_blacklist, field_name) == false and action != @delete do
                 acc_docs ++
                   [
-                    EventDocument.build_document(
+                    EventDocumentBuilder.build_document(
                       event,
                       field_name,
                       field_value,
@@ -133,7 +134,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     Map.put(data, :event_details, event_details)
     |> Map.put(:event_docs, event_docs)
-    |> Map.put(:risk_history_doc, RiskHistoryDocument.build_document(event_id, event))
+    |> Map.put(:risk_history_doc, RiskHistoryDocumentBuilder.build_document(event_id, event))
   end
 
   @doc """
@@ -298,7 +299,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
          event_definition: event_definition
        }) do
     event_ids = EventsContext.fetch_event_ids(id)
-    doc_ids = EventDocument.build_document_ids(id, event_definition)
+    doc_ids = EventDocumentBuilder.build_document_ids(id, event_definition)
     {:ok, {event_ids, doc_ids}}
   end
 
@@ -357,17 +358,22 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   defp update_event_docs(event_docs, event_doc_ids) do
     case is_nil(event_doc_ids) or Enum.empty?(event_doc_ids) do
       true ->
-        {:ok, _} = EventDocument.bulk_upsert_document(event_docs)
+        {:ok, _} = Elasticsearch.bulk_upsert_document(Config.event_index_alias(), event_docs)
 
       false ->
-        {:ok, _} = EventDocument.bulk_delete_document(event_doc_ids)
+        {:ok, _} = Elasticsearch.bulk_delete_document(Config.event_index_alias(), event_doc_ids)
     end
   end
 
   defp update_risk_history_doc(risk_history_doc) do
     case !is_nil(risk_history_doc) do
       true ->
-        {:ok, _} = RiskHistoryDocument.upsert_document(risk_history_doc, risk_history_doc.id)
+        {:ok, _} =
+          Elasticsearch.upsert_document(
+            Config.risk_history_index_alias(),
+            risk_history_doc.id,
+            risk_history_doc
+          )
 
       false ->
         :ok
