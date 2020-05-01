@@ -3,6 +3,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   Module that acts as the Broadway Processor for the LinkEventPipeline.
   """
   alias CogyntWorkstationIngest.Events.EventsContext
+  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
+  alias CogyntWorkstationIngest.Config
+
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
 
   @doc """
@@ -70,15 +73,30 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   Requires :event_links fields in the data map. Takes all the fields and
   executes them in one databse transaction.
   """
-  def execute_transaction(%{validated: false} = data), do: data
   def execute_transaction(%{event_id: nil} = data), do: data
 
   def execute_transaction(
-        %{event_details: _event_details, delete_ids: _event_ids, event_links: _event_links} = data
+        %{
+          notifications: _notifications,
+          event_docs: event_docs,
+          risk_history_doc: risk_history_doc,
+          delete_docs: doc_ids
+        } = data
       ) do
-    case EventsContext.execute_link_event_processor_transaction(data) do
-      {:ok, _result} ->
-        data
+    case EventsContext.execute_pipeline_transaction(data) do
+      {:ok,
+       %{
+         insert_notifications: {_count_created, created_notifications},
+         update_notifications: {_count_deleted, deleted_notifications}
+       }} ->
+        CogyntClient.publish_deleted_notifications(deleted_notifications)
+        CogyntClient.publish_notifications(created_notifications)
+
+      {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
+        CogyntClient.publish_notifications(created_notifications)
+
+      {:ok, _} ->
+        nil
 
       {:error, reason} ->
         CogyntLogger.error(
@@ -87,6 +105,70 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         )
 
         raise "execute_transaction/1 failed"
+    end
+
+    # elastic search updates
+    update_event_docs(event_docs, doc_ids)
+    update_risk_history_doc(risk_history_doc)
+
+    data
+  end
+
+  def execute_transaction(
+        %{
+          event_docs: event_docs,
+          risk_history_doc: risk_history_doc,
+          delete_docs: doc_ids
+        } = data
+      ) do
+    case EventsContext.execute_pipeline_transaction(data) do
+      {:ok, %{update_notifications: {_count, deleted_notifications}}} ->
+        CogyntClient.publish_deleted_notifications(deleted_notifications)
+
+      {:ok, _} ->
+        nil
+
+      {:error, reason} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "execute_transaction/1 failed with reason: #{inspect(reason)}"
+        )
+
+        raise "execute_transaction/1 failed"
+    end
+
+    # elastic search updates
+    update_event_docs(event_docs, doc_ids)
+    update_risk_history_doc(risk_history_doc)
+
+    data
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp update_event_docs(event_docs, event_doc_ids) do
+    case is_nil(event_doc_ids) or Enum.empty?(event_doc_ids) do
+      true ->
+        {:ok, _} = Elasticsearch.bulk_upsert_document(Config.event_index_alias(), event_docs)
+
+      false ->
+        {:ok, _} = Elasticsearch.bulk_delete_document(Config.event_index_alias(), event_doc_ids)
+    end
+  end
+
+  defp update_risk_history_doc(risk_history_doc) do
+    case !is_nil(risk_history_doc) do
+      true ->
+        {:ok, _} =
+          Elasticsearch.upsert_document(
+            Config.risk_history_index_alias(),
+            risk_history_doc.id,
+            risk_history_doc
+          )
+
+      false ->
+        :ok
     end
   end
 end
