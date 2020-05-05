@@ -1,6 +1,7 @@
 defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   use JSONRPC2.Server.Handler
 
+  alias CogyntWorkstationIngest.Servers.NotificationsTaskMonitor
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
   alias CogyntWorkstationIngest.Events.EventsContext
@@ -8,6 +9,9 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   alias Models.Enums.ConsumerStatusTypeEnum
   alias Models.Events.EventDefinition
 
+  # ----------------------- #
+  # --- ingestion calls --- #
+  # ----------------------- #
   def handle_request("ingest:start_consumer", event_definition) when is_map(event_definition) do
     result = ConsumerGroupSupervisor.start_child(keys_to_atoms(event_definition))
 
@@ -21,8 +25,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
       {:error, nil} ->
         %{
           status: :error,
-          body: "topic does not exist"
-          # body: ConsumerStatusTypeEnum.status()[:topic_does_not_exist]
+          body: ConsumerStatusTypeEnum.status()[:topic_does_not_exist]
         }
 
       {:error, error} ->
@@ -61,6 +64,28 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
     }
   end
 
+  def handle_request("ingest:update_notifications", %{
+        "notification_setting_id" => notification_setting_id
+      }) do
+    TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
+
+    %{
+      status: :ok,
+      body: :success
+    }
+  end
+
+  def handle_request("ingest:delete_event_definition_events", %{
+        "event_definition_id" => event_definition_id
+      }) do
+    TaskSupervisor.start_child(%{delete_event_definition_events: event_definition_id})
+
+    %{
+      status: :ok,
+      body: :success
+    }
+  end
+
   def handle_request("ingest:check_status", consumers) when is_list(consumers) do
     try do
       # Grab a list of existing Kafka topics
@@ -75,8 +100,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                   %{
                     id: id,
                     topic: topic,
-                    status: "topic does not exist"
-                    # status: ConsumerStatusTypeEnum.status()[:topic_does_not_exist]
+                    status: ConsumerStatusTypeEnum.status()[:topic_does_not_exist]
                   }
                 ]
 
@@ -90,8 +114,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                           %{
                             id: id,
                             topic: topic,
-                            status: "has not been created"
-                            # status: ConsumerStatusTypeEnum.status()[:has_not_been_created]
+                            status: ConsumerStatusTypeEnum.status()[:has_not_been_created]
                           }
                         ]
 
@@ -103,11 +126,10 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                               %{
                                 id: id,
                                 topic: topic,
-                                status: "is active, but no consumer running"
-                                # status:
-                                #   ConsumerStatusTypeEnum.status()[
-                                #     :is_active_but_no_consumer_running
-                                #   ]
+                                status:
+                                  ConsumerStatusTypeEnum.status()[
+                                    :is_active_but_no_consumer_running
+                                  ]
                               }
                             ]
 
@@ -119,9 +141,8 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                                   %{
                                     id: id,
                                     topic: topic,
-                                    status: "paused"
-                                    # status:
-                                    #   ConsumerStatusTypeEnum.status()[:paused_and_processing]
+                                    status:
+                                      ConsumerStatusTypeEnum.status()[:paused_and_processing]
                                   }
                                 ]
 
@@ -131,8 +152,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                                   %{
                                     id: id,
                                     topic: topic,
-                                    status: "paused"
-                                    # status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+                                    status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
                                   }
                                 ]
                           end
@@ -145,8 +165,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                       %{
                         id: id,
                         topic: topic,
-                        status: "running"
-                        # status: ConsumerStatusTypeEnum.status()[:running]
+                        status: ConsumerStatusTypeEnum.status()[:running]
                       }
                     ]
               end
@@ -156,6 +175,48 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
       %{
         status: :ok,
         body: result
+      }
+    rescue
+      _ ->
+        %{
+          status: :error,
+          body: :internal_server_error
+        }
+    end
+  end
+
+  # --------------------------- #
+  # --- notifications tasks --- #
+  # --------------------------- #
+  def handle_request("notifications:check_status", notification_setting_ids)
+      when is_list(notification_setting_ids) do
+    try do
+      response =
+        Enum.reduce(notification_setting_ids, [], fn id, acc ->
+          case NotificationsTaskMonitor.is_processing?(id) do
+            true ->
+              acc ++
+                [
+                  %{
+                    id: id,
+                    status: :running
+                  }
+                ]
+
+            false ->
+              acc ++
+                [
+                  %{
+                    id: id,
+                    status: :finished
+                  }
+                ]
+          end
+        end)
+
+      %{
+        status: :ok,
+        body: response
       }
     rescue
       _ ->

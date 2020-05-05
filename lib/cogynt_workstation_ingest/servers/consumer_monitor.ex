@@ -25,22 +25,15 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
   # --- server callbacks --- #
   # ------------------------ #
   @impl true
-  def init(arg) do
-    {:ok, arg}
+  def init(_arg) do
+    {:ok, %{}}
   end
 
   @impl true
   def handle_cast({:monitor, pid, id, topic, type}, state) do
     Process.monitor(pid)
 
-    new_state =
-      case is_map(state) do
-        true ->
-          Map.put(state, pid, %{id: id, topic: topic, type: type})
-
-        false ->
-          Map.put(%{}, pid, %{id: id, topic: topic, type: type})
-      end
+    new_state = Map.put(state, pid, %{id: id, topic: topic, type: type})
 
     {:noreply, new_state}
   end
@@ -54,14 +47,14 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
         CogyntClient.publish_consumer_status(
           id,
           topic,
-          ConsumerStatusTypeEnum.status[:paused_and_processing]
+          ConsumerStatusTypeEnum.status()[:paused_and_processing]
         )
 
       false ->
         CogyntClient.publish_consumer_status(
           id,
           topic,
-          ConsumerStatusTypeEnum.status[:paused_and_finished]
+          ConsumerStatusTypeEnum.status()[:paused_and_finished]
         )
     end
 

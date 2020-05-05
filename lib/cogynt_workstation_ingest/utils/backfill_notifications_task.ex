@@ -16,20 +16,20 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
     Task.start_link(__MODULE__, :run, [arg])
   end
 
-  def run(id) do
+  def run(notification_setting_id) do
     CogyntLogger.info(
       "Backfill Notifications Task",
-      "Running backfill notifications task for ID: #{id}"
+      "Running backfill notifications task for ID: #{notification_setting_id}"
     )
 
-    backfill_notifications(id)
+    backfill_notifications(notification_setting_id)
   end
 
   # ----------------------- #
   # --- Private Methods --- #
   # ----------------------- #
-  defp backfill_notifications(id) do
-    notification_setting = NotificationsContext.get_notification_setting!(id)
+  defp backfill_notifications(notification_setting_id) do
+    notification_setting = NotificationsContext.get_notification_setting!(notification_setting_id)
 
     event_definition =
       EventsContext.get_event_definition!(notification_setting.event_definition_id)
