@@ -190,7 +190,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         notifications: notifications,
         delete_ids: event_ids,
         link_events: link_events,
-        event: %{"id" => core_id}
+        event: event
       }) do
     multi =
       case is_nil(event_ids) or Enum.empty?(event_ids) do
@@ -213,10 +213,19 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
             )
 
           l_query =
-            from(
-              l in EventLink,
-              where: l.linkage_event_id in ^event_ids or l.core_id == ^core_id
-            )
+            case event["id"] do
+              nil ->
+                from(
+                  l in EventLink,
+                  where: l.linkage_event_id in ^event_ids
+                )
+
+              core_id ->
+                from(
+                  l in EventLink,
+                  where: l.linkage_event_id in ^event_ids or l.core_id == ^core_id
+                )
+            end
 
           deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
@@ -248,7 +257,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         event_details: event_details,
         delete_ids: event_ids,
         link_events: link_events,
-        event: %{"id" => core_id}
+        event: event
       }) do
     multi =
       case is_nil(event_ids) or Enum.empty?(event_ids) do
@@ -271,9 +280,19 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
             )
 
           l_query =
-            from(l in EventLink,
-              where: l.linkage_event_id in ^event_ids or l.core_id == ^core_id
-            )
+            case event["id"] do
+              nil ->
+                from(
+                  l in EventLink,
+                  where: l.linkage_event_id in ^event_ids
+                )
+
+              core_id ->
+                from(
+                  l in EventLink,
+                  where: l.linkage_event_id in ^event_ids or l.core_id == ^core_id
+                )
+            end
 
           deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
@@ -293,7 +312,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         event_details: event_details,
         notifications: notifications,
         delete_ids: event_ids,
-        event: %{"id" => core_id}
+        event: event
       }) do
     multi =
       case is_nil(event_ids) or Enum.empty?(event_ids) do
@@ -316,9 +335,19 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
             )
 
           l_query =
-            from(l in EventLink,
-              where: l.core_id == ^core_id
-            )
+            case event["id"] do
+              nil ->
+                from(
+                  l in EventLink,
+                  where: l.linkage_event_id in ^event_ids
+                )
+
+              core_id ->
+                from(
+                  l in EventLink,
+                  where: l.linkage_event_id in ^event_ids or l.core_id == ^core_id
+                )
+            end
 
           deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
@@ -348,7 +377,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   def execute_pipeline_transaction(%{
         event_details: event_details,
         delete_ids: event_ids,
-        event: %{"id" => core_id}
+        event: event
       }) do
     multi =
       case is_nil(event_ids) or Enum.empty?(event_ids) do
@@ -371,9 +400,19 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
             )
 
           l_query =
-            from(l in EventLink,
-              where: l.core_id == ^core_id
-            )
+            case event["id"] do
+              nil ->
+                from(
+                  l in EventLink,
+                  where: l.linkage_event_id in ^event_ids
+                )
+
+              core_id ->
+                from(
+                  l in EventLink,
+                  where: l.linkage_event_id in ^event_ids or l.core_id == ^core_id
+                )
+            end
 
           deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
