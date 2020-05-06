@@ -72,11 +72,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   record in the database that is assosciated with the event_definition.id. The data map
   is updated with the :event_id returned from the database.
   """
-  def process_event(%{event: event, event_definition: event_definition, event_id: nil} = data) do
-    case EventsContext.create_event(%{
-           event_definition_id: event_definition.id,
-           core_id: event["id"]
-         }) do
+  def process_event(%{event_definition: event_definition, event_id: nil} = data) do
+    case EventsContext.create_event(%{event_definition_id: event_definition.id}) do
       {:ok, %{id: event_id}} ->
         Map.put(data, :event_id, event_id)
         |> Map.put(:delete_ids, nil)
@@ -92,9 +89,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
-  def process_event(
-        %{event: event, event_definition: event_definition, event_id: event_id} = data
-      ) do
+  def process_event(%{event_definition: event_definition, event_id: event_id} = data) do
     CogyntLogger.info(
       "#{__MODULE__}",
       "deleting event for retry message: #{event_id}"
@@ -102,10 +97,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     EventsContext.soft_delete_events([event_id])
 
-    case EventsContext.create_event(%{
-           event_definition_id: event_definition.id,
-           core_id: event["id"]
-         }) do
+    case EventsContext.create_event(%{event_definition_id: event_definition.id}) do
       {:ok, %{id: event_id}} ->
         Map.put(data, :event_id, event_id)
         |> Map.put(:delete_ids, nil)
@@ -230,17 +222,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   it finishes with no errors it will update the :event_processed key to have a value of true
   in the data map and return.
   """
-  def execute_transaction(%{event_id: nil} = data), do: data
+  def execute_transaction(%{event_id: nil} = data), do: Map.put(data, :event_processed, true)
 
   def execute_transaction(
         %{
+          event_details: _event_details,
           notifications: _notifications,
           event_docs: event_docs,
           risk_history_doc: risk_history_doc,
+          delete_ids: _event_ids,
           delete_docs: doc_ids
         } = data
       ) do
-    case EventsContext.execute_pipeline_transaction(data) do
+    case EventsContext.execute_event_processor_transaction(data) do
       {:ok,
        %{
          insert_notifications: {_count_created, created_notifications},
@@ -268,17 +262,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     update_event_docs(event_docs, doc_ids)
     update_risk_history_doc(risk_history_doc)
 
-    data
+    Map.put(data, :event_processed, true)
   end
 
   def execute_transaction(
         %{
+          event_details: _event_details,
           event_docs: event_docs,
           risk_history_doc: risk_history_doc,
+          delete_ids: _event_ids,
           delete_docs: doc_ids
         } = data
       ) do
-    case EventsContext.execute_pipeline_transaction(data) do
+    case EventsContext.execute_event_processor_transaction(data) do
       {:ok, %{update_notifications: {_count, deleted_notifications}}} ->
         CogyntClient.publish_deleted_notifications(deleted_notifications)
 
@@ -298,7 +294,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     update_event_docs(event_docs, doc_ids)
     update_risk_history_doc(risk_history_doc)
 
-    data
+    Map.put(data, :event_processed, true)
   end
 
   # ----------------------- #
@@ -361,11 +357,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
-  defp create_event(%{event: event, event_definition: event_definition}) do
-    case EventsContext.create_event(%{
-           event_definition_id: event_definition.id,
-           core_id: event["id"]
-         }) do
+  defp create_event(%{event_definition: event_definition}) do
+    case EventsContext.create_event(%{event_definition_id: event_definition.id}) do
       {:ok, %{id: event_id}} ->
         {:ok, {event_id, nil, nil}}
 
@@ -379,7 +372,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
-  defp delete_event(%{event: event, event_definition: event_definition} = data) do
+  defp delete_event(%{event_definition: event_definition} = data) do
     # Delete event -> get all data to remove + create a new event
     # append new event to the list of data to remove
     case fetch_data_to_delete(data) do
@@ -388,10 +381,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         {:ok, {nil, nil, nil}}
 
       {:ok, {event_ids, doc_ids}} ->
-        case EventsContext.create_event(%{
-               event_definition_id: event_definition.id,
-               core_id: event["id"]
-             }) do
+        case EventsContext.create_event(%{event_definition_id: event_definition.id}) do
           {:ok, %{id: event_id}} ->
             {:ok, {event_id, event_ids ++ [event_id], doc_ids}}
 
@@ -406,7 +396,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
-  defp update_event(%{event: event, event_definition: event_definition} = data) do
+  defp update_event(%{event_definition: event_definition} = data) do
     # Update event -> get all data to remove + create a new event
     case fetch_data_to_delete(data) do
       {:error, {nil, nil}} ->
@@ -414,10 +404,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         {:ok, {nil, nil, nil}}
 
       {:ok, {event_ids, doc_ids}} ->
-        case EventsContext.create_event(%{
-               event_definition_id: event_definition.id,
-               core_id: event["id"]
-             }) do
+        case EventsContext.create_event(%{event_definition_id: event_definition.id}) do
           {:ok, %{id: event_id}} ->
             {:ok, {event_id, event_ids, doc_ids}}
 
