@@ -24,29 +24,47 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   soft_deleted from the database and elasticsearch. The data map is updated with the :event_id,
   :delete_ids, :delete_docs fields.
   """
-  def process_event(%{event: %{@crud => action}} = data) do
-    case action do
-      @update ->
-        {:ok, {new_event_id, delete_event_ids, delete_doc_ids}} = update_event(data)
+  def process_event(%{event: %{@crud => action}, event_id: nil} = data) do
+    {:ok, {new_event_id, delete_event_ids, delete_doc_ids}} =
+      case action do
+        @update ->
+          update_event(data)
 
-        Map.put(data, :event_id, new_event_id)
-        |> Map.put(:delete_ids, delete_event_ids)
-        |> Map.put(:delete_docs, delete_doc_ids)
+        @delete ->
+          delete_event(data)
 
-      @delete ->
-        {:ok, {new_event_id, delete_event_ids, delete_doc_ids}} = delete_event(data)
+        _ ->
+          create_event(data)
+      end
 
-        Map.put(data, :event_id, new_event_id)
-        |> Map.put(:delete_ids, delete_event_ids)
-        |> Map.put(:delete_docs, delete_doc_ids)
+    Map.put(data, :event_id, new_event_id)
+    |> Map.put(:delete_ids, delete_event_ids)
+    |> Map.put(:delete_docs, delete_doc_ids)
+  end
 
-      _ ->
-        {:ok, {new_event_id, delete_event_ids, delete_doc_ids}} = create_event(data)
+  def process_event(%{event: %{@crud => action}, event_id: event_id} = data) do
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "deleting event for retry message: #{event_id}"
+    )
 
-        Map.put(data, :event_id, new_event_id)
-        |> Map.put(:delete_ids, delete_event_ids)
-        |> Map.put(:delete_docs, delete_doc_ids)
-    end
+    EventsContext.soft_delete_events([event_id])
+
+    {:ok, {new_event_id, delete_event_ids, delete_doc_ids}} =
+      case action do
+        @update ->
+          update_event(data)
+
+        @delete ->
+          delete_event(data)
+
+        _ ->
+          create_event(data)
+      end
+
+    Map.put(data, :event_id, new_event_id)
+    |> Map.put(:delete_ids, delete_event_ids)
+    |> Map.put(:delete_docs, delete_doc_ids)
   end
 
   @doc """
@@ -54,7 +72,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   record in the database that is assosciated with the event_definition.id. The data map
   is updated with the :event_id returned from the database.
   """
-  def process_event(%{event_definition: event_definition} = data) do
+  def process_event(%{event_definition: event_definition, event_id: nil} = data) do
     case EventsContext.create_event(%{event_definition_id: event_definition.id}) do
       {:ok, %{id: event_id}} ->
         Map.put(data, :event_id, event_id)
@@ -63,7 +81,31 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
       {:error, reason} ->
         CogyntLogger.error(
-          "Event Processor",
+          "#{__MODULE__}",
+          "process_event/1 failed with reason: #{inspect(reason)}"
+        )
+
+        raise "process_event/1 failed"
+    end
+  end
+
+  def process_event(%{event_definition: event_definition, event_id: event_id} = data) do
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "deleting event for retry message: #{event_id}"
+    )
+
+    EventsContext.soft_delete_events([event_id])
+
+    case EventsContext.create_event(%{event_definition_id: event_definition.id}) do
+      {:ok, %{id: event_id}} ->
+        Map.put(data, :event_id, event_id)
+        |> Map.put(:delete_ids, nil)
+        |> Map.put(:delete_docs, nil)
+
+      {:error, reason} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
           "process_event/1 failed with reason: #{inspect(reason)}"
         )
 
@@ -84,7 +126,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       ) do
     action = Map.get(event, @crud)
     event = format_lexicon_data(event)
-    # event = Map.drop(event, [@crud, @partial])
 
     {event_details, event_docs} =
       Enum.reduce(event, {[], []}, fn {field_name, field_value}, {acc_events, acc_docs} = acc ->
@@ -155,12 +196,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                event_definition: event_definition,
                event_id: event_id
              }) do
+          {:ok, nil} ->
+            data
+
           {:ok, notifications} ->
             Map.put(data, :notifications, notifications)
 
           {:error, reason} ->
             CogyntLogger.error(
-              "Event Processor",
+              "#{__MODULE__}",
               "process_notifications/1 failed with reason: #{inspect(reason)}"
             )
 
@@ -168,7 +212,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         end
 
       false ->
-        Map.put(data, :notifications, nil)
+        data
     end
   end
 
@@ -179,39 +223,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   in the data map and return.
   """
   def execute_transaction(%{event_id: nil} = data), do: Map.put(data, :event_processed, true)
-
-  def execute_transaction(
-        %{
-          event_details: _event_details,
-          event_docs: event_docs,
-          risk_history_doc: risk_history_doc,
-          notifications: nil,
-          delete_ids: _event_ids,
-          delete_docs: doc_ids
-        } = data
-      ) do
-    case EventsContext.execute_event_processor_transaction(data) do
-      {:ok, %{update_notifications: {_count, deleted_notifications}}} ->
-        CogyntClient.publish_deleted_notifications(deleted_notifications)
-
-      {:ok, _} ->
-        nil
-
-      {:error, reason} ->
-        CogyntLogger.error(
-          "Event Processor",
-          "execute_transaction/1 failed with reason: #{inspect(reason)}"
-        )
-
-        raise "execute_transaction/1 failed"
-    end
-
-    # elastic search updates
-    update_event_docs(event_docs, doc_ids)
-    update_risk_history_doc(risk_history_doc)
-
-    Map.put(data, :event_processed, true)
-  end
 
   def execute_transaction(
         %{
@@ -240,7 +251,39 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
       {:error, reason} ->
         CogyntLogger.error(
-          "Event Processor",
+          "#{__MODULE__}",
+          "execute_transaction/1 failed with reason: #{inspect(reason)}"
+        )
+
+        raise "execute_transaction/1 failed"
+    end
+
+    # elastic search updates
+    update_event_docs(event_docs, doc_ids)
+    update_risk_history_doc(risk_history_doc)
+
+    Map.put(data, :event_processed, true)
+  end
+
+  def execute_transaction(
+        %{
+          event_details: _event_details,
+          event_docs: event_docs,
+          risk_history_doc: risk_history_doc,
+          delete_ids: _event_ids,
+          delete_docs: doc_ids
+        } = data
+      ) do
+    case EventsContext.execute_event_processor_transaction(data) do
+      {:ok, %{update_notifications: {_count, deleted_notifications}}} ->
+        CogyntClient.publish_deleted_notifications(deleted_notifications)
+
+      {:ok, _} ->
+        nil
+
+      {:error, reason} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
           "execute_transaction/1 failed with reason: #{inspect(reason)}"
         )
 
@@ -267,7 +310,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           Map.put(event, @lexicons, List.flatten(val))
         rescue
           _ ->
-            CogyntLogger.error("Invalid Authoring Data", "Lexicon value incorrect format #{val}")
+            CogyntLogger.error("#{__MODULE__}", "Lexicon value incorrect format #{val}")
             Map.delete(event, @lexicons)
         end
     end
@@ -295,12 +338,23 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   defp fetch_data_to_delete(%{
-         event: %{"id" => id},
+         event: event,
          event_definition: event_definition
        }) do
-    event_ids = EventsContext.fetch_event_ids(id)
-    doc_ids = EventDocumentBuilder.build_document_ids(id, event_definition)
-    {:ok, {event_ids, doc_ids}}
+    case event["id"] do
+      nil ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "event has CRUD key but missing id field. Throwing away record. #{inspect(event)}"
+        )
+
+        {:error, {nil, nil}}
+
+      core_id ->
+        event_ids = EventsContext.get_events_by_core_id(core_id)
+        doc_ids = EventDocumentBuilder.build_document_ids(core_id, event_definition)
+        {:ok, {event_ids, doc_ids}}
+    end
   end
 
   defp create_event(%{event_definition: event_definition}) do
@@ -310,7 +364,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
       {:error, reason} ->
         CogyntLogger.error(
-          "Event Processor",
+          "#{__MODULE__}",
           "create_event/1 failed with reason: #{inspect(reason)}"
         )
 
@@ -321,37 +375,47 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   defp delete_event(%{event_definition: event_definition} = data) do
     # Delete event -> get all data to remove + create a new event
     # append new event to the list of data to remove
-    {:ok, {event_ids, doc_ids}} = fetch_data_to_delete(data)
+    case fetch_data_to_delete(data) do
+      {:error, {nil, nil}} ->
+        # will skip all steps in the pipeline ignoring this record
+        {:ok, {nil, nil, nil}}
 
-    case EventsContext.create_event(%{event_definition_id: event_definition.id}) do
-      {:ok, %{id: event_id}} ->
-        {:ok, {event_id, event_ids ++ [event_id], doc_ids}}
+      {:ok, {event_ids, doc_ids}} ->
+        case EventsContext.create_event(%{event_definition_id: event_definition.id}) do
+          {:ok, %{id: event_id}} ->
+            {:ok, {event_id, event_ids ++ [event_id], doc_ids}}
 
-      {:error, reason} ->
-        CogyntLogger.error(
-          "Event Processor",
-          "delete_event/1 failed with reason: #{inspect(reason)}"
-        )
+          {:error, reason} ->
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "delete_event/1 failed with reason: #{inspect(reason)}"
+            )
 
-        raise "delete_event/1 failed"
+            raise "delete_event/1 failed"
+        end
     end
   end
 
   defp update_event(%{event_definition: event_definition} = data) do
     # Update event -> get all data to remove + create a new event
-    {:ok, {event_ids, doc_ids}} = fetch_data_to_delete(data)
+    case fetch_data_to_delete(data) do
+      {:error, {nil, nil}} ->
+        # will skip all steps in the pipeline ignoring this record
+        {:ok, {nil, nil, nil}}
 
-    case EventsContext.create_event(%{event_definition_id: event_definition.id}) do
-      {:ok, %{id: event_id}} ->
-        {:ok, {event_id, event_ids, doc_ids}}
+      {:ok, {event_ids, doc_ids}} ->
+        case EventsContext.create_event(%{event_definition_id: event_definition.id}) do
+          {:ok, %{id: event_id}} ->
+            {:ok, {event_id, event_ids, doc_ids}}
 
-      {:error, reason} ->
-        CogyntLogger.error(
-          "Event Processor",
-          "update_event/1 failed with reason: #{inspect(reason)}"
-        )
+          {:error, reason} ->
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "update_event/1 failed with reason: #{inspect(reason)}"
+            )
 
-        raise "update_event/1 failed"
+            raise "update_event/1 failed"
+        end
     end
   end
 
