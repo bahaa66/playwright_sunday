@@ -5,8 +5,11 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
 
   @defaults %{
+    event_processed: false,
     event_id: nil,
-    retry_count: 0
+    retry_count: 0,
+    delete_ids: nil,
+    delete_docs: nil
   }
   @linkage Application.get_env(:cogynt_workstation_ingest, :core_keys)[:link_data_type]
 
@@ -129,8 +132,11 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
           update_queue_value(acc, event_definition.id, %{
             event: message,
             event_definition: event_definition,
+            event_processed: @defaults.event_processed,
             event_id: @defaults.event_id,
-            retry_count: @defaults.retry_count
+            retry_count: @defaults.retry_count,
+            delete_ids: @defaults.delete_ids,
+            delete_docs: @defaults.delete_docs
           })
 
         {:error, error} ->
@@ -149,8 +155,11 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
                                                          data: %{
                                                            event: message,
                                                            event_definition: event_definition,
+                                                           event_processed: processed,
                                                            event_id: event_id,
-                                                           retry_count: retry_count
+                                                           retry_count: retry_count,
+                                                           delete_ids: delete_event_ids,
+                                                           delete_docs: delete_doc_ids
                                                          }
                                                        },
                                                        acc ->
@@ -164,8 +173,11 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
             %{
               event: message,
               event_definition: event_definition,
+              event_processed: processed,
               event_id: event_id,
-              retry_count: retry_count + 1
+              retry_count: retry_count + 1,
+              delete_ids: delete_event_ids,
+              delete_docs: delete_doc_ids
             }
           ]
       else
