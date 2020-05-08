@@ -34,45 +34,39 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   @doc """
-  Builds a list of event_ids based on the event_id.
+  Returns all event_ids that have records matching in the
+  Event table with the core_id
   ## Examples
-      iex> fetch_event_ids(id)
+      iex> get_events_by_core_id("4123449c-2de0-482f-bea8-5efdb837be08")
       [%{}]
-      iex> fetch_event_ids(invalid_id)
+      iex> get_events_by_core_id("invalid_id")
       nil
   """
-  def fetch_event_ids(event_id) do
-    query =
-      from(d in EventDetail,
-        join: e in Event,
-        on: e.id == d.event_id,
-        where: d.field_value == ^event_id and is_nil(e.deleted_at),
-        select: d.event_id
+  def get_events_by_core_id(core_id) do
+    Repo.all(
+      from(e in Event,
+        where: e.core_id == ^core_id,
+        select: e.id
       )
-
-    Repo.all(query)
+    )
   end
 
   @doc """
-  Returns a single event_id based on the id event_detail field.
+  Will soft delete all events for the event_ids passed in
   ## Examples
-      iex> fetch_event_id(id)
-      UUID
-      iex> fetch_event_id(invalid_id)
-      nil
+      iex> soft_delete_events(["4123449c-2de0-482f-bea8-5efdb837be08"])
+      {integer(), nil | [term()]}
+      iex> soft_delete_events("invalid_id")
+      {integer(), nil | [term()]}
   """
-  def fetch_event_id(id) do
+  def soft_delete_events(event_ids) when length(event_ids) > 0 do
+    deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
+
     from(
       e in Event,
-      join: ed in EventDetail,
-      on: e.id == ed.event_id,
-      where: ed.field_name == "id",
-      where: ed.field_value == ^id,
-      where: is_nil(e.deleted_at),
-      limit: 1,
-      select: e.id
+      where: e.id in ^event_ids
     )
-    |> Repo.one()
+    |> Repo.update_all(set: [deleted_at: deleted_at])
   end
 
   @doc """
@@ -148,16 +142,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.update_all(set: set)
   end
 
-  defp filter_events(filter, query) do
-    Enum.reduce(filter, query, fn
-      {:event_definition_id, event_definition_id}, q ->
-        where(q, [e], e.event_definition_id == ^event_definition_id)
-
-      {:event_ids, event_ids}, q ->
-        where(q, [e], e.id in ^event_ids)
-    end)
-  end
-
   # -------------------------------------- #
   # --- EventDefinition Schema Methods --- #
   # -------------------------------------- #
@@ -198,28 +182,32 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   """
   def get_event_definition_by(clauses), do: Repo.get_by(EventDefinition, clauses)
 
-  # ------------------------------- #
-  # --- Event Processor Methods --- #
-  # ------------------------------- #
+  # ------------------------------------ #
+  # --- Pipeline Transaction Methods --- #
+  # ------------------------------------ #
   @doc """
-  Builds a Multi transactional object based on the args and executes the transaction.
+  Builds and executes a transaction for all of the fields that were
+  built throughout the event and link_event pipeline
   ## Examples
-      iex> execute_event_processor_transaction(%{
+      iex> execute_pipeline_transaction(%{
         event_details: event_details,
         event_docs: event_docs,
         risk_history_doc: risk_history_doc,
         notifications: notifications,
+        event_links: event_links,
         delete_ids: event_ids,
         delete_docs: doc_ids
       })
-      {:ok, %{}
-      iex> execute_event_processor_transaction(%{field: bad_value})
+      {:ok, %{}}
+      iex> execute_pipeline_transaction(%{field: bad_value})
       {:error, reason}
   """
-  def execute_event_processor_transaction(%{
+  def execute_pipeline_transaction(%{
         event_details: event_details,
-        notifications: nil,
-        delete_ids: event_ids
+        notifications: notifications,
+        delete_ids: event_ids,
+        link_events: link_events,
+        event: event
       }) do
     multi =
       case is_nil(event_ids) or Enum.empty?(event_ids) do
@@ -242,9 +230,19 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
             )
 
           l_query =
-            from(l in EventLink,
-              where: l.parent_event_id in ^event_ids or l.child_event_id in ^event_ids
-            )
+            case event["id"] do
+              nil ->
+                from(
+                  l in EventLink,
+                  where: l.linkage_event_id in ^event_ids
+                )
+
+              core_id ->
+                from(
+                  l in EventLink,
+                  where: l.linkage_event_id in ^event_ids or l.core_id == ^core_id
+                )
+            end
 
           deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
@@ -256,13 +254,27 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
     multi
     |> Multi.insert_all(:insert_event_details, EventDetail, event_details)
+    |> Multi.insert_all(:insert_event_links, EventLink, link_events)
+    |> Multi.insert_all(:insert_notifications, Notification, notifications,
+      returning: [
+        :event_id,
+        :user_id,
+        :tag_id,
+        :id,
+        :title,
+        :notification_setting_id,
+        :created_at,
+        :updated_at
+      ]
+    )
     |> Repo.transaction()
   end
 
-  def execute_event_processor_transaction(%{
+  def execute_pipeline_transaction(%{
         event_details: event_details,
-        notifications: notifications,
-        delete_ids: event_ids
+        delete_ids: event_ids,
+        link_events: link_events,
+        event: event
       }) do
     multi =
       case is_nil(event_ids) or Enum.empty?(event_ids) do
@@ -285,9 +297,74 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
             )
 
           l_query =
-            from(l in EventLink,
-              where: l.parent_event_id in ^event_ids or l.child_event_id in ^event_ids
+            case event["id"] do
+              nil ->
+                from(
+                  l in EventLink,
+                  where: l.linkage_event_id in ^event_ids
+                )
+
+              core_id ->
+                from(
+                  l in EventLink,
+                  where: l.linkage_event_id in ^event_ids or l.core_id == ^core_id
+                )
+            end
+
+          deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
+
+          Multi.new()
+          |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
+          |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
+          |> Multi.update_all(:update_event_links, l_query, set: [deleted_at: deleted_at])
+      end
+
+    multi
+    |> Multi.insert_all(:insert_event_details, EventDetail, event_details)
+    |> Multi.insert_all(:insert_event_links, EventLink, link_events)
+    |> Repo.transaction()
+  end
+
+  def execute_pipeline_transaction(%{
+        event_details: event_details,
+        notifications: notifications,
+        delete_ids: event_ids,
+        event: event
+      }) do
+    multi =
+      case is_nil(event_ids) or Enum.empty?(event_ids) do
+        true ->
+          Multi.new()
+
+        false ->
+          n_query =
+            from(n in Notification,
+              where: n.event_id in ^event_ids,
+              select:
+                {n.event_id, n.user_id, n.tag_id, n.id, n.title, n.notification_setting_id,
+                 n.created_at, n.updated_at, n.deleted_at}
             )
+
+          e_query =
+            from(
+              e in Event,
+              where: e.id in ^event_ids
+            )
+
+          l_query =
+            case event["id"] do
+              nil ->
+                from(
+                  l in EventLink,
+                  where: l.linkage_event_id in ^event_ids
+                )
+
+              core_id ->
+                from(
+                  l in EventLink,
+                  where: l.linkage_event_id in ^event_ids or l.core_id == ^core_id
+                )
+            end
 
           deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
@@ -314,35 +391,56 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.transaction()
   end
 
-  @doc """
-  Builds a Multi transactional object based on the args and executes the transaction.
-  ## Examples
-      iex> execute_link_event_processor_transaction(%{delete_ids: event_ids, event_links: event_links})
-      {:ok, %{}
-      iex> execute_link_event_processor_transaction(%{field: bad_value})
-      {:error, reason}
-  """
-  def execute_link_event_processor_transaction(%{delete_ids: event_ids, event_links: event_links}) do
+  def execute_pipeline_transaction(%{
+        event_details: event_details,
+        delete_ids: event_ids,
+        event: event
+      }) do
     multi =
       case is_nil(event_ids) or Enum.empty?(event_ids) do
         true ->
           Multi.new()
 
         false ->
-          l_query =
-            from(
-              l in EventLink,
-              where: l.linkage_event_id in ^event_ids
+          n_query =
+            from(n in Notification,
+              where: n.event_id in ^event_ids,
+              select:
+                {n.event_id, n.user_id, n.tag_id, n.id, n.title, n.notification_setting_id,
+                 n.created_at, n.updated_at, n.deleted_at}
             )
+
+          e_query =
+            from(
+              e in Event,
+              where: e.id in ^event_ids
+            )
+
+          l_query =
+            case event["id"] do
+              nil ->
+                from(
+                  l in EventLink,
+                  where: l.linkage_event_id in ^event_ids
+                )
+
+              core_id ->
+                from(
+                  l in EventLink,
+                  where: l.linkage_event_id in ^event_ids or l.core_id == ^core_id
+                )
+            end
 
           deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
           Multi.new()
+          |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
+          |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
           |> Multi.update_all(:update_event_links, l_query, set: [deleted_at: deleted_at])
       end
 
     multi
-    |> Multi.insert_all(:insert_event_links, EventLink, event_links)
+    |> Multi.insert_all(:insert_event_details, EventDetail, event_details)
     |> Repo.transaction()
   end
 
@@ -404,5 +502,15 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
             acc
         end)
     }
+  end
+
+  defp filter_events(filter, query) do
+    Enum.reduce(filter, query, fn
+      {:event_definition_id, event_definition_id}, q ->
+        where(q, [e], e.event_definition_id == ^event_definition_id)
+
+      {:event_ids, event_ids}, q ->
+        where(q, [e], e.id in ^event_ids)
+    end)
   end
 end

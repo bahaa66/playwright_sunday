@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.NotificationsAddArchivedAt do
+  use Migrations.NotificationsAddArchivedAt
+end
