@@ -32,6 +32,7 @@ defmodule CogyntWorkstationIngest.Config do
   def topic_config(), do: Application.get_env(:kafka_ex, :topic_config)
   def topic_sols(), do: Application.get_env(:kafka_ex, :template_solution_topic)
   def topic_sol_events(), do: Application.get_env(:kafka_ex, :template_solution_event_topic)
+  def kafka_client(), do: Application.get_env(:kafka_ex, :kafka_client)
 
   def cogynt_otp_service_name(), do: rpc()[:cogynt_otp_service_name]
   def cogynt_otp_service_port(), do: rpc()[:cogynt_otp_service_port]
@@ -44,6 +45,10 @@ defmodule CogyntWorkstationIngest.Config do
 
   def event_index_alias(), do: elasticsearch()[:event_index_alias]
   def risk_history_index_alias(), do: elasticsearch()[:risk_history_index_alias]
+
+  def http_client(), do: clients()[:http_client]
+  def elasticsearch_client(), do: clients()[:elasticsearch_client]
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
@@ -70,4 +75,6 @@ defmodule CogyntWorkstationIngest.Config do
   defp startup(), do: Application.get_env(:cogynt_workstation_ingest, :startup)
 
   defp elasticsearch(), do: Application.get_env(:elasticsearch, :config)
+
+  defp clients(), do: Application.get_env(:cogynt_workstation_ingest, :clients)
 end

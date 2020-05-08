@@ -46,25 +46,13 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   @doc """
   Returns a list of the %Notification{} stucts that were inserted.
   ## Examples
-      iex> bulk_insert_notifications([])
-      {:ok, [%Notification{...}]}
+      iex> bulk_insert_notifications([%Notification{}, returning: [:id])
+      {20, [%Notification{...}]}
   """
-  def bulk_insert_notifications(notifications) when is_list(notifications) do
-    {_count, updated_notifications} =
-      Repo.insert_all(Notification, notifications,
-        returning: [
-          :event_id,
-          :user_id,
-          :tag_id,
-          :id,
-          :title,
-          :notification_setting_id,
-          :created_at,
-          :updated_at
-        ]
-      )
+  def bulk_insert_notifications(notifications, opts \\ []) when is_list(notifications) do
+    returning = Keyword.get(opts, :returning, [])
 
-    {:ok, updated_notifications}
+    Repo.insert_all(Notification, notifications, returning: returning)
   end
 
   @doc """

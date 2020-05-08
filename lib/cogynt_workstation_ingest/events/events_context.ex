@@ -79,17 +79,33 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   Paginates through Events based on the event_definition_id.
   Returns the page_number as a %Scrivener.Page{} object.
   ## Examples
-      iex> paginate_events_by_event_definition_id("4123449c-2de0-482f-bea8-5efdb837be08", 1, 10)
-      %Scrivener.Page{...}
+      iex> get_page_of_events(
+        %{
+          filter: %{
+            event_definition_id: "dec1dcda-7f32-11ea-bc55-0242ac130003"
+          }
+        },
+        page_number: 1
+      )
+      %Scrivener.Page{
+        entries: [%Event{}],
+        page_number: 1,
+        page_size: 500,
+        total_entries: 1200,
+        total_pages: 3
+      }
   """
-  def paginate_events_by_event_definition_id(id, page_number, page_size, opts \\ []) do
+  def get_page_of_events(args, opts \\ []) do
     preload_details = Keyword.get(opts, :preload_details, true)
     include_deleted = Keyword.get(opts, :include_deleted, false)
+    page = Keyword.get(opts, :page_number, 1)
+    page_size = Keyword.get(opts, :page_size, 10)
 
     query =
-      from(e in Event)
-      |> where([e], e.event_definition_id == type(^id, :binary_id))
-      |> order_by(desc: :created_at, asc: :id)
+      Enum.reduce(args, from(e in Event), fn
+        {:filter, filter}, q ->
+          filter_events(filter, q)
+      end)
 
     query =
       if preload_details do
@@ -105,7 +121,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       query
       |> where([e], is_nil(e.deleted_at))
     end
-    |> Repo.paginate(page: page_number, page_size: page_size)
+    |> order_by([e], desc: e.created_at, asc: e.id)
+    |> Repo.paginate(page: page, page_size: page_size)
   end
 
   @doc """
