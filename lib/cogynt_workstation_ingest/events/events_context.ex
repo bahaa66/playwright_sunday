@@ -13,7 +13,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     EventLink
   }
 
-  alias Models.Notifications.Notification
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
 
   # ---------------------------- #
@@ -34,8 +33,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   @doc """
-  Returns all event_ids that have records matching in the
-  Event table with the core_id
+  Returns all event_ids that have records that match for the core_id
+  and are not deleted
   ## Examples
       iex> get_events_by_core_id("4123449c-2de0-482f-bea8-5efdb837be08")
       [%{}]
@@ -43,12 +42,19 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       nil
   """
   def get_events_by_core_id(core_id) do
-    Repo.all(
-      from(e in Event,
-        where: e.core_id == ^core_id,
-        select: e.id
+    event_ids =
+      Repo.all(
+        from(e in Event,
+          where: e.core_id == ^core_id and is_nil(e.deleted_at),
+          select: e.id
+        )
       )
-    )
+
+    if Enum.empty?(event_ids) do
+      nil
+    else
+      event_ids
+    end
   end
 
   @doc """
@@ -185,263 +191,68 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # ------------------------------------ #
   # --- Pipeline Transaction Methods --- #
   # ------------------------------------ #
-  @doc """
-  Builds and executes a transaction for all of the fields that were
-  built throughout the event and link_event pipeline
-  ## Examples
-      iex> execute_pipeline_transaction(%{
-        event_details: event_details,
-        event_docs: event_docs,
-        risk_history_doc: risk_history_doc,
-        notifications: notifications,
-        event_links: event_links,
-        delete_ids: event_ids,
-        delete_docs: doc_ids
-      })
-      {:ok, %{}}
-      iex> execute_pipeline_transaction(%{field: bad_value})
-      {:error, reason}
-  """
-  def execute_pipeline_transaction(%{
-        event_details: event_details,
-        notifications: notifications,
-        delete_ids: event_ids,
-        link_events: link_events,
-        event: event
-      }) do
-    multi =
-      case is_nil(event_ids) or Enum.empty?(event_ids) do
-        true ->
-          Multi.new()
-
-        false ->
-          n_query =
-            from(n in Notification,
-              where: n.event_id in ^event_ids,
-              select:
-                {n.event_id, n.user_id, n.tag_id, n.id, n.title, n.notification_setting_id,
-                 n.created_at, n.updated_at, n.deleted_at}
-            )
-
-          e_query =
-            from(
-              e in Event,
-              where: e.id in ^event_ids
-            )
-
-          l_query =
-            case event["id"] do
-              nil ->
-                from(
-                  l in EventLink,
-                  where: l.linkage_event_id in ^event_ids
-                )
-
-              core_id ->
-                from(
-                  l in EventLink,
-                  where: l.linkage_event_id in ^event_ids or l.core_id == ^core_id
-                )
-            end
-
-          deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
-
-          Multi.new()
-          |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
-          |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
-          |> Multi.update_all(:update_event_links, l_query, set: [deleted_at: deleted_at])
-      end
-
+  def insert_all_event_details_multi(multi \\ Multi.new(), event_details) do
     multi
     |> Multi.insert_all(:insert_event_details, EventDetail, event_details)
+  end
+
+  def insert_all_event_links_multi(multi \\ Multi.new(), link_events) do
+    multi
     |> Multi.insert_all(:insert_event_links, EventLink, link_events)
-    |> Multi.insert_all(:insert_notifications, Notification, notifications,
-      returning: [
-        :event_id,
-        :user_id,
-        :tag_id,
-        :id,
-        :title,
-        :notification_setting_id,
-        :created_at,
-        :updated_at
-      ]
-    )
-    |> Repo.transaction()
   end
 
-  def execute_pipeline_transaction(%{
-        event_details: event_details,
-        delete_ids: event_ids,
-        link_events: link_events,
-        event: event
-      }) do
-    multi =
-      case is_nil(event_ids) or Enum.empty?(event_ids) do
-        true ->
-          Multi.new()
+  def update_all_events_multi(multi \\ Multi.new(), delete_event_ids) do
+    case is_nil(delete_event_ids) or Enum.empty?(delete_event_ids) do
+      true ->
+        multi
 
-        false ->
-          n_query =
-            from(n in Notification,
-              where: n.event_id in ^event_ids,
-              select:
-                {n.event_id, n.user_id, n.tag_id, n.id, n.title, n.notification_setting_id,
-                 n.created_at, n.updated_at, n.deleted_at}
-            )
+      false ->
+        deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
-          e_query =
-            from(
-              e in Event,
-              where: e.id in ^event_ids
-            )
+        e_query =
+          from(
+            e in Event,
+            where: e.id in ^delete_event_ids
+          )
 
-          l_query =
-            case event["id"] do
-              nil ->
-                from(
-                  l in EventLink,
-                  where: l.linkage_event_id in ^event_ids
-                )
-
-              core_id ->
-                from(
-                  l in EventLink,
-                  where: l.linkage_event_id in ^event_ids or l.core_id == ^core_id
-                )
-            end
-
-          deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
-
-          Multi.new()
-          |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
-          |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
-          |> Multi.update_all(:update_event_links, l_query, set: [deleted_at: deleted_at])
-      end
-
-    multi
-    |> Multi.insert_all(:insert_event_details, EventDetail, event_details)
-    |> Multi.insert_all(:insert_event_links, EventLink, link_events)
-    |> Repo.transaction()
+        multi
+        |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
+    end
   end
 
-  def execute_pipeline_transaction(%{
-        event_details: event_details,
-        notifications: notifications,
-        delete_ids: event_ids,
+  def update_all_event_links_multi(multi \\ Multi.new(), %{
+        delete_event_ids: delete_event_ids,
         event: event
       }) do
-    multi =
-      case is_nil(event_ids) or Enum.empty?(event_ids) do
-        true ->
-          Multi.new()
+    case is_nil(delete_event_ids) or Enum.empty?(delete_event_ids) do
+      true ->
+        multi
 
-        false ->
-          n_query =
-            from(n in Notification,
-              where: n.event_id in ^event_ids,
-              select:
-                {n.event_id, n.user_id, n.tag_id, n.id, n.title, n.notification_setting_id,
-                 n.created_at, n.updated_at, n.deleted_at}
-            )
+      false ->
+        deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
-          e_query =
-            from(
-              e in Event,
-              where: e.id in ^event_ids
-            )
+        l_query =
+          case event["id"] do
+            nil ->
+              from(
+                l in EventLink,
+                where: l.linkage_event_id in ^delete_event_ids
+              )
 
-          l_query =
-            case event["id"] do
-              nil ->
-                from(
-                  l in EventLink,
-                  where: l.linkage_event_id in ^event_ids
-                )
+            core_id ->
+              from(
+                l in EventLink,
+                where: l.linkage_event_id in ^delete_event_ids or l.core_id == ^core_id
+              )
+          end
 
-              core_id ->
-                from(
-                  l in EventLink,
-                  where: l.linkage_event_id in ^event_ids or l.core_id == ^core_id
-                )
-            end
-
-          deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
-
-          Multi.new()
-          |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
-          |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
-          |> Multi.update_all(:update_event_links, l_query, set: [deleted_at: deleted_at])
-      end
-
-    multi
-    |> Multi.insert_all(:insert_event_details, EventDetail, event_details)
-    |> Multi.insert_all(:insert_notifications, Notification, notifications,
-      returning: [
-        :event_id,
-        :user_id,
-        :tag_id,
-        :id,
-        :title,
-        :notification_setting_id,
-        :created_at,
-        :updated_at
-      ]
-    )
-    |> Repo.transaction()
+        multi
+        |> Multi.update_all(:update_event_links, l_query, set: [deleted_at: deleted_at])
+    end
   end
 
-  def execute_pipeline_transaction(%{
-        event_details: event_details,
-        delete_ids: event_ids,
-        event: event
-      }) do
-    multi =
-      case is_nil(event_ids) or Enum.empty?(event_ids) do
-        true ->
-          Multi.new()
-
-        false ->
-          n_query =
-            from(n in Notification,
-              where: n.event_id in ^event_ids,
-              select:
-                {n.event_id, n.user_id, n.tag_id, n.id, n.title, n.notification_setting_id,
-                 n.created_at, n.updated_at, n.deleted_at}
-            )
-
-          e_query =
-            from(
-              e in Event,
-              where: e.id in ^event_ids
-            )
-
-          l_query =
-            case event["id"] do
-              nil ->
-                from(
-                  l in EventLink,
-                  where: l.linkage_event_id in ^event_ids
-                )
-
-              core_id ->
-                from(
-                  l in EventLink,
-                  where: l.linkage_event_id in ^event_ids or l.core_id == ^core_id
-                )
-            end
-
-          deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
-
-          Multi.new()
-          |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
-          |> Multi.update_all(:update_notifications, n_query, set: [deleted_at: deleted_at])
-          |> Multi.update_all(:update_event_links, l_query, set: [deleted_at: deleted_at])
-      end
-
-    multi
-    |> Multi.insert_all(:insert_event_details, EventDetail, event_details)
-    |> Repo.transaction()
+  def run_multi_transaction(multi) do
+    Repo.transaction(multi)
   end
 
   # ----------------------------------- #

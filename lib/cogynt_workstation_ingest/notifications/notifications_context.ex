@@ -3,9 +3,12 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   The Notifications context: public interface for event related functionality.
   """
   import Ecto.Query, warn: false
+  alias Ecto.Multi
   alias CogyntWorkstationIngest.Repo
 
   alias Models.Notifications.{NotificationSetting, Notification}
+
+  @delete Application.get_env(:cogynt_workstation_ingest, :core_keys)[:delete]
 
   # ------------------------------------ #
   # --- Notification Setting Methods --- #
@@ -176,5 +179,50 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
           {:ok, result}
         end
     end
+  end
+
+  def insert_all_notifications_multi(multi \\ Multi.new(), notifications, opts \\ []) do
+    returning = Keyword.get(opts, :returning, [])
+
+    multi
+    |> Multi.insert_all(:insert_notifications, Notification, notifications, returning: returning)
+  end
+
+  def update_all_notifications_multi(multi \\ Multi.new(), %{
+        delete_event_ids: delete_event_ids,
+        action: action,
+        event_id: event_id
+      }) do
+    case is_nil(delete_event_ids) or Enum.empty?(delete_event_ids) do
+      true ->
+        multi
+
+      false ->
+        # If action is a delete we want to leave all notifications
+        # marked as deleted. Event the ones created for the current newest event.
+        deleted_at =
+          if action == @delete do
+            DateTime.truncate(DateTime.utc_now(), :second)
+          else
+            nil
+          end
+
+        n_query =
+          from(n in Notification,
+            where: n.event_id in ^delete_event_ids,
+            select:
+              {n.event_id, n.user_id, n.tag_id, n.id, n.title, n.notification_setting_id,
+               n.created_at, n.updated_at, n.deleted_at}
+          )
+
+        multi
+        |> Multi.update_all(:update_notifications, n_query,
+          set: [event_id: event_id, deleted_at: deleted_at]
+        )
+    end
+  end
+
+  def run_multi_transaction(multi) do
+    Repo.transaction(multi)
   end
 end
