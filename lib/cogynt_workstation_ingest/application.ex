@@ -9,12 +9,11 @@ defmodule CogyntWorkstationIngest.Application do
   alias CogyntWorkstationIngest.Supervisors.{
     ConsumerGroupSupervisor,
     ServerSupervisor,
-    DrilldownSupervisor,
     TaskSupervisor
   }
 
   alias CogyntWorkstationIngest.Servers.Startup
-  alias CogyntWorkstationIngest.Broadway.{EventPipeline, LinkEventPipeline}
+  alias CogyntWorkstationIngest.Broadway.{EventPipeline, LinkEventPipeline, DrilldownPipeline}
 
   def start(_type, _args) do
     # List all child processes to be supervised
@@ -27,8 +26,8 @@ defmodule CogyntWorkstationIngest.Application do
       EventPipeline,
       # Start the Supervisor for the Broadway LinkEventPipeline
       LinkEventPipeline,
-      # Start the DynamicSupervisor for the Broadway DrilldownPipeline
-      DrilldownSupervisor,
+      # Start the Supervisor for the Broadway DrilldownPipeline
+      DrilldownPipeline,
       # Start the DynamicSupervisor for KafkaEx ConsumerGroups
       ConsumerGroupSupervisor,
       # The supervisor for all Task workers

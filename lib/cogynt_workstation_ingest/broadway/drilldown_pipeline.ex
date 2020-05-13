@@ -9,9 +9,11 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Broadway.{DrilldownProducer, DrilldownProcessor}
 
-  def start_link() do
+  @pipeline_name :BroadwayDrilldown
+
+  def start_link(_args) do
     Broadway.start_link(__MODULE__,
-      name: :BroadwayDrilldown,
+      name: @pipeline_name,
       producer: [
         module: {DrilldownProducer, []},
         stages: 1,

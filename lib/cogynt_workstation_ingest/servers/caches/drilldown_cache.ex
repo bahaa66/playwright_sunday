@@ -26,6 +26,10 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
     GenServer.cast(__MODULE__, {:put_data, data})
   end
 
+  def reset_state() do
+    GenServer.cast(__MODULE__, :reset_state)
+  end
+
   # ------------------------ #
   # --- server callbacks --- #
   # ------------------------ #
@@ -105,5 +109,10 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
 
     state = Map.put(state, id, sol)
     {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast(:reset_state, state) do
+    {:noreply, %{}}
   end
 end

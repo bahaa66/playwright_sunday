@@ -8,6 +8,8 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   alias CogyntWorkstationIngest.Broadway.Producer
   alias Models.Enums.ConsumerStatusTypeEnum
   alias Models.Events.EventDefinition
+  alias CogyntWorkstationIngest.Config
+  alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
 
   # ----------------------- #
   # --- ingestion calls --- #
@@ -185,6 +187,126 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
       }
     rescue
       _ ->
+        %{
+          status: :error,
+          body: :internal_server_error
+        }
+    end
+  end
+
+  def handle_request("ingest:dev_delete", %{
+        "drilldown" => reset_drilldown,
+        "event_definition_ids" => event_definition_ids,
+        "topics" => delete_topics
+      }) do
+    try do
+      if reset_drilldown do
+        CogyntLogger.info("#{__MODULE__}", "Stoping the Drilldown ConsumerGroup")
+        ConsumerGroupSupervisor.stop_child()
+
+        if delete_topics do
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "Deleting the Drilldown Topics. #{Config.topic_sols()}, #{Config.topic_sol_events()}"
+          )
+
+          delete_topic_result =
+            KafkaEx.delete_topics([Config.topic_sols(), Config.topic_sol_events()],
+              worker_name: :drilldown
+            )
+
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "Delete Drilldown Topics result: #{inspect(delete_topic_result)}"
+          )
+        end
+
+        CogyntLogger.info("#{__MODULE__}", "Resetting Drilldown Cache")
+        DrilldownCache.reset_state()
+        Process.sleep(2000)
+        CogyntLogger.info("#{__MODULE__}", "Starting the Drilldown ConsumerGroup")
+        ConsumerGroupSupervisor.start_child()
+      end
+
+      return_status =
+        if length(event_definition_ids) > 0 do
+          {_count, event_definition_data} =
+            EventsContext.update_event_definitions(
+              %{
+                filter: %{event_definition_ids: event_definition_ids},
+                select: [
+                  :id,
+                  :topic
+                ]
+              },
+              set: [active: false]
+            )
+
+          {consumer_data, topics} =
+            Enum.reduce(event_definition_data, {[], []}, fn %EventDefinition{
+                                                              id: id,
+                                                              topic: topic
+                                                            },
+                                                            {acc_consumers, acc_topics} ->
+              CogyntLogger.info(
+                "#{__MODULE__}",
+                "Stoping ConsumerGroup for #{topic}"
+              )
+
+              ConsumerGroupSupervisor.stop_child(topic)
+
+              CogyntLogger.info(
+                "#{__MODULE__}",
+                "Deleting Elasticsearch data for #{id}"
+              )
+
+              {:ok, _} =
+                Elasticsearch.delete_by_query(Config.event_index_alias(), %{
+                  field: "event_definition_id",
+                  value: id
+                })
+
+              case EventsContext.get_core_ids_for_event_definition_id(id) do
+                nil ->
+                  nil
+
+                core_ids ->
+                  Enum.each(core_ids, fn core_id ->
+                    {:ok, _} =
+                      Elasticsearch.delete_by_query(Config.risk_history_index_alias(), %{
+                        field: "id",
+                        value: core_id
+                      })
+                  end)
+              end
+
+              {acc_consumers ++
+                 [
+                   %{"id" => id, "topic" => topic}
+                 ], acc_topics ++ [topic]}
+            end)
+
+          consumer_status = handle_request("ingest:check_status", consumer_data)
+
+          if delete_topics do
+            CogyntLogger.info("#{__MODULE__}", "Deleting Kakfa topics for #{topics}")
+
+            KafkaEx.delete_topics(topics, worker_name: :standard)
+
+            Process.sleep(2000)
+          end
+
+          consumer_status
+        else
+          %{
+            status: :ok,
+            body: []
+          }
+        end
+    rescue
+      error ->
+        IO.inspect(error)
+
         %{
           status: :error,
           body: :internal_server_error
