@@ -3,7 +3,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   Module that acts as the Broadway Processor for the LinkEventPipeline.
   """
   alias CogyntWorkstationIngest.Events.EventsContext
+  alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
+  alias CogyntWorkstationIngest.Broadway.EventProcessor
   alias CogyntWorkstationIngest.Config
 
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
@@ -75,22 +77,62 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   """
   def execute_transaction(%{event_id: nil} = data), do: data
 
+  def execute_transaction(%{validated: false} = data),
+    do: EventProcessor.execute_transaction(data)
+
   def execute_transaction(
         %{
-          notifications: _notifications,
+          notifications: notifications,
+          event_details: event_details,
+          link_events: link_events,
+          delete_event_ids: delete_event_ids,
           event_docs: event_docs,
           risk_history_doc: risk_history_doc,
-          delete_docs: doc_ids
+          delete_docs: doc_ids,
+          crud_action: action,
+          event_id: event_id,
+          event: event
         } = data
       ) do
-    case EventsContext.execute_pipeline_transaction(data) do
+    # elasticsearch updates
+    update_event_docs(event_docs, doc_ids)
+    update_risk_history_doc(risk_history_doc)
+
+    transaction_result =
+      EventsContext.insert_all_event_details_multi(event_details)
+      |> EventsContext.insert_all_event_links_multi(link_events)
+      |> NotificationsContext.insert_all_notifications_multi(notifications,
+        returning: [
+          :event_id,
+          :user_id,
+          :tag_id,
+          :id,
+          :title,
+          :notification_setting_id,
+          :created_at,
+          :updated_at
+        ]
+      )
+      |> EventsContext.update_all_events_multi(delete_event_ids)
+      |> NotificationsContext.update_all_notifications_multi(%{
+        delete_event_ids: delete_event_ids,
+        action: action,
+        event_id: event_id
+      })
+      |> EventsContext.update_all_event_links_multi(%{
+        delete_event_ids: delete_event_ids,
+        event: event
+      })
+      |> EventsContext.run_multi_transaction()
+
+    case transaction_result do
       {:ok,
        %{
          insert_notifications: {_count_created, created_notifications},
-         update_notifications: {_count_deleted, deleted_notifications}
+         update_notifications: {_count_deleted, updated_notifications}
        }} ->
-        CogyntClient.publish_deleted_notifications(deleted_notifications)
         CogyntClient.publish_notifications(created_notifications)
+        CogyntClient.publish_notifications(updated_notifications)
 
       {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
         CogyntClient.publish_notifications(created_notifications)
@@ -107,23 +149,44 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         raise "execute_transaction/1 failed"
     end
 
-    # elastic search updates
-    update_event_docs(event_docs, doc_ids)
-    update_risk_history_doc(risk_history_doc)
-
     data
   end
 
   def execute_transaction(
         %{
+          event_details: event_details,
+          link_events: link_events,
+          delete_event_ids: delete_event_ids,
           event_docs: event_docs,
           risk_history_doc: risk_history_doc,
-          delete_docs: doc_ids
+          delete_docs: doc_ids,
+          crud_action: action,
+          event_id: event_id,
+          event: event
         } = data
       ) do
-    case EventsContext.execute_pipeline_transaction(data) do
-      {:ok, %{update_notifications: {_count, deleted_notifications}}} ->
-        CogyntClient.publish_deleted_notifications(deleted_notifications)
+    # elasticsearch updates
+    update_event_docs(event_docs, doc_ids)
+    update_risk_history_doc(risk_history_doc)
+
+    transaction_result =
+      EventsContext.insert_all_event_details_multi(event_details)
+      |> EventsContext.insert_all_event_links_multi(link_events)
+      |> EventsContext.update_all_events_multi(delete_event_ids)
+      |> NotificationsContext.update_all_notifications_multi(%{
+        delete_event_ids: delete_event_ids,
+        action: action,
+        event_id: event_id
+      })
+      |> EventsContext.update_all_event_links_multi(%{
+        delete_event_ids: delete_event_ids,
+        event: event
+      })
+      |> EventsContext.run_multi_transaction()
+
+    case transaction_result do
+      {:ok, %{update_notifications: {_count, updated_notifications}}} ->
+        CogyntClient.publish_notifications(updated_notifications)
 
       {:ok, _} ->
         nil
@@ -136,10 +199,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
         raise "execute_transaction/1 failed"
     end
-
-    # elastic search updates
-    update_event_docs(event_docs, doc_ids)
-    update_risk_history_doc(risk_history_doc)
 
     data
   end

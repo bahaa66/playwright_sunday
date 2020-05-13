@@ -7,6 +7,8 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Events.EventsContext
+  alias Models.Notifications.NotificationSetting
+  alias Models.Events.EventDefinition
 
   @page_size 500
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -29,57 +31,81 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
   # --- Private Methods --- #
   # ----------------------- #
   defp backfill_notifications(notification_setting_id) do
-    notification_setting = NotificationsContext.get_notification_setting!(notification_setting_id)
+    with %NotificationSetting{} = notification_setting <-
+           NotificationsContext.get_notification_setting(notification_setting_id),
+         %EventDefinition{} = event_definition <-
+           EventsContext.get_event_definition!(notification_setting.event_definition_id) do
+      page =
+        EventsContext.get_page_of_events(
+          %{filter: %{event_definition_id: event_definition.id}},
+          page_number: 1,
+          page_size: @page_size
+        )
 
-    event_definition =
-      EventsContext.get_event_definition!(notification_setting.event_definition_id)
-
-    page =
-      EventsContext.paginate_events_by_event_definition_id(
-        event_definition.id,
-        1,
-        @page_size
-      )
-
-    process_page(page, event_definition, notification_setting)
+      process_page(page, event_definition, notification_setting)
+    else
+      nil ->
+        CogyntLogger.warn(
+          "Backfill Notifications Task",
+          "NotificationSetting or EventDefinition not found for notification_setting_id: #{
+            notification_setting_id
+          }."
+        )
+    end
   end
 
-  defp process_page(page, event_definition, notification_setting) do
-    {:ok, updated_notifications} =
-      build_notifications(page.entries, event_definition, notification_setting)
-      |> NotificationsContext.bulk_insert_notifications()
+  defp process_page(
+         %{entries: entries, page_number: page_number, total_pages: total_pages},
+         %{id: event_definition_id, event_definition_details: event_definition_details} =
+           event_definition,
+         notification_setting
+       ) do
+    {_count, updated_notifications} =
+      build_notifications(entries, event_definition_details, notification_setting)
+      |> NotificationsContext.bulk_insert_notifications(
+        returning: [
+          :event_id,
+          :user_id,
+          :tag_id,
+          :id,
+          :title,
+          :notification_setting_id,
+          :created_at,
+          :updated_at
+        ]
+      )
 
     CogyntClient.publish_notifications(updated_notifications)
 
-    case page.page_number == page.total_pages do
+    case page_number >= total_pages do
       true ->
         CogyntLogger.info(
           "Backfill Notifications",
-          "Finished processing notifications for event_definition: #{event_definition.id} and notification_setting #{
+          "Finished processing notifications for event_definition: #{event_definition_id} and notification_setting #{
             notification_setting.id
           }"
         )
 
       false ->
-        new_page =
-          EventsContext.paginate_events_by_event_definition_id(
-            event_definition.id,
-            page.page_number + 1,
-            @page_size
+        next_page =
+          EventsContext.get_page_of_events(
+            %{filter: %{event_definition_id: event_definition_id}},
+            page_number: page_number + 1,
+            page_size: @page_size
           )
 
-        process_page(new_page, event_definition, notification_setting)
+        process_page(next_page, event_definition, notification_setting)
     end
 
     {:ok, :success}
   end
 
-  defp build_notifications(page_entries, event_definition, notification_setting) do
+  defp build_notifications(page_entries, event_definition_details, notification_setting) do
     Enum.reduce(page_entries, [], fn event, acc ->
       with true <- publish_notification?(event.event_details),
            true <-
              !is_nil(
-               Enum.find(event_definition.event_definition_details, fn d ->
+               Enum.find(event_definition_details, fn d ->
                  d.field_name == notification_setting.title
                end)
              ),
