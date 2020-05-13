@@ -22,24 +22,27 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   process_event/1 will create a single Event record in the database that is assosciated with
   the event_definition.id. It will also pull all the event_ids and doc_ids that need to be
   soft_deleted from the database and elasticsearch. The data map is updated with the :event_id,
-  :delete_ids, :delete_docs fields.
+  :delete_event_ids, :delete_docs fields.
   """
   def process_event(%{event: %{@crud => action}, event_id: nil} = data) do
-    {:ok, {new_event_id, delete_event_ids, delete_doc_ids}} =
+    {:ok,
+     %{
+       event_id: new_event_id,
+       delete_event_ids: delete_event_ids,
+       delete_doc_ids: delete_doc_ids
+     }} =
       case action do
-        @update ->
-          update_event(data)
-
         @delete ->
           delete_event(data)
 
         _ ->
-          create_event(data)
+          create_or_update_event(data)
       end
 
     Map.put(data, :event_id, new_event_id)
-    |> Map.put(:delete_ids, delete_event_ids)
+    |> Map.put(:delete_event_ids, delete_event_ids)
     |> Map.put(:delete_docs, delete_doc_ids)
+    |> Map.put(:crud_action, action)
   end
 
   def process_event(%{event: %{@crud => action}, event_id: event_id} = data) do
@@ -50,21 +53,24 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     EventsContext.soft_delete_events([event_id])
 
-    {:ok, {new_event_id, delete_event_ids, delete_doc_ids}} =
+    {:ok,
+     %{
+       event_id: new_event_id,
+       delete_event_ids: delete_event_ids,
+       delete_doc_ids: delete_doc_ids
+     }} =
       case action do
-        @update ->
-          update_event(data)
-
         @delete ->
           delete_event(data)
 
         _ ->
-          create_event(data)
+          create_or_update_event(data)
       end
 
     Map.put(data, :event_id, new_event_id)
-    |> Map.put(:delete_ids, delete_event_ids)
+    |> Map.put(:delete_event_ids, delete_event_ids)
     |> Map.put(:delete_docs, delete_doc_ids)
+    |> Map.put(:crud_action, action)
   end
 
   @doc """
@@ -79,8 +85,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
          }) do
       {:ok, %{id: event_id}} ->
         Map.put(data, :event_id, event_id)
-        |> Map.put(:delete_ids, nil)
+        |> Map.put(:delete_event_ids, nil)
         |> Map.put(:delete_docs, nil)
+        |> Map.put(:crud_action, nil)
 
       {:error, reason} ->
         CogyntLogger.error(
@@ -108,8 +115,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
          }) do
       {:ok, %{id: event_id}} ->
         Map.put(data, :event_id, event_id)
-        |> Map.put(:delete_ids, nil)
+        |> Map.put(:delete_event_ids, nil)
         |> Map.put(:delete_docs, nil)
+        |> Map.put(:crud_action, nil)
 
       {:error, reason} ->
         CogyntLogger.error(
@@ -225,7 +233,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   @doc """
-  Requires :event_details, :notifications, :event_docs, :risk_history_doc, :delete_ids, and :delete_docs
+  Requires :event_details, :notifications, :event_docs, :risk_history_doc, :delete_event_ids, and :delete_docs
   fields in the data map. Takes all the fields and executes them in one databse transaction. When
   it finishes with no errors it will update the :event_processed key to have a value of true
   in the data map and return.
@@ -234,20 +242,55 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   def execute_transaction(
         %{
-          notifications: _notifications,
+          notifications: notifications,
+          event_details: event_details,
+          delete_event_ids: delete_event_ids,
           event_docs: event_docs,
           risk_history_doc: risk_history_doc,
-          delete_docs: doc_ids
+          delete_docs: doc_ids,
+          crud_action: action,
+          event_id: event_id,
+          event: event
         } = data
       ) do
-    case EventsContext.execute_pipeline_transaction(data) do
+    # elasticsearch updates
+    update_event_docs(event_docs, doc_ids)
+    update_risk_history_doc(risk_history_doc)
+
+    transaction_result =
+      EventsContext.insert_all_event_details_multi(event_details)
+      |> NotificationsContext.insert_all_notifications_multi(notifications,
+        returning: [
+          :event_id,
+          :user_id,
+          :tag_id,
+          :id,
+          :title,
+          :notification_setting_id,
+          :created_at,
+          :updated_at
+        ]
+      )
+      |> EventsContext.update_all_events_multi(delete_event_ids)
+      |> NotificationsContext.update_all_notifications_multi(%{
+        delete_event_ids: delete_event_ids,
+        action: action,
+        event_id: event_id
+      })
+      |> EventsContext.update_all_event_links_multi(%{
+        delete_event_ids: delete_event_ids,
+        event: event
+      })
+      |> EventsContext.run_multi_transaction()
+
+    case transaction_result do
       {:ok,
        %{
          insert_notifications: {_count_created, created_notifications},
-         update_notifications: {_count_deleted, deleted_notifications}
+         update_notifications: {_count_deleted, updated_notifications}
        }} ->
-        CogyntClient.publish_deleted_notifications(deleted_notifications)
         CogyntClient.publish_notifications(created_notifications)
+        CogyntClient.publish_notifications(updated_notifications)
 
       {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
         CogyntClient.publish_notifications(created_notifications)
@@ -264,23 +307,42 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         raise "execute_transaction/1 failed"
     end
 
-    # elastic search updates
-    update_event_docs(event_docs, doc_ids)
-    update_risk_history_doc(risk_history_doc)
-
     data
   end
 
   def execute_transaction(
         %{
+          event_details: event_details,
+          delete_event_ids: delete_event_ids,
           event_docs: event_docs,
           risk_history_doc: risk_history_doc,
-          delete_docs: doc_ids
+          delete_docs: doc_ids,
+          crud_action: action,
+          event_id: event_id,
+          event: event
         } = data
       ) do
-    case EventsContext.execute_pipeline_transaction(data) do
-      {:ok, %{update_notifications: {_count, deleted_notifications}}} ->
-        CogyntClient.publish_deleted_notifications(deleted_notifications)
+    # elasticsearch updates
+    update_event_docs(event_docs, doc_ids)
+    update_risk_history_doc(risk_history_doc)
+
+    transaction_result =
+      EventsContext.insert_all_event_details_multi(event_details)
+      |> EventsContext.update_all_events_multi(delete_event_ids)
+      |> NotificationsContext.update_all_notifications_multi(%{
+        delete_event_ids: delete_event_ids,
+        action: action,
+        event_id: event_id
+      })
+      |> EventsContext.update_all_event_links_multi(%{
+        delete_event_ids: delete_event_ids,
+        event: event
+      })
+      |> EventsContext.run_multi_transaction()
+
+    case transaction_result do
+      {:ok, %{update_notifications: {_count, updated_notifications}}} ->
+        CogyntClient.publish_notifications(updated_notifications)
 
       {:ok, _} ->
         nil
@@ -294,10 +356,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         raise "execute_transaction/1 failed"
     end
 
-    # elastic search updates
-    update_event_docs(event_docs, doc_ids)
-    update_risk_history_doc(risk_history_doc)
-
     data
   end
 
@@ -309,12 +367,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       nil ->
         event
 
-      val ->
+      lexicon_val ->
         try do
-          Map.put(event, @lexicons, List.flatten(val))
+          Map.put(event, @lexicons, List.flatten(lexicon_val))
         rescue
           _ ->
-            CogyntLogger.error("#{__MODULE__}", "Lexicon value incorrect format #{val}")
+            CogyntLogger.error("#{__MODULE__}", "Lexicon value incorrect format #{lexicon_val}")
             Map.delete(event, @lexicons)
         end
     end
@@ -349,33 +407,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       nil ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "event has CRUD key but missing id field. Throwing away record. #{inspect(event)}"
+          "event has CRUD key but missing `id` field. Throwing away record. #{inspect(event)}",
+          true
         )
 
         {:error, {nil, nil}}
 
       core_id ->
-        event_ids = EventsContext.get_events_by_core_id(core_id)
-        doc_ids = EventDocumentBuilder.build_document_ids(core_id, event_definition)
-        {:ok, {event_ids, doc_ids}}
-    end
-  end
-
-  defp create_event(%{event: event, event_definition: event_definition}) do
-    case EventsContext.create_event(%{
-           event_definition_id: event_definition.id,
-           core_id: event["id"]
-         }) do
-      {:ok, %{id: event_id}} ->
-        {:ok, {event_id, nil, nil}}
-
-      {:error, reason} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "create_event/1 failed with reason: #{inspect(reason)}"
-        )
-
-        raise "create_event/1 failed"
+        delete_event_ids = EventsContext.get_events_by_core_id(core_id)
+        delete_doc_ids = EventDocumentBuilder.build_document_ids(core_id, event_definition)
+        {:ok, {delete_event_ids, delete_doc_ids}}
     end
   end
 
@@ -385,15 +426,25 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     case fetch_data_to_delete(data) do
       {:error, {nil, nil}} ->
         # will skip all steps in the pipeline ignoring this record
-        {:ok, {nil, nil, nil}}
+        {:ok,
+         %{
+           event_id: nil,
+           delete_event_ids: nil,
+           delete_doc_ids: nil
+         }}
 
-      {:ok, {event_ids, doc_ids}} ->
+      {:ok, {delete_event_ids, delete_doc_ids}} ->
         case EventsContext.create_event(%{
                event_definition_id: event_definition.id,
                core_id: event["id"]
              }) do
           {:ok, %{id: event_id}} ->
-            {:ok, {event_id, event_ids ++ [event_id], doc_ids}}
+            {:ok,
+             %{
+               event_id: event_id,
+               delete_event_ids: delete_event_ids ++ [event_id],
+               delete_doc_ids: delete_doc_ids
+             }}
 
           {:error, reason} ->
             CogyntLogger.error(
@@ -406,28 +457,38 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
-  defp update_event(%{event: event, event_definition: event_definition} = data) do
+  defp create_or_update_event(%{event: event, event_definition: event_definition} = data) do
     # Update event -> get all data to remove + create a new event
     case fetch_data_to_delete(data) do
       {:error, {nil, nil}} ->
         # will skip all steps in the pipeline ignoring this record
-        {:ok, {nil, nil, nil}}
+        {:ok,
+         %{
+           event_id: nil,
+           delete_event_ids: nil,
+           delete_doc_ids: nil
+         }}
 
-      {:ok, {event_ids, doc_ids}} ->
+      {:ok, {delete_event_ids, delete_doc_ids}} ->
         case EventsContext.create_event(%{
                event_definition_id: event_definition.id,
                core_id: event["id"]
              }) do
           {:ok, %{id: event_id}} ->
-            {:ok, {event_id, event_ids, doc_ids}}
+            {:ok,
+             %{
+               event_id: event_id,
+               delete_event_ids: delete_event_ids,
+               delete_doc_ids: delete_doc_ids
+             }}
 
           {:error, reason} ->
             CogyntLogger.error(
               "#{__MODULE__}",
-              "update_event/1 failed with reason: #{inspect(reason)}"
+              "create_or_update_event/1 failed with reason: #{inspect(reason)}"
             )
 
-            raise "update_event/1 failed"
+            raise "create_or_update_event/1 failed"
         end
     end
   end

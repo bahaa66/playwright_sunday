@@ -13,6 +13,13 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
 # cogynt-common configurations
 config :migrations, :application, repo: CogyntWorkstationIngest.Repo
 
+config :cogynt_workstation_ingest, :clients,
+  http_client: HTTPoison,
+  elasticsearch_client: Elasticsearch
+
+config :kafka_ex,
+  kafka_client: KafkaEx
+
 # Configurations for keys in Cogynt Core events
 config :cogynt_workstation_ingest, :core_keys,
   crud: "$crud",

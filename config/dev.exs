@@ -25,8 +25,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   code_reloader: true,
   check_origin: false,
   server: true,
-  watchers: [],
-  http_client: System.get_env("HTTP_CLIENT") || HTTPoison
+  watchers: []
 
 # Kafka Configurations
 config :kafka_ex,
@@ -48,7 +47,6 @@ config :kafka_ex,
   sync_timeout: System.get_env("KAKFA_SYNC_TIMEOUT") || 15000,
   max_restarts: System.get_env("KAFKA_MAX_RESTARTS") || 10,
   max_seconds: System.get_env("KAFKA_MAX_SECONDS") || 60,
-  kafka_client: System.get_env("KAFKA_CLIENT") || KafkaEx,
   audit_topic: System.get_env("AUDIT_LOG_TOPIC") || "cogynt_audit_log",
   template_solution_topic: System.get_env("TEMPLATE_SOLUTION_TOPIC") || "template_solutions",
   template_solution_event_topic:
@@ -64,7 +62,6 @@ config :elasticsearch, :config,
   host: System.get_env("ELASTIC_URL") || "http://localhost:9200",
   username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",
   password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
-  elasticsearch_client: System.get_env("ELASTIC_CLIENT") || Elasticsearch,
   event_index_alias: System.get_env("EVENT_INDEX_ALIAS") || "event",
   risk_history_index_alias: System.get_env("RISK_HISTORY_INDEX_ALIAS") || "risk_history",
   utc_offset: 0
