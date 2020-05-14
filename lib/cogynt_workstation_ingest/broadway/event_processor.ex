@@ -493,13 +493,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
-  defp update_event_docs(event_docs, event_doc_ids) do
-    case is_nil(event_doc_ids) or Enum.empty?(event_doc_ids) do
-      true ->
-        {:ok, _} = Elasticsearch.bulk_upsert_document(Config.event_index_alias(), event_docs)
+  defp update_event_docs(new_event_docs, delete_event_doc_ids) do
+    if !is_nil(delete_event_doc_ids) or !Enum.empty?(delete_event_doc_ids) do
+      {:ok, _} =
+        Elasticsearch.bulk_delete_document(Config.event_index_alias(), delete_event_doc_ids)
+    end
 
-      false ->
-        {:ok, _} = Elasticsearch.bulk_delete_document(Config.event_index_alias(), event_doc_ids)
+    if !is_nil(new_event_docs) or !Enum.empty?(new_event_docs) do
+      {:ok, _} = Elasticsearch.bulk_upsert_document(Config.event_index_alias(), new_event_docs)
     end
   end
 
