@@ -222,7 +222,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> join(:inner, [ed], e in Event, on: ed.id == e.event_definition_id)
     |> where(
       [ed, e],
-      ed.id == ^event_definition_id and is_nil(ed.deleted_at) and is_nil(e.deleted_at)
+      ed.id == ^event_definition_id and is_nil(ed.deleted_at) and is_nil(e.deleted_at) and
+        !is_nil(e.core_id)
     )
     |> select([_ed, e], e.core_id)
     |> Repo.all()
