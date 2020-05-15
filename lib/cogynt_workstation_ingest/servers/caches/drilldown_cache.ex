@@ -112,7 +112,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
   end
 
   @impl true
-  def handle_cast(:reset_state, state) do
+  def handle_cast(:reset_state, _state) do
     {:noreply, %{}}
   end
 end

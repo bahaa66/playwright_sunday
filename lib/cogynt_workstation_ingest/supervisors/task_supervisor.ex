@@ -8,7 +8,9 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
   alias CogyntWorkstationIngest.Utils.{
     BackfillNotificationsTask,
     UpdateNotificationSettingTask,
-    DeleteEventDefinitionEventsTask
+    DeleteEventDefinitionEventsTask,
+    DeleteEventIndexDocsTask,
+    DeleteRiskHistoryIndexTask
   }
 
   def start_link(arg) do
@@ -50,6 +52,18 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
         DynamicSupervisor.start_child(
           __MODULE__,
           {DeleteEventDefinitionEventsTask, event_definition_id}
+        )
+
+      {:delete_event_index_documents, event_definition_id} ->
+        DynamicSupervisor.start_child(
+          __MODULE__,
+          {DeleteEventIndexDocsTask, event_definition_id}
+        )
+
+      {:delete_riskhistory_index_documents, core_ids} ->
+        DynamicSupervisor.start_child(
+          __MODULE__,
+          {DeleteRiskHistoryIndexTask, core_ids}
         )
 
       _ ->

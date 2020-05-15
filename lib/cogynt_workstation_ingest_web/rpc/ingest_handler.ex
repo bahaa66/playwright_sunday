@@ -1,5 +1,6 @@
 defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   use JSONRPC2.Server.Handler
+  use Task
 
   alias CogyntWorkstationIngest.Servers.NotificationsTaskMonitor
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
@@ -228,81 +229,70 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
         ConsumerGroupSupervisor.start_child()
       end
 
-      return_status =
-        if length(event_definition_ids) > 0 do
-          {_count, event_definition_data} =
-            EventsContext.update_event_definitions(
-              %{
-                filter: %{event_definition_ids: event_definition_ids},
-                select: [
-                  :id,
-                  :topic
-                ]
-              },
-              set: [active: false]
+      if length(event_definition_ids) > 0 do
+        {_count, event_definition_data} =
+          EventsContext.update_event_definitions(
+            %{
+              filter: %{event_definition_ids: event_definition_ids},
+              select: [
+                :id,
+                :topic
+              ]
+            },
+            set: [active: false, deleted_at: DateTime.truncate(DateTime.utc_now(), :second)]
+          )
+
+        {consumer_data, topics} =
+          Enum.reduce(event_definition_data, {[], []}, fn %EventDefinition{
+                                                            id: id,
+                                                            topic: topic
+                                                          },
+                                                          {acc_consumers, acc_topics} ->
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Stoping ConsumerGroup for #{topic}"
             )
 
-          {consumer_data, topics} =
-            Enum.reduce(event_definition_data, {[], []}, fn %EventDefinition{
-                                                              id: id,
-                                                              topic: topic
-                                                            },
-                                                            {acc_consumers, acc_topics} ->
-              CogyntLogger.info(
-                "#{__MODULE__}",
-                "Stoping ConsumerGroup for #{topic}"
-              )
+            ConsumerGroupSupervisor.stop_child(topic)
 
-              ConsumerGroupSupervisor.stop_child(topic)
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Deleting Elasticsearch data for #{id}"
+            )
 
-              CogyntLogger.info(
-                "#{__MODULE__}",
-                "Deleting Elasticsearch data for #{id}"
-              )
+            TaskSupervisor.start_child(%{delete_event_index_documents: id})
 
-              {:ok, _} =
-                Elasticsearch.delete_by_query(Config.event_index_alias(), %{
-                  field: "event_definition_id",
-                  value: id
-                })
+            case EventsContext.get_core_ids_for_event_definition_id(id) do
+              nil ->
+                nil
 
-              case EventsContext.get_core_ids_for_event_definition_id(id) do
-                nil ->
-                  nil
+              core_ids ->
+                TaskSupervisor.start_child(%{delete_riskhistory_index_documents: core_ids})
+            end
 
-                core_ids ->
-                  Enum.each(core_ids, fn core_id ->
-                    {:ok, _} =
-                      Elasticsearch.delete_by_query(Config.risk_history_index_alias(), %{
-                        field: "id",
-                        value: core_id
-                      })
-                  end)
-              end
+            {acc_consumers ++
+               [
+                 %{"id" => id, "topic" => topic}
+               ], acc_topics ++ [topic]}
+          end)
 
-              {acc_consumers ++
-                 [
-                   %{"id" => id, "topic" => topic}
-                 ], acc_topics ++ [topic]}
-            end)
+        consumer_status = handle_request("ingest:check_status", consumer_data)
 
-          consumer_status = handle_request("ingest:check_status", consumer_data)
+        if delete_topics do
+          CogyntLogger.info("#{__MODULE__}", "Deleting Kakfa topics for #{topics}")
 
-          if delete_topics do
-            CogyntLogger.info("#{__MODULE__}", "Deleting Kakfa topics for #{topics}")
+          KafkaEx.delete_topics(topics, worker_name: :standard)
 
-            KafkaEx.delete_topics(topics, worker_name: :standard)
-
-            Process.sleep(2000)
-          end
-
-          consumer_status
-        else
-          %{
-            status: :ok,
-            body: []
-          }
+          Process.sleep(2000)
         end
+
+        consumer_status
+      else
+        %{
+          status: :ok,
+          body: []
+        }
+      end
     rescue
       error ->
         IO.inspect(error)
