@@ -10,7 +10,7 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
     UpdateNotificationSettingTask,
     DeleteEventDefinitionEventsTask,
     DeleteEventIndexDocsTask,
-    DeleteRiskHistoryIndexTask
+    DeleteRiskHistoryIndexDocsTask
   }
 
   def start_link(arg) do
@@ -63,7 +63,7 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
       {:delete_riskhistory_index_documents, core_ids} ->
         DynamicSupervisor.start_child(
           __MODULE__,
-          {DeleteRiskHistoryIndexTask, core_ids}
+          {DeleteRiskHistoryIndexDocsTask, core_ids}
         )
 
       _ ->
