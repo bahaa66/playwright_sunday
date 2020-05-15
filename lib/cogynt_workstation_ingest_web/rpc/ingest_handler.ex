@@ -239,7 +239,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                 :topic
               ]
             },
-            set: [active: false, deleted_at: DateTime.truncate(DateTime.utc_now(), :second)]
+            set: [active: false]
           )
 
         {consumer_data, topics} =
