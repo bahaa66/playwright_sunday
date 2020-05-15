@@ -223,7 +223,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> where(
       [ed, e],
       ed.id == ^event_definition_id and is_nil(ed.deleted_at) and is_nil(e.deleted_at) and
-        !is_nil(e.core_id)
+        is_nil(e.core_id) == false
     )
     |> select([_ed, e], e.core_id)
     |> Repo.all()
