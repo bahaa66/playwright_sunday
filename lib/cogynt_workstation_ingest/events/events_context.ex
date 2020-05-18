@@ -188,6 +188,70 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   """
   def get_event_definition_by(clauses), do: Repo.get_by(EventDefinition, clauses)
 
+  @doc """
+  Query EventDefinitions
+  ## Examples
+      iex> query_event_definitions(
+        %{
+          filter: %{
+            event_definition_id: "c1607818-7f32-11ea-bc55-0242ac130003"
+          }
+        }
+      )
+      [%EventDefinition{}, %EventDefinition{}]
+  """
+  def query_event_definitions(args) do
+    Enum.reduce(args, from(ed in EventDefinition), fn
+      {:filter, filter}, q ->
+        filter_event_definitions(filter, q)
+
+      {:select, select}, q ->
+        select(q, ^select)
+    end)
+    |> Repo.all()
+  end
+
+  @doc """
+  Query EventDefinitions for core_id
+  ## Examples
+      iex> get_core_ids_for_event_definition_id("id")
+      [core_ids]
+  """
+  def get_core_ids_for_event_definition_id(event_definition_id) do
+    from(ed in EventDefinition)
+    |> join(:inner, [ed], e in Event, on: ed.id == e.event_definition_id)
+    |> where(
+      [ed, e],
+      ed.id == ^event_definition_id and is_nil(ed.deleted_at) and is_nil(e.deleted_at) and
+        is_nil(e.core_id) == false
+    )
+    |> select([_ed, e], e.core_id)
+    |> Repo.all()
+  end
+
+  @doc """
+  Bulk updates many event_definitions.
+  ## Examples
+      iex> update_event_definitions(
+        %{
+          filter: %{
+            event_definition_id: "c1607818-7f32-11ea-bc55-0242ac130003"
+          }
+        }
+      )
+      {2, [%EventDefinition{}, %EventDefinition{}]}
+  """
+  def update_event_definitions(args, set: set) do
+    Enum.reduce(args, from(ed in EventDefinition), fn
+      {:filter, filter}, q ->
+        filter_event_definitions(filter, q)
+
+      {:select, select}, q ->
+        select(q, ^select)
+    end)
+    |> Repo.update_all(set: set)
+  end
+
   # ------------------------------------ #
   # --- Pipeline Transaction Methods --- #
   # ------------------------------------ #
@@ -320,8 +384,21 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       {:event_definition_id, event_definition_id}, q ->
         where(q, [e], e.event_definition_id == ^event_definition_id)
 
+      {:event_definition_ids, event_definition_ids}, q ->
+        where(q, [e], e.event_definition_id in ^event_definition_ids)
+
       {:event_ids, event_ids}, q ->
         where(q, [e], e.id in ^event_ids)
+    end)
+  end
+
+  defp filter_event_definitions(filter, query) do
+    Enum.reduce(filter, query, fn
+      {:event_definition_id, event_definition_id}, q ->
+        where(q, [ed], ed.id == ^event_definition_id)
+
+      {:event_definition_ids, event_definition_ids}, q ->
+        where(q, [ed], ed.id in ^event_definition_ids)
     end)
   end
 end

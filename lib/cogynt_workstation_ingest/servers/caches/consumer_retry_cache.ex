@@ -83,6 +83,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
 
       with %EventDefinition{} = new_ed <- EventsContext.get_event_definition(event_definition.id),
            true <- is_nil(new_ed.deleted_at),
+           true <- new_ed.active,
            {:ok, _pid} <- ConsumerGroupSupervisor.start_child(event_definition) do
         CogyntClient.publish_consumer_status(
           event_definition.id,

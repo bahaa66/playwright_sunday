@@ -69,6 +69,8 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
   def publish_consumer_status(id, nil) do
     with %EventDefinition{} = event_definition <- EventsContext.get_event_definition(id),
          false <- event_definition.active do
+      CogyntLogger.warn("#{__MODULE__}", "Publishing consumer status for ID: #{id}")
+
       request = %{
         id: id,
         topic: event_definition.topic,
@@ -90,9 +92,11 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
       end
     else
       nil ->
+        CogyntLogger.warn("#{__MODULE__}", "Publishing consumer status failed for ID: #{id}")
         {:error, :event_definition_does_not_exist}
 
       true ->
+        CogyntLogger.warn("#{__MODULE__}", "Publishing consumer status failed for ID: #{id}")
         {:error, :event_definition_is_active}
     end
   end

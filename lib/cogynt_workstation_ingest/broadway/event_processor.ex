@@ -11,7 +11,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
   @partial Application.get_env(:cogynt_workstation_ingest, :core_keys)[:partial]
-  @update Application.get_env(:cogynt_workstation_ingest, :core_keys)[:update]
   @delete Application.get_env(:cogynt_workstation_ingest, :core_keys)[:delete]
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
   @lexicons Application.get_env(:cogynt_workstation_ingest, :core_keys)[:lexicons]

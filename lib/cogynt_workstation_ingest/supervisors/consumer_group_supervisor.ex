@@ -71,7 +71,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   # --- Drilldown Consumers --- #
   # --------------------------- #
 
-  def start_child do
+  def start_child() do
     create_kafka_worker(:drilldown)
     create_drilldown_topics()
 
@@ -90,13 +90,15 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     DynamicSupervisor.start_child(__MODULE__, child_spec)
   end
 
-  def stop_child do
+  def stop_child() do
     child_pid = Process.whereis(:DrillDownGroup)
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)
+      Process.sleep(1500)
+      {:ok, :success}
     else
-      :ok
+      {:ok, :success}
     end
   end
 
