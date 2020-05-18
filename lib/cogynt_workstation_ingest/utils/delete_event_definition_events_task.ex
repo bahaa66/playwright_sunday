@@ -56,6 +56,11 @@ defmodule CogyntWorkstationIngest.Utils.DeleteEventDefinitionEventsTask do
       set: [deleted_at: deleted_at]
     )
 
+    EventsContext.update_event_links(
+      %{filter: %{linkage_event_ids: event_ids}},
+      set: [deleted_at: deleted_at]
+    )
+
     if page_number >= total_pages do
       CogyntLogger.info(
         "Delete Event Definition Events Task",

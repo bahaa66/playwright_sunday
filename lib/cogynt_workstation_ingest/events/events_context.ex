@@ -252,6 +252,23 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.update_all(set: set)
   end
 
+  # -------------------------------- #
+  # --- EventLink Schema Methods --- #
+  # -------------------------------- #
+
+  def update_event_links(args, set: set) do
+    query = from(e in EventLink)
+
+    Enum.reduce(args, query, fn
+      {:filter, filter}, q ->
+        filter_event_links(filter, q)
+
+      {:select, select}, q ->
+        select(q, ^select)
+    end)
+    |> Repo.update_all(set: set)
+  end
+
   # ------------------------------------ #
   # --- Pipeline Transaction Methods --- #
   # ------------------------------------ #
@@ -399,6 +416,13 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       {:event_definition_ids, event_definition_ids}, q ->
         where(q, [ed], ed.id in ^event_definition_ids)
+    end)
+  end
+
+  defp filter_event_links(filter, query) do
+    Enum.reduce(filter, query, fn
+      {:linkage_event_ids, linkage_event_ids}, q ->
+        where(q, [el], el.linkage_event_id in ^linkage_event_ids)
     end)
   end
 end
