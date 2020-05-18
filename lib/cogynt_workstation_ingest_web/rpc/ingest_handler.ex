@@ -9,8 +9,6 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   alias CogyntWorkstationIngest.Broadway.Producer
   alias Models.Enums.ConsumerStatusTypeEnum
   alias Models.Events.EventDefinition
-  alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
 
   # ----------------------- #
   # --- ingestion calls --- #
@@ -202,95 +200,25 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
       }) do
     try do
       if reset_drilldown do
-        CogyntLogger.info("#{__MODULE__}", "Stoping the Drilldown ConsumerGroup")
-        ConsumerGroupSupervisor.stop_child()
-
-        if delete_topics do
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "Deleting the Drilldown Topics. #{Config.topic_sols()}, #{Config.topic_sol_events()}"
-          )
-
-          delete_topic_result =
-            KafkaEx.delete_topics([Config.topic_sols(), Config.topic_sol_events()],
-              worker_name: :drilldown
-            )
-
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "Delete Drilldown Topics result: #{inspect(delete_topic_result)}"
-          )
-        end
-
-        CogyntLogger.info("#{__MODULE__}", "Resetting Drilldown Cache")
-        DrilldownCache.reset_state()
-        Process.sleep(2000)
-        CogyntLogger.info("#{__MODULE__}", "Starting the Drilldown ConsumerGroup")
-        ConsumerGroupSupervisor.start_child()
+        TaskSupervisor.start_child(%{delete_drilldown_data: delete_topics})
       end
 
       if length(event_definition_ids) > 0 do
-        {_count, event_definition_data} =
-          EventsContext.update_event_definitions(
-            %{
-              filter: %{event_definition_ids: event_definition_ids},
-              select: [
-                :id,
-                :topic
-              ]
-            },
-            set: [active: false]
-          )
+        TaskSupervisor.start_child(%{
+          delete_topic_data: %{
+            event_definition_ids: event_definition_ids,
+            delete_topics: delete_topics
+          }
+        })
 
-        {consumer_data, topics} =
-          Enum.reduce(event_definition_data, {[], []}, fn %EventDefinition{
-                                                            id: id,
-                                                            topic: topic
-                                                          },
-                                                          {acc_consumers, acc_topics} ->
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Stoping ConsumerGroup for #{topic}"
-            )
-
-            ConsumerGroupSupervisor.stop_child(topic)
-
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Deleting Elasticsearch data for #{id}"
-            )
-
-            TaskSupervisor.start_child(%{delete_event_index_documents: id})
-
-            case EventsContext.get_core_ids_for_event_definition_id(id) do
-              nil ->
-                nil
-
-              core_ids ->
-                TaskSupervisor.start_child(%{delete_riskhistory_index_documents: core_ids})
-            end
-
-            {acc_consumers ++
-               [
-                 %{"id" => id, "topic" => topic}
-               ], acc_topics ++ [topic]}
-          end)
-
-        consumer_status = handle_request("ingest:check_status", consumer_data)
-
-        if delete_topics do
-          CogyntLogger.info("#{__MODULE__}", "Deleting Kakfa topics for #{topics}")
-
-          KafkaEx.delete_topics(topics, worker_name: :standard)
-
-          Process.sleep(2000)
-        end
-
-        consumer_status
+        %{
+          status: :ok,
+          body: :processing
+        }
       else
         %{
           status: :ok,
-          body: []
+          body: :nothing_to_process
         }
       end
     rescue
