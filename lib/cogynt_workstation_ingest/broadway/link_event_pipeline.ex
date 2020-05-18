@@ -56,7 +56,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   the pipeline.
   """
   def ack(:ack_id, _successful, _failed) do
-    IO.puts("Ack'd")
+    # CogyntLogger.info("#{__MODULE__}, Messages Ackd.")
   end
 
   @doc """
@@ -66,7 +66,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   """
   @impl true
   def handle_failed(messages, _args) do
-    IO.puts("Failed")
+    CogyntLogger.error("#{__MODULE__}", "Messages failed. #{inspect(messages)}")
     Producer.enqueue_failed_messages(messages, @pipeline_name)
     messages
   end
