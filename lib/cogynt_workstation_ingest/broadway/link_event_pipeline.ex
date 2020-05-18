@@ -56,7 +56,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   the pipeline.
   """
   def ack(:ack_id, _successful, _failed) do
-    CogyntLogger.info("#{__MODULE__}, Messages Ackd.")
+    CogyntLogger.info("#{__MODULE__}", "Messages Ackd.")
   end
 
   @doc """
