@@ -4,7 +4,6 @@ defmodule CogyntWorkstationIngest.Utils.DeleteTopicDataTask do
   async task.
   """
   use Task
-  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngestWeb.Rpc.{CogyntClient, IngestHandler}
@@ -56,31 +55,6 @@ defmodule CogyntWorkstationIngest.Utils.DeleteTopicDataTask do
         )
 
         ConsumerGroupSupervisor.stop_child(topic)
-
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Deleting Elasticsearch data for #{id}"
-        )
-
-        {:ok, _} =
-          Elasticsearch.delete_by_query(Config.event_index_alias(), %{
-            field: "event_definition_id",
-            value: id
-          })
-
-        case EventsContext.get_core_ids_for_event_definition_id(id) do
-          nil ->
-            nil
-
-          core_ids ->
-            Enum.each(core_ids, fn core_id ->
-              {:ok, _} =
-                Elasticsearch.delete_by_query(Config.risk_history_index_alias(), %{
-                  field: "id",
-                  value: core_id
-                })
-            end)
-        end
 
         %{status: :ok, body: result} =
           IngestHandler.handle_request("ingest:check_status", [%{"id" => id, "topic" => topic}])
