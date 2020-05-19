@@ -128,7 +128,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
          update_notifications: {_count_deleted, updated_notifications}
        }} ->
         CogyntClient.publish_notifications(created_notifications)
-        CogyntClient.publish_notifications(updated_notifications)
+        CogyntClient.publish_updated_notifications(updated_notifications)
 
       {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
         CogyntClient.publish_notifications(created_notifications)
@@ -178,7 +178,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
     case transaction_result do
       {:ok, %{update_notifications: {_count, updated_notifications}}} ->
-        CogyntClient.publish_notifications(updated_notifications)
+        CogyntClient.publish_updated_notifications(updated_notifications)
 
       {:ok, _} ->
         nil

@@ -210,9 +210,16 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
         n_query =
           from(n in Notification,
             where: n.event_id in ^delete_event_ids,
-            select:
-              {n.event_id, n.user_id, n.tag_id, n.id, n.title, n.notification_setting_id,
-               n.created_at, n.updated_at, n.deleted_at}
+            select: %{
+              event_id: n.event_id,
+              user_id: n.user_id,
+              tag_id: n.tag_id,
+              id: n.id,
+              title: n.title,
+              notification_setting_id: n.notification_setting_id,
+              created_at: n.created_at,
+              updated_at: n.updated_at
+            }
           )
 
         multi

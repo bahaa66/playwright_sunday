@@ -5,42 +5,57 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
+  alias Models.Notifications.Notification
 
   @path "/rpc/cogynt"
 
   # ----------------------------- #
   # --- publish notifications --- #
   # ----------------------------- #
-  def publish_deleted_notifications(notifications) when is_list(notifications) do
-    url = "#{Config.cogynt_otp_service_name()}:#{Config.cogynt_otp_service_port()}#{@path}"
-    response = HTTP.call(url, "publish:deleted_notifications", notifications)
+  def publish_notifications(notifications) when is_list(notifications) do
+    case Enum.empty?(notifications) do
+      false ->
+        url = "#{Config.cogynt_otp_service_name()}:#{Config.cogynt_otp_service_port()}#{@path}"
 
-    case response do
-      {:ok, %{"body" => body, "status" => status}} when status == "ok" ->
-        {:ok, body}
+        response =
+          HTTP.call(url, "publish:subscriptions", notification_struct_to_map(notifications))
 
-      {:ok, %{"body" => body, "status" => status}} when status == "error" ->
-        {:error, body}
+        case response do
+          {:ok, %{"body" => body, "status" => status}} when status == "ok" ->
+            {:ok, body}
 
-      {:error, _} ->
-        {:error, :internal_server_error}
+          {:ok, %{"body" => body, "status" => status}} when status == "error" ->
+            {:error, body}
+
+          {:error, _} ->
+            {:error, :internal_server_error}
+        end
+
+      true ->
+        {:error, :empty_list_passed}
     end
   end
 
-  def publish_notifications(notifications) when is_list(notifications) do
-    url = "#{Config.cogynt_otp_service_name()}:#{Config.cogynt_otp_service_port()}#{@path}"
+  def publish_updated_notifications(updated_notifications) when is_list(updated_notifications) do
+    case Enum.empty?(updated_notifications) do
+      false ->
+        url = "#{Config.cogynt_otp_service_name()}:#{Config.cogynt_otp_service_port()}#{@path}"
 
-    response = HTTP.call(url, "publish:subscriptions", notification_struct_to_map(notifications))
+        response = HTTP.call(url, "publish:subscriptions", updated_notifications)
 
-    case response do
-      {:ok, %{"body" => body, "status" => status}} when status == "ok" ->
-        {:ok, body}
+        case response do
+          {:ok, %{"body" => body, "status" => status}} when status == "ok" ->
+            {:ok, body}
 
-      {:ok, %{"body" => body, "status" => status}} when status == "error" ->
-        {:error, body}
+          {:ok, %{"body" => body, "status" => status}} when status == "error" ->
+            {:error, body}
 
-      {:error, _} ->
-        {:error, :internal_server_error}
+          {:error, _} ->
+            {:error, :internal_server_error}
+        end
+
+      true ->
+        {:error, :empty_list_passed}
     end
   end
 
@@ -151,7 +166,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
   # --- private methods --- #
   # ----------------------- #
   defp notification_struct_to_map(notifications) do
-    Enum.reduce(notifications, [], fn notification, acc ->
+    Enum.reduce(notifications, [], fn %Notification{} = notification, acc ->
       acc ++
         [
           %{
