@@ -90,8 +90,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           risk_history_doc: risk_history_doc,
           delete_docs: doc_ids,
           crud_action: action,
-          event_id: event_id,
-          event: event
+          event_id: event_id
         } = data
       ) do
     # elasticsearch updates
@@ -119,10 +118,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         action: action,
         event_id: event_id
       })
-      |> EventsContext.update_all_event_links_multi(%{
-        delete_event_ids: delete_event_ids,
-        event: event
-      })
+      |> EventsContext.update_all_event_links_multi(delete_event_ids)
       |> EventsContext.run_multi_transaction()
 
     case transaction_result do
@@ -161,8 +157,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           risk_history_doc: risk_history_doc,
           delete_docs: doc_ids,
           crud_action: action,
-          event_id: event_id,
-          event: event
+          event_id: event_id
         } = data
       ) do
     # elasticsearch updates
@@ -178,10 +173,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         action: action,
         event_id: event_id
       })
-      |> EventsContext.update_all_event_links_multi(%{
-        delete_event_ids: delete_event_ids,
-        event: event
-      })
+      |> EventsContext.update_all_event_links_multi(delete_event_ids)
       |> EventsContext.run_multi_transaction()
 
     case transaction_result do

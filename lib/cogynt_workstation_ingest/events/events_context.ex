@@ -301,10 +301,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     end
   end
 
-  def update_all_event_links_multi(multi \\ Multi.new(), %{
-        delete_event_ids: delete_event_ids,
-        event: event
-      }) do
+  def update_all_event_links_multi(multi \\ Multi.new(), delete_event_ids) do
     case is_nil(delete_event_ids) or Enum.empty?(delete_event_ids) do
       true ->
         multi
@@ -313,19 +310,10 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
         l_query =
-          case event["id"] do
-            nil ->
-              from(
-                l in EventLink,
-                where: l.linkage_event_id in ^delete_event_ids
-              )
-
-            core_id ->
-              from(
-                l in EventLink,
-                where: l.linkage_event_id in ^delete_event_ids or l.core_id == ^core_id
-              )
-          end
+          from(
+            l in EventLink,
+            where: l.linkage_event_id in ^delete_event_ids
+          )
 
         multi
         |> Multi.update_all(:update_event_links, l_query, set: [deleted_at: deleted_at])
