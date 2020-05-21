@@ -3,9 +3,12 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   The Notifications context: public interface for event related functionality.
   """
   import Ecto.Query, warn: false
+  alias Ecto.Multi
   alias CogyntWorkstationIngest.Repo
 
   alias Models.Notifications.{NotificationSetting, Notification}
+
+  @delete Application.get_env(:cogynt_workstation_ingest, :core_keys)[:delete]
 
   # ------------------------------------ #
   # --- Notification Setting Methods --- #
@@ -46,25 +49,13 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   @doc """
   Returns a list of the %Notification{} stucts that were inserted.
   ## Examples
-      iex> bulk_insert_notifications([])
-      {:ok, [%Notification{...}]}
+      iex> bulk_insert_notifications([%Notification{}, returning: [:id])
+      {20, [%Notification{...}]}
   """
-  def bulk_insert_notifications(notifications) when is_list(notifications) do
-    {_count, updated_notifications} =
-      Repo.insert_all(Notification, notifications,
-        returning: [
-          :event_id,
-          :user_id,
-          :tag_id,
-          :id,
-          :title,
-          :notification_setting_id,
-          :created_at,
-          :updated_at
-        ]
-      )
+  def bulk_insert_notifications(notifications, opts \\ []) when is_list(notifications) do
+    returning = Keyword.get(opts, :returning, [])
 
-    {:ok, updated_notifications}
+    Repo.insert_all(Notification, notifications, returning: returning)
   end
 
   @doc """
@@ -188,5 +179,57 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
           {:ok, result}
         end
     end
+  end
+
+  def insert_all_notifications_multi(multi \\ Multi.new(), notifications, opts \\ []) do
+    returning = Keyword.get(opts, :returning, [])
+
+    multi
+    |> Multi.insert_all(:insert_notifications, Notification, notifications, returning: returning)
+  end
+
+  def update_all_notifications_multi(multi \\ Multi.new(), %{
+        delete_event_ids: delete_event_ids,
+        action: action,
+        event_id: event_id
+      }) do
+    case is_nil(delete_event_ids) or Enum.empty?(delete_event_ids) do
+      true ->
+        multi
+
+      false ->
+        # If action is a delete we want to leave all notifications
+        # marked as deleted. Event the ones created for the current newest event.
+        deleted_at =
+          if action == @delete do
+            DateTime.truncate(DateTime.utc_now(), :second)
+          else
+            nil
+          end
+
+        n_query =
+          from(n in Notification,
+            where: n.event_id in ^delete_event_ids,
+            select: %{
+              event_id: n.event_id,
+              user_id: n.user_id,
+              tag_id: n.tag_id,
+              id: n.id,
+              title: n.title,
+              notification_setting_id: n.notification_setting_id,
+              created_at: n.created_at,
+              updated_at: n.updated_at
+            }
+          )
+
+        multi
+        |> Multi.update_all(:update_notifications, n_query,
+          set: [event_id: event_id, deleted_at: deleted_at]
+        )
+    end
+  end
+
+  def run_multi_transaction(multi) do
+    Repo.transaction(multi)
   end
 end

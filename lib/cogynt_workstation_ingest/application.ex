@@ -4,16 +4,16 @@ defmodule CogyntWorkstationIngest.Application do
   @moduledoc false
 
   use Application
+  alias CogyntWorkstationIngest.Config
 
   alias CogyntWorkstationIngest.Supervisors.{
     ConsumerGroupSupervisor,
     ServerSupervisor,
-    DrilldownSupervisor,
     TaskSupervisor
   }
 
   alias CogyntWorkstationIngest.Servers.Startup
-  alias CogyntWorkstationIngest.Broadway.{EventPipeline, LinkEventPipeline}
+  alias CogyntWorkstationIngest.Broadway.{EventPipeline, LinkEventPipeline, DrilldownPipeline}
 
   def start(_type, _args) do
     # List all child processes to be supervised
@@ -26,8 +26,8 @@ defmodule CogyntWorkstationIngest.Application do
       EventPipeline,
       # Start the Supervisor for the Broadway LinkEventPipeline
       LinkEventPipeline,
-      # Start the DynamicSupervisor for the Broadway DrilldownPipeline
-      DrilldownSupervisor,
+      # Start the Supervisor for the Broadway DrilldownPipeline
+      DrilldownPipeline,
       # Start the DynamicSupervisor for KafkaEx ConsumerGroups
       ConsumerGroupSupervisor,
       # The supervisor for all Task workers
@@ -41,7 +41,7 @@ defmodule CogyntWorkstationIngest.Application do
     opts = [strategy: :one_for_one, name: CogyntWorkstationIngest.Supervisor]
     result = Supervisor.start_link(children, opts)
 
-    Process.send_after(Startup, :initialize_consumers, init_delay())
+    Process.send_after(Startup, :initialize_consumers, Config.startup_delay())
 
     result
   end
@@ -66,9 +66,4 @@ defmodule CogyntWorkstationIngest.Application do
       type: :supervisor
     }
   end
-
-  # ---------------------- #
-  # --- configurations --- #
-  # ---------------------- #
-  defp init_delay(), do: Application.get_env(:cogynt_workstation_ingest, :startup)[:init_delay]
 end

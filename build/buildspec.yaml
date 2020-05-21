@@ -1,6 +1,8 @@
 version: 0.2
 
 env:
+  variables:
+    GIT_REPO_NAME: 'cogynt-workstation-ingest'
   parameter-store:
     GH_TOKEN: '/global/GH_TOKEN'
 phases:
@@ -9,7 +11,7 @@ phases:
       nodejs: 10
       docker: 18
     commands:
-      - git clone --single-branch --branch master https://$GH_TOKEN@github.com/Cogility/cogynt-workstation-ingest.git tmp
+      - git clone --single-branch --branch $GIT_BRANCH https://$GH_TOKEN@github.com/Cogility/$GIT_REPO_NAME.git tmp
       - mv tmp/.git ./
       - echo Setup Semantic Release
       - git clone  https://$GH_TOKEN@github.com/Cogility/semantic-release.git
@@ -31,7 +33,7 @@ phases:
       - echo Pushing the Docker image...
       - make push-image
       - echo Pushing Github release
-      - npx semantic-release --branch master --extends ./semantic-release/release-config.js
+      - npx semantic-release --branch $GIT_BRANCH --extends ./semantic-release/release-config.js
       - . ./.semver && echo Release Version set $RELEASE_VERSION
       - make push-semver
       - echo Push Helm Chart

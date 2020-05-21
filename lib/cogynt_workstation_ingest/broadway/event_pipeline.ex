@@ -6,6 +6,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   use Broadway
   alias Broadway.Message
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Broadway.{Producer, EventProcessor}
 
   @pipeline_name :BroadwayEventPipeline
@@ -20,9 +21,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       ],
       processors: [
         default: [
-          stages: processor_stages(),
-          max_demand: processor_max_demand(),
-          min_demand: processor_min_demand()
+          stages: Config.event_processor_stages(),
+          max_demand: Config.event_processor_max_demand(),
+          min_demand: Config.event_processor_min_demand()
         ]
       ],
       partition_by: &partition/1
@@ -55,7 +56,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   the pipeline.
   """
   def ack(:ack_id, _successful, _failed) do
-    IO.puts("Ack'd")
+    CogyntLogger.info("#{__MODULE__}", "Messages Ackd.")
   end
 
   @doc """
@@ -65,7 +66,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   @impl true
   def handle_failed(messages, _args) do
-    IO.puts("Failed")
+    CogyntLogger.error("#{__MODULE__}", "Messages failed. #{inspect(messages)}")
     Producer.enqueue_failed_messages(messages, @pipeline_name)
     messages
   end
@@ -86,12 +87,4 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     message
   end
-
-  # ---------------------- #
-  # --- configurations --- #
-  # ---------------------- #
-  defp config(), do: Application.get_env(:cogynt_workstation_ingest, __MODULE__)
-  defp processor_stages(), do: config()[:processor_stages]
-  defp processor_max_demand(), do: config()[:processor_max_demand]
-  defp processor_min_demand(), do: config()[:processor_min_demand]
 end

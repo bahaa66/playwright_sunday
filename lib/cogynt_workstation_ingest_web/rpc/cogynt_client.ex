@@ -1,45 +1,61 @@
 defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
   alias JSONRPC2.Clients.HTTP
 
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
+  alias Models.Notifications.Notification
 
   @path "/rpc/cogynt"
 
   # ----------------------------- #
   # --- publish notifications --- #
   # ----------------------------- #
-  def publish_deleted_notifications(notifications) when is_list(notifications) do
-    url = "#{service_name()}:#{service_port()}#{@path}"
-    response = HTTP.call(url, "publish:deleted_notifications", notifications)
+  def publish_notifications(notifications) when is_list(notifications) do
+    case Enum.empty?(notifications) do
+      false ->
+        url = "#{Config.cogynt_otp_service_name()}:#{Config.cogynt_otp_service_port()}#{@path}"
 
-    case response do
-      {:ok, %{"body" => body, "status" => status}} when status == "ok" ->
-        {:ok, body}
+        response =
+          HTTP.call(url, "publish:subscriptions", notification_struct_to_map(notifications))
 
-      {:ok, %{"body" => body, "status" => status}} when status == "error" ->
-        {:error, body}
+        case response do
+          {:ok, %{"body" => body, "status" => status}} when status == "ok" ->
+            {:ok, body}
 
-      {:error, _} ->
-        {:error, :internal_server_error}
+          {:ok, %{"body" => body, "status" => status}} when status == "error" ->
+            {:error, body}
+
+          {:error, _} ->
+            {:error, :internal_server_error}
+        end
+
+      true ->
+        {:error, :empty_list_passed}
     end
   end
 
-  def publish_notifications(notifications) when is_list(notifications) do
-    url = "#{service_name()}:#{service_port()}#{@path}"
+  def publish_updated_notifications(updated_notifications) when is_list(updated_notifications) do
+    case Enum.empty?(updated_notifications) do
+      false ->
+        url = "#{Config.cogynt_otp_service_name()}:#{Config.cogynt_otp_service_port()}#{@path}"
 
-    response = HTTP.call(url, "publish:subscriptions", notification_struct_to_map(notifications))
+        response = HTTP.call(url, "publish:subscriptions", updated_notifications)
 
-    case response do
-      {:ok, %{"body" => body, "status" => status}} when status == "ok" ->
-        {:ok, body}
+        case response do
+          {:ok, %{"body" => body, "status" => status}} when status == "ok" ->
+            {:ok, body}
 
-      {:ok, %{"body" => body, "status" => status}} when status == "error" ->
-        {:error, body}
+          {:ok, %{"body" => body, "status" => status}} when status == "error" ->
+            {:error, body}
 
-      {:error, _} ->
-        {:error, :internal_server_error}
+          {:error, _} ->
+            {:error, :internal_server_error}
+        end
+
+      true ->
+        {:error, :empty_list_passed}
     end
   end
 
@@ -47,7 +63,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
   # --- publish event counts --- #
   # ---------------------------- #
   def publish_event_definition_ids(event_definition_ids) when is_list(event_definition_ids) do
-    url = "#{service_name()}:#{service_port()}#{@path}"
+    url = "#{Config.cogynt_otp_service_name()}:#{Config.cogynt_otp_service_port()}#{@path}"
     response = HTTP.call(url, "publish:event_definition_ids", event_definition_ids)
 
     case response do
@@ -68,13 +84,15 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
   def publish_consumer_status(id, nil) do
     with %EventDefinition{} = event_definition <- EventsContext.get_event_definition(id),
          false <- event_definition.active do
+      CogyntLogger.warn("#{__MODULE__}", "Publishing consumer status for ID: #{id}")
+
       request = %{
         id: id,
         topic: event_definition.topic,
         status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
       }
 
-      url = "#{service_name()}:#{service_port()}#{@path}"
+      url = "#{Config.cogynt_otp_service_name()}:#{Config.cogynt_otp_service_port()}#{@path}"
       response = HTTP.call(url, "publish:consumer_status", request)
 
       case response do
@@ -89,9 +107,11 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
       end
     else
       nil ->
+        CogyntLogger.warn("#{__MODULE__}", "Publishing consumer status failed for ID: #{id}")
         {:error, :event_definition_does_not_exist}
 
       true ->
+        CogyntLogger.warn("#{__MODULE__}", "Publishing consumer status failed for ID: #{id}")
         {:error, :event_definition_is_active}
     end
   end
@@ -103,7 +123,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
       status: status
     }
 
-    url = "#{service_name()}:#{service_port()}#{@path}"
+    url = "#{Config.cogynt_otp_service_name()}:#{Config.cogynt_otp_service_port()}#{@path}"
     response = HTTP.call(url, "publish:consumer_status", request)
 
     case response do
@@ -127,7 +147,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
       status: status
     }
 
-    url = "#{service_name()}:#{service_port()}#{@path}"
+    url = "#{Config.cogynt_otp_service_name()}:#{Config.cogynt_otp_service_port()}#{@path}"
     response = HTTP.call(url, "publish:notification_task_status", request)
 
     case response do
@@ -146,7 +166,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
   # --- private methods --- #
   # ----------------------- #
   defp notification_struct_to_map(notifications) do
-    Enum.reduce(notifications, [], fn notification, acc ->
+    Enum.reduce(notifications, [], fn %Notification{} = notification, acc ->
       acc ++
         [
           %{
@@ -162,11 +182,4 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
         ]
     end)
   end
-
-  # ---------------------- #
-  # --- configurations --- #
-  # ---------------------- #
-  defp config(), do: Application.get_env(:cogynt_workstation_ingest, :rpc)
-  defp service_name(), do: config()[:cogynt_otp_service_name]
-  defp service_port(), do: config()[:cogynt_otp_service_port]
 end

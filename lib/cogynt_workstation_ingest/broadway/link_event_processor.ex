@@ -3,6 +3,11 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   Module that acts as the Broadway Processor for the LinkEventPipeline.
   """
   alias CogyntWorkstationIngest.Events.EventsContext
+  alias CogyntWorkstationIngest.Notifications.NotificationsContext
+  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
+  alias CogyntWorkstationIngest.Broadway.EventProcessor
+  alias CogyntWorkstationIngest.Config
+
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
 
   @doc """
@@ -12,10 +17,20 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   def validate_link_event(%{event: event} = data) do
     case Map.get(event, @entities) do
       nil ->
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "link event missing entities field. LinkEvent: #{inspect(event)}"
+        )
+
         Map.put(data, :validated, false)
 
       entities ->
         if Enum.empty?(entities) or Enum.count(entities) == 1 do
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "entity field is empty or only has 1 link obect. Entity: #{inspect(entities)}"
+          )
+
           Map.put(data, :validated, false)
         else
           Map.put(data, :validated, true)
@@ -31,139 +46,180 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   def process_entities(%{validated: false} = data), do: data
   def process_entities(%{event_id: nil} = data), do: data
 
-  def process_entities(%{event: %{@entities => entities}} = data) do
-    link_entities =
-      Enum.reduce(entities, %{}, fn {key, event_definition_list}, acc_map ->
-        link_ids =
-          Enum.reduce(event_definition_list, [], fn event_definition, acc_list ->
-            acc_list ++ [event_definition["id"]]
-          end)
+  def process_entities(%{event: %{@entities => entities}, event_id: event_id} = data) do
+    entity_links =
+      Enum.reduce(entities, [], fn {_key, link_object_list}, acc_0 ->
+        objects_links =
+          Enum.reduce(link_object_list, [], fn link_object, acc_1 ->
+            case link_object["id"] do
+              nil ->
+                CogyntLogger.warn(
+                  "#{__MODULE__}",
+                  "link object missing id field. LinkObject: #{inspect(link_object)}"
+                )
 
-        Map.put_new(acc_map, key, link_ids)
-      end)
+                acc_1
 
-    Map.put(data, :link_entities, link_entities)
-  end
-
-  @doc """
-  Requires link_entitites field in the data map. process_entity_ids/1 iterrates through the link_entities
-  and checks to make sure that each id exists in the EventDetails table. If it does then it builds a list
-  link_ids based on the event_id returned from the query. If it does not it raises an error that the
-  Event is not ready for processing so that it is retried. Will update the data map with :link_ids
-  field and store the return value.
-  """
-  def process_entity_ids(%{validated: false} = data), do: data
-  def process_entity_ids(%{event_id: nil} = data), do: data
-
-  def process_entity_ids(%{link_entities: link_entities} = data) do
-    %{
-      ready_to_process: ready_to_process,
-      all_ids: link_ids
-    } =
-      Enum.reduce_while(link_entities, %{ready_to_process: true, all_ids: %{}}, fn {key, ids},
-                                                                                   acc ->
-        if acc.ready_to_process == true,
-          do: {
-            :cont,
-            build_accumulator(key, ids, acc)
-          },
-          else: {:halt, acc}
-      end)
-
-    if ready_to_process == false do
-      Map.put(data, :link_event_ready, false)
-    else
-      Map.put(data, :link_event_ready, true)
-      |> Map.put(:link_ids, link_ids)
-    end
-  end
-
-  @doc """
-  Requires event_id and link_ids fields in the data map. process_event_links/1 creates the parent
-  and child mappings for each id in link_ids. Will update the data map with :event_links field
-  and with the return value.
-  """
-  def process_event_links(%{validated: false} = data), do: data
-  def process_event_links(%{link_event_ready: false} = data), do: data
-  def process_event_links(%{event_id: nil} = data), do: data
-
-  def process_event_links(%{event_id: event_id, link_ids: link_ids} = data) do
-    event_links =
-      Enum.reduce(link_ids, [], fn {key_0, value_0}, acc_0 ->
-        event_links =
-          Enum.reduce(link_ids, [], fn {key_1, value_1}, acc_1 ->
-            if value_0 != value_1 do
-              acc_1 ++
-                [%{parent_event_id: key_0, child_event_id: key_1, linkage_event_id: event_id}]
-            else
-              acc_1
+              core_id ->
+                acc_1 ++ [%{linkage_event_id: event_id, core_id: core_id}]
             end
           end)
 
-        acc_0 ++ event_links
+        acc_0 ++ objects_links
       end)
 
-    Map.put(data, :event_links, event_links)
+    Map.put(data, :link_events, entity_links)
   end
 
   @doc """
   Requires :event_links fields in the data map. Takes all the fields and
   executes them in one databse transaction.
   """
-  def execute_transaction(%{validated: false} = data), do: data
-  def execute_transaction(%{link_event_ready: false} = data), do: data
   def execute_transaction(%{event_id: nil} = data), do: data
 
-  def execute_transaction(%{delete_ids: _event_ids, event_links: _event_links} = data) do
-    case EventsContext.execute_link_event_processor_transaction(data) do
-      {:ok, _result} ->
-        data
+  def execute_transaction(%{validated: false} = data),
+    do: EventProcessor.execute_transaction(data)
+
+  def execute_transaction(
+        %{
+          notifications: notifications,
+          event_details: event_details,
+          link_events: link_events,
+          delete_event_ids: delete_event_ids,
+          event_docs: event_docs,
+          risk_history_doc: risk_history_doc,
+          delete_docs: doc_ids,
+          crud_action: action,
+          event_id: event_id
+        } = data
+      ) do
+    # elasticsearch updates
+    update_event_docs(event_docs, doc_ids)
+    update_risk_history_doc(risk_history_doc)
+
+    transaction_result =
+      EventsContext.insert_all_event_details_multi(event_details)
+      |> EventsContext.insert_all_event_links_multi(link_events)
+      |> NotificationsContext.insert_all_notifications_multi(notifications,
+        returning: [
+          :event_id,
+          :user_id,
+          :tag_id,
+          :id,
+          :title,
+          :notification_setting_id,
+          :created_at,
+          :updated_at
+        ]
+      )
+      |> EventsContext.update_all_events_multi(delete_event_ids)
+      |> NotificationsContext.update_all_notifications_multi(%{
+        delete_event_ids: delete_event_ids,
+        action: action,
+        event_id: event_id
+      })
+      |> EventsContext.update_all_event_links_multi(delete_event_ids)
+      |> EventsContext.run_multi_transaction()
+
+    case transaction_result do
+      {:ok,
+       %{
+         insert_notifications: {_count_created, created_notifications},
+         update_notifications: {_count_deleted, updated_notifications}
+       }} ->
+        CogyntClient.publish_notifications(created_notifications)
+        CogyntClient.publish_updated_notifications(updated_notifications)
+
+      {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
+        CogyntClient.publish_notifications(created_notifications)
+
+      {:ok, _} ->
+        nil
 
       {:error, reason} ->
         CogyntLogger.error(
-          "LinkEvent Processor",
+          "#{__MODULE__}",
           "execute_transaction/1 failed with reason: #{inspect(reason)}"
         )
 
         raise "execute_transaction/1 failed"
     end
+
+    data
+  end
+
+  def execute_transaction(
+        %{
+          event_details: event_details,
+          link_events: link_events,
+          delete_event_ids: delete_event_ids,
+          event_docs: event_docs,
+          risk_history_doc: risk_history_doc,
+          delete_docs: doc_ids,
+          crud_action: action,
+          event_id: event_id
+        } = data
+      ) do
+    # elasticsearch updates
+    update_event_docs(event_docs, doc_ids)
+    update_risk_history_doc(risk_history_doc)
+
+    transaction_result =
+      EventsContext.insert_all_event_details_multi(event_details)
+      |> EventsContext.insert_all_event_links_multi(link_events)
+      |> EventsContext.update_all_events_multi(delete_event_ids)
+      |> NotificationsContext.update_all_notifications_multi(%{
+        delete_event_ids: delete_event_ids,
+        action: action,
+        event_id: event_id
+      })
+      |> EventsContext.update_all_event_links_multi(delete_event_ids)
+      |> EventsContext.run_multi_transaction()
+
+    case transaction_result do
+      {:ok, %{update_notifications: {_count, updated_notifications}}} ->
+        CogyntClient.publish_updated_notifications(updated_notifications)
+
+      {:ok, _} ->
+        nil
+
+      {:error, reason} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "execute_transaction/1 failed with reason: #{inspect(reason)}"
+        )
+
+        raise "execute_transaction/1 failed"
+    end
+
+    data
   end
 
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp build_accumulator(key, values, %{all_ids: all_ids}) do
-    %{ready_to_process: ready_to_process, ids: ids} =
-      Enum.reduce_while(values, %{ready_to_process: true, ids: %{}}, fn id, acc ->
-        if acc.ready_to_process == true,
-          do: {
-            :cont,
-            build_accumulator(key, id, acc)
-          },
-          else: {:halt, acc}
-      end)
-
-    %{
-      :ready_to_process => ready_to_process,
-      :all_ids => Map.merge(all_ids, ids)
-    }
-  end
-
-  defp build_accumulator(key, value, %{ids: ids}) do
-    event_id = EventsContext.fetch_event_id(value)
-
-    case event_id != nil do
+  defp update_event_docs(event_docs, event_doc_ids) do
+    case is_nil(event_doc_ids) or Enum.empty?(event_doc_ids) do
       true ->
-        %{
-          :ready_to_process => true,
-          :ids => Map.put_new(ids, event_id, key)
-        }
+        {:ok, _} = Elasticsearch.bulk_upsert_document(Config.event_index_alias(), event_docs)
 
       false ->
-        %{
-          :ready_to_process => false,
-          :ids => %{}
-        }
+        {:ok, _} = Elasticsearch.bulk_delete_document(Config.event_index_alias(), event_doc_ids)
+    end
+  end
+
+  defp update_risk_history_doc(risk_history_doc) do
+    case !is_nil(risk_history_doc) do
+      true ->
+        {:ok, _} =
+          Elasticsearch.upsert_document(
+            Config.risk_history_index_alias(),
+            risk_history_doc.id,
+            risk_history_doc
+          )
+
+      false ->
+        :ok
     end
   end
 end

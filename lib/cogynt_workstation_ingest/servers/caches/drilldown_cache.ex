@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
   in the state
   """
   use GenServer
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
 
   # -------------------- #
@@ -25,12 +26,16 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
     GenServer.cast(__MODULE__, {:put_data, data})
   end
 
+  def reset_state() do
+    GenServer.cast(__MODULE__, :reset_state)
+  end
+
   # ------------------------ #
   # --- server callbacks --- #
   # ------------------------ #
   @impl true
   def init(_args) do
-    Process.send_after(__MODULE__, :tick, time_delay())
+    Process.send_after(__MODULE__, :tick, Config.drilldown_cache_time_delay())
     {:ok, %{}}
   end
 
@@ -106,9 +111,8 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
     {:noreply, state}
   end
 
-  # ---------------------- #
-  # --- configurations --- #
-  # ---------------------- #
-  defp config(), do: Application.get_env(:cogynt_workstation_ingest, __MODULE__)
-  defp time_delay(), do: config()[:time_delay]
+  @impl true
+  def handle_cast(:reset_state, _state) do
+    {:noreply, %{}}
+  end
 end

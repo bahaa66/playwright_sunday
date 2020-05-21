@@ -13,7 +13,7 @@ APP_ENV?=local
 ## Docker Image Name
 ########################
 ifdef ECR_URI
-	export BUILD_VERSION=sha.$(shell echo ${CODEBUILD_RESOLVED_SOURCE_VERSION} | head -c 8)
+	export BUILD_VERSION=${GIT_BRANCH}.$(shell echo ${CODEBUILD_RESOLVED_SOURCE_VERSION} | head -c 8)
 	IMAGE_NAME=${ECR_URI}:${BUILD_VERSION}
 else
   IMAGE_NAME=${APP_NAME}

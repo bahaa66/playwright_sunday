@@ -27,10 +27,10 @@ defmodule CogyntWorkstationIngest.Utils.DeleteEventDefinitionEventsTask do
       )
 
       page =
-        EventsContext.paginate_events_by_event_definition_id(
-          event_definition_id,
-          1,
-          @page_size,
+        EventsContext.get_page_of_events(
+          %{filter: %{event_definition_id: event_definition.id}},
+          page_number: 1,
+          page_size: @page_size,
           preload_details: false,
           include_deleted: true
         )
@@ -45,30 +45,38 @@ defmodule CogyntWorkstationIngest.Utils.DeleteEventDefinitionEventsTask do
     end
   end
 
-  defp process_page(page, %{id: event_definition_id, deleted_at: deleted_at} = event_definition) do
-    event_ids = Enum.map(page.entries, fn e -> e.id end)
+  defp process_page(
+         %{entries: entries, page_number: page_number, total_pages: total_pages},
+         %{id: event_definition_id, deleted_at: deleted_at} = event_definition
+       ) do
+    event_ids = Enum.map(entries, fn e -> e.id end)
 
     EventsContext.update_events(
       %{filter: %{event_ids: event_ids}},
       set: [deleted_at: deleted_at]
     )
 
-    if page.page_number >= page.total_pages do
+    EventsContext.update_event_links(
+      %{filter: %{linkage_event_ids: event_ids}},
+      set: [deleted_at: deleted_at]
+    )
+
+    if page_number >= total_pages do
       CogyntLogger.info(
         "Delete Event Definition Events Task",
         "Finished processing events for event definition with the ID: #{event_definition_id}"
       )
     else
-      new_page =
-        EventsContext.paginate_events_by_event_definition_id(
-          event_definition_id,
-          page.page_number + 1,
-          @page_size,
+      next_page =
+        EventsContext.get_page_of_events(
+          %{filter: %{event_definition_id: event_definition_id}},
+          page_number: page_number + 1,
+          page_size: @page_size,
           preload_details: false,
           include_deleted: true
         )
 
-      process_page(new_page, event_definition)
+      process_page(next_page, event_definition)
     end
 
     {:ok, :success}

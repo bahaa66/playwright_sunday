@@ -6,6 +6,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   """
   use Broadway
   alias Broadway.Message
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Broadway.{Producer, LinkEventProcessor, EventProcessor}
 
   @pipeline_name :BroadwayLinkEventPipeline
@@ -20,9 +21,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
       ],
       processors: [
         default: [
-          stages: processor_stages(),
-          max_demand: processor_max_demand(),
-          min_demand: processor_min_demand()
+          stages: Config.link_event_processor_stages(),
+          max_demand: Config.link_event_processor_max_demand(),
+          min_demand: Config.link_event_processor_min_demand()
         ]
       ],
       partition_by: &partition/1
@@ -55,7 +56,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   the pipeline.
   """
   def ack(:ack_id, _successful, _failed) do
-    IO.puts("Ack'd")
+    CogyntLogger.info("#{__MODULE__}", "Messages Ackd.")
   end
 
   @doc """
@@ -65,7 +66,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   """
   @impl true
   def handle_failed(messages, _args) do
-    IO.puts("Failed")
+    CogyntLogger.error("#{__MODULE__}", "Messages failed. #{inspect(messages)}")
     Producer.enqueue_failed_messages(messages, @pipeline_name)
     messages
   end
@@ -78,67 +79,15 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   process_event_links/1 and execute_transaction/1.
   """
   @impl true
-  def handle_message(
-        _processor,
-        %Message{data: %{event_processed: false} = data} = message,
-        _context
-      ) do
-    pipeline_state =
-      data
-      |> EventProcessor.process_event()
-      |> EventProcessor.process_event_details_and_elasticsearch_docs()
-      |> EventProcessor.process_notifications()
-      |> EventProcessor.execute_transaction()
-      |> LinkEventProcessor.validate_link_event()
-      |> LinkEventProcessor.process_entities()
-      |> LinkEventProcessor.process_entity_ids()
-      |> LinkEventProcessor.process_event_links()
-      |> LinkEventProcessor.execute_transaction()
+  def handle_message(_processor, %Message{data: data} = message, _context) do
+    data
+    |> EventProcessor.process_event()
+    |> EventProcessor.process_event_details_and_elasticsearch_docs()
+    |> EventProcessor.process_notifications()
+    |> LinkEventProcessor.validate_link_event()
+    |> LinkEventProcessor.process_entities()
+    |> LinkEventProcessor.execute_transaction()
 
-    check_for_failure_with_state(message, pipeline_state)
+    message
   end
-
-  @impl true
-  def handle_message(
-        _processor,
-        %Message{data: %{event_processed: true} = data} = message,
-        _context
-      ) do
-    pipeline_state =
-      data
-      |> LinkEventProcessor.validate_link_event()
-      |> LinkEventProcessor.process_entities()
-      |> LinkEventProcessor.process_entity_ids()
-      |> LinkEventProcessor.process_event_links()
-      |> LinkEventProcessor.execute_transaction()
-
-    check_for_failure_with_state(message, pipeline_state)
-  end
-
-  # ----------------------- #
-  # --- private methods --- #
-  # ----------------------- #
-  defp check_for_failure_with_state(message, state) do
-    case Map.get(state, :link_event_ready) do
-      false ->
-        CogyntLogger.warn(
-          "LinkEvent Pipeline",
-          "LinkEvent is not ready for processing. Entity events DNE"
-        )
-
-        Map.put(message, :data, state)
-        |> Message.failed("LinkEvent is not ready for processing. Entity events DNE")
-
-      _ ->
-        message
-    end
-  end
-
-  # ---------------------- #
-  # --- configurations --- #
-  # ---------------------- #
-  defp config(), do: Application.get_env(:cogynt_workstation_ingest, __MODULE__)
-  defp processor_stages(), do: config()[:processor_stages]
-  defp processor_max_demand(), do: config()[:processor_max_demand]
-  defp processor_min_demand(), do: config()[:processor_min_demand]
 end

@@ -5,6 +5,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   start and stop children based on event_definition and topics.
   """
   use DynamicSupervisor
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer
   alias CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache
   alias CogyntWorkstationIngest.Servers.ConsumerMonitor
@@ -18,17 +19,19 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     DynamicSupervisor.init(strategy: :one_for_one)
   end
 
-  @doc """
-  Will start a KafkaEx ConsumerGroup for the event_definition.topic.
-  If the topic does not exist it will retry to start the consumer
-  until the topic exists or a maximum retry counter is hit.
-  """
+  # ------------------------------------ #
+  # --- Standard Ingestion Consumers --- #
+  # ------------------------------------ #
   def start_child(event_definition) do
+    # TODO: Temp
+    create_kafka_worker(:standard)
+
     topic = event_definition.topic
     type = event_definition.event_type
     id = event_definition.id
 
-    existing_topics = KafkaEx.metadata().topic_metadatas |> Enum.map(& &1.topic)
+    existing_topics =
+      KafkaEx.metadata(worker_name: :standard).topic_metadatas |> Enum.map(& &1.topic)
 
     if Enum.member?(existing_topics, topic) do
       child_spec = %{
@@ -52,30 +55,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  @doc """
-  Will start a KafkaEx ConsumerGroup for Drilldown.
-  """
-  def start_child do
-    create_drilldown_topics()
-
-    child_spec = %{
-      id: :DrillDown,
-      start: {
-        KafkaEx.ConsumerGroup,
-        :start_link,
-        consumer_group_options()
-      },
-      restart: :transient,
-      shutdown: 5000,
-      type: :supervisor
-    }
-
-    DynamicSupervisor.start_child(__MODULE__, child_spec)
-  end
-
-  @doc """
-  Will stop the KafkaEx ConsumerGroup for the topic
-  """
   def stop_child(topic) do
     child_pid = Process.whereis(consumer_group_name(topic))
 
@@ -88,16 +67,38 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  @doc """
-  Will stop the KafkaEx ConsumerGroup for Drilldown
-  """
-  def stop_child do
+  # --------------------------- #
+  # --- Drilldown Consumers --- #
+  # --------------------------- #
+
+  def start_child() do
+    create_kafka_worker(:drilldown)
+    create_drilldown_topics()
+
+    child_spec = %{
+      id: :DrillDown,
+      start: {
+        KafkaEx.ConsumerGroup,
+        :start_link,
+        drilldown_consumer_group_options()
+      },
+      restart: :transient,
+      shutdown: 5000,
+      type: :supervisor
+    }
+
+    DynamicSupervisor.start_child(__MODULE__, child_spec)
+  end
+
+  def stop_child() do
     child_pid = Process.whereis(:DrillDownGroup)
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)
+      Process.sleep(1500)
+      {:ok, :success}
     else
-      :ok
+      {:ok, :success}
     end
   end
 
@@ -115,73 +116,61 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       [topic],
       [
         name: consumer_group_name(topic),
-        commit_interval: commit_interval(),
-        commit_threshold: commit_threshold(),
-        heartbeat_interval: heartbeat_interval(),
-        max_restarts: max_restarts(),
-        max_seconds: max_seconds(),
+        commit_interval: Config.commit_interval(),
+        commit_threshold: Config.commit_threshold(),
+        heartbeat_interval: Config.heartbeat_interval(),
+        max_restarts: Config.max_restarts(),
+        max_seconds: Config.max_seconds(),
         extra_consumer_args: %{event_definition: event_definition}
       ]
     ]
   end
 
-  defp consumer_group_options() do
+  defp drilldown_consumer_group_options do
     [
       KafkaConsumer,
       "Drilldown-#{UUID.uuid1()}",
-      [topic_sols(), topic_sol_events()],
+      [Config.topic_sols(), Config.topic_sol_events()],
       [
         name: :DrillDownGroup,
-        commit_interval: commit_interval(),
-        commit_threshold: commit_threshold(),
-        heartbeat_interval: heartbeat_interval(),
-        max_restarts: max_restarts(),
-        max_seconds: max_seconds()
+        commit_interval: Config.commit_interval(),
+        commit_threshold: Config.commit_threshold(),
+        heartbeat_interval: Config.heartbeat_interval(),
+        max_restarts: Config.max_restarts(),
+        max_seconds: Config.max_seconds()
       ]
     ]
   end
 
-  defp create_drilldown_topics() do
-    topic_sols = topic_sols()
-    topic_sol_events = topic_sol_events()
-    partitions = partitions()
-    replication = replication()
-    topic_config = topic_config()
+  defp create_kafka_worker(worker_name) do
+    KafkaEx.create_worker(worker_name,
+      consumer_group: "kafka_ex",
+      consumer_group_update_interval: 100
+    )
+  end
 
+  defp create_drilldown_topics do
     KafkaEx.create_topics(
       [
         %{
-          topic: topic_sols,
-          num_partitions: partitions,
-          replication_factor: replication,
+          topic: Config.topic_sols(),
+          num_partitions: Config.partitions(),
+          replication_factor: Config.replication(),
           replica_assignment: [],
-          config_entries: topic_config
+          config_entries: Config.topic_config()
         },
         %{
-          topic: topic_sol_events,
-          num_partitions: partitions,
-          replication_factor: replication,
+          topic: Config.topic_sol_events(),
+          num_partitions: Config.partitions(),
+          replication_factor: Config.replication(),
           replica_assignment: [],
-          config_entries: topic_config
+          config_entries: Config.topic_config()
         }
       ],
+      worker_name: :drilldown,
       timeout: 10_000
     )
   end
 
   defp consumer_group_name(topic), do: String.to_atom(topic <> "Group")
-
-  # ---------------------- #
-  # --- configurations --- #
-  # ---------------------- #
-  defp heartbeat_interval(), do: Application.get_env(:kafka_ex, :heartbeat_interval)
-  defp commit_interval(), do: Application.get_env(:kafka_ex, :commit_interval)
-  defp commit_threshold(), do: Application.get_env(:kafka_ex, :commit_threshold)
-  defp max_restarts(), do: Application.get_env(:kafka_ex, :max_restarts)
-  defp max_seconds(), do: Application.get_env(:kafka_ex, :max_seconds)
-  defp partitions(), do: Application.get_env(:kafka_ex, :topic_partitions)
-  defp replication(), do: Application.get_env(:kafka_ex, :topic_replication)
-  defp topic_config(), do: Application.get_env(:kafka_ex, :topic_config)
-  defp topic_sols(), do: Application.get_env(:kafka_ex, :template_solution_topic)
-  defp topic_sol_events(), do: Application.get_env(:kafka_ex, :template_solution_event_topic)
 end
