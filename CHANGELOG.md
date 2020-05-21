@@ -1,3 +1,10 @@
+### [1.3.2](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.1...v1.3.2) (2020-05-21)
+
+
+### :bug: Bugfix
+
+* **build:** route to new drilldown ([05349bd](https://github.com/Cogility/cogynt-workstation-ingest/commit/05349bd3104a9225ee6d74c6796fea16116ad239))
+
 ### [1.3.1](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.0...v1.3.1) (2020-05-21)
 
 
