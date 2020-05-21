@@ -1,3 +1,10 @@
+## [1.3.0-develop.2](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.0-develop.1...v1.3.0-develop.2) (2020-05-21)
+
+
+### :bug: Bugfix
+
+* **helm:** statefulsets version bug ([cfb7dd0](https://github.com/Cogility/cogynt-workstation-ingest/commit/cfb7dd01422c120bd1616ee8c2232f45aee71522))
+
 ## [1.3.0-develop.1](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.2.22-develop.1...v1.3.0-develop.1) (2020-05-20)
 
 
