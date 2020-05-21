@@ -112,7 +112,9 @@ spec:
 {{ toYaml . | indent 8 }}
 {{- end }}
       labels:
-        name: {{ include "common.fullname" . }}
+        app: {{ include "common.fullname" . }}
+        heritage: Tiller
+        release: {{ .Release.Name }}
 {{- with .Values.statefulset.persistence.labels }}
 {{ toYaml . | indent 8 }}
 {{- end }}
