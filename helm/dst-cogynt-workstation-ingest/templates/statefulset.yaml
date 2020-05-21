@@ -112,7 +112,7 @@ spec:
 {{ toYaml . | indent 8 }}
 {{- end }}
       labels:
-{{ include "common.labels.standard" . | indent 8 }}
+        name: {{ include "common.fullname" . }}
 {{- with .Values.statefulset.persistence.labels }}
 {{ toYaml . | indent 8 }}
 {{- end }}
