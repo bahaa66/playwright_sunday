@@ -1,3 +1,16 @@
+## [1.3.0](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.2.22...v1.3.0) (2020-05-21)
+
+
+### :sparkles: Feature
+
+* **Release 1.4:** Merge pull request [#54](https://github.com/Cogility/cogynt-workstation-ingest/issues/54) from Cogility/develop ([04ce76a](https://github.com/Cogility/cogynt-workstation-ingest/commit/04ce76a26103166087f517312c53dc33ce089bf1))
+* **Release 1.4:** Release for initial AF env ([01705fb](https://github.com/Cogility/cogynt-workstation-ingest/commit/01705fba1331857a76dfb5731715c1ed5cd6ec3f))
+
+
+### :repeat: CI
+
+* added git branch var for version ([f0d1181](https://github.com/Cogility/cogynt-workstation-ingest/commit/f0d1181c661de8a5af11d093ee94cdad355132cf))
+
 ## [1.3.0-develop.1](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.2.22-develop.1...v1.3.0-develop.1) (2020-05-20)
 
 
