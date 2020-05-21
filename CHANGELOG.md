@@ -1,3 +1,10 @@
+### [1.3.1](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.0...v1.3.1) (2020-05-21)
+
+
+### :bug: Bugfix
+
+* **helm:** statefulset pvt labels ([a091daa](https://github.com/Cogility/cogynt-workstation-ingest/commit/a091daa09ad7ce2408e3e6dfa8965d7f805a28eb))
+
 ## [1.3.0](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.2.22...v1.3.0) (2020-05-21)
 
 
