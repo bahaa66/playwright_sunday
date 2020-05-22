@@ -3,7 +3,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
 
   alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
 
- @doc """
+  @doc """
   Return a list of the info on all template instances for the given type
   """
   def index(conn, %{"id" => id}) do
@@ -53,14 +53,16 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
   # -- private methods --- #
   # ---------------------- #
   defp is_authorized?(conn) do
-    conn = fetch_session(conn)
+    IO.inspect(conn, label: "@@@ Conn in drilldown controller")
+    true
+    # conn = fetch_session(conn)
 
-    case get_session(conn, :current_user) do
-      nil ->
-        false
+    # case get_session(conn, :current_user) do
+    #   nil ->
+    #     false
 
-      _user ->
-        true
-    end
+    #   _user ->
+    #     true
+    # end
   end
 end
