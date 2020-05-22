@@ -3,7 +3,34 @@
 
 ### :bug: Bugfix
 
-* **helm:** statefulsets version bug ([cfb7dd0](https://github.com/Cogility/cogynt-workstation-ingest/commit/cfb7dd01422c120bd1616ee8c2232f45aee71522))
+* **disable_auth:** disabling auth for drilldown ([6c47731](https://github.com/Cogility/cogynt-workstation-ingest/commit/6c47731f4659dc9608e3ea6178f2749095e6fc39))
+
+### [1.3.2](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.1...v1.3.2) (2020-05-21)
+
+
+### :bug: Bugfix
+
+* **build:** route to new drilldown ([05349bd](https://github.com/Cogility/cogynt-workstation-ingest/commit/05349bd3104a9225ee6d74c6796fea16116ad239))
+
+### [1.3.1](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.0...v1.3.1) (2020-05-21)
+
+
+### :bug: Bugfix
+
+* **helm:** statefulset pvt labels ([a091daa](https://github.com/Cogility/cogynt-workstation-ingest/commit/a091daa09ad7ce2408e3e6dfa8965d7f805a28eb))
+
+## [1.3.0](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.2.22...v1.3.0) (2020-05-21)
+
+
+### :sparkles: Feature
+
+* **Release 1.4:** Merge pull request [#54](https://github.com/Cogility/cogynt-workstation-ingest/issues/54) from Cogility/develop ([04ce76a](https://github.com/Cogility/cogynt-workstation-ingest/commit/04ce76a26103166087f517312c53dc33ce089bf1))
+* **Release 1.4:** Release for initial AF env ([01705fb](https://github.com/Cogility/cogynt-workstation-ingest/commit/01705fba1331857a76dfb5731715c1ed5cd6ec3f))
+
+
+### :repeat: CI
+
+* added git branch var for version ([f0d1181](https://github.com/Cogility/cogynt-workstation-ingest/commit/f0d1181c661de8a5af11d093ee94cdad355132cf))
 
 ## [1.3.0-develop.1](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.2.22-develop.1...v1.3.0-develop.1) (2020-05-20)
 

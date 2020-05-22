@@ -126,7 +126,7 @@ ingress:
       contour.heptio.com/tls-minimum-protocol-version: "TLSv1_2"
     host: '{{repl (LicenseFieldValue "sd-caws")}}.{{repl (ConfigOption "hostname")}}'
     paths:
-      - /no/api/drilldown
+      - /api/drilldown
     tls:
     - secretName: cogynt-global-files-tls
       hosts:
