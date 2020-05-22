@@ -1,3 +1,10 @@
+### [1.3.3](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.2...v1.3.3) (2020-05-22)
+
+
+### :bug: Bugfix
+
+* **disable_auth:** disabling auth for drilldown ([6c47731](https://github.com/Cogility/cogynt-workstation-ingest/commit/6c47731f4659dc9608e3ea6178f2749095e6fc39))
+
 ### [1.3.2](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.1...v1.3.2) (2020-05-21)
 
 
