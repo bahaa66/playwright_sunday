@@ -102,10 +102,10 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
 
   defp build_notifications(page_entries, event_definition_details, notification_setting) do
     Enum.reduce(page_entries, [], fn event, acc ->
-      with true <- publish_notification?(event.event_details),
+      with true <- publish_notification?(event.event_details, notification_setting.risk_range),
            true <-
              !is_nil(
-               Enum.find(event_definition_details, fn d ->
+               Enum.find(event_definition_details, nil, fn d ->
                  d.field_name == notification_setting.title
                end)
              ),
@@ -119,6 +119,7 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
             %{
               event_id: event.id,
               user_id: notification_setting.user_id,
+              assigned_to: notification_setting.assigned_to,
               tag_id: notification_setting.tag_id,
               title: notification_setting.title,
               notification_setting_id: notification_setting.id,
@@ -133,31 +134,30 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
     end)
   end
 
-  defp publish_notification?(event_details) do
-    partial =
-      Enum.find(event_details, fn detail ->
-        detail.field_name == @partial and detail.field_value == "true"
+  defp publish_notification?(event_details, risk_range) do
+    risk_score =
+      Enum.find(event_details, 0, fn detail ->
+        detail.field_name == @risk_score and detail.field_value != nil
       end)
 
     risk_score =
-      Enum.find(event_details, fn detail ->
-        if detail.field_name == @risk_score and detail.field_value != nil do
-          case Float.parse(detail.field_value) do
-            :error ->
-              nil
+      if risk_score != 0 do
+        case Float.parse(risk_score.field_value) do
+          :error ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Failed to parse risk_score as a float. Defaulting to 0"
+            )
 
-            {risk_score_val, _extra} ->
-              risk_score_val > 0
-          end
-        else
-          nil
+            0
+
+          {score, _extra} ->
+            score
         end
-      end)
+      else
+        risk_score
+      end
 
-    if partial == nil or risk_score != nil do
-      true
-    else
-      false
-    end
+    NotificationsContext.in_risk_range?(risk_score, risk_range)
   end
 end

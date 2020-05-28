@@ -223,7 +223,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
       end
     rescue
       error ->
-        IO.inspect(error)
+        CogyntLogger.error("#{__MODULE__}", "dev_delete failed with error: #{inspect(error)}")
 
         %{
           status: :error,

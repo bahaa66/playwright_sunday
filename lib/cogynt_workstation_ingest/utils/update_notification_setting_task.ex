@@ -45,7 +45,7 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
 
   defp process_page(
          %{entries: entries, page_number: page_number, total_pages: total_pages},
-         %{tag_id: tag_id, deleted_at: deleted_at, id: id} = notification_setting
+         %{tag_id: tag_id, deleted_at: deleted_at, id: id, title: ns_title} = notification_setting
        ) do
     notification_ids = Enum.map(entries, fn e -> e.id end)
 
@@ -64,7 +64,7 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
             :updated_at
           ]
         },
-        set: [tag_id: tag_id, deleted_at: deleted_at]
+        set: [tag_id: tag_id, deleted_at: deleted_at, title: ns_title]
       )
 
     CogyntClient.publish_notifications(updated_notifications)

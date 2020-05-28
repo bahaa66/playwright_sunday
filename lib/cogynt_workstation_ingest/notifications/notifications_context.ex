@@ -131,12 +131,16 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   @doc """
   Formats a list of notifications to be created for an event_definition and event_id.
   ## Examples
-      iex> process_notifications(%{event_definition: event_definition, event_id: event_id})
+      iex> process_notifications(%{event_definition: event_definition, event_id: event_id, risk_score: risk_score})
       {:ok, [%{}, %{}]} || {:ok, nil}
       iex> process_notifications(%{field: bad_value})
       {:error, reason}
   """
-  def process_notifications(%{event_definition: event_definition, event_id: event_id}) do
+  def process_notifications(%{
+        event_definition: event_definition,
+        event_id: event_id,
+        risk_score: risk_score
+      }) do
     ns_query =
       from(ns in NotificationSetting,
         where: ns.event_definition_id == type(^event_definition.id, :binary_id),
@@ -147,20 +151,18 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       Repo.transaction(fn ->
         Repo.stream(ns_query)
         |> Stream.map(fn ns ->
-          case Map.has_key?(event_definition.fields, ns.title) do
+          case in_risk_range?(risk_score, ns.risk_range) and
+                 Map.has_key?(event_definition.fields, ns.title) do
             true ->
               %{
                 event_id: event_id,
                 user_id: ns.user_id,
-                # topic: event_definition.topic, TODO: do we need to pass this value ??
+                assigned_to: ns.assigned_to,
                 tag_id: ns.tag_id,
                 title: ns.title,
                 notification_setting_id: ns.id,
                 created_at: DateTime.truncate(DateTime.utc_now(), :second),
                 updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-                # TODO: do we need to pass this value ??
-                # Optional attribute, MUST use Map.get
-                # description: Map.get(ns, :description)
               }
 
             false ->
@@ -231,5 +233,32 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
 
   def run_multi_transaction(multi) do
     Repo.transaction(multi)
+  end
+
+  def in_risk_range?(risk_score, risk_range) do
+
+    with true <- risk_score > 0,
+         converted_risk_score <- trunc(Float.round(risk_score * 100)),
+         min_risk_range <- Enum.min(risk_range),
+         max_risk_range <- Enum.max(risk_range) do
+      if converted_risk_score >= min_risk_range and converted_risk_score <= max_risk_range do
+        true
+      else
+        false
+      end
+    else
+      # risk_score == 0
+      false ->
+        if Enum.min(risk_range) > 0 do
+          false
+        else
+          # risk_score == 0 and min_range == 0
+          true
+        end
+
+      _ ->
+        CogyntLogger.warn("#{__MODULE__}", "Risk Range validation failed")
+        false
+    end
   end
 end
