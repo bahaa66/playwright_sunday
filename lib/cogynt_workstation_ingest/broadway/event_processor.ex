@@ -205,29 +205,24 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   def process_notifications(
         %{event: event, event_definition: event_definition, event_id: event_id} = data
       ) do
-    case publish_notification?(event) do
-      true ->
-        case NotificationsContext.process_notifications(%{
-               event_definition: event_definition,
-               event_id: event_id
-             }) do
-          {:ok, nil} ->
-            data
-
-          {:ok, notifications} ->
-            Map.put(data, :notifications, notifications)
-
-          {:error, reason} ->
-            CogyntLogger.error(
-              "#{__MODULE__}",
-              "process_notifications/1 failed with reason: #{inspect(reason)}"
-            )
-
-            raise "process_notifications/1 failed"
-        end
-
-      false ->
+    case NotificationsContext.process_notifications(%{
+           event_definition: event_definition,
+           event_id: event_id,
+           risk_score: Map.get(event, @risk_score, 0)
+         }) do
+      {:ok, nil} ->
         data
+
+      {:ok, notifications} ->
+        Map.put(data, :notifications, notifications)
+
+      {:error, reason} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "process_notifications/1 failed with reason: #{inspect(reason)}"
+        )
+
+        raise "process_notifications/1 failed"
     end
   end
 
@@ -376,17 +371,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
       false ->
         Jason.encode!(value)
-    end
-  end
-
-  defp publish_notification?(event) do
-    partial = Map.get(event, @partial)
-    risk_score = Map.get(event, @risk_score)
-
-    if partial == nil or partial == false or (risk_score != nil and risk_score > 0) do
-      true
-    else
-      false
     end
   end
 
