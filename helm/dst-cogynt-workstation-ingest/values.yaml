@@ -92,7 +92,7 @@ probes:
     initialDelaySeconds: 0
     periodSeconds: 15
     httpGet:
-      path: /healthz
+      path: /livenessCheck
       scheme: HTTPS
       port: https
   readinessProbe:
