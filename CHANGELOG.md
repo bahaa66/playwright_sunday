@@ -1,3 +1,10 @@
+### [1.3.6](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.5...v1.3.6) (2020-06-01)
+
+
+### :bug: Bugfix
+
+* **helm:** removed resource limits. ([88c15eb](https://github.com/Cogility/cogynt-workstation-ingest/commit/88c15eb2423bf5c2160779291d2cc3abffadd161))
+
 ### [1.3.5](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.4...v1.3.5) (2020-05-29)
 
 
