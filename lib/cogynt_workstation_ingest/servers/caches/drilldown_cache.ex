@@ -65,7 +65,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
 
     state =
       cond do
-        not Map.has_key?(data, "aid") ->
+        Map.has_key?(data, :event) and not Map.has_key?(data.event, "aid") ->
           sol =
             sol
             |> Map.put("outcomes", [evnt | sol["outcomes"]])
@@ -76,7 +76,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
           # event is input and published by same instance
           state
 
-        Map.has_key?(data, "aid") ->
+        Map.has_key?(data, :event) and Map.has_key?(data.event, "aid") ->
           key = evnt["id"] <> "!" <> evnt["assertion_id"]
           replace = sol["events"][key]
 
