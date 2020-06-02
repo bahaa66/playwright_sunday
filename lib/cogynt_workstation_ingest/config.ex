@@ -45,6 +45,7 @@ defmodule CogyntWorkstationIngest.Config do
 
   def event_index_alias(), do: elasticsearch()[:event_index_alias]
   def risk_history_index_alias(), do: elasticsearch()[:risk_history_index_alias]
+  def elasticsearch_host(), do: elasticsearch()[:host]
 
   def http_client(), do: clients()[:http_client]
   def elasticsearch_client(), do: clients()[:elasticsearch_client]

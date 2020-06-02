@@ -10,6 +10,8 @@ defmodule CogyntWorkstationIngestWeb.Router do
 
   ## Health Check route
   forward "/healthz", HealthCheckup
+  ## Liveness Check route
+  forward "/livenessCheck", LivenessCheck
 
   scope "/api", CogyntWorkstationIngestWeb do
     pipe_through :api

@@ -38,6 +38,9 @@ env:
   HTTP_PORT: 4000
   HTTPS_PORT: 8443
   LOG_LEVEL: debug
+  EVENTPIPELINE_PROCESSOR_STAGES: 20
+  LINKEVENTPIPELINE_PROCESSOR_STAGES: 20
+  DRILLDOWN_PROCESSOR_STAGES: 5
 
   # COGYNT_HOST: http://cogynt-dst-cogynt-worksation-ingest.{{ .Release.namespace }}
 
@@ -92,7 +95,7 @@ probes:
     initialDelaySeconds: 0
     periodSeconds: 15
     httpGet:
-      path: /healthz
+      path: /livenessCheck
       scheme: HTTPS
       port: https
   readinessProbe:

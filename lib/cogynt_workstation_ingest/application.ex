@@ -53,13 +53,13 @@ defmodule CogyntWorkstationIngest.Application do
     :ok
   end
 
-  defp child_spec_supervisor(module_name, id, args \\ []) do
+  defp child_spec_supervisor(module_name, id) do
     %{
       id: id,
       start: {
         module_name,
         :start_link,
-        args
+        []
       },
       restart: :transient,
       shutdown: 5000,
