@@ -27,6 +27,7 @@ env:
   POSTGRESQL_HOST: "cogynt-dst-cogynt-otp-postgresql"
   POSTGRESQL_USERNAME: "cogynt-cogynt-user"
   POSTGRESQL_DATABASE: "cogynt_repo"
+  POSTGRESQL_POOL_SIZE: 10
   ELASTIC_USERNAME: "elastic-user"
   ELASTIC_URL: "cogynt-elasticsearch-master:9200"
   KAFKA_BROKER: "cogynt-cp-kafka"
