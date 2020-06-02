@@ -1,3 +1,10 @@
+### [1.3.8-develop.1](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.7...v1.3.8-develop.1) (2020-06-02)
+
+
+### :bug: Bugfix
+
+* **update configs:** Merge pull request [#62](https://github.com/Cogility/cogynt-workstation-ingest/issues/62) from Cogility/fix(parse-string)-Convert-strings-to-int-in-config ([0a05c3c](https://github.com/Cogility/cogynt-workstation-ingest/commit/0a05c3c2b2d1343501dd8ef3c4d0bfb47eb45eab))
+
 ### [1.3.7](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.6...v1.3.7) (2020-06-02)
 
 
