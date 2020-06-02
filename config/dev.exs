@@ -69,20 +69,26 @@ config :elasticsearch, :config,
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, :event_pipeline,
   processor_stages:
-    System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || "10" |> String.to_integer(),
-  processor_max_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 100,
-  processor_min_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 90
+    (System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || "10") |> String.to_integer(),
+  processor_max_demand:
+    (System.get_env("EVENTPIPELINE_PROCESSOR_MAX_DEMAND") || "100") |> String.to_integer(),
+  processor_min_demand:
+    (System.get_env("EVENTPIPELINE_PROCESSOR_MIN_DEMAND") || "90") |> String.to_integer()
 
 config :cogynt_workstation_ingest, :link_event_pipeline,
   processor_stages:
-    System.get_env("LINKEVENTPIPELINE_PROCESSOR_STAGES") || "10" |> String.to_integer(),
-  processor_max_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 100,
-  processor_min_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 90
+    (System.get_env("LINKEVENTPIPELINE_PROCESSOR_STAGES") || "10") |> String.to_integer(),
+  processor_max_demand:
+    (System.get_env("LINKEVENTPIPELINE_PROCESSOR_MAX_DEMAND") || "100") |> String.to_integer(),
+  processor_min_demand:
+    (System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || "90") |> String.to_integer()
 
 config :cogynt_workstation_ingest, :drilldown_pipeline,
-  processor_stages: System.get_env("DRILLDOWN_PROCESSOR_STAGES") || "3" |> String.to_integer(),
-  processor_max_demand: System.get_env("DRILLDOWN_PROCESSOR_MAX_DEMAND") || 100,
-  processor_min_demand: System.get_env("DRILLDOWN_PROCESSOR_MIN_DEMAND") || 90
+  processor_stages: (System.get_env("DRILLDOWN_PROCESSOR_STAGES") || "3") |> String.to_integer(),
+  processor_max_demand:
+    (System.get_env("DRILLDOWN_PROCESSOR_MAX_DEMAND") || "100") |> String.to_integer(),
+  processor_min_demand:
+    (System.get_env("DRILLDOWN_PROCESSOR_MIN_DEMAND") || "90") |> String.to_integer()
 
 config :cogynt_workstation_ingest, :drilldown_producer,
   max_retry: System.get_env("DRILLDOWN_MAX_RETRY") || 1_400,
@@ -120,4 +126,4 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   password: System.get_env("POSTGRESQL_PASSWORD") || "postgres",
   database: System.get_env("POSTGRESQL_DATABASE") || "cogynt_dev",
   hostname: System.get_env("POSTGRESQL_HOST") || "localhost",
-  pool_size: 10
+  pool_size: (System.get_env("POSTGRESQL_POOL_SIZE") || "10") |> String.to_integer()
