@@ -68,17 +68,19 @@ config :elasticsearch, :config,
 
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, :event_pipeline,
-  processor_stages: System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || 10,
+  processor_stages:
+    System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || "10" |> String.to_integer(),
   processor_max_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 100,
   processor_min_demand: System.get_env("EVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 90
 
 config :cogynt_workstation_ingest, :link_event_pipeline,
-  processor_stages: System.get_env("LINKEVENTPIPELINE_PROCESSOR_STAGES") || 10,
+  processor_stages:
+    System.get_env("LINKEVENTPIPELINE_PROCESSOR_STAGES") || "10" |> String.to_integer(),
   processor_max_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MAX_DEMAND") || 100,
   processor_min_demand: System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || 90
 
 config :cogynt_workstation_ingest, :drilldown_pipeline,
-  processor_stages: System.get_env("DRILLDOWN_PROCESSOR_STAGES") || 3,
+  processor_stages: System.get_env("DRILLDOWN_PROCESSOR_STAGES") || "3" |> String.to_integer(),
   processor_max_demand: System.get_env("DRILLDOWN_PROCESSOR_MAX_DEMAND") || 100,
   processor_min_demand: System.get_env("DRILLDOWN_PROCESSOR_MIN_DEMAND") || 90
 
