@@ -9,7 +9,7 @@ dockercfg:
 
 image:
   repository: 478685488679.dkr.ecr.us-west-2.amazonaws.com/dst-cogynt-workstation-ingest
-  tag: v1.3.5
+  tag: v1.3.7
   pullPolicy: IfNotPresent
   pullSecrets:
     - "ecruswest2registry"
@@ -106,13 +106,13 @@ probes:
       scheme: HTTPS
       port: https
 
-  resources:
-    limits:
-      memory: 4096Mi
-      cpu: 500m
-    requests:
-      cpu: 100m
-      memory: 2048Mi
+  #resources:
+  #  limits:
+  #   memory: 4096Mi
+  #    cpu: 500m
+  #  requests:
+  #    cpu: 100m
+  #    memory: 2048Mi
 
 # Ingress for load balancer
 ingress:
