@@ -1,3 +1,10 @@
+### [1.3.7](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.6...v1.3.7) (2020-06-02)
+
+
+### :bug: Bugfix
+
+* **Merge pull request #58 from Cogility/develop:** livness ([855edb9](https://github.com/Cogility/cogynt-workstation-ingest/commit/855edb9739e584e17d747e6ce4432606d660969e)), closes [#58](https://github.com/Cogility/cogynt-workstation-ingest/issues/58)
+
 ### [1.3.6](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.5...v1.3.6) (2020-06-01)
 
 
