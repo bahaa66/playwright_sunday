@@ -42,8 +42,8 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
         {:ok, inst} = DrilldownCache.get(id)
         # inst
         if info["id"] == inst["id"] or Enum.member?(info["#visited"], inst["id"]) do
-          IO.inspect(occ, label: "@@@@ Event published by self?")
-          IO.inspect(inst, label: "@@@@ Instance causing recursion")
+          # IO.inspect(occ, label: "@@@@ Event published by self?")
+          # IO.inspect(inst, label: "@@@@ Instance causing recursion")
           nil
         else
           CogyntLogger.info(

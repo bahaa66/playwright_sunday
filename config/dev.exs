@@ -68,27 +68,41 @@ config :elasticsearch, :config,
 
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, :event_pipeline,
-  processor_stages: (System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || "10") |> String.to_integer(),
-  processor_max_demand: (System.get_env("EVENTPIPELINE_PROCESSOR_MAX_DEMAND") || "100") |> String.to_integer(),
-  processor_min_demand: (System.get_env("EVENTPIPELINE_PROCESSOR_MIN_DEMAND") || "90") |> String.to_integer()
+  processor_stages:
+    (System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || "10") |> String.to_integer(),
+  processor_max_demand:
+    (System.get_env("EVENTPIPELINE_PROCESSOR_MAX_DEMAND") || "100") |> String.to_integer(),
+  processor_min_demand:
+    (System.get_env("EVENTPIPELINE_PROCESSOR_MIN_DEMAND") || "90") |> String.to_integer()
 
 config :cogynt_workstation_ingest, :link_event_pipeline,
-  processor_stages: (System.get_env("LINKEVENTPIPELINE_PROCESSOR_STAGES") || "10" ) |> String.to_integer(),
-  processor_max_demand: (System.get_env("LINKEVENTPIPELINE_PROCESSOR_MAX_DEMAND") || "100") |> String.to_integer(),
-  processor_min_demand: (System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || "90") |> String.to_integer()
+  processor_stages:
+    (System.get_env("LINKEVENTPIPELINE_PROCESSOR_STAGES") || "10") |> String.to_integer(),
+  processor_max_demand:
+    (System.get_env("LINKEVENTPIPELINE_PROCESSOR_MAX_DEMAND") || "100") |> String.to_integer(),
+  processor_min_demand:
+    (System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || "90") |> String.to_integer()
 
 config :cogynt_workstation_ingest, :drilldown_pipeline,
   processor_stages: (System.get_env("DRILLDOWN_PROCESSOR_STAGES") || "3") |> String.to_integer(),
-  processor_max_demand: (System.get_env("DRILLDOWN_PROCESSOR_MAX_DEMAND") || "100") |> String.to_integer(),
-  processor_min_demand: (System.get_env("DRILLDOWN_PROCESSOR_MIN_DEMAND") || "90") |> String.to_integer()
+  processor_max_demand:
+    (System.get_env("DRILLDOWN_PROCESSOR_MAX_DEMAND") || "100") |> String.to_integer(),
+  processor_min_demand:
+    (System.get_env("DRILLDOWN_PROCESSOR_MIN_DEMAND") || "90") |> String.to_integer()
 
 config :cogynt_workstation_ingest, :drilldown_producer,
   max_retry: System.get_env("DRILLDOWN_MAX_RETRY") || 1_400,
-  time_delay: System.get_env("DRILLDOWN_TIME_DELAY") || 60_000
+  time_delay: System.get_env("DRILLDOWN_TIME_DELAY") || 60_000,
+  allowed_messages: System.get_env("PRODUCER_ALLOWED_MESSAGES") || "30000" |> String.to_integer(),
+  rate_limit_interval:
+    System.get_env("PRODUCER_RATE_LIMIT_INTERVAL") || "30000" |> String.to_integer()
 
 config :cogynt_workstation_ingest, :producer,
   max_retry: System.get_env("PRODUCER_MAX_RETRY") || 1_400,
-  time_delay: System.get_env("PRODUCER_TIME_DELAY") || 60_000
+  time_delay: System.get_env("PRODUCER_TIME_DELAY") || 60_000,
+  allowed_messages: System.get_env("PRODUCER_ALLOWED_MESSAGES") || "30000" |> String.to_integer(),
+  rate_limit_interval:
+    System.get_env("PRODUCER_RATE_LIMIT_INTERVAL") || "30000" |> String.to_integer()
 
 config :cogynt_workstation_ingest, :consumer_retry_cache,
   time_delay: System.get_env("CONSUMER_RETRY_CACHE_TIME_DELAY") || 600_000,

@@ -1,4 +1,4 @@
-### [1.3.8](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.7...v1.3.8) (2020-06-02)
+### [1.3.8-develop.1](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.7...v1.3.8-develop.1) (2020-06-02)
 
 
 ### :bug: Bugfix

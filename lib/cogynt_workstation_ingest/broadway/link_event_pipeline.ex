@@ -16,12 +16,16 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
       name: @pipeline_name,
       producer: [
         module: {Producer, []},
-        stages: 1,
-        transformer: {__MODULE__, :transform, []}
+        concurrency: 1,
+        transformer: {__MODULE__, :transform, []},
+        rate_limiting: [
+          allowed_messages: Config.producer_allowed_messages(),
+          interval: Config.producer_rate_limit_interval()
+        ]
       ],
       processors: [
         default: [
-          stages: Config.link_event_processor_stages(),
+          concurrency: Config.link_event_processor_stages(),
           max_demand: Config.link_event_processor_max_demand(),
           min_demand: Config.link_event_processor_min_demand()
         ]
@@ -33,7 +37,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   defp partition(msg) do
     case msg.data.event["id"] do
       nil ->
-        :rand.uniform(1000)
+        :rand.uniform(100_000)
 
       id ->
         :erlang.phash2(id)

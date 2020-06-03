@@ -5,6 +5,8 @@ defmodule CogyntWorkstationIngest.Config do
 
   def drilldown_time_delay(), do: drilldown_producer()[:time_delay]
   def drilldown_max_retry(), do: drilldown_producer()[:max_retry]
+  def drilldown_producer_allowed_messages(), do: drilldown_producer()[:allowed_messages]
+  def drilldown_producer_rate_limit_interval(), do: drilldown_producer()[:rate_limit_interval]
 
   def event_processor_stages(), do: event_pipeline()[:processor_stages]
   def event_processor_max_demand(), do: event_pipeline()[:processor_max_demand]
@@ -16,6 +18,8 @@ defmodule CogyntWorkstationIngest.Config do
 
   def producer_time_delay(), do: producer()[:time_delay]
   def producer_max_retry(), do: producer()[:max_retry]
+  def producer_allowed_messages(), do: producer()[:allowed_messages]
+  def producer_rate_limit_interval(), do: producer()[:rate_limit_interval]
 
   def consumer_retry_time_delay(), do: consumer_retry_cache()[:time_delay]
   def consumer_retry_max_retry(), do: consumer_retry_cache()[:max_retry]
