@@ -52,7 +52,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
   # ---------------------- #
   # -- private methods --- #
   # ---------------------- #
-  defp is_authorized?(conn) do
+  defp is_authorized?(_conn) do
     true
     # conn = fetch_session(conn)
 

@@ -24,6 +24,9 @@ defmodule CogyntWorkstationIngest.Config do
   def consumer_retry_time_delay(), do: consumer_retry_cache()[:time_delay]
   def consumer_retry_max_retry(), do: consumer_retry_cache()[:max_retry]
 
+  def notification_subscription_timer(),
+    do: notification_subscription_cache()[:notification_subscription_timer]
+
   def drilldown_cache_time_delay(), do: drilldown_cache()[:time_delay]
 
   def heartbeat_interval(), do: Application.get_env(:kafka_ex, :heartbeat_interval)
@@ -72,6 +75,9 @@ defmodule CogyntWorkstationIngest.Config do
 
   defp consumer_retry_cache(),
     do: Application.get_env(:cogynt_workstation_ingest, :consumer_retry_cache)
+
+  defp notification_subscription_cache(),
+    do: Application.get_env(:cogynt_workstation_ingest, :notification_subscription_cache)
 
   defp drilldown_cache(), do: Application.get_env(:cogynt_workstation_ingest, :drilldown_cache)
 

@@ -30,6 +30,11 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
         }
 
       {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "ingest:start_consumer failed with Error: #{inspect(error)}"
+        )
+
         %{
           status: :error,
           body: "#{inspect(error)}"
@@ -47,6 +52,11 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
       }
     else
       {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "ingest:stop_consumer failed with Error: #{inspect(error)}"
+        )
+
         %{
           status: :error,
           body: "#{inspect(error)}"
@@ -89,7 +99,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
 
   def handle_request("ingest:check_status", consumers) when is_list(consumers) do
     try do
-      # TODO: Temp
+      # TODO: Temp need to eventually pull name from event_definition for kafka worker
       KafkaEx.create_worker(:standard,
         consumer_group: "kafka_ex",
         consumer_group_update_interval: 100
@@ -185,7 +195,12 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
         body: result
       }
     rescue
-      _ ->
+      error ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "ingest:check_status failed with Error: #{inspect(error)}"
+        )
+
         %{
           status: :error,
           body: :internal_server_error
@@ -223,7 +238,10 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
       end
     rescue
       error ->
-        CogyntLogger.error("#{__MODULE__}", "dev_delete failed with error: #{inspect(error)}")
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "ingest:dev_delete failed with error: #{inspect(error)}"
+        )
 
         %{
           status: :error,
@@ -266,7 +284,12 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
         body: response
       }
     rescue
-      _ ->
+      error ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "notifications:check_status failed with error: #{inspect(error)}"
+        )
+
         %{
           status: :error,
           body: :internal_server_error

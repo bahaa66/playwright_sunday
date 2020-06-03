@@ -22,7 +22,7 @@ defmodule CogyntWorkstationIngest.Utils.DeleteEventDefinitionEventsTask do
     with %EventDefinition{} = event_definition <-
            EventsContext.get_event_definition(event_definition_id) do
       CogyntLogger.info(
-        "Delete Event Definition Events Task",
+        "#{__MODULE__}",
         "Running delete event definition events task for ID: #{event_definition_id}"
       )
 
@@ -39,7 +39,7 @@ defmodule CogyntWorkstationIngest.Utils.DeleteEventDefinitionEventsTask do
     else
       nil ->
         CogyntLogger.warn(
-          "Delete Event Definition Events Task",
+          "#{__MODULE__}",
           "Event definition not found for ID: #{event_definition_id}"
         )
     end
@@ -63,7 +63,7 @@ defmodule CogyntWorkstationIngest.Utils.DeleteEventDefinitionEventsTask do
 
     if page_number >= total_pages do
       CogyntLogger.info(
-        "Delete Event Definition Events Task",
+        "#{__MODULE__}",
         "Finished processing events for event definition with the ID: #{event_definition_id}"
       )
     else

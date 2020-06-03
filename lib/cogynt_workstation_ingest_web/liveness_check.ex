@@ -6,7 +6,6 @@ defmodule LivenessCheck do
   @type options :: [resp_body: String.t()]
 
   @resp_body "Server's Up!"
-  @resp_body_not_found "Not found"
   @resp_body_error "Internal server error"
 
   @spec init(options) :: options

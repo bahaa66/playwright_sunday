@@ -135,7 +135,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
 
         {:error, error} ->
           CogyntLogger.error(
-            "Producer",
+            "#{__MODULE__}",
             "Failed to decode json_message. Error: #{inspect(error)}"
           )
 
@@ -155,7 +155,8 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
                                                        },
                                                        acc ->
       if retry_count < Config.producer_max_retry() do
-        IO.puts(
+        CogyntLogger.info(
+          "#{__MODULE__}",
           "Retrying Failed Message, Id: #{event_definition.id}. Attempt: #{retry_count + 1}"
         )
 
@@ -225,6 +226,12 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
             true ->
               CogyntClient.publish_consumer_status(id, nil)
               CogyntClient.publish_event_definition_ids([id])
+
+              CogyntLogger.info(
+                "#{__MODULE__}",
+                "Finished processing all messages for EventDefinitionId: #{id}"
+              )
+
               Map.delete(queues, id)
 
             false ->
@@ -246,6 +253,11 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
           Map.get(queues, event_definition_id)
 
         false ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "Starting processing of messages for EventDefinitionId: #{event_definition_id}"
+          )
+
           :queue.new()
       end
 

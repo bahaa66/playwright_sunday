@@ -49,7 +49,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   the pipeline.
   """
   def ack(:ack_id, _successful, _failed) do
-    CogyntLogger.info("#{__MODULE__}", "Messages Ackd.")
+    # CogyntLogger.info("#{__MODULE__}", "Messages Ackd.")
   end
 
   @doc """

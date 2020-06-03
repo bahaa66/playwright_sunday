@@ -22,7 +22,7 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
 
   @impl true
   def handle_info(:initialize_consumers, state) do
-    CogyntLogger.info("Startup", "Initializing Consumers")
+    CogyntLogger.info("#{__MODULE__}", "Initializing Consumers")
     initialize_consumers()
     {:noreply, state}
   end
@@ -33,10 +33,19 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
   defp initialize_consumers() do
     with :ok <- Application.ensure_started(:phoenix),
          :ok <- Application.ensure_started(:postgrex) do
-      EventsContext.initalize_consumers_with_active_event_definitions()
+      case EventsContext.initalize_consumers_with_active_event_definitions() do
+        {:ok, _} ->
+          CogyntLogger.info("#{__MODULE__}", "Consumers Initialized")
+
+        {:error, error} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "Failed to initialize consumers. Error: #{inspect(error)}"
+          )
+      end
     else
       {:error, error} ->
-        CogyntLogger.error("Startup", "App not started. #{inspect(error)}")
+        CogyntLogger.error("#{__MODULE__}", "App not started. #{inspect(error)}")
     end
   end
 end
