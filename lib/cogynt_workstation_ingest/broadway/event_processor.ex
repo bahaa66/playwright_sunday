@@ -459,7 +459,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
            delete_doc_ids: nil
          }}
 
-      {:ok, {delete_event_ids, delete_doc_ids}} ->
+      {:ok, {delete_event_ids, _delete_doc_ids}} ->
         case EventsContext.create_event(%{
                event_definition_id: event_definition.id,
                core_id: event["id"]
@@ -469,7 +469,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
              %{
                event_id: event_id,
                delete_event_ids: delete_event_ids,
-               delete_doc_ids: delete_doc_ids
+               delete_doc_ids: nil
              }}
 
           {:error, reason} ->
