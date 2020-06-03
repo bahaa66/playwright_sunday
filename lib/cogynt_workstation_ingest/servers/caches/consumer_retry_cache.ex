@@ -77,7 +77,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
 
     Enum.each(ets_records, fn {event_definition, _value_count} ->
       CogyntLogger.info(
-        "Topic Does Not Exist",
+        "#{__MODULE__}",
         "Retrying to create Consumer: #{event_definition.topic}"
       )
 

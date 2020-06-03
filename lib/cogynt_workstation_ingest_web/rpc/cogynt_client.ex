@@ -27,7 +27,12 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
           {:ok, %{"body" => body, "status" => status}} when status == "error" ->
             {:error, body}
 
-          {:error, _} ->
+          {:error, error} ->
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "publish_notifications failed with Error: #{inspect(error)}"
+            )
+
             {:error, :internal_server_error}
         end
 
@@ -50,7 +55,12 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
           {:ok, %{"body" => body, "status" => status}} when status == "error" ->
             {:error, body}
 
-          {:error, _} ->
+          {:error, error} ->
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "publish_updated_notifications failed with Error: #{inspect(error)}"
+            )
+
             {:error, :internal_server_error}
         end
 
@@ -73,7 +83,12 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
       {:ok, %{"body" => body, "status" => status}} when status == "error" ->
         {:error, body}
 
-      {:error, _} ->
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "publish_event_definition_ids failed with Error: #{inspect(error)}"
+        )
+
         {:error, :internal_server_error}
     end
   end
@@ -84,8 +99,6 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
   def publish_consumer_status(id, nil) do
     with %EventDefinition{} = event_definition <- EventsContext.get_event_definition(id),
          false <- event_definition.active do
-      CogyntLogger.warn("#{__MODULE__}", "Publishing consumer status for ID: #{id}")
-
       request = %{
         id: id,
         topic: event_definition.topic,
@@ -107,11 +120,14 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
       end
     else
       nil ->
-        CogyntLogger.warn("#{__MODULE__}", "Publishing consumer status failed for ID: #{id}")
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "Publishing consumer status failed for ID: #{id}, Reason: event_definition_does_not_exist"
+        )
+
         {:error, :event_definition_does_not_exist}
 
       true ->
-        CogyntLogger.warn("#{__MODULE__}", "Publishing consumer status failed for ID: #{id}")
         {:error, :event_definition_is_active}
     end
   end
@@ -133,7 +149,12 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
       {:ok, %{"body" => body, "status" => status}} when status == "error" ->
         {:error, body}
 
-      {:error, _} ->
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "publish_consumer_status failed with Error: #{inspect(error)}"
+        )
+
         {:error, :internal_server_error}
     end
   end
@@ -157,7 +178,12 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
       {:ok, %{"body" => body, "status" => status}} when status == "error" ->
         {:error, body}
 
-      {:error, _} ->
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "publish_notification_task_status failed with Error: #{inspect(error)}"
+        )
+
         {:error, :internal_server_error}
     end
   end

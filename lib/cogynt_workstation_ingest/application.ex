@@ -61,7 +61,7 @@ defmodule CogyntWorkstationIngest.Application do
         :start_link,
         []
       },
-      restart: :transient,
+      restart: :permanent,
       shutdown: 5000,
       type: :supervisor
     }

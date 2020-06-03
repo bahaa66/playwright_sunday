@@ -20,7 +20,7 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
 
   def run(notification_setting_id) do
     CogyntLogger.info(
-      "Backfill Notifications Task",
+      "#{__MODULE__}",
       "Running backfill notifications task for ID: #{notification_setting_id}"
     )
 
@@ -46,7 +46,7 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
     else
       nil ->
         CogyntLogger.warn(
-          "Backfill Notifications Task",
+          "#{__MODULE__}",
           "NotificationSetting or EventDefinition not found for notification_setting_id: #{
             notification_setting_id
           }."
@@ -80,7 +80,7 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
     case page_number >= total_pages do
       true ->
         CogyntLogger.info(
-          "Backfill Notifications",
+          "#{__MODULE__}",
           "Finished processing notifications for event_definition: #{event_definition_id} and notification_setting #{
             notification_setting.id
           }"

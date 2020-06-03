@@ -83,7 +83,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
 
         {:error, error} ->
           CogyntLogger.error(
-            "Drilldown Producer",
+            "#{__MODULE__}",
             "Failed to decode json_message. Error: #{inspect(error)}"
           )
       end
@@ -100,7 +100,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
                                                        acc ->
       if retry_count < Config.drilldown_max_retry() do
         CogyntLogger.warn(
-          "Drilldown Producer",
+          "#{__MODULE__}",
           "Failed messages retry. Attempt: #{retry_count + 1}"
         )
 

@@ -14,7 +14,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   @impl true
   def init(_) do
     children = [
-      child_spec(ConsumerRetryCache, restart: :permanent),
+      child_spec(ConsumerRetryCache),
       child_spec(DrilldownCache, restart: :permanent),
       child_spec(Startup),
       child_spec(ConsumerMonitor, restart: :permanent),

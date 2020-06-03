@@ -57,6 +57,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:timber_phoenix, "~> 1.0"},
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
       {:scrivener_ecto, "~> 2.0"},
+      {:quiet_logger, "~> 0.2.0"},
       {:models,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "models",
