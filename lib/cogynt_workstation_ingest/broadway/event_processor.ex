@@ -203,7 +203,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   def process_notifications(%{event_id: nil} = data), do: data
 
   def process_notifications(
-        %{event: event, event_definition: event_definition, event_id: event_id} = data
+        %{
+          event: event,
+          event_definition: event_definition,
+          event_id: event_id,
+          delete_event_ids: nil
+        } = data
       ) do
     case NotificationsContext.process_notifications(%{
            event_definition: event_definition,
@@ -225,6 +230,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         raise "process_notifications/1 failed"
     end
   end
+
+  def process_notifications(
+        %{
+          event: _event,
+          event_definition: _event_definition,
+          event_id: _event_id,
+          delete_event_ids: _delete_event_ids
+        } = data
+      ),
+      do: data
 
   @doc """
   Requires :event_details, :notifications, :event_docs, :risk_history_doc, :delete_event_ids, and :delete_docs

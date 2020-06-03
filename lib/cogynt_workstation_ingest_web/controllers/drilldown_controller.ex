@@ -53,7 +53,6 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
   # -- private methods --- #
   # ---------------------- #
   defp is_authorized?(conn) do
-    IO.inspect(conn, label: "@@@ Conn in drilldown controller")
     true
     # conn = fetch_session(conn)
 

@@ -49,7 +49,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:plug_cowboy, "~> 2.0"},
       {:health_checkup, "~> 0.1.0"},
       {:ecto_enum, "~> 1.4"},
-      {:broadway, "~> 0.5.0"},
+      {:broadway, "~> 0.6.0"},
       {:kafka_ex, "~> 0.10.0"},
       {:httpoison, "~> 1.5"},
       {:junit_formatter, "~> 3.0"},

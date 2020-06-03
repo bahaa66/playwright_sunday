@@ -16,12 +16,16 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
       name: @pipeline_name,
       producer: [
         module: {DrilldownProducer, []},
-        stages: 1,
-        transformer: {__MODULE__, :transform, []}
+        concurrency: 1,
+        transformer: {__MODULE__, :transform, []},
+        rate_limiting: [
+          allowed_messages: Config.drilldown_producer_allowed_messages(),
+          interval: Config.drilldown_producer_rate_limit_interval()
+        ]
       ],
       processors: [
         default: [
-          stages: Config.drilldown_processor_stages(),
+          concurrency: Config.drilldown_processor_stages(),
           max_demand: Config.drilldown_processor_max_demand(),
           min_demand: Config.drilldown_processor_min_demand()
         ]
@@ -45,7 +49,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   the pipeline.
   """
   def ack(:ack_id, _successful, _failed) do
-    IO.puts("Ack'd")
+    CogyntLogger.info("#{__MODULE__}", "Messages Ackd.")
   end
 
   @doc """
@@ -55,7 +59,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   """
   @impl true
   def handle_failed(messages, _opts) do
-    IO.puts("Failed")
+    CogyntLogger.error("#{__MODULE__}", "Messages failed. #{inspect(messages)}")
     DrilldownProducer.enqueue_failed_messages(messages)
     messages
   end

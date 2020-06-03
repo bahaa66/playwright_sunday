@@ -92,11 +92,17 @@ config :cogynt_workstation_ingest, :drilldown_pipeline,
 
 config :cogynt_workstation_ingest, :drilldown_producer,
   max_retry: System.get_env("DRILLDOWN_MAX_RETRY") || 1_400,
-  time_delay: System.get_env("DRILLDOWN_TIME_DELAY") || 60_000
+  time_delay: System.get_env("DRILLDOWN_TIME_DELAY") || 60_000,
+  allowed_messages: System.get_env("PRODUCER_ALLOWED_MESSAGES") || "30000" |> String.to_integer(),
+  rate_limit_interval:
+    System.get_env("PRODUCER_RATE_LIMIT_INTERVAL") || "30000" |> String.to_integer()
 
 config :cogynt_workstation_ingest, :producer,
   max_retry: System.get_env("PRODUCER_MAX_RETRY") || 1_400,
-  time_delay: System.get_env("PRODUCER_TIME_DELAY") || 60_000
+  time_delay: System.get_env("PRODUCER_TIME_DELAY") || 60_000,
+  allowed_messages: System.get_env("PRODUCER_ALLOWED_MESSAGES") || "30000" |> String.to_integer(),
+  rate_limit_interval:
+    System.get_env("PRODUCER_RATE_LIMIT_INTERVAL") || "30000" |> String.to_integer()
 
 config :cogynt_workstation_ingest, :consumer_retry_cache,
   time_delay: System.get_env("CONSUMER_RETRY_CACHE_TIME_DELAY") || 600_000,

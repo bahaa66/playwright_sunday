@@ -81,8 +81,8 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
           replace = sol["events"][key]
 
           if replace != nil do
-            IO.inspect(evnt, label: "@@@@ Received event")
-            IO.inspect(replace, label: "@@@@ Replacing")
+            # IO.inspect(evnt, label: "@@@@ Received event")
+            # IO.inspect(replace, label: "@@@@ Replacing")
           end
 
           sol =
