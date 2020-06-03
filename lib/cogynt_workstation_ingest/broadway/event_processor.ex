@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
-  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
+  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
   alias CogyntWorkstationIngest.Config
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
@@ -294,11 +294,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
          insert_notifications: {_count_created, created_notifications},
          update_notifications: {_count_deleted, updated_notifications}
        }} ->
-        CogyntClient.publish_notifications(created_notifications)
-        CogyntClient.publish_updated_notifications(updated_notifications)
+        NotificationSubscriptionCache.add_new_notifications(created_notifications)
+        NotificationSubscriptionCache.add_updated_notifications(updated_notifications)
 
       {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
-        CogyntClient.publish_notifications(created_notifications)
+        NotificationSubscriptionCache.add_new_notifications(created_notifications)
 
       {:ok, _} ->
         nil
@@ -343,7 +343,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     case transaction_result do
       {:ok, %{update_notifications: {_count, updated_notifications}}} ->
-        CogyntClient.publish_updated_notifications(updated_notifications)
+        NotificationSubscriptionCache.add_updated_notifications(updated_notifications)
 
       {:ok, _} ->
         nil

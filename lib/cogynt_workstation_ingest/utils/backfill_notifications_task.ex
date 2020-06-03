@@ -4,7 +4,7 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
   async task.
   """
   use Task
-  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
+  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Notifications.NotificationSetting
@@ -12,7 +12,6 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
 
   @page_size 500
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
-  @partial Application.get_env(:cogynt_workstation_ingest, :core_keys)[:partial]
 
   def start_link(arg) do
     Task.start_link(__MODULE__, :run, [arg])
@@ -75,7 +74,7 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
         ]
       )
 
-    CogyntClient.publish_notifications(updated_notifications)
+    NotificationSubscriptionCache.add_new_notifications(updated_notifications)
 
     case page_number >= total_pages do
       true ->

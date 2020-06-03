@@ -4,7 +4,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   """
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
-  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
+  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
   alias CogyntWorkstationIngest.Broadway.EventProcessor
   alias CogyntWorkstationIngest.Config
 
@@ -127,11 +127,11 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
          insert_notifications: {_count_created, created_notifications},
          update_notifications: {_count_deleted, updated_notifications}
        }} ->
-        CogyntClient.publish_notifications(created_notifications)
-        CogyntClient.publish_updated_notifications(updated_notifications)
+        NotificationSubscriptionCache.add_new_notifications(created_notifications)
+        NotificationSubscriptionCache.add_updated_notifications(updated_notifications)
 
       {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
-        CogyntClient.publish_notifications(created_notifications)
+        NotificationSubscriptionCache.add_new_notifications(created_notifications)
 
       {:ok, _} ->
         nil
@@ -178,7 +178,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
     case transaction_result do
       {:ok, %{update_notifications: {_count, updated_notifications}}} ->
-        CogyntClient.publish_updated_notifications(updated_notifications)
+        NotificationSubscriptionCache.add_updated_notifications(updated_notifications)
 
       {:ok, _} ->
         nil

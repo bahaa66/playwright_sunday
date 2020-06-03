@@ -4,7 +4,12 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   """
   use Supervisor
 
-  alias CogyntWorkstationIngest.Servers.Caches.{ConsumerRetryCache, DrilldownCache}
+  alias CogyntWorkstationIngest.Servers.Caches.{
+    ConsumerRetryCache,
+    DrilldownCache,
+    NotificationSubscriptionCache
+  }
+
   alias CogyntWorkstationIngest.Servers.{Startup, ConsumerMonitor, NotificationsTaskMonitor}
 
   def start_link do
@@ -18,7 +23,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
       child_spec(DrilldownCache, restart: :permanent),
       child_spec(Startup),
       child_spec(ConsumerMonitor, restart: :permanent),
-      child_spec(NotificationsTaskMonitor, restart: :permanent)
+      child_spec(NotificationsTaskMonitor, restart: :permanent),
+      child_spec(NotificationSubscriptionCache, restart: :permanent)
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

@@ -4,7 +4,7 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
   async task.
   """
   use Task
-  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
+  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
   alias Models.Notifications.NotificationSetting
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
 
@@ -67,7 +67,7 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
         set: [tag_id: tag_id, deleted_at: deleted_at, title: ns_title]
       )
 
-    CogyntClient.publish_notifications(updated_notifications)
+    NotificationSubscriptionCache.add_new_notifications(updated_notifications)
 
     if page_number >= total_pages do
       CogyntLogger.info(
