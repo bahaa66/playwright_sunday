@@ -423,6 +423,28 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
            delete_doc_ids: nil
          }}
 
+      {:ok, {nil, delete_doc_ids}} ->
+        case EventsContext.create_event(%{
+               event_definition_id: event_definition.id,
+               core_id: event["id"]
+             }) do
+          {:ok, %{id: event_id}} ->
+            {:ok,
+             %{
+               event_id: event_id,
+               delete_event_ids: [event_id],
+               delete_doc_ids: delete_doc_ids
+             }}
+
+          {:error, reason} ->
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "delete_event/1 failed with reason: #{inspect(reason)}"
+            )
+
+            raise "delete_event/1 failed"
+        end
+
       {:ok, {delete_event_ids, delete_doc_ids}} ->
         case EventsContext.create_event(%{
                event_definition_id: event_definition.id,
