@@ -45,7 +45,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     event_ids =
       Repo.all(
         from(e in Event,
-          where: e.core_id == ^core_id and is_nil(e.deleted_at),
+          where: e.core_id == ^core_id,
           select: e.id
         )
       )
