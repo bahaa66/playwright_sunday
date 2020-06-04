@@ -1,3 +1,10 @@
+### [1.3.10](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.9...v1.3.10) (2020-06-04)
+
+
+### :bug: Bugfix
+
+* **missing search:** Merge pull request [#65](https://github.com/Cogility/cogynt-workstation-ingest/issues/65) from Cogility/potential-fix/incorrect-elastic-doc-creation ([978ab13](https://github.com/Cogility/cogynt-workstation-ingest/commit/978ab135cf6c05ed7c786e883a2b4ac752c5760d))
+
 ### [1.3.9](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.8...v1.3.9) (2020-06-03)
 
 
