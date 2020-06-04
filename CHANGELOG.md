@@ -1,3 +1,10 @@
+### [1.3.11](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.10...v1.3.11) (2020-06-04)
+
+
+### :bug: Bugfix
+
+* **CDST-547 system tag index:** Merge pull request [#66](https://github.com/Cogility/cogynt-workstation-ingest/issues/66) from Cogility/hotfix/CDST-547-update-migrations-and-models-packages ([de369f8](https://github.com/Cogility/cogynt-workstation-ingest/commit/de369f87473eeb690efc11ed58a5455d131a9466))
+
 ### [1.3.10](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.9...v1.3.10) (2020-06-04)
 
 
