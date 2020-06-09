@@ -32,7 +32,7 @@
   "migrations": {:git, "git@github.com:cogility/cogynt-common.git", "36e6ca9884dd9edc381309c00a5112262f82fdb2", [sparse: "migrations", tag: "v1.5.7"]},
   "mime": {:hex, :mime, "1.3.1", "30ce04ab3175b6ad0bdce0035cba77bba68b813d523d1aac73d9781b4d193cf8", [:mix], [], "hexpm", "6cbe761d6a0ca5a31a0931bf4c63204bceb64538e664a8ecf784a9a6f3b875f1"},
   "mimerl": {:hex, :mimerl, "1.2.0", "67e2d3f571088d5cfd3e550c383094b47159f3eee8ffa08e64106cdf5e981be3", [:rebar3], [], "hexpm", "f278585650aa581986264638ebf698f8bb19df297f66ad91b18910dfc6e19323"},
-  "models": {:git, "git@github.com:cogility/cogynt-common.git", "50ab5ef9e4d1eb2290cc2c5cb48fc93fe36d4d9a", [sparse: "models", branch: "feature/CDST-568-backfill-notification-rework"]},
+  "models": {:git, "git@github.com:cogility/cogynt-common.git", "b9ffd48d3e99093cedfcad9cd287ef87f9397611", [sparse: "models", tag: "v1.5.8"]},
   "msgpax": {:hex, :msgpax, "2.2.4", "7b3790ef684089076b63c0f08c2f4b079c6311daeb006b69e4ed2bf67518291e", [:mix], [{:plug, "~> 1.0", [hex: :plug, repo: "hexpm", optional: true]}], "hexpm", "b351b6d992d79624a8430a99d21a41b36b1b90edf84326a294e9f4a2de11f089"},
   "paginator": {:git, "https://github.com/duffelhq/paginator.git", "6740061bf629e4d7a460d581a390b52f3bebf76c", [ref: "6740061bf629e4d7a460d581a390b52f3bebf76c"]},
   "parse_trans": {:hex, :parse_trans, "3.3.0", "09765507a3c7590a784615cfd421d101aec25098d50b89d7aa1d66646bc571c1", [:rebar3], [], "hexpm", "17ef63abde837ad30680ea7f857dd9e7ced9476cdd7b0394432af4bfc241b960"},

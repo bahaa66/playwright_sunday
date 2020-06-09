@@ -12,7 +12,6 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
   alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Broadway.Producer
-  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
 
   @default_state %{topic: nil, nsid: [], status: nil, prev_status: nil}
 

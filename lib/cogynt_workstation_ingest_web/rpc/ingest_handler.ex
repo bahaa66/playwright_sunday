@@ -38,11 +38,6 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   end
 
   def handle_request("ingest:stop_consumer", event_definition) when is_map(event_definition) do
-    CogyntLogger.warn(
-      "#{__MODULE__}",
-      "stop_consumer called via RPC"
-    )
-
     event_definition = keys_to_atoms(event_definition)
 
     case ConsumerStateManager.manage_request(%{stop_consumer: event_definition.topic}) do

@@ -60,10 +60,9 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:quiet_logger, "~> 0.2.0"},
       {
         :models,
-        # tag: "v1.5.7",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
-        branch: "feature/CDST-568-backfill-notification-rework",
+        tag: "v1.5.8",
         override: true
       },
       {:migrations,
