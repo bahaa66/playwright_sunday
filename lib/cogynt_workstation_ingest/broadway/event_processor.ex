@@ -404,7 +404,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         {:error, {nil, nil}}
 
       core_id ->
-        delete_event_ids = EventsContext.get_events_by_core_id(core_id)
+        delete_event_ids = EventsContext.get_events_by_core_id(core_id, event_definition.id)
         delete_doc_ids = EventDocumentBuilder.build_document_ids(core_id, event_definition)
         {:ok, {delete_event_ids, delete_doc_ids}}
     end

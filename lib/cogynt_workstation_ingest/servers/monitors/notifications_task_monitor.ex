@@ -8,7 +8,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
   use GenServer
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
   alias CogyntWorkstationIngest.Servers.ConsumerStateManager
-  alias Models.Enums.ConsumerStatusTypeEnum
+  # alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
 
@@ -57,7 +57,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
-    event_definition =
+    _event_definition =
       EventsContext.get_event_definition(notification_setting.event_definition_id)
 
     # ConsumerStateManager.update_consumer_state(

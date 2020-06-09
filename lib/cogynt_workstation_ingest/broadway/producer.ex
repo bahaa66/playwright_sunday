@@ -3,7 +3,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   alias KafkaEx.Protocol.Fetch
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
-  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
+  alias CogyntWorkstationIngest.Servers.{ConsumerStateManager, NotificationTaskManager}
   alias Models.Enums.ConsumerStatusTypeEnum
 
   @defaults %{
@@ -121,6 +121,22 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     {:noreply, messages, new_state}
   end
 
+  @impl true
+  def handle_info({:delayed_notification_task, notification_setting_ids}, state) do
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "Triggering Backfill notifications: #{inspect(notification_setting_ids)}"
+    )
+
+    Enum.each(notification_setting_ids, fn notification_setting_id ->
+      ConsumerStateManager.manage_request(%{
+        backfill_notifications: notification_setting_id
+      })
+    end)
+
+    {:noreply, [], state}
+  end
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
@@ -226,31 +242,30 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
         queues =
           case :queue.len(queue) == 0 do
             true ->
-              consumer_state = ConsumerStateManager.get_consumer_state(id)
+              %{status: status, topic: topic, nsid: nsid} =
+                ConsumerStateManager.get_consumer_state(id)
 
               cond do
-                consumer_state.status ==
+                status ==
                     ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-                  CogyntLogger.info(
-                    "#{__MODULE__}",
-                    "Triggering Backfill notifications from producer: #{inspect(consumer_state)}"
-                  )
+                  # Process.send_after(
+                  #   self(),
+                  #   {:delayed_notification_task, nsid},
+                  #   10000
+                  # )
+                  nil
 
-                  ConsumerStateManager.manage_request(%{
-                    backfill_notifications: consumer_state.nsid
-                  })
-
-                consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
+                status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
                   ConsumerStateManager.update_consumer_state(
                     id,
-                    consumer_state.topic,
+                    topic,
                     ConsumerStatusTypeEnum.status()[:paused_and_finished],
                     __MODULE__
                   )
 
                   CogyntClient.publish_consumer_status(
                     id,
-                    consumer_state.topic,
+                    topic,
                     ConsumerStatusTypeEnum.status()[:paused_and_finished]
                   )
 

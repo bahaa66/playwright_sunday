@@ -12,6 +12,8 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Broadway.Producer
 
+  @default_state %{topic: nil, nsid: [], status: nil, prev_status: nil}
+
   # -------------------- #
   # --- client calls --- #
   # -------------------- #
@@ -19,7 +21,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
-  def update_consumer_state(event_definition_id, topic, status, module_name) do
+  def update_consumer_state(event_definition_id, topic, status, module_name, nsid \\ []) do
     CogyntLogger.warn(
       "#{__MODULE__}",
       "Adding Consumer State: ID: #{event_definition_id}, status: #{status}, Module: #{
@@ -27,7 +29,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
       }"
     )
 
-    GenServer.cast(__MODULE__, {:update_consumer_state, event_definition_id, topic, status})
+    GenServer.cast(__MODULE__, {:update_consumer_state, event_definition_id, topic, status, nsid})
   end
 
   def get_consumer_state(event_definition_id) do
@@ -55,13 +57,16 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
   end
 
   @impl true
-  def handle_cast({:update_consumer_state, event_definition_id, topic, status}, state) do
-    %{topic: _topic, status: current_status, prev_status: _prev_status} =
-      Map.get(state, event_definition_id)
+  def handle_cast(
+        {:update_consumer_state, event_definition_id, topic, status, nsid},
+        state
+      ) do
+    %{status: current_status} = Map.get(state, event_definition_id, @default_state)
 
     new_state =
       Map.put(state, event_definition_id, %{
         topic: topic,
+        nsid: nsid,
         status: status,
         prev_status: current_status
       })
@@ -71,8 +76,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
 
   @impl true
   def handle_call({:get_consumer_state, event_definition_id}, _from, state) do
-    {:reply, Map.get(state, event_definition_id, %{topic: nil, status: nil, prev_status: nil}),
-     state}
+    {:reply, Map.get(state, event_definition_id, @default_state), state}
   end
 
   @impl true
@@ -112,8 +116,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
   end
 
   defp start_consumer(event_definition, state) do
-    %{status: status} =
-      Map.get(state, event_definition.id, %{topic: nil, status: nil, prev_status: nil})
+    %{status: status, nsid: nsid} = Map.get(state, event_definition.id, @default_state)
 
     cond do
       status == ConsumerStatusTypeEnum.status()[:running] ->
@@ -123,6 +126,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
         new_state =
           Map.put(state, event_definition.id, %{
             topic: event_definition.topic,
+            nsid: nsid,
             status: status,
             prev_status: ConsumerStatusTypeEnum.status()[:running]
           })
@@ -146,6 +150,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
             new_state =
               Map.put(state, event_definition.id, %{
                 topic: event_definition.topic,
+                nsid: nsid,
                 status: ConsumerStatusTypeEnum.status()[:topic_does_not_exist],
                 prev_status: status
               })
@@ -166,6 +171,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
             new_state =
               Map.put(state, event_definition.id, %{
                 topic: event_definition.topic,
+                nsid: nsid,
                 status: ConsumerStatusTypeEnum.status()[:running],
                 prev_status: status
               })
@@ -178,8 +184,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
   defp stop_consumer(topic, state) do
     event_definition = EventsContext.get_event_definition_by(%{topic: topic})
 
-    %{status: status} =
-      Map.get(state, event_definition.id, %{topic: nil, status: nil, prev_status: nil})
+    %{status: status, nsid: nsid} = Map.get(state, event_definition.id, @default_state)
 
     cond do
       status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
@@ -192,6 +197,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
         new_state =
           Map.put(state, event_definition.id, %{
             topic: event_definition.topic,
+            nsid: nsid,
             status: status,
             prev_status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
           })
@@ -216,6 +222,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
         new_state =
           Map.put(state, event_definition.id, %{
             topic: topic,
+            nsid: nsid,
             status: consumer_status,
             prev_status: status
           })
@@ -230,9 +237,8 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
     event_definition =
       EventsContext.get_event_definition(notification_setting.event_definition_id)
 
-    %{status: status} =
-      consumer_state =
-      Map.get(state, event_definition.id, %{topic: nil, status: nil, prev_status: nil})
+    %{status: status, prev_status: prev_status, nsid: nsid} =
+      Map.get(state, event_definition.id, @default_state)
 
     cond do
       status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
@@ -241,6 +247,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
         new_state =
           Map.put(state, event_definition.id, %{
             topic: event_definition.topic,
+            nsid: nsid ++ [notification_setting_id],
             status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
             prev_status: status
           })
@@ -254,7 +261,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
         new_state =
           Map.put(state, event_definition.id, %{
             topic: event_definition.topic,
-            nsid: notification_setting_id,
+            nsid: nsid ++ [notification_setting_id],
             status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
             prev_status: status
           })
@@ -277,10 +284,10 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
 
             new_state =
               Map.put(state, event_definition.id, %{
-                topic: consumer_state.topic,
-                nsid: consumer_state.nsid ++ [nsid],
-                status: consumer_state.status,
-                prev_status: consumer_state.prev_status
+                topic: event_definition.topic,
+                nsid: Enum.uniq(nsid ++ [notification_setting_id]),
+                status: status,
+                prev_status: prev_status
               })
 
             %{
@@ -297,7 +304,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
             new_state =
               Map.put(state, event_definition.id, %{
                 topic: event_definition.topic,
-                nsid: [notification_setting_id],
+                nsid: nsid ++ [notification_setting_id],
                 status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
                 prev_status: status
               })
@@ -314,6 +321,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
             new_state =
               Map.put(state, event_definition.id, %{
                 topic: event_definition.topic,
+                nsid: nsid ++ [notification_setting_id],
                 status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
                 prev_status: status
               })
@@ -409,8 +417,6 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
   end
 
   defp delete_events(event_definition_id, state) do
-    CogyntLogger.info("#{__MODULE__}", "Calling delete_events")
-
     %{status: status} =
       Map.get(state, event_definition_id, %{topic: nil, status: nil, prev_status: nil})
 
