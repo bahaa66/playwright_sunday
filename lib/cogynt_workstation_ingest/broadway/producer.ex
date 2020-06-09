@@ -36,7 +36,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
 
   def is_processing?(event_definition_id, type) do
     producer_name = event_type_to_name(type)
-    GenServer.call(producer_name, {:is_processing, event_definition_id})
+    GenServer.call(producer_name, {:is_processing, event_definition_id}, 10_000)
   end
 
   def drain_queue(event_definition_id, type) do
@@ -157,6 +157,12 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
         ConsumerStateManager.update_consumer_state(event_definition_id,
           topic: topic,
           status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+        )
+
+        CogyntClient.publish_consumer_status(
+          event_definition_id,
+          topic,
+          ConsumerStatusTypeEnum.status()[:paused_and_finished]
         )
 
       true ->

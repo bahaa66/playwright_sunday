@@ -7,8 +7,6 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
   alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
   alias Models.Notifications.NotificationSetting
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
-  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
-  alias Models.Enums.ConsumerStatusTypeEnum
   alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.Events.EventsContext
 

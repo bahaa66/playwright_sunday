@@ -98,6 +98,12 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
           topic: topic,
           status: new_status
         )
+
+        CogyntClient.publish_consumer_status(
+          id,
+          topic,
+          new_status
+        )
     end
   end
 end

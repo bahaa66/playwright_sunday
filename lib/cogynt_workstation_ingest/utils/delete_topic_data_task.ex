@@ -6,8 +6,8 @@ defmodule CogyntWorkstationIngest.Utils.DeleteTopicDataTask do
   use Task
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Servers.ConsumerStateManager
-  alias CogyntWorkstationIngestWeb.Rpc.{CogyntClient, IngestHandler}
   alias Models.Events.EventDefinition
+  alias CogyntWorkstationIngestWeb.Rpc.{IngestHandler, CogyntClient}
 
   def start_link(arg) do
     Task.start_link(__MODULE__, :run, [arg])
@@ -55,6 +55,18 @@ defmodule CogyntWorkstationIngest.Utils.DeleteTopicDataTask do
         )
 
         ConsumerStateManager.manage_request(%{stop_consumer: topic})
+
+        %{status: :ok, body: result} =
+          IngestHandler.handle_request("ingest:check_status", [%{"id" => id, "topic" => topic}])
+
+        consumer_status = List.first(result)
+
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Publishing consumer status. Status: #{consumer_status.status}. For ID: #{id}"
+        )
+
+        CogyntClient.publish_consumer_status(id, topic, consumer_status.status)
 
         acc ++ [topic]
       end)

@@ -100,94 +100,52 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
 
   def handle_request("ingest:check_status", consumers) when is_list(consumers) do
     try do
-      # TODO: Temp need to eventually pull name from event_definition for kafka worker
-      KafkaEx.create_worker(:standard,
-        consumer_group: "kafka_ex",
-        consumer_group_update_interval: 100
-      )
-
-      # Grab a list of existing Kafka topics
-      existing_topics =
-        KafkaEx.metadata(worker_name: :standard).topic_metadatas |> Enum.map(& &1.topic)
-
       result =
         Enum.reduce(consumers, [], fn %{"id" => id, "topic" => topic}, acc ->
-          case Enum.member?(existing_topics, topic) do
-            false ->
+          consumer_state = ConsumerStateManager.get_consumer_state(id)
+
+          cond do
+            consumer_state == %{} ->
               acc ++
                 [
                   %{
                     id: id,
                     topic: topic,
-                    status: ConsumerStatusTypeEnum.status()[:topic_does_not_exist]
+                    status: ConsumerStatusTypeEnum.status()[:has_not_been_created]
+                  }
+                ]
+
+            consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+              acc ++
+                [
+                  %{
+                    id: id,
+                    topic: topic,
+                    status: consumer_state.prev_status
+                  }
+                ]
+
+            consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+              acc ++
+                [
+                  %{
+                    id: id,
+                    topic: topic,
+                    status: consumer_state.prev_status
                   }
                 ]
 
             true ->
-              case Process.whereis(consumer_group_name(topic)) do
-                nil ->
-                  case EventsContext.get_event_definition(id) do
-                    nil ->
-                      acc ++
-                        [
-                          %{
-                            id: id,
-                            topic: topic,
-                            status: ConsumerStatusTypeEnum.status()[:has_not_been_created]
-                          }
-                        ]
-
-                    %EventDefinition{} = event_definition ->
-                      case event_definition.active do
-                        true ->
-                          acc ++
-                            [
-                              %{
-                                id: id,
-                                topic: topic,
-                                status:
-                                  ConsumerStatusTypeEnum.status()[
-                                    :is_active_but_no_consumer_running
-                                  ]
-                              }
-                            ]
-
-                        false ->
-                          case Producer.is_processing?(id, event_definition.event_type) do
-                            true ->
-                              acc ++
-                                [
-                                  %{
-                                    id: id,
-                                    topic: topic,
-                                    status:
-                                      ConsumerStatusTypeEnum.status()[:paused_and_processing]
-                                  }
-                                ]
-
-                            false ->
-                              acc ++
-                                [
-                                  %{
-                                    id: id,
-                                    topic: topic,
-                                    status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
-                                  }
-                                ]
-                          end
-                      end
-                  end
-
-                _ ->
-                  acc ++
-                    [
-                      %{
-                        id: id,
-                        topic: topic,
-                        status: ConsumerStatusTypeEnum.status()[:running]
-                      }
-                    ]
-              end
+              acc ++
+                [
+                  %{
+                    id: id,
+                    topic: topic,
+                    status: consumer_state.status
+                  }
+                ]
           end
         end)
 

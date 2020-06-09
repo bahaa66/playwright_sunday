@@ -24,7 +24,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
   end
 
   def is_processing?(notification_setting_id) do
-    GenServer.call(__MODULE__, {:is_processing, notification_setting_id}, 10000)
+    GenServer.call(__MODULE__, {:is_processing, notification_setting_id}, 10_000)
   end
 
   # ------------------------ #
@@ -61,7 +61,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
       EventsContext.get_event_definition(notification_setting.event_definition_id)
 
     %{status: status, topic: topic, prev_status: prev_status, nsid: nsid} =
-      consumer_state = ConsumerStateManager.get_consumer_state(event_definition.id)
+      ConsumerStateManager.get_consumer_state(event_definition.id)
 
     nsid = List.delete(nsid, notification_setting_id)
 

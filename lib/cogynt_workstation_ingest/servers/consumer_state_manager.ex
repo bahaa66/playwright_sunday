@@ -28,7 +28,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
   end
 
   def get_consumer_state(event_definition_id) do
-    GenServer.call(__MODULE__, {:get_consumer_state, event_definition_id})
+    GenServer.call(__MODULE__, {:get_consumer_state, event_definition_id}, 10_000)
   end
 
   def remove_consumer_state(event_definition_id) do
@@ -36,11 +36,11 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
   end
 
   def list_consumer_states() do
-    GenServer.call(__MODULE__, {:list_consumer_states})
+    GenServer.call(__MODULE__, {:list_consumer_states}, 10_000)
   end
 
   def manage_request(args) do
-    GenServer.call(__MODULE__, {:manage_request, args})
+    GenServer.call(__MODULE__, {:manage_request, args}, 10_000)
   end
 
   # ------------------------ #
@@ -83,12 +83,6 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
       "New Consumer State for event_definition_id: #{event_definition_id},  #{
         inspect(Map.get(new_state, event_definition_id))
       }"
-    )
-
-    CogyntClient.publish_consumer_status(
-      event_definition_id,
-      topic,
-      status
     )
 
     {:noreply, new_state}
@@ -214,12 +208,6 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
               }"
             )
 
-            CogyntClient.publish_consumer_status(
-              event_definition.id,
-              event_definition.topic,
-              ConsumerStatusTypeEnum.status()[:topic_does_not_exist]
-            )
-
             %{
               state: new_state,
               response: {:error, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}
@@ -246,12 +234,6 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
               "New Consumer State for event_definition_id: #{event_definition.id},  #{
                 inspect(Map.get(new_state, event_definition.id))
               }"
-            )
-
-            CogyntClient.publish_consumer_status(
-              event_definition.id,
-              event_definition.topic,
-              ConsumerStatusTypeEnum.status()[:running]
             )
 
             %{state: new_state, response: {:ok, pid}}
@@ -338,12 +320,6 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
           "New Consumer State for event_definition_id: #{event_definition.id},  #{
             inspect(Map.get(new_state, event_definition.id))
           }"
-        )
-
-        CogyntClient.publish_consumer_status(
-          event_definition.id,
-          event_definition.topic,
-          consumer_status
         )
 
         %{state: new_state, response: {:ok, consumer_status}}

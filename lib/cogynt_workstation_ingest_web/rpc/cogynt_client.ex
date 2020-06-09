@@ -15,7 +15,14 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
         url = "#{Config.cogynt_otp_service_name()}:#{Config.cogynt_otp_service_port()}#{@path}"
 
         response =
-          HTTP.call(url, "publish:subscriptions", notification_struct_to_map(notifications))
+          HTTP.call(
+            url,
+            "publish:subscriptions",
+            notification_struct_to_map(notifications),
+            [{"content-type", "application/json"}],
+            :post,
+            recv_timeout: 10000
+          )
 
         case response do
           {:ok, %{"body" => body, "status" => status}} when status == "ok" ->
@@ -43,7 +50,15 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
       false ->
         url = "#{Config.cogynt_otp_service_name()}:#{Config.cogynt_otp_service_port()}#{@path}"
 
-        response = HTTP.call(url, "publish:subscriptions", updated_notifications)
+        response =
+          HTTP.call(
+            url,
+            "publish:subscriptions",
+            updated_notifications,
+            [{"content-type", "application/json"}],
+            :post,
+            recv_timeout: 10000
+          )
 
         case response do
           {:ok, %{"body" => body, "status" => status}} when status == "ok" ->
@@ -101,7 +116,16 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
     }
 
     url = "#{Config.cogynt_otp_service_name()}:#{Config.cogynt_otp_service_port()}#{@path}"
-    response = HTTP.call(url, "publish:consumer_status", request)
+
+    response =
+      HTTP.call(
+        url,
+        "publish:consumer_status",
+        request,
+        [{"content-type", "application/json"}],
+        :post,
+        recv_timeout: 10000
+      )
 
     case response do
       {:ok, %{"body" => body, "status" => status}} when status == "ok" ->
@@ -130,7 +154,16 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
     }
 
     url = "#{Config.cogynt_otp_service_name()}:#{Config.cogynt_otp_service_port()}#{@path}"
-    response = HTTP.call(url, "publish:notification_task_status", request)
+
+    response =
+      HTTP.call(
+        url,
+        "publish:notification_task_status",
+        request,
+        [{"content-type", "application/json"}],
+        :post,
+        recv_timeout: 10000
+      )
 
     case response do
       {:ok, %{"body" => body, "status" => status}} when status == "ok" ->

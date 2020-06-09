@@ -10,8 +10,6 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Notifications.NotificationSetting
   alias Models.Events.EventDefinition
-  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
-  alias Models.Enums.ConsumerStatusTypeEnum
 
   @page_size 500
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
