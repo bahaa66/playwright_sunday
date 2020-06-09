@@ -50,3 +50,4 @@ cogynt_workstation_ingest-*.tar
 !Makefile
 /rel/runtime_config.exs
 /config/prod.exs
+.build-harness
