@@ -1,3 +1,10 @@
+### [1.3.12-develop.1](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.11...v1.3.12-develop.1) (2020-06-09)
+
+
+### :hammer: Build
+
+* updated to use build-harness ([112e153](https://github.com/Cogility/cogynt-workstation-ingest/commit/112e1536351b7f2064189c8bac935ad5cf520a2e))
+
 ### [1.3.11](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.10...v1.3.11) (2020-06-04)
 
 
