@@ -5,9 +5,9 @@ defmodule CogyntWorkstationIngest.Utils.DeleteTopicDataTask do
   """
   use Task
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngestWeb.Rpc.{CogyntClient, IngestHandler}
+  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
   alias Models.Events.EventDefinition
+  alias CogyntWorkstationIngestWeb.Rpc.{IngestHandler, CogyntClient}
 
   def start_link(arg) do
     Task.start_link(__MODULE__, :run, [arg])
@@ -54,7 +54,7 @@ defmodule CogyntWorkstationIngest.Utils.DeleteTopicDataTask do
           "Stoping ConsumerGroup for #{topic}"
         )
 
-        ConsumerGroupSupervisor.stop_child(topic)
+        ConsumerStateManager.manage_request(%{stop_consumer: topic})
 
         %{status: :ok, body: result} =
           IngestHandler.handle_request("ingest:check_status", [%{"id" => id, "topic" => topic}])

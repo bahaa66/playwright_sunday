@@ -58,11 +58,13 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
       {:scrivener_ecto, "~> 2.0"},
       {:quiet_logger, "~> 0.2.0"},
-      {:models,
-       git: "git@github.com:cogility/cogynt-common.git",
-       sparse: "models",
-       tag: "v1.5.7",
-       override: true},
+      {
+        :models,
+        git: "git@github.com:cogility/cogynt-common.git",
+        sparse: "models",
+        tag: "v1.5.8",
+        override: true
+      },
       {:migrations,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "migrations",

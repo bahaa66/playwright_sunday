@@ -13,7 +13,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     EventLink
   }
 
-  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
+  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
 
   # ---------------------------- #
   # --- Event Schema Methods --- #
@@ -36,16 +36,18 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   Returns all event_ids that have records that match for the core_id
   and are not deleted
   ## Examples
-      iex> get_events_by_core_id("4123449c-2de0-482f-bea8-5efdb837be08")
+      iex> get_events_by_core_id(core_id, event_definition_id)
       [%{}]
       iex> get_events_by_core_id("invalid_id")
       nil
   """
-  def get_events_by_core_id(core_id) do
+  def get_events_by_core_id(core_id, event_definition_id) do
     event_ids =
       Repo.all(
         from(e in Event,
-          where: e.core_id == ^core_id,
+          join: ed in EventDefinition,
+          on: ed.id == e.event_definition_id,
+          where: e.core_id == ^core_id and ed.id == ^event_definition_id,
           select: e.id
         )
       )
@@ -186,7 +188,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> get_event_definition_by(%{id: invalid_id})
       nil
   """
-  def get_event_definition_by(clauses), do: Repo.get_by(EventDefinition, clauses)
+  def get_event_definition_by(clauses),
+    do: Repo.get_by(from(e in EventDefinition, where: is_nil(e.deleted_at)), clauses)
 
   @doc """
   Query EventDefinitions
@@ -340,7 +343,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         ed
         |> Repo.preload(:event_definition_details)
         |> event_definition_struct_to_map()
-        |> ConsumerGroupSupervisor.start_child()
+        |> ConsumerStateManager.manage_request()
       end)
       |> Enum.to_list()
     end)
@@ -362,7 +365,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           []
       end
 
-    %{
+    event_definition = %{
       id: event_definition.id,
       title: event_definition.title,
       topic: event_definition.topic,
@@ -382,6 +385,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
             acc
         end)
     }
+
+    %{start_consumer: event_definition}
   end
 
   defp filter_events(filter, query) do

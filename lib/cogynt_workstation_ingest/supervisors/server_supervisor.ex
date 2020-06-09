@@ -10,7 +10,12 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
     NotificationSubscriptionCache
   }
 
-  alias CogyntWorkstationIngest.Servers.{Startup, ConsumerMonitor, NotificationsTaskMonitor}
+  alias CogyntWorkstationIngest.Servers.{
+    Startup,
+    ConsumerMonitor,
+    NotificationsTaskMonitor,
+    ConsumerStateManager
+  }
 
   def start_link do
     Supervisor.start_link(__MODULE__, [], name: __MODULE__)
@@ -24,7 +29,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
       child_spec(Startup),
       child_spec(ConsumerMonitor, restart: :permanent),
       child_spec(NotificationsTaskMonitor, restart: :permanent),
-      child_spec(NotificationSubscriptionCache, restart: :permanent)
+      child_spec(NotificationSubscriptionCache, restart: :permanent),
+      child_spec(ConsumerStateManager, restart: :permanent)
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

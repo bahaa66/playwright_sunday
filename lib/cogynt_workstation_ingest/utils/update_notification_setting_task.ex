@@ -7,6 +7,8 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
   alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
   alias Models.Notifications.NotificationSetting
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
+  alias Models.Events.EventDefinition
+  alias CogyntWorkstationIngest.Events.EventsContext
 
   @page_size 2000
 
@@ -21,7 +23,9 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
   # ----------------------- #
   defp update_notifications(notification_setting_id) do
     with %NotificationSetting{id: id} = notification_setting <-
-           NotificationsContext.get_notification_setting(notification_setting_id) do
+           NotificationsContext.get_notification_setting(notification_setting_id),
+         %EventDefinition{} = event_definition <-
+           EventsContext.get_event_definition!(notification_setting.event_definition_id) do
       CogyntLogger.info(
         "#{__MODULE__}",
         "Running update notifications task for ID: #{notification_setting_id}"
@@ -33,7 +37,7 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
           page_size: @page_size
         )
 
-      process_page(page, notification_setting)
+      process_page(page, notification_setting, event_definition)
     else
       nil ->
         CogyntLogger.warn(
@@ -45,7 +49,9 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
 
   defp process_page(
          %{entries: entries, page_number: page_number, total_pages: total_pages},
-         %{tag_id: tag_id, deleted_at: deleted_at, id: id, title: ns_title} = notification_setting
+         %{tag_id: tag_id, deleted_at: deleted_at, id: id, title: ns_title} =
+           notification_setting,
+         event_definition
        ) do
     notification_ids = Enum.map(entries, fn e -> e.id end)
 
@@ -82,7 +88,7 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
           page_size: @page_size
         )
 
-      process_page(next_page, notification_setting)
+      process_page(next_page, notification_setting, event_definition)
     end
 
     {:ok, :success}
