@@ -2,9 +2,6 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
   alias JSONRPC2.Clients.HTTP
 
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Events.EventsContext
-  alias Models.Events.EventDefinition
-  alias Models.Enums.ConsumerStatusTypeEnum
   alias Models.Notifications.Notification
 
   @path "/rpc/cogynt"
@@ -96,42 +93,6 @@ defmodule CogyntWorkstationIngestWeb.Rpc.CogyntClient do
   # ------------------------------- #
   # --- publish consumer status --- #
   # ------------------------------- #
-  def publish_consumer_status(id, nil) do
-    with %EventDefinition{} = event_definition <- EventsContext.get_event_definition(id),
-         false <- event_definition.active do
-      request = %{
-        id: id,
-        topic: event_definition.topic,
-        status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
-      }
-
-      url = "#{Config.cogynt_otp_service_name()}:#{Config.cogynt_otp_service_port()}#{@path}"
-      response = HTTP.call(url, "publish:consumer_status", request)
-
-      case response do
-        {:ok, %{"body" => body, "status" => status}} when status == "ok" ->
-          {:ok, body}
-
-        {:ok, %{"body" => body, "status" => status}} when status == "error" ->
-          {:error, body}
-
-        {:error, _} ->
-          {:error, :internal_server_error}
-      end
-    else
-      nil ->
-        CogyntLogger.warn(
-          "#{__MODULE__}",
-          "Publishing consumer status failed for ID: #{id}, Reason: event_definition_does_not_exist"
-        )
-
-        {:error, :event_definition_does_not_exist}
-
-      true ->
-        {:error, :event_definition_is_active}
-    end
-  end
-
   def publish_consumer_status(id, topic, status) do
     request = %{
       id: id,

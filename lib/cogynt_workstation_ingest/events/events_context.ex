@@ -186,7 +186,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> get_event_definition_by(%{id: invalid_id})
       nil
   """
-  def get_event_definition_by(clauses), do: Repo.get_by(EventDefinition, clauses)
+  def get_event_definition_by(clauses),
+    do: Repo.get_by(from(e in EventDefinition, where: is_nil(e.deleted_at)), clauses)
 
   @doc """
   Query EventDefinitions

@@ -3,6 +3,8 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   alias KafkaEx.Protocol.Fetch
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
+  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
+  alias Models.Enums.ConsumerStatusTypeEnum
 
   @defaults %{
     event_id: nil,
@@ -224,7 +226,38 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
         queues =
           case :queue.len(queue) == 0 do
             true ->
-              CogyntClient.publish_consumer_status(id, nil)
+              consumer_state = ConsumerStateManager.get_consumer_state(id)
+
+              cond do
+                consumer_state.status ==
+                    ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+                  CogyntLogger.info(
+                    "#{__MODULE__}",
+                    "Triggering Backfill notifications from producer: #{inspect(consumer_state)}"
+                  )
+
+                  ConsumerStateManager.manage_request(%{
+                    backfill_notifications: consumer_state.nsid
+                  })
+
+                consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
+                  ConsumerStateManager.update_consumer_state(
+                    id,
+                    consumer_state.topic,
+                    ConsumerStatusTypeEnum.status()[:paused_and_finished],
+                    __MODULE__
+                  )
+
+                  CogyntClient.publish_consumer_status(
+                    id,
+                    consumer_state.topic,
+                    ConsumerStatusTypeEnum.status()[:paused_and_finished]
+                  )
+
+                true ->
+                  nil
+              end
+
               CogyntClient.publish_event_definition_ids([id])
 
               CogyntLogger.info(

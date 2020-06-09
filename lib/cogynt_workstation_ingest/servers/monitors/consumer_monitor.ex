@@ -9,6 +9,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
   alias CogyntWorkstationIngest.Broadway.Producer
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
   alias Models.Enums.ConsumerStatusTypeEnum
+  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
 
   # -------------------- #
   # --- client calls --- #
@@ -42,23 +43,62 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
   def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
     %{id: id, topic: topic, type: type} = Map.get(state, pid)
 
+    %{status: status} = ConsumerStateManager.get_consumer_state(id)
+
     case Producer.is_processing?(id, type) do
       true ->
-        CogyntClient.publish_consumer_status(
+        check_consumer_state(
           id,
           topic,
+          status,
           ConsumerStatusTypeEnum.status()[:paused_and_processing]
         )
 
       false ->
-        CogyntClient.publish_consumer_status(
+        check_consumer_state(
           id,
           topic,
+          status,
           ConsumerStatusTypeEnum.status()[:paused_and_finished]
         )
     end
 
     new_state = Map.delete(state, pid)
     {:noreply, new_state}
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp check_consumer_state(id, topic, status, new_status) do
+    cond do
+      status == new_status ->
+        CogyntClient.publish_consumer_status(
+          id,
+          topic,
+          new_status
+        )
+
+      status == ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+        CogyntClient.publish_consumer_status(
+          id,
+          topic,
+          new_status
+        )
+
+      true ->
+        ConsumerStateManager.update_consumer_state(
+          id,
+          topic,
+          new_status,
+          __MODULE__
+        )
+
+        CogyntClient.publish_consumer_status(
+          id,
+          topic,
+          new_status
+        )
+    end
   end
 end

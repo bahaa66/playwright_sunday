@@ -7,8 +7,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   use DynamicSupervisor
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer
-  alias CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache
-  alias CogyntWorkstationIngest.Servers.ConsumerMonitor
 
   def start_link(arg) do
     DynamicSupervisor.start_link(__MODULE__, arg, name: __MODULE__)
@@ -27,8 +25,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     create_kafka_worker(:standard)
 
     topic = event_definition.topic
-    type = event_definition.event_type
-    id = event_definition.id
 
     existing_topics =
       KafkaEx.metadata(worker_name: :standard).topic_metadatas |> Enum.map(& &1.topic)
@@ -46,11 +42,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         type: :supervisor
       }
 
-      {:ok, pid} = DynamicSupervisor.start_child(__MODULE__, child_spec)
-      ConsumerMonitor.monitor(pid, id, topic, type)
-      {:ok, pid}
+      DynamicSupervisor.start_child(__MODULE__, child_spec)
     else
-      ConsumerRetryCache.retry_consumer(event_definition)
       {:error, nil}
     end
   end

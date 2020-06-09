@@ -9,6 +9,8 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Notifications.NotificationSetting
   alias Models.Events.EventDefinition
+  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
+  alias Models.Enums.ConsumerStatusTypeEnum
 
   @page_size 500
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -78,6 +80,36 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
 
     case page_number >= total_pages do
       true ->
+        %{prev_status: prev_status, nsid: nsid} =
+          consumer_state = ConsumerStateManager.get_consumer_state(event_definition.id)
+
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Backfill notification state: #{inspect(consumer_state)}"
+        )
+
+        if Enum.empty?(List.delete(nsid, notification_setting.id)) do
+          cond do
+            prev_status == ConsumerStatusTypeEnum.status()[:running] ->
+              ConsumerStateManager.update_consumer_state(
+                event_definition.id,
+                event_definition.topic,
+                ConsumerStatusTypeEnum.status()[:paused_and_finished],
+                __MODULE__
+              )
+
+              ConsumerStateManager.manage_request(%{start_consumer: event_definition})
+
+            true ->
+              ConsumerStateManager.update_consumer_state(
+                event_definition.id,
+                event_definition.topic,
+                ConsumerStatusTypeEnum.status()[:paused_and_finished],
+                __MODULE__
+              )
+          end
+        end
+
         CogyntLogger.info(
           "#{__MODULE__}",
           "Finished processing notifications for event_definition: #{event_definition_id} and notification_setting #{

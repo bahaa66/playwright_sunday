@@ -3,30 +3,25 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   use Task
 
   alias CogyntWorkstationIngest.Servers.NotificationsTaskMonitor
-  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Broadway.Producer
   alias Models.Enums.ConsumerStatusTypeEnum
   alias Models.Events.EventDefinition
+  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
 
   # ----------------------- #
   # --- ingestion calls --- #
   # ----------------------- #
   def handle_request("ingest:start_consumer", event_definition) when is_map(event_definition) do
-    result = ConsumerGroupSupervisor.start_child(keys_to_atoms(event_definition))
+    result =
+      ConsumerStateManager.manage_request(%{start_consumer: keys_to_atoms(event_definition)})
 
     case result do
-      {:ok, pid} ->
+      {:ok, _pid} ->
         %{
           status: :ok,
-          body: "#{inspect(pid)}"
-        }
-
-      {:error, nil} ->
-        %{
-          status: :error,
-          body: ConsumerStatusTypeEnum.status()[:topic_does_not_exist]
+          body: :consumer_started
         }
 
       {:error, error} ->
@@ -45,12 +40,13 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   def handle_request("ingest:stop_consumer", event_definition) when is_map(event_definition) do
     event_definition = keys_to_atoms(event_definition)
 
-    with {:ok, :success} <- ConsumerGroupSupervisor.stop_child(event_definition.topic) do
-      %{
-        status: :ok,
-        body: :success
-      }
-    else
+    case ConsumerStateManager.manage_request(%{stop_consumer: event_definition.topic}) do
+      {:ok, status} ->
+        %{
+          status: :ok,
+          body: status
+        }
+
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
@@ -67,7 +63,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   def handle_request("ingest:backfill_notifications", %{
         "notification_setting_id" => notification_setting_id
       }) do
-    TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+    ConsumerStateManager.manage_request(%{backfill_notifications: notification_setting_id})
 
     %{
       status: :ok,
@@ -78,7 +74,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   def handle_request("ingest:update_notifications", %{
         "notification_setting_id" => notification_setting_id
       }) do
-    TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
+    ConsumerStateManager.manage_request(%{update_notification_setting: notification_setting_id})
 
     %{
       status: :ok,
@@ -89,7 +85,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   def handle_request("ingest:delete_event_definition_events", %{
         "event_definition_id" => event_definition_id
       }) do
-    TaskSupervisor.start_child(%{delete_event_definition_events: event_definition_id})
+    ConsumerStateManager.manage_request(%{delete_event_definition_events: event_definition_id})
 
     %{
       status: :ok,

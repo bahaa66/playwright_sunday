@@ -7,6 +7,10 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
   use GenServer
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
+  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
+  alias Models.Enums.ConsumerStatusTypeEnum
+  alias CogyntWorkstationIngest.Events.EventsContext
+  alias CogyntWorkstationIngest.Notifications.NotificationsContext
 
   # -------------------- #
   # --- client calls --- #
@@ -50,6 +54,18 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
   @impl true
   def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
     notification_setting_id = Map.get(state, pid)
+
+    notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
+
+    event_definition =
+      EventsContext.get_event_definition(notification_setting.event_definition_id)
+
+    # ConsumerStateManager.update_consumer_state(
+    #   event_definition.id,
+    #   event_definition.topic,
+    #   ConsumerStatusTypeEnum.status()[:paused_and_finished],
+    #   __MODULE__
+    # )
 
     CogyntClient.publish_notification_task_status(
       notification_setting_id,

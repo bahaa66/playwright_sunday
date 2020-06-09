@@ -7,6 +7,10 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
   alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
   alias Models.Notifications.NotificationSetting
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
+  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
+  alias Models.Enums.ConsumerStatusTypeEnum
+  alias Models.Events.EventDefinition
+  alias CogyntWorkstationIngest.Events.EventsContext
 
   @page_size 2000
 
@@ -21,7 +25,9 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
   # ----------------------- #
   defp update_notifications(notification_setting_id) do
     with %NotificationSetting{id: id} = notification_setting <-
-           NotificationsContext.get_notification_setting(notification_setting_id) do
+           NotificationsContext.get_notification_setting(notification_setting_id),
+         %EventDefinition{} = event_definition <-
+           EventsContext.get_event_definition!(notification_setting.event_definition_id) do
       CogyntLogger.info(
         "#{__MODULE__}",
         "Running update notifications task for ID: #{notification_setting_id}"
@@ -33,7 +39,7 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
           page_size: @page_size
         )
 
-      process_page(page, notification_setting)
+      process_page(page, notification_setting, event_definition)
     else
       nil ->
         CogyntLogger.warn(
@@ -45,7 +51,9 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
 
   defp process_page(
          %{entries: entries, page_number: page_number, total_pages: total_pages},
-         %{tag_id: tag_id, deleted_at: deleted_at, id: id, title: ns_title} = notification_setting
+         %{tag_id: tag_id, deleted_at: deleted_at, id: id, title: ns_title} =
+           notification_setting,
+         event_definition
        ) do
     notification_ids = Enum.map(entries, fn e -> e.id end)
 
@@ -70,6 +78,31 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
     NotificationSubscriptionCache.add_new_notifications(updated_notifications)
 
     if page_number >= total_pages do
+      %{prev_status: prev_status} =
+        consumer_state = ConsumerStateManager.get_consumer_state(event_definition.id)
+
+      CogyntLogger.info("#{__MODULE__}", "Update notification state:: #{inspect(consumer_state)}")
+
+      cond do
+        prev_status == ConsumerStatusTypeEnum.status()[:running] ->
+          ConsumerStateManager.update_consumer_state(
+            event_definition.id,
+            event_definition.topic,
+            ConsumerStatusTypeEnum.status()[:paused_and_finished],
+            __MODULE__
+          )
+
+          ConsumerStateManager.manage_request(%{start_consumer: event_definition})
+
+        true ->
+          ConsumerStateManager.update_consumer_state(
+            event_definition.id,
+            event_definition.topic,
+            ConsumerStatusTypeEnum.status()[:paused_and_finished],
+            __MODULE__
+          )
+      end
+
       CogyntLogger.info(
         "#{__MODULE__}",
         "Finished processing notifications for notification_setting #{id}"
@@ -82,7 +115,7 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
           page_size: @page_size
         )
 
-      process_page(next_page, notification_setting)
+      process_page(next_page, notification_setting, event_definition)
     end
 
     {:ok, :success}
