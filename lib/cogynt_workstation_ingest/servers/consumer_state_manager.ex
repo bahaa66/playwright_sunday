@@ -162,12 +162,6 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
           }"
         )
 
-        CogyntClient.publish_consumer_status(
-          event_definition.id,
-          event_definition.topic,
-          status
-        )
-
         %{
           state: new_state,
           response: {:ok, status}
@@ -187,12 +181,6 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
           "New Consumer State for event_definition_id: #{event_definition.id},  #{
             inspect(Map.get(new_state, event_definition.id))
           }"
-        )
-
-        CogyntClient.publish_consumer_status(
-          event_definition.id,
-          event_definition.topic,
-          status
         )
 
         %{
@@ -299,12 +287,6 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
           }"
         )
 
-        CogyntClient.publish_consumer_status(
-          event_definition.id,
-          event_definition.topic,
-          status
-        )
-
         %{
           state: new_state,
           response: {:ok, status}
@@ -324,12 +306,6 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
           "New Consumer State for event_definition_id: #{event_definition.id},  #{
             inspect(Map.get(new_state, event_definition.id))
           }"
-        )
-
-        CogyntClient.publish_consumer_status(
-          event_definition.id,
-          event_definition.topic,
-          status
         )
 
         %{
