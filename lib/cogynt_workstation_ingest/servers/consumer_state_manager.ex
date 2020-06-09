@@ -370,7 +370,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
         CogyntLogger.info(
           "#{__MODULE__}",
           "New Consumer State for event_definition_id: #{event_definition.id},  #{
-            Map.get(new_state, event_definition.id)
+            inspect(Map.get(new_state, event_definition.id))
           }"
         )
 
@@ -502,7 +502,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
         CogyntLogger.info(
           "#{__MODULE__}",
           "New Consumer State for event_definition_id: #{event_definition.id},  #{
-            Map.get(new_state, event_definition.id)
+            inspect(Map.get(new_state, event_definition.id))
           }"
         )
 
@@ -575,7 +575,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
             CogyntLogger.info(
               "#{__MODULE__}",
               "New Consumer State for event_definition_id: #{event_definition.id},  #{
-                Map.get(new_state, event_definition.id)
+                inspect(Map.get(new_state, event_definition.id))
               }"
             )
 
