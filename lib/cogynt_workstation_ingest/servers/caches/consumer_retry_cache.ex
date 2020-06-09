@@ -6,10 +6,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
   """
   use GenServer
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias Models.Enums.ConsumerStatusTypeEnum
   alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.Servers.ConsumerStateManager
 
@@ -84,20 +81,8 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
 
       with %EventDefinition{} = new_ed <- EventsContext.get_event_definition(event_definition.id),
            true <- is_nil(new_ed.deleted_at),
-           true <- new_ed.active,
-           {:ok, _pid} <- ConsumerGroupSupervisor.start_child(event_definition) do
-        ConsumerStateManager.update_consumer_state(
-          event_definition.id,
-          event_definition.topic,
-          ConsumerStatusTypeEnum.status()[:running],
-          __MODULE__
-        )
-
-        CogyntClient.publish_consumer_status(
-          event_definition.id,
-          event_definition.topic,
-          ConsumerStatusTypeEnum.status()[:running]
-        )
+           true <- new_ed.active do
+        ConsumerStateManager.manage_request(%{start_consumer: event_definition})
       else
         _ -> nil
       end

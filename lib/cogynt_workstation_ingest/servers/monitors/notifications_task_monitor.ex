@@ -8,7 +8,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
   use GenServer
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
   alias CogyntWorkstationIngest.Servers.ConsumerStateManager
-  # alias Models.Enums.ConsumerStatusTypeEnum
+  alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
 
@@ -24,7 +24,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
   end
 
   def is_processing?(notification_setting_id) do
-    GenServer.call(__MODULE__, {:is_processing, notification_setting_id})
+    GenServer.call(__MODULE__, {:is_processing, notification_setting_id}, 10000)
   end
 
   # ------------------------ #
@@ -57,15 +57,38 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
-    _event_definition =
+    event_definition =
       EventsContext.get_event_definition(notification_setting.event_definition_id)
 
-    # ConsumerStateManager.update_consumer_state(
-    #   event_definition.id,
-    #   event_definition.topic,
-    #   ConsumerStatusTypeEnum.status()[:paused_and_finished],
-    #   __MODULE__
-    # )
+    %{status: status, topic: topic, prev_status: prev_status, nsid: nsid} =
+      consumer_state = ConsumerStateManager.get_consumer_state(event_definition.id)
+
+    nsid = List.delete(nsid, notification_setting_id)
+
+    if Enum.empty?(nsid) do
+      cond do
+        prev_status == ConsumerStatusTypeEnum.status()[:running] ->
+          ConsumerStateManager.update_consumer_state(event_definition.id,
+            topic: topic,
+            status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+          )
+
+          ConsumerStateManager.manage_request(%{start_consumer: event_definition})
+
+        true ->
+          ConsumerStateManager.update_consumer_state(event_definition.id,
+            topic: topic,
+            status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+          )
+      end
+    else
+      ConsumerStateManager.update_consumer_state(event_definition.id,
+        topic: topic,
+        status: status,
+        prev_status: prev_status,
+        nsid: nsid
+      )
+    end
 
     CogyntClient.publish_notification_task_status(
       notification_setting_id,

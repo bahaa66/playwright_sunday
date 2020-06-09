@@ -86,18 +86,17 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
           new_status
         )
 
-      true ->
-        ConsumerStateManager.update_consumer_state(
-          id,
-          topic,
-          new_status,
-          __MODULE__
-        )
-
+      status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
         CogyntClient.publish_consumer_status(
           id,
           topic,
           new_status
+        )
+
+      true ->
+        ConsumerStateManager.update_consumer_state(id,
+          topic: topic,
+          status: new_status
         )
     end
   end

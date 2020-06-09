@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
   async task.
   """
   use Task
+  require Ecto.Query
   alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Events.EventsContext
@@ -61,8 +62,6 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
            event_definition,
          notification_setting
        ) do
-    CogyntLogger.warn("#{__MODULE__}", "Page Count: #{Enum.count(entries)}")
-
     {_count, updated_notifications} =
       build_notifications(entries, event_definition_details, notification_setting)
       |> NotificationsContext.bulk_insert_notifications(
@@ -82,45 +81,6 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
 
     case page_number >= total_pages do
       true ->
-        %{prev_status: prev_status, nsid: nsid} =
-          consumer_state = ConsumerStateManager.get_consumer_state(event_definition.id)
-
-        nsid = List.delete(nsid, notification_setting.id)
-
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Backfill notification state: #{inspect(consumer_state)}"
-        )
-
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Backfill notification state: #{inspect(nsid)}"
-        )
-
-        if Enum.empty?(nsid) do
-          cond do
-            prev_status == ConsumerStatusTypeEnum.status()[:running] ->
-              ConsumerStateManager.update_consumer_state(
-                event_definition.id,
-                event_definition.topic,
-                ConsumerStatusTypeEnum.status()[:paused_and_finished],
-                __MODULE__,
-                nsid
-              )
-
-              ConsumerStateManager.manage_request(%{start_consumer: event_definition})
-
-            true ->
-              ConsumerStateManager.update_consumer_state(
-                event_definition.id,
-                event_definition.topic,
-                ConsumerStatusTypeEnum.status()[:paused_and_finished],
-                __MODULE__,
-                nsid
-              )
-          end
-        end
-
         CogyntLogger.info(
           "#{__MODULE__}",
           "Finished processing notifications for event_definition: #{event_definition_id} and notification_setting #{

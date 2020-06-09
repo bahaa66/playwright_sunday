@@ -3,7 +3,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   alias KafkaEx.Protocol.Fetch
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
-  alias CogyntWorkstationIngest.Servers.{ConsumerStateManager, NotificationTaskManager}
+  alias CogyntWorkstationIngest.Servers.{ConsumerStateManager}
   alias Models.Enums.ConsumerStatusTypeEnum
 
   @defaults %{
@@ -122,17 +122,53 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   end
 
   @impl true
-  def handle_info({:delayed_notification_task, notification_setting_ids}, state) do
+  def handle_info({:delayed_finished_processing, event_definition_id}, state) do
+    %{status: status, topic: topic, nsid: nsid} =
+      ConsumerStateManager.get_consumer_state(event_definition_id)
+
+    cond do
+      status ==
+          ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Triggering Backfill notifications task: #{inspect(nsid)}"
+        )
+
+        Enum.each(nsid, fn id ->
+          ConsumerStateManager.manage_request(%{
+            backfill_notifications: id
+          })
+        end)
+
+      status ==
+          ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Triggering Update notifications task: #{inspect(nsid)}"
+        )
+
+        Enum.each(nsid, fn id ->
+          ConsumerStateManager.manage_request(%{
+            update_notification_setting: id
+          })
+        end)
+
+      status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
+        ConsumerStateManager.update_consumer_state(event_definition_id,
+          topic: topic,
+          status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+        )
+
+      true ->
+        nil
+    end
+
+    CogyntClient.publish_event_definition_ids([event_definition_id])
+
     CogyntLogger.info(
       "#{__MODULE__}",
-      "Triggering Backfill notifications: #{inspect(notification_setting_ids)}"
+      "Finished processing all messages for EventDefinitionId: #{event_definition_id}"
     )
-
-    Enum.each(notification_setting_ids, fn notification_setting_id ->
-      ConsumerStateManager.manage_request(%{
-        backfill_notifications: notification_setting_id
-      })
-    end)
 
     {:noreply, [], state}
   end
@@ -242,42 +278,10 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
         queues =
           case :queue.len(queue) == 0 do
             true ->
-              %{status: status, topic: topic, nsid: nsid} =
-                ConsumerStateManager.get_consumer_state(id)
-
-              cond do
-                status ==
-                    ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-                  # Process.send_after(
-                  #   self(),
-                  #   {:delayed_notification_task, nsid},
-                  #   10000
-                  # )
-                  nil
-
-                status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
-                  ConsumerStateManager.update_consumer_state(
-                    id,
-                    topic,
-                    ConsumerStatusTypeEnum.status()[:paused_and_finished],
-                    __MODULE__
-                  )
-
-                  CogyntClient.publish_consumer_status(
-                    id,
-                    topic,
-                    ConsumerStatusTypeEnum.status()[:paused_and_finished]
-                  )
-
-                true ->
-                  nil
-              end
-
-              CogyntClient.publish_event_definition_ids([id])
-
-              CogyntLogger.info(
-                "#{__MODULE__}",
-                "Finished processing all messages for EventDefinitionId: #{id}"
+              Process.send_after(
+                self(),
+                {:delayed_finished_processing, id},
+                30000
               )
 
               Map.delete(queues, id)

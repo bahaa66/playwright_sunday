@@ -13,7 +13,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     EventLink
   }
 
-  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
+  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
 
   # ---------------------------- #
   # --- Event Schema Methods --- #
@@ -343,7 +343,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         ed
         |> Repo.preload(:event_definition_details)
         |> event_definition_struct_to_map()
-        |> ConsumerGroupSupervisor.start_child()
+        |> ConsumerStateManager.manage_request()
       end)
       |> Enum.to_list()
     end)
@@ -365,7 +365,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           []
       end
 
-    %{
+    event_definition = %{
       id: event_definition.id,
       title: event_definition.title,
       topic: event_definition.topic,
@@ -385,6 +385,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
             acc
         end)
     }
+
+    %{start_consumer: event_definition}
   end
 
   defp filter_events(filter, query) do

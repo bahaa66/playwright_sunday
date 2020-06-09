@@ -1,16 +1,18 @@
 defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
   @moduledoc """
-
+  Genserver that keeps track of the State of each Consumer. Also knows which actions are
+  allowed to be performed based on what state the consumer is in.
   """
 
   use GenServer
   alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, TaskSupervisor}
-  alias CogyntWorkstationIngest.Servers.{ConsumerMonitor, NotificationsTaskMonitor}
+  alias CogyntWorkstationIngest.Servers.{ConsumerMonitor}
   alias CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Broadway.Producer
+  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
 
   @default_state %{topic: nil, nsid: [], status: nil, prev_status: nil}
 
@@ -21,15 +23,8 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
-  def update_consumer_state(event_definition_id, topic, status, module_name, nsid \\ []) do
-    CogyntLogger.warn(
-      "#{__MODULE__}",
-      "Adding Consumer State: ID: #{event_definition_id}, status: #{status}, Module: #{
-        module_name
-      }"
-    )
-
-    GenServer.cast(__MODULE__, {:update_consumer_state, event_definition_id, topic, status, nsid})
+  def update_consumer_state(event_definition_id, opts) do
+    GenServer.cast(__MODULE__, {:update_consumer_state, event_definition_id, opts})
   end
 
   def get_consumer_state(event_definition_id) do
@@ -58,18 +53,43 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
 
   @impl true
   def handle_cast(
-        {:update_consumer_state, event_definition_id, topic, status, nsid},
+        {:update_consumer_state, event_definition_id, opts},
         state
       ) do
+    status = Keyword.get(opts, :status, nil)
+    topic = Keyword.get(opts, :topic, nil)
+    prev_status = Keyword.get(opts, :prev_status, nil)
+    nsid = Keyword.get(opts, :nsid, [])
+
     %{status: current_status} = Map.get(state, event_definition_id, @default_state)
+
+    prev_status =
+      if is_nil(prev_status) do
+        current_status
+      else
+        prev_status
+      end
 
     new_state =
       Map.put(state, event_definition_id, %{
         topic: topic,
         nsid: nsid,
         status: status,
-        prev_status: current_status
+        prev_status: prev_status
       })
+
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "New Consumer State for event_definition_id: #{event_definition_id},  #{
+        inspect(Map.get(new_state, event_definition_id))
+      }"
+    )
+
+    CogyntClient.publish_consumer_status(
+      event_definition_id,
+      topic,
+      status
+    )
 
     {:noreply, new_state}
   end
@@ -82,6 +102,12 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
   @impl true
   def handle_cast({:remove_consumer_state, event_definition_id}, state) do
     new_state = Map.delete(state, event_definition_id)
+
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "Removed Consumer State for event_definition_id: #{event_definition_id}"
+    )
+
     {:noreply, new_state}
   end
 
@@ -110,8 +136,6 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
           delete_events(event_definition_id, state)
       end)
 
-    CogyntLogger.info("#{__MODULE__}", "Consumer State Manager New State: #{inspect(new_state)}")
-
     {:reply, response, new_state}
   end
 
@@ -131,9 +155,49 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
             prev_status: ConsumerStatusTypeEnum.status()[:running]
           })
 
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "New Consumer State for event_definition_id: #{event_definition.id},  #{
+            inspect(Map.get(new_state, event_definition.id))
+          }"
+        )
+
+        CogyntClient.publish_consumer_status(
+          event_definition.id,
+          event_definition.topic,
+          status
+        )
+
         %{
           state: new_state,
-          response: {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
+          response: {:ok, status}
+        }
+
+      status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+        new_state =
+          Map.put(state, event_definition.id, %{
+            topic: event_definition.topic,
+            nsid: nsid,
+            status: status,
+            prev_status: ConsumerStatusTypeEnum.status()[:running]
+          })
+
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "New Consumer State for event_definition_id: #{event_definition.id},  #{
+            inspect(Map.get(new_state, event_definition.id))
+          }"
+        )
+
+        CogyntClient.publish_consumer_status(
+          event_definition.id,
+          event_definition.topic,
+          status
+        )
+
+        %{
+          state: new_state,
+          response: {:ok, status}
         }
 
       status == ConsumerStatusTypeEnum.status()[:topic_does_not_exist] ->
@@ -155,6 +219,19 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
                 prev_status: status
               })
 
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "New Consumer State for event_definition_id: #{event_definition.id},  #{
+                inspect(Map.get(new_state, event_definition.id))
+              }"
+            )
+
+            CogyntClient.publish_consumer_status(
+              event_definition.id,
+              event_definition.topic,
+              ConsumerStatusTypeEnum.status()[:topic_does_not_exist]
+            )
+
             %{
               state: new_state,
               response: {:error, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}
@@ -175,6 +252,19 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
                 status: ConsumerStatusTypeEnum.status()[:running],
                 prev_status: status
               })
+
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "New Consumer State for event_definition_id: #{event_definition.id},  #{
+                inspect(Map.get(new_state, event_definition.id))
+              }"
+            )
+
+            CogyntClient.publish_consumer_status(
+              event_definition.id,
+              event_definition.topic,
+              ConsumerStatusTypeEnum.status()[:running]
+            )
 
             %{state: new_state, response: {:ok, pid}}
         end
@@ -202,6 +292,46 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
             prev_status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
           })
 
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "New Consumer State for event_definition_id: #{event_definition.id},  #{
+            inspect(Map.get(new_state, event_definition.id))
+          }"
+        )
+
+        CogyntClient.publish_consumer_status(
+          event_definition.id,
+          event_definition.topic,
+          status
+        )
+
+        %{
+          state: new_state,
+          response: {:ok, status}
+        }
+
+      status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+        new_state =
+          Map.put(state, event_definition.id, %{
+            topic: event_definition.topic,
+            nsid: nsid,
+            status: status,
+            prev_status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+          })
+
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "New Consumer State for event_definition_id: #{event_definition.id},  #{
+            inspect(Map.get(new_state, event_definition.id))
+          }"
+        )
+
+        CogyntClient.publish_consumer_status(
+          event_definition.id,
+          event_definition.topic,
+          status
+        )
+
         %{
           state: new_state,
           response: {:ok, status}
@@ -226,6 +356,19 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
             status: consumer_status,
             prev_status: status
           })
+
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "New Consumer State for event_definition_id: #{event_definition.id},  #{
+            inspect(Map.get(new_state, event_definition.id))
+          }"
+        )
+
+        CogyntClient.publish_consumer_status(
+          event_definition.id,
+          event_definition.topic,
+          consumer_status
+        )
 
         %{state: new_state, response: {:ok, consumer_status}}
     end
@@ -252,6 +395,13 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
             prev_status: status
           })
 
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "New Consumer State for event_definition_id: #{event_definition.id},  #{
+            inspect(Map.get(new_state, event_definition.id))
+          }"
+        )
+
         %{
           state: new_state,
           response: {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
@@ -266,35 +416,42 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
             prev_status: status
           })
 
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "New Consumer State for event_definition_id: #{event_definition.id},  #{
+            Map.get(new_state, event_definition.id)
+          }"
+        )
+
         %{
           state: new_state,
           response: {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
         }
 
       status == ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-        case NotificationsTaskMonitor.is_processing?(notification_setting_id) do
-          true ->
-            %{
-              state: state,
-              response: {:ok, status}
-            }
-
-          false ->
-            TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
-
-            new_state =
-              Map.put(state, event_definition.id, %{
-                topic: event_definition.topic,
-                nsid: Enum.uniq(nsid ++ [notification_setting_id]),
-                status: status,
-                prev_status: prev_status
-              })
-
-            %{
-              state: new_state,
-              response: {:ok, status}
-            }
+        if Enum.member?(nsid, notification_setting_id) do
+          TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
         end
+
+        new_state =
+          Map.put(state, event_definition.id, %{
+            topic: event_definition.topic,
+            nsid: Enum.uniq(nsid ++ [notification_setting_id]),
+            status: status,
+            prev_status: prev_status
+          })
+
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "New Consumer State for event_definition_id: #{event_definition.id},  #{
+            inspect(Map.get(new_state, event_definition.id))
+          }"
+        )
+
+        %{
+          state: new_state,
+          response: {:ok, status}
+        }
 
       true ->
         ConsumerGroupSupervisor.stop_child(event_definition.topic)
@@ -308,6 +465,13 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
                 status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
                 prev_status: status
               })
+
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "New Consumer State for event_definition_id: #{event_definition.id},  #{
+                inspect(Map.get(new_state, event_definition.id))
+              }"
+            )
 
             %{
               state: new_state,
@@ -325,6 +489,13 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
                 status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
                 prev_status: status
               })
+
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "New Consumer State for event_definition_id: #{event_definition.id},  #{
+                inspect(Map.get(new_state, event_definition.id))
+              }"
+            )
 
             %{
               state: new_state,
@@ -341,8 +512,8 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
     event_definition =
       EventsContext.get_event_definition(notification_setting.event_definition_id)
 
-    %{status: status} =
-      Map.get(state, event_definition.id, %{topic: nil, status: nil, prev_status: nil})
+    %{status: status, prev_status: prev_status, nsid: nsid} =
+      Map.get(state, event_definition.id, @default_state)
 
     cond do
       status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
@@ -351,31 +522,66 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
         new_state =
           Map.put(state, event_definition.id, %{
             topic: event_definition.topic,
-            status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
+            nsid: nsid ++ [notification_setting_id],
+            status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
             prev_status: status
           })
 
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "New Consumer State for event_definition_id: #{event_definition.id},  #{
+            inspect(Map.get(new_state, event_definition.id))
+          }"
+        )
+
         %{
           state: new_state,
-          response: {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
+          response: {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
         }
 
       status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
         new_state =
           Map.put(state, event_definition.id, %{
             topic: event_definition.topic,
-            status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
+            nsid: nsid ++ [notification_setting_id],
+            status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
             prev_status: status
           })
 
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "New Consumer State for event_definition_id: #{event_definition.id},  #{
+            Map.get(new_state, event_definition.id)
+          }"
+        )
+
         %{
           state: new_state,
-          response: {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
+          response: {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
         }
 
-      status == ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+      status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+        if Enum.member?(nsid, notification_setting_id) do
+          TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
+        end
+
+        new_state =
+          Map.put(state, event_definition.id, %{
+            topic: event_definition.topic,
+            nsid: Enum.uniq(nsid ++ [notification_setting_id]),
+            status: status,
+            prev_status: prev_status
+          })
+
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "New Consumer State for event_definition_id: #{event_definition.id},  #{
+            inspect(Map.get(new_state, event_definition.id))
+          }"
+        )
+
         %{
-          state: state,
+          state: new_state,
           response: {:ok, status}
         }
 
@@ -387,14 +593,21 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
             new_state =
               Map.put(state, event_definition.id, %{
                 topic: event_definition.topic,
-                status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
+                nsid: nsid ++ [notification_setting_id],
+                status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
                 prev_status: status
               })
 
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "New Consumer State for event_definition_id: #{event_definition.id},  #{
+                inspect(Map.get(new_state, event_definition.id))
+              }"
+            )
+
             %{
               state: new_state,
-              response:
-                {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
+              response: {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
             }
 
           false ->
@@ -403,14 +616,21 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
             new_state =
               Map.put(state, event_definition.id, %{
                 topic: event_definition.topic,
-                status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
+                nsid: nsid ++ [notification_setting_id],
+                status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
                 prev_status: status
               })
 
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "New Consumer State for event_definition_id: #{event_definition.id},  #{
+                Map.get(new_state, event_definition.id)
+              }"
+            )
+
             %{
               state: new_state,
-              response:
-                {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
+              response: {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
             }
         end
     end

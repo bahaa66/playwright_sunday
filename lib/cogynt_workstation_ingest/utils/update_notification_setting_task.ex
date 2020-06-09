@@ -78,31 +78,6 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
     NotificationSubscriptionCache.add_new_notifications(updated_notifications)
 
     if page_number >= total_pages do
-      %{prev_status: prev_status} =
-        consumer_state = ConsumerStateManager.get_consumer_state(event_definition.id)
-
-      CogyntLogger.info("#{__MODULE__}", "Update notification state:: #{inspect(consumer_state)}")
-
-      cond do
-        prev_status == ConsumerStatusTypeEnum.status()[:running] ->
-          ConsumerStateManager.update_consumer_state(
-            event_definition.id,
-            event_definition.topic,
-            ConsumerStatusTypeEnum.status()[:paused_and_finished],
-            __MODULE__
-          )
-
-          ConsumerStateManager.manage_request(%{start_consumer: event_definition})
-
-        true ->
-          ConsumerStateManager.update_consumer_state(
-            event_definition.id,
-            event_definition.topic,
-            ConsumerStatusTypeEnum.status()[:paused_and_finished],
-            __MODULE__
-          )
-      end
-
       CogyntLogger.info(
         "#{__MODULE__}",
         "Finished processing notifications for notification_setting #{id}"
