@@ -54,7 +54,7 @@ defmodule CogyntWorkstationIngest.Utils.DeleteTopicDataTask do
           "Stoping ConsumerGroup for #{topic}"
         )
 
-        ConsumerStateManager.manage_request(%{stop_child: topic})
+        ConsumerStateManager.manage_request(%{stop_consumer: topic})
 
         acc ++ [topic]
       end)
