@@ -32,7 +32,7 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
   # ----------------------- #
   defp backfill_notifications(notification_setting_id) do
     with %NotificationSetting{} = notification_setting <-
-           NotificationsContext.get_notification_setting(notification_setting_id),
+           NotificationsContext.get_notification_setting_by(%{id: notification_setting_id}),
          %EventDefinition{} = event_definition <-
            EventsContext.get_event_definition!(notification_setting.event_definition_id) do
       page =
