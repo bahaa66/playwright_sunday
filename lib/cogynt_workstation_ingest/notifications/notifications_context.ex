@@ -33,6 +33,17 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   """
   def get_notification_setting(id), do: Repo.get(NotificationSetting, id)
 
+  @doc """
+  Returns a single Notification_Setting struct from the query
+  ## Examples
+      iex> get_notification_setting_by(%{id: id})
+      {:ok, %NotificationSetting{...}}
+      iex> get_notification_setting_by(%{id: invalid_id})
+      nil
+  """
+  def get_notification_setting_by(clauses),
+    do: Repo.get_by(from(ns in NotificationSetting, where: is_nil(ns.deleted_at)), clauses)
+
   # ---------------------------- #
   # --- Notification Methods --- #
   # ---------------------------- #
@@ -44,7 +55,8 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       iex> get_notification_by(%{id: invalid_id})
       nil
   """
-  def get_notification_by(clauses), do: Repo.get_by(Notification, clauses)
+  def get_notification_by(clauses),
+    do: Repo.get_by(Notification, clauses)
 
   @doc """
   Returns a list of the %Notification{} stucts that were inserted.
@@ -144,7 +156,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     ns_query =
       from(ns in NotificationSetting,
         where: ns.event_definition_id == type(^event_definition.id, :binary_id),
-        where: ns.active == true
+        where: ns.active == true and is_nil(ns.deleted_at)
       )
 
     {status, result} =
@@ -236,7 +248,6 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   end
 
   def in_risk_range?(risk_score, risk_range) do
-
     with true <- risk_score > 0,
          converted_risk_score <- trunc(Float.round(risk_score * 100)),
          min_risk_range <- Enum.min(risk_range),
