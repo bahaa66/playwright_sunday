@@ -57,32 +57,32 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
-    event_definition =
-      EventsContext.get_event_definition(notification_setting.event_definition_id)
+    start_consumer_args =
+      EventsContext.get_event_definition_for_startup(notification_setting.event_definition_id)
 
     %{status: status, topic: topic, prev_status: prev_status, nsid: nsid} =
-      ConsumerStateManager.get_consumer_state(event_definition.id)
+      ConsumerStateManager.get_consumer_state(notification_setting.event_definition_id)
 
     nsid = List.delete(nsid, notification_setting_id)
 
     if Enum.empty?(nsid) do
       cond do
         prev_status == ConsumerStatusTypeEnum.status()[:running] ->
-          ConsumerStateManager.update_consumer_state(event_definition.id,
+          ConsumerStateManager.update_consumer_state(notification_setting.event_definition_id,
             topic: topic,
             status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
           )
 
-          ConsumerStateManager.manage_request(%{start_consumer: event_definition})
+          ConsumerStateManager.manage_request(start_consumer_args)
 
         true ->
-          ConsumerStateManager.update_consumer_state(event_definition.id,
+          ConsumerStateManager.update_consumer_state(notification_setting.event_definition_id,
             topic: topic,
             status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
           )
       end
     else
-      ConsumerStateManager.update_consumer_state(event_definition.id,
+      ConsumerStateManager.update_consumer_state(notification_setting.event_definition_id,
         topic: topic,
         status: status,
         prev_status: prev_status,
