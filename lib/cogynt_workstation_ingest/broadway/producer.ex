@@ -3,6 +3,8 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   alias KafkaEx.Protocol.Fetch
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
+  alias CogyntWorkstationIngest.Servers.{ConsumerStateManager}
+  alias Models.Enums.ConsumerStatusTypeEnum
 
   @defaults %{
     event_id: nil,
@@ -34,7 +36,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
 
   def is_processing?(event_definition_id, type) do
     producer_name = event_type_to_name(type)
-    GenServer.call(producer_name, {:is_processing, event_definition_id})
+    GenServer.call(producer_name, {:is_processing, event_definition_id}, 10_000)
   end
 
   def drain_queue(event_definition_id, type) do
@@ -117,6 +119,64 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     state = Map.put(state, :failed_messages, [])
     {messages, new_state} = fetch_and_release_demand(demand, queues, state)
     {:noreply, messages, new_state}
+  end
+
+  @impl true
+  def handle_info({:delayed_finished_processing, event_definition_id}, state) do
+    %{status: status, topic: topic, nsid: nsid} =
+      ConsumerStateManager.get_consumer_state(event_definition_id)
+
+    cond do
+      status ==
+          ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Triggering Backfill notifications task: #{inspect(nsid)}"
+        )
+
+        Enum.each(nsid, fn id ->
+          ConsumerStateManager.manage_request(%{
+            backfill_notifications: id
+          })
+        end)
+
+      status ==
+          ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Triggering Update notifications task: #{inspect(nsid)}"
+        )
+
+        Enum.each(nsid, fn id ->
+          ConsumerStateManager.manage_request(%{
+            update_notification_setting: id
+          })
+        end)
+
+      status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
+        ConsumerStateManager.update_consumer_state(event_definition_id,
+          topic: topic,
+          status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+        )
+
+        CogyntClient.publish_consumer_status(
+          event_definition_id,
+          topic,
+          ConsumerStatusTypeEnum.status()[:paused_and_finished]
+        )
+
+      true ->
+        nil
+    end
+
+    CogyntClient.publish_event_definition_ids([event_definition_id])
+
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "Finished processing all messages for EventDefinitionId: #{event_definition_id}"
+    )
+
+    {:noreply, [], state}
   end
 
   # ----------------------- #
@@ -224,12 +284,10 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
         queues =
           case :queue.len(queue) == 0 do
             true ->
-              CogyntClient.publish_consumer_status(id, nil)
-              CogyntClient.publish_event_definition_ids([id])
-
-              CogyntLogger.info(
-                "#{__MODULE__}",
-                "Finished processing all messages for EventDefinitionId: #{id}"
+              Process.send_after(
+                self(),
+                {:delayed_finished_processing, id},
+                30000
               )
 
               Map.delete(queues, id)

@@ -25,10 +25,11 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
     |> JA_Keys.dasherize()
   end
 
-  has_many :children,
+  has_many(:children,
     serializer: __MODULE__,
     include: true,
     identifiers: :always
+  )
 
   def children(info, _conn) do
     # IO.inspect(info, label: "@@@@ Parent in drilldown")
@@ -46,10 +47,10 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
           # IO.inspect(inst, label: "@@@@ Instance causing recursion")
           nil
         else
-          CogyntLogger.info(
-            "Drilldown View",
-            "@@@@ Instance #{inst["id"]} parent #{info["key"]}"
-          )
+          # CogyntLogger.info(
+          #   "Drilldown View",
+          #   "@@@@ Instance #{inst["id"]} parent #{info["key"]}"
+          # )
 
           inst
         end
@@ -79,20 +80,22 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
     |> Enum.sort_by(& &1["id"])
   end
 
-  has_many :outcomes,
+  has_many(:outcomes,
     serializer: EventView,
     include: true,
     identifiers: :always
+  )
 
   def outcomes(info, _conn) do
     info["outcomes"]
     |> Enum.sort_by(& &1["id"])
   end
 
-  has_many :events,
+  has_many(:events,
     serializer: EventView,
     include: true,
     identifiers: :always
+  )
 
   def events(info, _conn) do
     if is_map(info["events"]) do

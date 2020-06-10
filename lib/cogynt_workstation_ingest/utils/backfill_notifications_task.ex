@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
   async task.
   """
   use Task
+  require Ecto.Query
   alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Events.EventsContext

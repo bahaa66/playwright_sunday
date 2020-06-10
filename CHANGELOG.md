@@ -1,9 +1,21 @@
-### [1.3.12](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.11...v1.3.12) (2020-06-04)
+### [1.3.13-develop.1](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.12...v1.3.13-develop.1) (2020-06-10)
 
 
 ### :bug: Bugfix
 
-* **undelete:** Merge pull request [#67](https://github.com/Cogility/cogynt-workstation-ingest/issues/67) from Cogility/develop ([47d9f6f](https://github.com/Cogility/cogynt-workstation-ingest/commit/47d9f6f22d06154faf837f0d3226fc3b3452c3a7))
+* **CDST-568:** Merge pull request [#68](https://github.com/Cogility/cogynt-workstation-ingest/issues/68) from Cogility/feature/CDST-568-backfill-notification-rework ([46881f0](https://github.com/Cogility/cogynt-workstation-ingest/commit/46881f04b703ed2dbb49268610babcc611ba75e7))
+
+
+### :hammer: Build
+
+* updated to use build-harness ([112e153](https://github.com/Cogility/cogynt-workstation-ingest/commit/112e1536351b7f2064189c8bac935ad5cf520a2e))
+
+### [1.3.12-develop.1](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.11...v1.3.12-develop.1) (2020-06-09)
+
+
+### :hammer: Build
+
+* updated to use build-harness ([112e153](https://github.com/Cogility/cogynt-workstation-ingest/commit/112e1536351b7f2064189c8bac935ad5cf520a2e))
 
 ### [1.3.11](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.10...v1.3.11) (2020-06-04)
 

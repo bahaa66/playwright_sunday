@@ -7,6 +7,10 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
   use GenServer
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
+  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
+  alias Models.Enums.ConsumerStatusTypeEnum
+  alias CogyntWorkstationIngest.Events.EventsContext
+  alias CogyntWorkstationIngest.Notifications.NotificationsContext
 
   # -------------------- #
   # --- client calls --- #
@@ -20,7 +24,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
   end
 
   def is_processing?(notification_setting_id) do
-    GenServer.call(__MODULE__, {:is_processing, notification_setting_id})
+    GenServer.call(__MODULE__, {:is_processing, notification_setting_id}, 10_000)
   end
 
   # ------------------------ #
@@ -50,6 +54,41 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
   @impl true
   def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
     notification_setting_id = Map.get(state, pid)
+
+    notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
+
+    event_definition =
+      EventsContext.get_event_definition(notification_setting.event_definition_id)
+
+    %{status: status, topic: topic, prev_status: prev_status, nsid: nsid} =
+      ConsumerStateManager.get_consumer_state(event_definition.id)
+
+    nsid = List.delete(nsid, notification_setting_id)
+
+    if Enum.empty?(nsid) do
+      cond do
+        prev_status == ConsumerStatusTypeEnum.status()[:running] ->
+          ConsumerStateManager.update_consumer_state(event_definition.id,
+            topic: topic,
+            status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+          )
+
+          ConsumerStateManager.manage_request(%{start_consumer: event_definition})
+
+        true ->
+          ConsumerStateManager.update_consumer_state(event_definition.id,
+            topic: topic,
+            status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+          )
+      end
+    else
+      ConsumerStateManager.update_consumer_state(event_definition.id,
+        topic: topic,
+        status: status,
+        prev_status: prev_status,
+        nsid: nsid
+      )
+    end
 
     CogyntClient.publish_notification_task_status(
       notification_setting_id,

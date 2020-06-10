@@ -3,30 +3,25 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   use Task
 
   alias CogyntWorkstationIngest.Servers.NotificationsTaskMonitor
-  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Broadway.Producer
   alias Models.Enums.ConsumerStatusTypeEnum
   alias Models.Events.EventDefinition
+  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
 
   # ----------------------- #
   # --- ingestion calls --- #
   # ----------------------- #
   def handle_request("ingest:start_consumer", event_definition) when is_map(event_definition) do
-    result = ConsumerGroupSupervisor.start_child(keys_to_atoms(event_definition))
+    result =
+      ConsumerStateManager.manage_request(%{start_consumer: keys_to_atoms(event_definition)})
 
     case result do
-      {:ok, pid} ->
+      {:ok, _pid} ->
         %{
           status: :ok,
-          body: "#{inspect(pid)}"
-        }
-
-      {:error, nil} ->
-        %{
-          status: :error,
-          body: ConsumerStatusTypeEnum.status()[:topic_does_not_exist]
+          body: :consumer_started
         }
 
       {:error, error} ->
@@ -45,12 +40,13 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   def handle_request("ingest:stop_consumer", event_definition) when is_map(event_definition) do
     event_definition = keys_to_atoms(event_definition)
 
-    with {:ok, :success} <- ConsumerGroupSupervisor.stop_child(event_definition.topic) do
-      %{
-        status: :ok,
-        body: :success
-      }
-    else
+    case ConsumerStateManager.manage_request(%{stop_consumer: event_definition.topic}) do
+      {:ok, status} ->
+        %{
+          status: :ok,
+          body: status
+        }
+
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
@@ -67,7 +63,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   def handle_request("ingest:backfill_notifications", %{
         "notification_setting_id" => notification_setting_id
       }) do
-    TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+    ConsumerStateManager.manage_request(%{backfill_notifications: notification_setting_id})
 
     %{
       status: :ok,
@@ -78,7 +74,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   def handle_request("ingest:update_notifications", %{
         "notification_setting_id" => notification_setting_id
       }) do
-    TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
+    ConsumerStateManager.manage_request(%{update_notification_setting: notification_setting_id})
 
     %{
       status: :ok,
@@ -89,7 +85,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   def handle_request("ingest:delete_event_definition_events", %{
         "event_definition_id" => event_definition_id
       }) do
-    TaskSupervisor.start_child(%{delete_event_definition_events: event_definition_id})
+    ConsumerStateManager.manage_request(%{delete_event_definition_events: event_definition_id})
 
     %{
       status: :ok,
@@ -99,94 +95,52 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
 
   def handle_request("ingest:check_status", consumers) when is_list(consumers) do
     try do
-      # TODO: Temp need to eventually pull name from event_definition for kafka worker
-      KafkaEx.create_worker(:standard,
-        consumer_group: "kafka_ex",
-        consumer_group_update_interval: 100
-      )
-
-      # Grab a list of existing Kafka topics
-      existing_topics =
-        KafkaEx.metadata(worker_name: :standard).topic_metadatas |> Enum.map(& &1.topic)
-
       result =
         Enum.reduce(consumers, [], fn %{"id" => id, "topic" => topic}, acc ->
-          case Enum.member?(existing_topics, topic) do
-            false ->
+          consumer_state = ConsumerStateManager.get_consumer_state(id)
+
+          cond do
+            consumer_state == %{} ->
               acc ++
                 [
                   %{
                     id: id,
                     topic: topic,
-                    status: ConsumerStatusTypeEnum.status()[:topic_does_not_exist]
+                    status: ConsumerStatusTypeEnum.status()[:has_not_been_created]
+                  }
+                ]
+
+            consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+              acc ++
+                [
+                  %{
+                    id: id,
+                    topic: topic,
+                    status: consumer_state.prev_status
+                  }
+                ]
+
+            consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+              acc ++
+                [
+                  %{
+                    id: id,
+                    topic: topic,
+                    status: consumer_state.prev_status
                   }
                 ]
 
             true ->
-              case Process.whereis(consumer_group_name(topic)) do
-                nil ->
-                  case EventsContext.get_event_definition(id) do
-                    nil ->
-                      acc ++
-                        [
-                          %{
-                            id: id,
-                            topic: topic,
-                            status: ConsumerStatusTypeEnum.status()[:has_not_been_created]
-                          }
-                        ]
-
-                    %EventDefinition{} = event_definition ->
-                      case event_definition.active do
-                        true ->
-                          acc ++
-                            [
-                              %{
-                                id: id,
-                                topic: topic,
-                                status:
-                                  ConsumerStatusTypeEnum.status()[
-                                    :is_active_but_no_consumer_running
-                                  ]
-                              }
-                            ]
-
-                        false ->
-                          case Producer.is_processing?(id, event_definition.event_type) do
-                            true ->
-                              acc ++
-                                [
-                                  %{
-                                    id: id,
-                                    topic: topic,
-                                    status:
-                                      ConsumerStatusTypeEnum.status()[:paused_and_processing]
-                                  }
-                                ]
-
-                            false ->
-                              acc ++
-                                [
-                                  %{
-                                    id: id,
-                                    topic: topic,
-                                    status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
-                                  }
-                                ]
-                          end
-                      end
-                  end
-
-                _ ->
-                  acc ++
-                    [
-                      %{
-                        id: id,
-                        topic: topic,
-                        status: ConsumerStatusTypeEnum.status()[:running]
-                      }
-                    ]
-              end
+              acc ++
+                [
+                  %{
+                    id: id,
+                    topic: topic,
+                    status: consumer_state.status
+                  }
+                ]
           end
         end)
 

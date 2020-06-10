@@ -1,5 +1,4 @@
 version: 0.2
-
 env:
   variables:
     GIT_REPO_NAME: 'cogynt-workstation-ingest'
@@ -11,32 +10,11 @@ phases:
       nodejs: 10
       docker: 18
     commands:
-      - git clone --single-branch --branch $GIT_BRANCH https://$GH_TOKEN@github.com/Cogility/$GIT_REPO_NAME.git tmp
-      - mv tmp/.git ./
-      - echo Setup Semantic Release
-      - git clone  https://$GH_TOKEN@github.com/Cogility/semantic-release.git
-      - sh ./semantic-release/installer.sh
-      - echo Install Helm
-      - curl -L https://git.io/get_helm.sh | bash
-      - helm init --client-only
-      - helm plugin install https://github.com/hypnoglow/helm-s3.git
-      - helm repo add cogynt-helm-charts s3://cogynt-helm-charts/charts
+      - make init
+      - make cogynt/release/install
   build:
     commands:
-      - echo App Env set $BUILD_ENV
-      - echo App Name set $APP_NAME
-      - echo Run unit test - false
-      - echo Build started on `date`
-      - make build-image
+      - make cogynt/release/build
   post_build:
     commands:
-      - echo Pushing the Docker image...
-      - make push-image
-      - echo Pushing Github release
-      - npx semantic-release --branch $GIT_BRANCH --extends ./semantic-release/release-config.js
-      - . ./.semver && echo Release Version set $RELEASE_VERSION
-      - make push-semver
-      - echo Push Helm Chart
-      - helm package ./helm/$APP_NAME
-      - helm s3 push --force ./$APP_NAME-$RELEASE_VERSION.tgz cogynt-helm-charts
-      - echo Build completed on `date`
+      - make cogynt/release/post-build
