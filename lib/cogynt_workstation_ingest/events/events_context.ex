@@ -349,6 +349,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     end)
   end
 
+  def get_event_definition_for_startup(event_definition_id) do
+    Repo.get(EventDefinition, event_definition_id)
+    |> Repo.preload(:event_definition_details)
+    |> event_definition_struct_to_map()
+  end
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
