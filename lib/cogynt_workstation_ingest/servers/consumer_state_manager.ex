@@ -236,6 +236,27 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
             )
 
             %{state: new_state, response: {:ok, pid}}
+
+          {:error, _param} ->
+            ConsumerRetryCache.retry_consumer(event_definition)
+
+            new_state =
+              Map.put(state, event_definition.id, %{
+                topic: event_definition.topic,
+                nsid: nsid,
+                status: ConsumerStatusTypeEnum.status()[:topic_does_not_exist],
+                prev_status: status
+              })
+
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "Consumer Error State for event_definition_id: #{event_definition.id}"
+            )
+
+            %{
+              state: new_state,
+              response: {:error, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}
+            }
         end
     end
   end
