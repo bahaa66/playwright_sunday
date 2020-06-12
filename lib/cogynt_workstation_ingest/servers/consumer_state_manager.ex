@@ -189,7 +189,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
 
       true ->
         case ConsumerGroupSupervisor.start_child(event_definition) do
-          {:ok, nil} ->
+          {:error, nil} ->
             ConsumerRetryCache.retry_consumer(event_definition)
 
             new_state =
@@ -209,7 +209,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
 
             %{
               state: new_state,
-              response: {:error, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}
+              response: {:ok, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}
             }
 
           {:ok, pid} ->
