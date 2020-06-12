@@ -1,3 +1,10 @@
+### [1.3.16](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.15...v1.3.16) (2020-06-12)
+
+
+### :bug: Bugfix
+
+* **condition check:** Merge pull request [#72](https://github.com/Cogility/cogynt-workstation-ingest/issues/72) from Cogility/hotfix/add-error-catch ([c590522](https://github.com/Cogility/cogynt-workstation-ingest/commit/c5905225d2a462a86b7e45e01349370a83a18ce3))
+
 ### [1.3.15](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.14...v1.3.15) (2020-06-11)
 
 
