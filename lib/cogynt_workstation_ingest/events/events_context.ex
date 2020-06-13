@@ -5,6 +5,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   import Ecto.Query, warn: false
   alias CogyntWorkstationIngest.Repo
   alias Ecto.Multi
+  alias Models.Enums.ConsumerStatusTypeEnum
 
   alias Models.Events.{
     Event,
@@ -330,35 +331,53 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # ----------------------------------- #
   # --- Application Startup Methods --- #
   # ----------------------------------- #
-  def initalize_consumers_with_active_event_definitions() do
-    Repo.transaction(fn ->
-      Repo.stream(
+  def start_consumers_for_active_ed() do
+    event_definitions =
+      Repo.all(
         from(
           ed in EventDefinition,
           where: is_nil(ed.deleted_at),
-          where: ed.active == true
+          where: ed.active == true,
+          preload: [:event_definition_details]
         )
       )
-      |> Stream.each(fn ed ->
-        ed
-        |> Repo.preload(:event_definition_details)
-        |> event_definition_struct_to_map()
-        |> ConsumerStateManager.manage_request()
-      end)
-      |> Enum.to_list()
+
+    Enum.each(event_definitions, fn ed ->
+      ed
+      |> build_start_consumer_args_from_ed()
+      |> ConsumerStateManager.manage_request()
+    end)
+  end
+
+  def init_consumer_state_for_inactive_ed() do
+    event_definitions =
+      Repo.all(
+        from(
+          ed in EventDefinition,
+          where: is_nil(ed.deleted_at),
+          where: ed.active == false,
+          preload: [:event_definition_details]
+        )
+      )
+
+    Enum.each(event_definitions, fn ed ->
+      ConsumerStateManager.update_consumer_state(ed.id,
+        status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
+        topic: ed.topic
+      )
     end)
   end
 
   def get_event_definition_for_startup(event_definition_id) do
     Repo.get(EventDefinition, event_definition_id)
     |> Repo.preload(:event_definition_details)
-    |> event_definition_struct_to_map()
+    |> build_start_consumer_args_from_ed()
   end
 
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp event_definition_struct_to_map(event_definition) do
+  defp build_start_consumer_args_from_ed(event_definition) do
     event_definition_details =
       case event_definition do
         %{event_definition_details: %Ecto.Association.NotLoaded{}} ->

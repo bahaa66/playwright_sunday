@@ -4,10 +4,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
 
   alias CogyntWorkstationIngest.Servers.NotificationsTaskMonitor
   alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
-  alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngest.Broadway.Producer
   alias Models.Enums.ConsumerStatusTypeEnum
-  alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.Servers.ConsumerStateManager
 
   # ----------------------- #
@@ -18,10 +15,16 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
       ConsumerStateManager.manage_request(%{start_consumer: keys_to_atoms(event_definition)})
 
     case result do
-      {:ok, _pid} ->
+      {:ok, pid} ->
         %{
           status: :ok,
-          body: :consumer_started
+          body: "#{inspect(pid)}"
+        }
+
+      {:error, nil} ->
+        %{
+          status: :error,
+          body: ConsumerStatusTypeEnum.status()[:topic_does_not_exist]
         }
 
       {:error, error} ->
@@ -107,6 +110,21 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                     id: id,
                     topic: topic,
                     status: ConsumerStatusTypeEnum.status()[:has_not_been_created]
+                  }
+                ]
+
+            consumer_state == %{status: nil} ->
+              ConsumerStateManager.update_consumer_state(id,
+                status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
+                topic: topic
+              )
+
+              acc ++
+                [
+                  %{
+                    id: id,
+                    topic: topic,
+                    status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
                   }
                 ]
 
@@ -257,6 +275,4 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   defp keys_to_atoms(string_key_map) do
     for {key, val} <- string_key_map, into: %{}, do: {String.to_atom(key), val}
   end
-
-  defp consumer_group_name(topic), do: String.to_atom(topic <> "Group")
 end

@@ -33,16 +33,9 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
   defp initialize_consumers() do
     with :ok <- Application.ensure_started(:phoenix),
          :ok <- Application.ensure_started(:postgrex) do
-      case EventsContext.initalize_consumers_with_active_event_definitions() do
-        {:ok, _} ->
-          CogyntLogger.info("#{__MODULE__}", "Consumers Initialized")
-
-        {:error, error} ->
-          CogyntLogger.error(
-            "#{__MODULE__}",
-            "Failed to initialize consumers. Error: #{inspect(error)}"
-          )
-      end
+      EventsContext.start_consumers_for_active_ed()
+      EventsContext.init_consumer_state_for_inactive_ed()
+      CogyntLogger.info("#{__MODULE__}", "Consumers Initialized")
     else
       {:error, error} ->
         CogyntLogger.error("#{__MODULE__}", "App not started. #{inspect(error)}")

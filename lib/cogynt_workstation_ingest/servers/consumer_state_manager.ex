@@ -137,7 +137,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
 
     cond do
       status == ConsumerStatusTypeEnum.status()[:running] ->
-        %{state: state, response: {:error, status}}
+        %{state: state, response: {:ok, status}}
 
       status == ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
         new_state =
@@ -184,7 +184,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
       status == ConsumerStatusTypeEnum.status()[:topic_does_not_exist] ->
         %{
           state: state,
-          response: {:error, status}
+          response: {:error, nil}
         }
 
       true ->
@@ -209,7 +209,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
 
             %{
               state: new_state,
-              response: {:ok, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}
+              response: {:error, nil}
             }
 
           {:ok, pid} ->
