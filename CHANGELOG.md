@@ -1,3 +1,17 @@
+### [1.3.19](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.18...v1.3.19) (2020-06-15)
+
+
+### :bug: Bugfix
+
+* **check if processing:** Merge pull request [#76](https://github.com/Cogility/cogynt-workstation-ingest/issues/76) from Cogility/develop ([1178c76](https://github.com/Cogility/cogynt-workstation-ingest/commit/1178c762fdc13cde58d09c1f8ca876516814a75c))
+
+### [1.3.18](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.17...v1.3.18) (2020-06-15)
+
+
+### :bug: Bugfix
+
+* Nill state for consumer without existing topic ([74403e8](https://github.com/Cogility/cogynt-workstation-ingest/commit/74403e8904b382c891bbb5f99f23386ae64feea8))
+
 ### [1.3.17](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.16...v1.3.17) (2020-06-13)
 
 
