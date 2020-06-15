@@ -185,7 +185,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
         status == ConsumerStatusTypeEnum.status()[:topic_does_not_exist] ->
           %{
             state: state,
-            response: {:error, nil}
+            response: {:ok, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}
           }
 
         true ->
@@ -210,7 +210,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
 
               %{
                 state: new_state,
-                response: {:error, nil}
+                response: {:ok, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}
               }
 
             {:error, {:already_started, pid}} ->
