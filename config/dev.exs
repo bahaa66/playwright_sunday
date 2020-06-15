@@ -120,7 +120,7 @@ config :cogynt_workstation_ingest, :rpc,
   cogynt_otp_service_port: System.get_env("COGYNT_OTP_SERVICE_PORT") || 4010
 
 # startup utils configurations
-config :cogynt_workstation_ingest, :startup, init_delay: System.get_env("INIT_DELAY") || 5000
+config :cogynt_workstation_ingest, :startup, init_delay: System.get_env("INIT_DELAY") || 1000
 
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.
