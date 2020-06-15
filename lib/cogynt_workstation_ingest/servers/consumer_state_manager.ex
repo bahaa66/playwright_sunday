@@ -133,195 +133,218 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
   end
 
   defp start_consumer(event_definition, state) do
-    %{status: status, nsid: nsid} = Map.get(state, event_definition.id, @default_state)
+    try do
+      %{status: status, nsid: nsid} = Map.get(state, event_definition.id, @default_state)
 
-    cond do
-      status == ConsumerStatusTypeEnum.status()[:running] ->
-        %{state: state, response: {:ok, status}}
+      cond do
+        status == ConsumerStatusTypeEnum.status()[:running] ->
+          %{state: state, response: {:ok, status}}
 
-      status == ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-        new_state =
-          Map.put(state, event_definition.id, %{
-            topic: event_definition.topic,
-            nsid: nsid,
-            status: status,
-            prev_status: ConsumerStatusTypeEnum.status()[:running]
-          })
+        status == ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+          new_state =
+            Map.put(state, event_definition.id, %{
+              topic: event_definition.topic,
+              nsid: nsid,
+              status: status,
+              prev_status: ConsumerStatusTypeEnum.status()[:running]
+            })
 
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "New Consumer State for event_definition_id: #{event_definition.id},  #{
-            inspect(Map.get(new_state, event_definition.id))
-          }"
-        )
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "New Consumer State for event_definition_id: #{event_definition.id},  #{
+              inspect(Map.get(new_state, event_definition.id))
+            }"
+          )
 
-        %{
-          state: new_state,
-          response: {:ok, status}
-        }
+          %{
+            state: new_state,
+            response: {:ok, status}
+          }
 
-      status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-        new_state =
-          Map.put(state, event_definition.id, %{
-            topic: event_definition.topic,
-            nsid: nsid,
-            status: status,
-            prev_status: ConsumerStatusTypeEnum.status()[:running]
-          })
+        status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+          new_state =
+            Map.put(state, event_definition.id, %{
+              topic: event_definition.topic,
+              nsid: nsid,
+              status: status,
+              prev_status: ConsumerStatusTypeEnum.status()[:running]
+            })
 
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "New Consumer State for event_definition_id: #{event_definition.id},  #{
-            inspect(Map.get(new_state, event_definition.id))
-          }"
-        )
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "New Consumer State for event_definition_id: #{event_definition.id},  #{
+              inspect(Map.get(new_state, event_definition.id))
+            }"
+          )
 
-        %{
-          state: new_state,
-          response: {:ok, status}
-        }
+          %{
+            state: new_state,
+            response: {:ok, status}
+          }
 
-      status == ConsumerStatusTypeEnum.status()[:topic_does_not_exist] ->
-        %{
-          state: state,
-          response: {:error, nil}
-        }
+        status == ConsumerStatusTypeEnum.status()[:topic_does_not_exist] ->
+          %{
+            state: state,
+            response: {:error, nil}
+          }
 
-      true ->
-        case ConsumerGroupSupervisor.start_child(event_definition) do
-          {:error, nil} ->
-            ConsumerRetryCache.retry_consumer(event_definition)
+        true ->
+          case ConsumerGroupSupervisor.start_child(event_definition) do
+            {:error, nil} ->
+              ConsumerRetryCache.retry_consumer(event_definition)
 
-            new_state =
-              Map.put(state, event_definition.id, %{
-                topic: event_definition.topic,
-                nsid: nsid,
-                status: ConsumerStatusTypeEnum.status()[:topic_does_not_exist],
-                prev_status: status
-              })
+              new_state =
+                Map.put(state, event_definition.id, %{
+                  topic: event_definition.topic,
+                  nsid: nsid,
+                  status: ConsumerStatusTypeEnum.status()[:topic_does_not_exist],
+                  prev_status: status
+                })
 
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "New Consumer State for event_definition_id: #{event_definition.id},  #{
-                inspect(Map.get(new_state, event_definition.id))
-              }"
-            )
+              CogyntLogger.info(
+                "#{__MODULE__}",
+                "New Consumer State for event_definition_id: #{event_definition.id},  #{
+                  inspect(Map.get(new_state, event_definition.id))
+                }"
+              )
 
-            %{
-              state: new_state,
-              response: {:error, nil}
-            }
+              %{
+                state: new_state,
+                response: {:error, nil}
+              }
 
-          {:ok, pid} ->
-            ConsumerMonitor.monitor(
-              pid,
-              event_definition.id,
-              event_definition.topic,
-              event_definition.event_type
-            )
+            {:error, {:already_started, pid}} ->
+              new_state =
+                Map.put(state, event_definition.id, %{
+                  topic: event_definition.topic,
+                  nsid: nsid,
+                  status: ConsumerStatusTypeEnum.status()[:running],
+                  prev_status: status
+                })
 
-            new_state =
-              Map.put(state, event_definition.id, %{
-                topic: event_definition.topic,
-                nsid: nsid,
-                status: ConsumerStatusTypeEnum.status()[:running],
-                prev_status: status
-              })
+              %{state: new_state, response: {:ok, pid}}
 
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "New Consumer State for event_definition_id: #{event_definition.id},  #{
-                inspect(Map.get(new_state, event_definition.id))
-              }"
-            )
+            {:ok, pid} ->
+              ConsumerMonitor.monitor(
+                pid,
+                event_definition.id,
+                event_definition.topic,
+                event_definition.event_type
+              )
 
-            %{state: new_state, response: {:ok, pid}}
-        end
+              new_state =
+                Map.put(state, event_definition.id, %{
+                  topic: event_definition.topic,
+                  nsid: nsid,
+                  status: ConsumerStatusTypeEnum.status()[:running],
+                  prev_status: status
+                })
+
+              CogyntLogger.info(
+                "#{__MODULE__}",
+                "New Consumer State for event_definition_id: #{event_definition.id},  #{
+                  inspect(Map.get(new_state, event_definition.id))
+                }"
+              )
+
+              %{state: new_state, response: {:ok, pid}}
+          end
+      end
+    rescue
+      error ->
+        CogyntLogger.error("#{__MODULE__}", "start_consumer failed with error: #{inspect(error)}")
+        internal_error_state(event_definition, state)
     end
   end
 
   defp stop_consumer(topic, state) do
     event_definition = EventsContext.get_event_definition_by(%{topic: topic})
 
-    %{status: status, nsid: nsid} = Map.get(state, event_definition.id, @default_state)
+    try do
+      %{status: status, nsid: nsid} = Map.get(state, event_definition.id, @default_state)
 
-    cond do
-      status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
-        %{state: state, response: {:ok, status}}
+      cond do
+        status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
+          %{state: state, response: {:ok, status}}
 
-      status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
-        %{state: state, response: {:ok, status}}
+        status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
+          %{state: state, response: {:ok, status}}
 
-      status == ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-        new_state =
-          Map.put(state, event_definition.id, %{
-            topic: event_definition.topic,
-            nsid: nsid,
-            status: status,
-            prev_status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
-          })
+        status == ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+          new_state =
+            Map.put(state, event_definition.id, %{
+              topic: event_definition.topic,
+              nsid: nsid,
+              status: status,
+              prev_status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+            })
 
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "New Consumer State for event_definition_id: #{event_definition.id},  #{
-            inspect(Map.get(new_state, event_definition.id))
-          }"
-        )
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "New Consumer State for event_definition_id: #{event_definition.id},  #{
+              inspect(Map.get(new_state, event_definition.id))
+            }"
+          )
 
-        %{
-          state: new_state,
-          response: {:ok, status}
-        }
+          %{
+            state: new_state,
+            response: {:ok, status}
+          }
 
-      status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-        new_state =
-          Map.put(state, event_definition.id, %{
-            topic: event_definition.topic,
-            nsid: nsid,
-            status: status,
-            prev_status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
-          })
+        status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+          new_state =
+            Map.put(state, event_definition.id, %{
+              topic: event_definition.topic,
+              nsid: nsid,
+              status: status,
+              prev_status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+            })
 
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "New Consumer State for event_definition_id: #{event_definition.id},  #{
-            inspect(Map.get(new_state, event_definition.id))
-          }"
-        )
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "New Consumer State for event_definition_id: #{event_definition.id},  #{
+              inspect(Map.get(new_state, event_definition.id))
+            }"
+          )
 
-        %{
-          state: new_state,
-          response: {:ok, status}
-        }
+          %{
+            state: new_state,
+            response: {:ok, status}
+          }
 
-      true ->
-        ConsumerGroupSupervisor.stop_child(topic)
+        true ->
+          ConsumerGroupSupervisor.stop_child(topic)
 
-        consumer_status =
-          case Producer.is_processing?(event_definition.id, event_definition.event_type) do
-            true ->
-              ConsumerStatusTypeEnum.status()[:paused_and_processing]
+          consumer_status =
+            case Producer.is_processing?(event_definition.id, event_definition.event_type) do
+              true ->
+                ConsumerStatusTypeEnum.status()[:paused_and_processing]
 
-            false ->
-              ConsumerStatusTypeEnum.status()[:paused_and_finished]
-          end
+              false ->
+                ConsumerStatusTypeEnum.status()[:paused_and_finished]
+            end
 
-        new_state =
-          Map.put(state, event_definition.id, %{
-            topic: topic,
-            nsid: nsid,
-            status: consumer_status,
-            prev_status: status
-          })
+          new_state =
+            Map.put(state, event_definition.id, %{
+              topic: topic,
+              nsid: nsid,
+              status: consumer_status,
+              prev_status: status
+            })
 
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "New Consumer State for event_definition_id: #{event_definition.id},  #{
-            inspect(Map.get(new_state, event_definition.id))
-          }"
-        )
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "New Consumer State for event_definition_id: #{event_definition.id},  #{
+              inspect(Map.get(new_state, event_definition.id))
+            }"
+          )
 
-        %{state: new_state, response: {:ok, consumer_status}}
+          %{state: new_state, response: {:ok, consumer_status}}
+      end
+    rescue
+      error ->
+        CogyntLogger.error("#{__MODULE__}", "stop_consumer failed with error: #{inspect(error)}")
+        internal_error_state(event_definition, state)
     end
   end
 
@@ -331,129 +354,139 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
     event_definition =
       EventsContext.get_event_definition(notification_setting.event_definition_id)
 
-    %{status: status, prev_status: prev_status, nsid: nsid} =
-      Map.get(state, event_definition.id, @default_state)
+    try do
+      %{status: status, prev_status: prev_status, nsid: nsid} =
+        Map.get(state, event_definition.id, @default_state)
 
-    cond do
-      status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
-        TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
-
-        new_state =
-          Map.put(state, event_definition.id, %{
-            topic: event_definition.topic,
-            nsid: nsid ++ [notification_setting_id],
-            status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
-            prev_status: status
-          })
-
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "New Consumer State for event_definition_id: #{event_definition.id},  #{
-            inspect(Map.get(new_state, event_definition.id))
-          }"
-        )
-
-        %{
-          state: new_state,
-          response: {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
-        }
-
-      status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
-        new_state =
-          Map.put(state, event_definition.id, %{
-            topic: event_definition.topic,
-            nsid: nsid ++ [notification_setting_id],
-            status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
-            prev_status: status
-          })
-
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "New Consumer State for event_definition_id: #{event_definition.id},  #{
-            inspect(Map.get(new_state, event_definition.id))
-          }"
-        )
-
-        %{
-          state: new_state,
-          response: {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
-        }
-
-      status == ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-        if Enum.member?(nsid, notification_setting_id) do
+      cond do
+        status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
           TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
-        end
 
-        new_state =
-          Map.put(state, event_definition.id, %{
-            topic: event_definition.topic,
-            nsid: Enum.uniq(nsid ++ [notification_setting_id]),
-            status: status,
-            prev_status: prev_status
-          })
+          new_state =
+            Map.put(state, event_definition.id, %{
+              topic: event_definition.topic,
+              nsid: nsid ++ [notification_setting_id],
+              status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
+              prev_status: status
+            })
 
-        CogyntLogger.info(
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "New Consumer State for event_definition_id: #{event_definition.id},  #{
+              inspect(Map.get(new_state, event_definition.id))
+            }"
+          )
+
+          %{
+            state: new_state,
+            response: {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
+          }
+
+        status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
+          new_state =
+            Map.put(state, event_definition.id, %{
+              topic: event_definition.topic,
+              nsid: nsid ++ [notification_setting_id],
+              status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
+              prev_status: status
+            })
+
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "New Consumer State for event_definition_id: #{event_definition.id},  #{
+              inspect(Map.get(new_state, event_definition.id))
+            }"
+          )
+
+          %{
+            state: new_state,
+            response: {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
+          }
+
+        status == ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+          if Enum.member?(nsid, notification_setting_id) do
+            TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+          end
+
+          new_state =
+            Map.put(state, event_definition.id, %{
+              topic: event_definition.topic,
+              nsid: Enum.uniq(nsid ++ [notification_setting_id]),
+              status: status,
+              prev_status: prev_status
+            })
+
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "New Consumer State for event_definition_id: #{event_definition.id},  #{
+              inspect(Map.get(new_state, event_definition.id))
+            }"
+          )
+
+          %{
+            state: new_state,
+            response: {:ok, status}
+          }
+
+        true ->
+          ConsumerGroupSupervisor.stop_child(event_definition.topic)
+
+          case Producer.is_processing?(event_definition.id, event_definition.event_type) do
+            true ->
+              new_state =
+                Map.put(state, event_definition.id, %{
+                  topic: event_definition.topic,
+                  nsid: nsid ++ [notification_setting_id],
+                  status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
+                  prev_status: status
+                })
+
+              CogyntLogger.info(
+                "#{__MODULE__}",
+                "New Consumer State for event_definition_id: #{event_definition.id},  #{
+                  inspect(Map.get(new_state, event_definition.id))
+                }"
+              )
+
+              %{
+                state: new_state,
+                response:
+                  {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
+              }
+
+            false ->
+              TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+
+              new_state =
+                Map.put(state, event_definition.id, %{
+                  topic: event_definition.topic,
+                  nsid: nsid ++ [notification_setting_id],
+                  status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
+                  prev_status: status
+                })
+
+              CogyntLogger.info(
+                "#{__MODULE__}",
+                "New Consumer State for event_definition_id: #{event_definition.id},  #{
+                  inspect(Map.get(new_state, event_definition.id))
+                }"
+              )
+
+              %{
+                state: new_state,
+                response:
+                  {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
+              }
+          end
+      end
+    rescue
+      error ->
+        CogyntLogger.error(
           "#{__MODULE__}",
-          "New Consumer State for event_definition_id: #{event_definition.id},  #{
-            inspect(Map.get(new_state, event_definition.id))
-          }"
+          "backfill_notifications failed with error: #{inspect(error)}"
         )
 
-        %{
-          state: new_state,
-          response: {:ok, status}
-        }
-
-      true ->
-        ConsumerGroupSupervisor.stop_child(event_definition.topic)
-
-        case Producer.is_processing?(event_definition.id, event_definition.event_type) do
-          true ->
-            new_state =
-              Map.put(state, event_definition.id, %{
-                topic: event_definition.topic,
-                nsid: nsid ++ [notification_setting_id],
-                status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
-                prev_status: status
-              })
-
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "New Consumer State for event_definition_id: #{event_definition.id},  #{
-                inspect(Map.get(new_state, event_definition.id))
-              }"
-            )
-
-            %{
-              state: new_state,
-              response:
-                {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
-            }
-
-          false ->
-            TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
-
-            new_state =
-              Map.put(state, event_definition.id, %{
-                topic: event_definition.topic,
-                nsid: nsid ++ [notification_setting_id],
-                status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
-                prev_status: status
-              })
-
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "New Consumer State for event_definition_id: #{event_definition.id},  #{
-                inspect(Map.get(new_state, event_definition.id))
-              }"
-            )
-
-            %{
-              state: new_state,
-              response:
-                {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
-            }
-        end
+        internal_error_state(event_definition, state)
     end
   end
 
@@ -463,127 +496,139 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
     event_definition =
       EventsContext.get_event_definition(notification_setting.event_definition_id)
 
-    %{status: status, prev_status: prev_status, nsid: nsid} =
-      Map.get(state, event_definition.id, @default_state)
+    try do
+      %{status: status, prev_status: prev_status, nsid: nsid} =
+        Map.get(state, event_definition.id, @default_state)
 
-    cond do
-      status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
-        TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
-
-        new_state =
-          Map.put(state, event_definition.id, %{
-            topic: event_definition.topic,
-            nsid: nsid ++ [notification_setting_id],
-            status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
-            prev_status: status
-          })
-
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "New Consumer State for event_definition_id: #{event_definition.id},  #{
-            inspect(Map.get(new_state, event_definition.id))
-          }"
-        )
-
-        %{
-          state: new_state,
-          response: {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
-        }
-
-      status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
-        new_state =
-          Map.put(state, event_definition.id, %{
-            topic: event_definition.topic,
-            nsid: nsid ++ [notification_setting_id],
-            status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
-            prev_status: status
-          })
-
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "New Consumer State for event_definition_id: #{event_definition.id},  #{
-            inspect(Map.get(new_state, event_definition.id))
-          }"
-        )
-
-        %{
-          state: new_state,
-          response: {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
-        }
-
-      status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-        if Enum.member?(nsid, notification_setting_id) do
+      cond do
+        status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
           TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
-        end
 
-        new_state =
-          Map.put(state, event_definition.id, %{
-            topic: event_definition.topic,
-            nsid: Enum.uniq(nsid ++ [notification_setting_id]),
-            status: status,
-            prev_status: prev_status
-          })
+          new_state =
+            Map.put(state, event_definition.id, %{
+              topic: event_definition.topic,
+              nsid: nsid ++ [notification_setting_id],
+              status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
+              prev_status: status
+            })
 
-        CogyntLogger.info(
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "New Consumer State for event_definition_id: #{event_definition.id},  #{
+              inspect(Map.get(new_state, event_definition.id))
+            }"
+          )
+
+          %{
+            state: new_state,
+            response: {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
+          }
+
+        status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
+          new_state =
+            Map.put(state, event_definition.id, %{
+              topic: event_definition.topic,
+              nsid: nsid ++ [notification_setting_id],
+              status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
+              prev_status: status
+            })
+
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "New Consumer State for event_definition_id: #{event_definition.id},  #{
+              inspect(Map.get(new_state, event_definition.id))
+            }"
+          )
+
+          %{
+            state: new_state,
+            response: {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
+          }
+
+        status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+          if Enum.member?(nsid, notification_setting_id) do
+            TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
+          end
+
+          new_state =
+            Map.put(state, event_definition.id, %{
+              topic: event_definition.topic,
+              nsid: Enum.uniq(nsid ++ [notification_setting_id]),
+              status: status,
+              prev_status: prev_status
+            })
+
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "New Consumer State for event_definition_id: #{event_definition.id},  #{
+              inspect(Map.get(new_state, event_definition.id))
+            }"
+          )
+
+          %{
+            state: new_state,
+            response: {:ok, status}
+          }
+
+        true ->
+          ConsumerGroupSupervisor.stop_child(event_definition.topic)
+
+          case Producer.is_processing?(event_definition.id, event_definition.event_type) do
+            true ->
+              new_state =
+                Map.put(state, event_definition.id, %{
+                  topic: event_definition.topic,
+                  nsid: nsid ++ [notification_setting_id],
+                  status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
+                  prev_status: status
+                })
+
+              CogyntLogger.info(
+                "#{__MODULE__}",
+                "New Consumer State for event_definition_id: #{event_definition.id},  #{
+                  inspect(Map.get(new_state, event_definition.id))
+                }"
+              )
+
+              %{
+                state: new_state,
+                response:
+                  {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
+              }
+
+            false ->
+              TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
+
+              new_state =
+                Map.put(state, event_definition.id, %{
+                  topic: event_definition.topic,
+                  nsid: nsid ++ [notification_setting_id],
+                  status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
+                  prev_status: status
+                })
+
+              CogyntLogger.info(
+                "#{__MODULE__}",
+                "New Consumer State for event_definition_id: #{event_definition.id},  #{
+                  inspect(Map.get(new_state, event_definition.id))
+                }"
+              )
+
+              %{
+                state: new_state,
+                response:
+                  {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
+              }
+          end
+      end
+    rescue
+      error ->
+        CogyntLogger.error(
           "#{__MODULE__}",
-          "New Consumer State for event_definition_id: #{event_definition.id},  #{
-            inspect(Map.get(new_state, event_definition.id))
-          }"
+          "update_notification_setting failed with error: #{inspect(error)}"
         )
 
-        %{
-          state: new_state,
-          response: {:ok, status}
-        }
-
-      true ->
-        ConsumerGroupSupervisor.stop_child(event_definition.topic)
-
-        case Producer.is_processing?(event_definition.id, event_definition.event_type) do
-          true ->
-            new_state =
-              Map.put(state, event_definition.id, %{
-                topic: event_definition.topic,
-                nsid: nsid ++ [notification_setting_id],
-                status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
-                prev_status: status
-              })
-
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "New Consumer State for event_definition_id: #{event_definition.id},  #{
-                inspect(Map.get(new_state, event_definition.id))
-              }"
-            )
-
-            %{
-              state: new_state,
-              response: {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
-            }
-
-          false ->
-            TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
-
-            new_state =
-              Map.put(state, event_definition.id, %{
-                topic: event_definition.topic,
-                nsid: nsid ++ [notification_setting_id],
-                status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
-                prev_status: status
-              })
-
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "New Consumer State for event_definition_id: #{event_definition.id},  #{
-                inspect(Map.get(new_state, event_definition.id))
-              }"
-            )
-
-            %{
-              state: new_state,
-              response: {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
-            }
-        end
+        internal_error_state(event_definition, state)
     end
   end
 
@@ -601,6 +646,35 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
       true ->
         TaskSupervisor.start_child(%{delete_event_definition_events: event_definition_id})
         %{state: state, response: {:ok, :success}}
+    end
+  end
+
+  defp internal_error_state(event_definition, state) do
+    %{status: status, prev_status: prev_status} =
+      Map.get(state, event_definition.id, @default_state)
+
+    case status do
+      nil ->
+        new_state =
+          Map.put(state, event_definition.id, %{
+            topic: event_definition.topic,
+            nsid: [],
+            status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
+            prev_status: prev_status
+          })
+
+        %{state: new_state, response: {:error, :internal_server_error}}
+
+      _ ->
+        new_state =
+          Map.put(state, event_definition.id, %{
+            topic: event_definition.topic,
+            nsid: [],
+            status: status,
+            prev_status: prev_status
+          })
+
+        %{state: new_state, response: {:error, :internal_server_error}}
     end
   end
 end
