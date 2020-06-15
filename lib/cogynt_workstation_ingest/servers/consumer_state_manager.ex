@@ -655,11 +655,20 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
 
     case status do
       nil ->
+        consumer_status =
+          case Producer.is_processing?(event_definition.id, event_definition.event_type) do
+            true ->
+              ConsumerStatusTypeEnum.status()[:paused_and_processing]
+
+            false ->
+              ConsumerStatusTypeEnum.status()[:paused_and_finished]
+          end
+
         new_state =
           Map.put(state, event_definition.id, %{
             topic: event_definition.topic,
             nsid: [],
-            status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
+            status: consumer_status,
             prev_status: prev_status
           })
 
