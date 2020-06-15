@@ -1,3 +1,10 @@
+### [1.3.18](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.17...v1.3.18) (2020-06-15)
+
+
+### :bug: Bugfix
+
+* Nill state for consumer without existing topic ([74403e8](https://github.com/Cogility/cogynt-workstation-ingest/commit/74403e8904b382c891bbb5f99f23386ae64feea8))
+
 ### [1.3.17](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.16...v1.3.17) (2020-06-13)
 
 
