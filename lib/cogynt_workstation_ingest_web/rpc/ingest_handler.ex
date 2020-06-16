@@ -102,29 +102,19 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
         Enum.reduce(consumers, [], fn %{"id" => id, "topic" => topic}, acc ->
           consumer_state = ConsumerStateManager.get_consumer_state(id)
 
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "ingest:check_status Consumer State #{inspect(consumer_state)}"
+          )
+
           cond do
-            consumer_state == %{} ->
+            consumer_state == %{nsid: [], prev_status: nil, status: nil, topic: nil} ->
               acc ++
                 [
                   %{
                     id: id,
                     topic: topic,
                     status: ConsumerStatusTypeEnum.status()[:has_not_been_created]
-                  }
-                ]
-
-            consumer_state == %{status: nil} ->
-              ConsumerStateManager.update_consumer_state(id,
-                status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
-                topic: topic
-              )
-
-              acc ++
-                [
-                  %{
-                    id: id,
-                    topic: topic,
-                    status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
                   }
                 ]
 
