@@ -118,6 +118,16 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
                   }
                 ]
 
+            consumer_state == %{status: nil} ->
+              acc ++
+                [
+                  %{
+                    id: id,
+                    topic: topic,
+                    status: ConsumerStatusTypeEnum.status()[:has_not_been_created]
+                  }
+                ]
+
             consumer_state.status ==
                 ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
               acc ++
