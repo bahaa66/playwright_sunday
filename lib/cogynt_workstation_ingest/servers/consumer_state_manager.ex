@@ -158,7 +158,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
 
           %{
             state: new_state,
-            response: {:ok, status}
+            response: {:ok, ConsumerStatusTypeEnum.status()[:running]}
           }
 
         status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
@@ -179,13 +179,13 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
 
           %{
             state: new_state,
-            response: {:ok, status}
+            response: {:ok, ConsumerStatusTypeEnum.status()[:running]}
           }
 
         status == ConsumerStatusTypeEnum.status()[:topic_does_not_exist] ->
           %{
             state: state,
-            response: {:ok, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}
+            response: {:ok, status}
           }
 
         true ->
@@ -271,12 +271,21 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
           %{state: state, response: {:ok, status}}
 
         status == ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+          consumer_status =
+            case Producer.is_processing?(event_definition.id, event_definition.event_type) do
+              true ->
+                ConsumerStatusTypeEnum.status()[:paused_and_processing]
+
+              false ->
+                ConsumerStatusTypeEnum.status()[:paused_and_finished]
+            end
+
           new_state =
             Map.put(state, event_definition.id, %{
               topic: event_definition.topic,
               nsid: nsid,
               status: status,
-              prev_status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+              prev_status: consumer_status
             })
 
           CogyntLogger.info(
@@ -292,12 +301,21 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerStateManager do
           }
 
         status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+          consumer_status =
+            case Producer.is_processing?(event_definition.id, event_definition.event_type) do
+              true ->
+                ConsumerStatusTypeEnum.status()[:paused_and_processing]
+
+              false ->
+                ConsumerStatusTypeEnum.status()[:paused_and_finished]
+            end
+
           new_state =
             Map.put(state, event_definition.id, %{
               topic: event_definition.topic,
               nsid: nsid,
               status: status,
-              prev_status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+              prev_status: consumer_status
             })
 
           CogyntLogger.info(

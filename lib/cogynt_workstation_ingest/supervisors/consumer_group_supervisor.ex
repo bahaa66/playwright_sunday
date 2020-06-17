@@ -53,7 +53,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)
-      # Process.sleep(1500)
+      Process.sleep(1500)
       {:ok, :success}
     else
       {:ok, :success}
@@ -88,7 +88,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)
-      # Process.sleep(1500)
+      Process.sleep(1500)
       {:ok, :success}
     else
       {:ok, :success}

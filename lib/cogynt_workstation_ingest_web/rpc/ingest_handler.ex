@@ -102,10 +102,10 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
         Enum.reduce(consumers, [], fn %{"id" => id, "topic" => topic}, acc ->
           consumer_state = ConsumerStateManager.get_consumer_state(id)
 
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "ingest:check_status Consumer State #{inspect(consumer_state)}"
-          )
+          # CogyntLogger.info(
+          #   "#{__MODULE__}",
+          #   "ingest:check_status Consumer State #{inspect(consumer_state)}"
+          # )
 
           cond do
             consumer_state == %{nsid: [], prev_status: nil, status: nil, topic: nil} ->
