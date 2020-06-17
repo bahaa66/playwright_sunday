@@ -1,3 +1,10 @@
+### [1.3.22](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.21...v1.3.22) (2020-06-17)
+
+
+### :bug: Bugfix
+
+* Merge pull request [#79](https://github.com/Cogility/cogynt-workstation-ingest/issues/79) from Cogility/develop ([bdb4213](https://github.com/Cogility/cogynt-workstation-ingest/commit/bdb42132f4a9001db89ab7d604b9e8bd886d60d4))
+
 ### [1.3.21-develop.1](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.20...v1.3.21-develop.1) (2020-06-16)
 
 
