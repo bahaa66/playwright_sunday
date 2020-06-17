@@ -2,9 +2,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   use GenStage
   alias KafkaEx.Protocol.Fetch
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
-  alias CogyntWorkstationIngest.Servers.{ConsumerStateManager}
-  alias Models.Enums.ConsumerStatusTypeEnum
+  alias CogyntWorkstationIngest.Servers.Caches.EventProcessingCache
 
   @defaults %{
     event_id: nil,
@@ -121,64 +119,6 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     {:noreply, messages, new_state}
   end
 
-  @impl true
-  def handle_info({:delayed_finished_processing, event_definition_id}, state) do
-    %{status: status, topic: topic, nsid: nsid} =
-      ConsumerStateManager.get_consumer_state(event_definition_id)
-
-    cond do
-      status ==
-          ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Triggering Backfill notifications task: #{inspect(nsid)}"
-        )
-
-        Enum.each(nsid, fn id ->
-          ConsumerStateManager.manage_request(%{
-            backfill_notifications: id
-          })
-        end)
-
-      status ==
-          ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Triggering Update notifications task: #{inspect(nsid)}"
-        )
-
-        Enum.each(nsid, fn id ->
-          ConsumerStateManager.manage_request(%{
-            update_notification_setting: id
-          })
-        end)
-
-      status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
-        ConsumerStateManager.update_consumer_state(event_definition_id,
-          topic: topic,
-          status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
-        )
-
-        CogyntClient.publish_consumer_status(
-          event_definition_id,
-          topic,
-          ConsumerStatusTypeEnum.status()[:paused_and_finished]
-        )
-
-      true ->
-        nil
-    end
-
-    CogyntClient.publish_event_definition_ids([event_definition_id])
-
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "Finished processing all messages for EventDefinitionId: #{event_definition_id}"
-    )
-
-    {:noreply, [], state}
-  end
-
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
@@ -285,8 +225,8 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
           case :queue.len(queue) == 0 do
             true ->
               Process.send_after(
-                self(),
-                {:delayed_finished_processing, id},
+                EventProcessingCache,
+                {:delayed_finished_processing, id, false},
                 30000
               )
 
@@ -316,6 +256,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
             "Starting processing of messages for EventDefinitionId: #{event_definition_id}"
           )
 
+          EventProcessingCache.update_event_processing_status(event_definition_id, true)
           :queue.new()
       end
 

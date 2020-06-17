@@ -31,24 +31,25 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
   end
 
   @impl true
-  def handle_cast({:monitor, pid, id, topic, type}, state) do
+  def handle_cast({:monitor, pid, event_definition_id, topic, type}, state) do
     Process.monitor(pid)
 
-    new_state = Map.put(state, pid, %{id: id, topic: topic, type: type})
+    new_state =
+      Map.put(state, pid, %{event_definition_id: event_definition_id, topic: topic, type: type})
 
     {:noreply, new_state}
   end
 
   @impl true
   def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
-    %{id: id, topic: topic, type: type} = Map.get(state, pid)
+    %{event_definition_id: event_definition_id, topic: topic, type: type} = Map.get(state, pid)
 
-    %{status: status} = ConsumerStateManager.get_consumer_state(id)
+    %{status: status} = ConsumerStateManager.get_consumer_state(event_definition_id)
 
-    case Producer.is_processing?(id, type) do
+    case Producer.is_processing?(event_definition_id, type) do
       true ->
         check_consumer_state(
-          id,
+          event_definition_id,
           topic,
           status,
           ConsumerStatusTypeEnum.status()[:paused_and_processing]
@@ -56,7 +57,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
 
       false ->
         check_consumer_state(
-          id,
+          event_definition_id,
           topic,
           status,
           ConsumerStatusTypeEnum.status()[:paused_and_finished]
