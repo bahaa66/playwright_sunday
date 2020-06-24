@@ -12,6 +12,11 @@ defmodule CogyntWorkstationIngest.Application do
     TaskSupervisor
   }
 
+  alias Redis.Supervisors.{
+    RedisSingleInstanceSupervisor,
+    RedisConnectionPoolSupervisor
+  }
+
   alias CogyntWorkstationIngest.Servers.Startup
   alias CogyntWorkstationIngest.Broadway.{EventPipeline, LinkEventPipeline, DrilldownPipeline}
 
@@ -22,6 +27,8 @@ defmodule CogyntWorkstationIngest.Application do
       CogyntWorkstationIngest.Repo,
       # Start the endpoint when the application starts
       CogyntWorkstationIngestWeb.Endpoint,
+      # Start the Supervisor for Redis,
+      child_spec_supervisor(RedisSingleInstanceSupervisor, RedisSingleInstanceSupervisor),
       # Start the Supervisor for the Broadway EventPipeline
       EventPipeline,
       # Start the Supervisor for the Broadway LinkEventPipeline

@@ -5,11 +5,12 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
   """
   use Task
   require Ecto.Query
-  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Notifications.NotificationSetting
   alias Models.Events.EventDefinition
+  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
+
 
   @page_size 500
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -75,7 +76,7 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
         ]
       )
 
-    NotificationSubscriptionCache.add_new_notifications(updated_notifications)
+    CogyntClient.publish_notifications(updated_notifications)
 
     case page_number >= total_pages do
       true ->

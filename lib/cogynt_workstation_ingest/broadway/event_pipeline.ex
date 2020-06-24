@@ -59,8 +59,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   Acknowledge callback. Will get all success or failed messages from
   the pipeline.
   """
-  def ack(:ack_id, _successful, _failed) do
-    # CogyntLogger.info("#{__MODULE__}", "Messages Ackd.")
+  def ack(:ack_id, successful, _failed) do
+    # Enum.each(successful, fn %Broadway.Message{data: %{event_definition: event_definition}} ->
+    #   RedisSingleInstance.hash_increment_by("A:#{event_definition.id}", "ack", 1)
+    # end)
   end
 
   @doc """

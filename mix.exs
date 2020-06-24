@@ -79,6 +79,11 @@ defmodule CogyntWorkstationIngest.MixProject do
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "elasticsearch",
        tag: "v1.5.3",
+       override: true},
+      {:redis,
+       git: "git@github.com:cogility/cogynt-common.git",
+       sparse: "redis",
+       branch: "feature/CDST-596-redis-lib",
        override: true}
     ]
   end

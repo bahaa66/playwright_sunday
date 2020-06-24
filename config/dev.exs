@@ -30,19 +30,19 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
 # Kafka Configurations
 config :kafka_ex,
   # Dev Kafka
-  brokers: [
-    {
-      System.get_env("KAFKA_BROKER") || "172.16.1.100",
-      (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
-    }
-  ],
+  # brokers: [
+  #   {
+  #     System.get_env("KAFKA_BROKER") || "172.16.1.100",
+  #     (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
+  #   }
+  # ],
   # Local Kafka
-  # brokers: [{"127.0.0.1", 9092}],
+  brokers: [{"127.0.0.1", 9092}],
   disable_default_worker: true,
   auto_offset_reset: :earliest,
   kafka_version: "2.0",
-  commit_interval: System.get_env("KAFKA_COMMIT_INTERVAL") || 1000,
-  commit_threshold: System.get_env("KAFKA_COMMIT_THRESHOLD") || 1000,
+  commit_interval: System.get_env("KAFKA_COMMIT_INTERVAL") || 10000,
+  commit_threshold: System.get_env("KAFKA_COMMIT_THRESHOLD") || 10000,
   heartbeat_interval: System.get_env("KAFKA_HEARTBEAT_INTERVAL") || 3000,
   sync_timeout: System.get_env("KAKFA_SYNC_TIMEOUT") || 15000,
   max_restarts: System.get_env("KAFKA_MAX_RESTARTS") || 10,
@@ -65,6 +65,18 @@ config :elasticsearch, :config,
   event_index_alias: System.get_env("EVENT_INDEX_ALIAS") || "event",
   risk_history_index_alias: System.get_env("RISK_HISTORY_INDEX_ALIAS") || "risk_history",
   utc_offset: 0
+
+# Redis configurations
+config :redis, :application,
+  host: System.get_env("COGYNT_REDIS_HOST") || "127.0.0.1",
+  port: System.get_env("COGYNT_REDIS_PORT") || "6379",
+  password: System.get_env("COGYNT_REDIS_PASSWORD") || "",
+  name: System.get_env("COGYNT_REDIS_NAME") || "",
+  sentinel: System.get_env("COGYNT_REDIS_SENTINEL") || "",
+  databse: System.get_env("COGYNT_REDIS_DATABASE") || "",
+  pools: System.get_env("COGYNT_REDIS_POOLS") || 5,
+  exit_on_disconnection: System.get_env("COGYNT_REDIS_EXIT_ON_DISCONNECTION") || true,
+  sync_connect: System.get_env("COGYNT_REDIS_SYNC_CONNECT") || true
 
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, :event_pipeline,
