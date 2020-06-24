@@ -1,3 +1,11 @@
+### [1.3.23](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.22...v1.3.23) (2020-06-24)
+
+
+### :bug: Bugfix
+
+* update query to not include deleted at ([b568e57](https://github.com/Cogility/cogynt-workstation-ingest/commit/b568e57620670b4b1921de4271c895b1f0c1be98))
+* **query optimize:** Merge pull request [#80](https://github.com/Cogility/cogynt-workstation-ingest/issues/80) from Cogility/hotfix/db-optimization ([635b4a3](https://github.com/Cogility/cogynt-workstation-ingest/commit/635b4a39538d94d79d198276702d9eb0ccdc6075))
+
 ### [1.3.22](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.21...v1.3.22) (2020-06-17)
 
 
