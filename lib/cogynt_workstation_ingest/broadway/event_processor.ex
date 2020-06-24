@@ -276,7 +276,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           :title,
           :notification_setting_id,
           :created_at,
-          :updated_at
+          :updated_at,
+          :assigned_to
         ]
       )
       |> EventsContext.update_all_events_multi(delete_event_ids)

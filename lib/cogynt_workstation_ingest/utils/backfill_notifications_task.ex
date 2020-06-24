@@ -10,6 +10,7 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Notifications.NotificationSetting
   alias Models.Events.EventDefinition
+  alias CogyntWorkstationIngest.System.SystemNotificationContext
 
   @page_size 500
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -71,10 +72,12 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
           :title,
           :notification_setting_id,
           :created_at,
-          :updated_at
+          :updated_at,
+          :assigned_to
         ]
       )
 
+    SystemNotificationContext.insert_or_update_system_notifications(updated_notifications)
     NotificationSubscriptionCache.add_new_notifications(updated_notifications)
 
     case page_number >= total_pages do
