@@ -48,7 +48,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         from(e in Event,
           join: ed in EventDefinition,
           on: ed.id == e.event_definition_id,
-          where: e.core_id == ^core_id and ed.id == ^event_definition_id,
+          where: e.core_id == ^core_id and ed.id == ^event_definition_id and is_nil(e.deleted_at),
           select: e.id
         )
       )
