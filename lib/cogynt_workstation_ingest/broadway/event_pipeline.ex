@@ -48,11 +48,25 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   Transformation callback. Will transform the message that is returned
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
-  def transform(event, _opts) do
-    %Message{
-      data: event,
-      acknowledger: {__MODULE__, :ack_id, :ack_data}
-    }
+  def transform(payload, _opts) do
+    case Jason.decode(payload) do
+      {:ok, event} ->
+        %Message{
+          data: keys_to_atoms(event),
+          acknowledger: {__MODULE__, :ack_id, :ack_data}
+        }
+
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Failed to decode payload. Error: #{inspect(error)}"
+        )
+
+        %Message{
+          data: nil,
+          acknowledger: {__MODULE__, :ack_id, :ack_data}
+        }
+    end
   end
 
   @doc """
@@ -60,9 +74,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   the pipeline.
   """
   def ack(:ack_id, successful, _failed) do
-    # Enum.each(successful, fn %Broadway.Message{data: %{event_definition: event_definition}} ->
-    #   RedisSingleInstance.hash_increment_by("A:#{event_definition.id}", "ack", 1)
-    # end)
+    Enum.each(successful, fn %Broadway.Message{data: %{event_definition: event_definition}} ->
+      RedisSingleInstance.hash_increment_by("A:#{event_definition.id}", "ack", 1)
+    end)
   end
 
   @doc """
@@ -72,7 +86,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   @impl true
   def handle_failed(messages, _args) do
-    CogyntLogger.error("#{__MODULE__}", "Messages failed. #{inspect(messages)}")
     Producer.enqueue_failed_messages(messages, @pipeline_name)
     messages
   end
@@ -93,4 +106,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     message
   end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp keys_to_atoms(string_key_map) when is_map(string_key_map) do
+    for {key, val} <- string_key_map, into: %{} do
+      if key == "event_definition" do
+        {String.to_atom(key), keys_to_atoms(val)}
+      else
+        {String.to_atom(key), val}
+      end
+    end
+  end
+
+  defp keys_to_atoms(val), do: val
 end
