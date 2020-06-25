@@ -95,6 +95,10 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   # Parse the %Fetch.Message{} struct returned from Kafka and
   # encode the event_data and append it to the List in Redis
   defp parse_kafka_message_set(message_set, event_definition) do
+    # Incr the total message count that has been consumed for this event_definition
+    message_count = Enum.count(message_set)
+    RedisSingleInstance.hash_increment_by("b:#{event_definition.id}", "tmc", message_count)
+
     Enum.each(message_set, fn %Fetch.Message{value: json_message} ->
       case Jason.decode(json_message) do
         {:ok, message} ->

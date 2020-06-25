@@ -75,7 +75,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   def ack(:ack_id, successful, _failed) do
     Enum.each(successful, fn %Broadway.Message{data: %{event_definition: event_definition}} ->
-      RedisSingleInstance.hash_increment_by("A:#{event_definition.id}", "ack", 1)
+      RedisSingleInstance.hash_increment_by("b:#{event_definition.id}", "tmp", 1)
     end)
   end
 
