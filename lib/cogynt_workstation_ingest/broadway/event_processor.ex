@@ -6,7 +6,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
   alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
+  alias CogyntWorkstationIngest.System.SystemNotificationContext
   alias CogyntWorkstationIngest.Config
+  alias Ecto.Multi
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -287,6 +289,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         event_id: event_id
       })
       |> EventsContext.update_all_event_links_multi(delete_event_ids)
+      |> Multi.merge(fn %{insert_notifications: {_, notifications}} ->
+        Multi.new()
+        |> SystemNotificationContext.insert_all_multi(notifications)
+      end)
       |> EventsContext.run_multi_transaction()
 
     case transaction_result do
