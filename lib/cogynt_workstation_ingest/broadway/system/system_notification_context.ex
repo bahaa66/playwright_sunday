@@ -20,38 +20,7 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
     )
   end
 
-  def build_system_notifications(notifications) when notifications != %{} do
-    Enum.reduce(notifications, [], fn notification, acc ->
-      if(!is_nil(notification.assigned_to) and is_nil(notification.deleted_at)) do
-        notif = %NotificationDetails{
-          notification_id: notification.id,
-          event_id: notification.event_id
-        }
-
-        sys_details = %SystemNotificationDetails{notification: notif}
-
-        title = "Notification assigned"
-        message = "You have been assigned a new notification"
-
-        acc ++
-          [
-            %{
-              title: title,
-              message: message,
-              type: :info,
-              assigned_to: notification.assigned_to,
-              details: sys_details,
-              created_at: DateTime.truncate(DateTime.utc_now(), :second),
-              updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-            }
-          ]
-      else
-        acc
-      end
-    end)
-  end
-
-  def insert_all_multi(multi \\ Multi.new(), notifications, updated_notifications \\ %{})
+  def insert_all_multi(multi \\ Multi.new(), notifications)
       when notifications != %{} do
     multi
     |> Multi.insert_all(
@@ -59,26 +28,12 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
       SystemNotification,
       build_system_notifications(notifications)
     )
-    |> update_all_multi(updated_notifications)
   end
 
   def update_all_multi(multi \\ Multi.new(), notifications) do
     # clean the data and remove the deleted system_notifications
     # since the notification_id wont change, the only update would be if it got deleted or assigned new user that we care about.
-    if notifications != %{} do
-      multi
-      |> Multi.update_all(
-        :update_system_notifications,
-        SystemNotification,
-        build_update_system_notifications(notifications)
-      )
-      |> hard_delete_multi_all(notifications)
-    else
-      multi
-    end
-  end
 
-  defp hard_delete_multi_all(multi \\ Multi.new(), notifications) when notifications != %{} do
     deleted_notifications =
       notifications
       |> Enum.reduce([], fn notification, acc ->
@@ -91,7 +46,7 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
 
     deleted_list = deleted_notifications |> Enum.map(fn notification -> notification.id end)
 
-    if deleted_notifications != [] and deleted_list != [] do
+    if deleted_list != [] do
       query =
         query =
         from(sn in Models.System.SystemNotification,
@@ -114,10 +69,12 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
         SystemNotification,
         build_delete_notifications(deleted_notifications)
       )
+    else
+      multi
     end
   end
 
-  defp build_update_system_notifications(notifications) when notifications != %{} do
+  defp build_system_notifications(notifications) when notifications != %{} do
     Enum.reduce(notifications, [], fn notification, acc ->
       if(!is_nil(notification.assigned_to) and is_nil(notification.deleted_at)) do
         notif = %NotificationDetails{
@@ -138,6 +95,7 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
               type: :info,
               assigned_to: notification.assigned_to,
               details: sys_details,
+              created_at: DateTime.truncate(DateTime.utc_now(), :second),
               updated_at: DateTime.truncate(DateTime.utc_now(), :second)
             }
           ]
