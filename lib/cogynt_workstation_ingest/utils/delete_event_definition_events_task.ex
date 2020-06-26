@@ -6,7 +6,7 @@ defmodule CogyntWorkstationIngest.Utils.DeleteEventDefinitionEventsTask do
   use Task
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Events.EventDefinition
-  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
+  alias CogyntWorkstationIngest.ConsumerStateManager
   alias CogyntWorkstationIngest.Servers.Caches.EventProcessingCache
 
   @page_size 2000

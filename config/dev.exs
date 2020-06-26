@@ -76,7 +76,8 @@ config :redis, :application,
   databse: System.get_env("COGYNT_REDIS_DATABASE") || "",
   pools: System.get_env("COGYNT_REDIS_POOLS") || 5,
   exit_on_disconnection: System.get_env("COGYNT_REDIS_EXIT_ON_DISCONNECTION") || true,
-  sync_connect: System.get_env("COGYNT_REDIS_SYNC_CONNECT") || true
+  sync_connect: System.get_env("COGYNT_REDIS_SYNC_CONNECT") || true,
+  instance: System.get_env("COGYNT_REDIS_INSTANCE") || :single
 
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, :event_pipeline,

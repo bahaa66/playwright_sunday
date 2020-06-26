@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   alias CogyntWorkstationIngest.Servers.NotificationsTaskMonitor
   alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
   alias Models.Enums.ConsumerStatusTypeEnum
-  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
+  alias CogyntWorkstationIngest.ConsumerStateManager
 
   # ----------------------- #
   # --- ingestion calls --- #
@@ -14,53 +14,21 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
     result =
       ConsumerStateManager.manage_request(%{start_consumer: keys_to_atoms(event_definition)})
 
-    case result do
-      {:ok, pid} ->
-        %{
-          status: :ok,
-          body: "#{inspect(pid)}"
-        }
-
-      {:error, nil} ->
-        %{
-          status: :error,
-          body: ConsumerStatusTypeEnum.status()[:topic_does_not_exist]
-        }
-
-      {:error, error} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "ingest:start_consumer failed with Error: #{inspect(error)}"
-        )
-
-        %{
-          status: :error,
-          body: "#{inspect(error)}"
-        }
-    end
+    %{
+      status: :ok,
+      body: :success
+    }
   end
 
   def handle_request("ingest:stop_consumer", event_definition) when is_map(event_definition) do
     event_definition = keys_to_atoms(event_definition)
 
-    case ConsumerStateManager.manage_request(%{stop_consumer: event_definition.topic}) do
-      {:ok, status} ->
-        %{
-          status: :ok,
-          body: status
-        }
+    ConsumerStateManager.manage_request(%{stop_consumer: event_definition.topic})
 
-      {:error, error} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "ingest:stop_consumer failed with Error: #{inspect(error)}"
-        )
-
-        %{
-          status: :error,
-          body: "#{inspect(error)}"
-        }
-    end
+    %{
+      status: :ok,
+      body: :success
+    }
   end
 
   def handle_request("ingest:backfill_notifications", %{
@@ -100,12 +68,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
     try do
       result =
         Enum.reduce(consumers, [], fn %{"id" => id, "topic" => topic}, acc ->
-          consumer_state = ConsumerStateManager.get_consumer_state(id)
-
-          # CogyntLogger.info(
-          #   "#{__MODULE__}",
-          #   "ingest:check_status Consumer State #{inspect(consumer_state)}"
-          # )
+          {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(id)
 
           cond do
             consumer_state == %{nsid: [], prev_status: nil, status: nil, topic: nil} ->

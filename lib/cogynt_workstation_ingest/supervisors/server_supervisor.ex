@@ -17,8 +17,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   alias CogyntWorkstationIngest.Servers.{
     Startup,
     ConsumerMonitor,
-    NotificationsTaskMonitor,
-    ConsumerStateManager
+    NotificationsTaskMonitor
   }
 
   def start_link do
@@ -36,7 +35,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
       child_spec(Startup),
       child_spec(ConsumerMonitor, restart: :permanent),
       child_spec(NotificationsTaskMonitor, restart: :permanent),
-      child_spec(ConsumerStateManager, restart: :permanent),
       child_spec(EventProcessingCache, restart: :permanent),
       child_spec(IngestPubSub, start_link_opts: [pubsub])
     ]

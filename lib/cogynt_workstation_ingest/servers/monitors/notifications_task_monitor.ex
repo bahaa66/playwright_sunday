@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
   use GenServer
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
-  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
+  alias CogyntWorkstationIngest.ConsumerStateManager
   alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
@@ -60,7 +60,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
     start_consumer_args =
       EventsContext.get_event_definition_for_startup(notification_setting.event_definition_id)
 
-    %{status: status, topic: topic, prev_status: prev_status, nsid: nsid} =
+    {:ok, %{status: status, topic: topic, prev_status: prev_status, nsid: nsid}} =
       ConsumerStateManager.get_consumer_state(notification_setting.event_definition_id)
 
     nsid = List.delete(nsid, notification_setting_id)
@@ -68,7 +68,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
     if Enum.empty?(nsid) do
       cond do
         prev_status == ConsumerStatusTypeEnum.status()[:running] ->
-          ConsumerStateManager.update_consumer_state(notification_setting.event_definition_id,
+          ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
             topic: topic,
             status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
           )
@@ -76,13 +76,13 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
           ConsumerStateManager.manage_request(start_consumer_args)
 
         true ->
-          ConsumerStateManager.update_consumer_state(notification_setting.event_definition_id,
+          ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
             topic: topic,
             status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
           )
       end
     else
-      ConsumerStateManager.update_consumer_state(notification_setting.event_definition_id,
+      ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
         topic: topic,
         status: status,
         prev_status: prev_status,

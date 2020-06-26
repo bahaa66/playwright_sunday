@@ -2,7 +2,6 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   use GenStage
   alias KafkaEx.Protocol.Fetch
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Servers.Caches.EventProcessingCache
 
   @defaults %{
     event_id: nil,
@@ -52,7 +51,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   @impl true
   def handle_cast(
         {:enqueue, message_set, event_definition},
-        %{event_definition_ids: event_definition_ids, demand: demand} = state
+        %{event_definition_ids: event_definition_ids} = state
       ) do
     parse_kafka_message_set(message_set, event_definition)
 
@@ -72,11 +71,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   end
 
   @impl true
-  def handle_demand(
-        incoming_demand,
-        %{event_definition_ids: event_definition_ids, demand: demand} = state
-      )
-      when incoming_demand > 0 do
+  def handle_demand(incoming_demand, %{demand: demand} = state) when incoming_demand > 0 do
     total_demand = incoming_demand + demand
     new_state = Map.put(state, :demand, total_demand)
     {messages, new_state} = fetch_and_release_demand(new_state)
@@ -84,7 +79,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   end
 
   @impl true
-  def handle_info(:retry_failed_messages, %{demand: demand} = state) do
+  def handle_info(:retry_failed_messages, state) do
     {messages, new_state} = fetch_and_release_failed_messages(state)
     {:noreply, messages, new_state}
   end
@@ -97,7 +92,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   defp parse_kafka_message_set(message_set, event_definition) do
     # Incr the total message count that has been consumed for this event_definition
     message_count = Enum.count(message_set)
-    RedisSingleInstance.hash_increment_by("b:#{event_definition.id}", "tmc", message_count)
+    Redis.hash_increment_by("b:#{event_definition.id}", "tmc", message_count)
 
     Enum.each(message_set, fn %Fetch.Message{value: json_message} ->
       case Jason.decode(json_message) do
@@ -109,7 +104,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
                  retry_count: @defaults.retry_count
                }) do
             {:ok, encoded_val} ->
-              RedisSingleInstance.list_append("a:#{event_definition.id}", encoded_val)
+              Redis.list_append("a:#{event_definition.id}", encoded_val)
 
             {:error, error} ->
               CogyntLogger.error(
@@ -155,7 +150,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
                retry_count: retry_count + 1
              }) do
           {:ok, encoded_val} ->
-            RedisSingleInstance.list_append("a:failed_messages", encoded_val)
+            Redis.list_append("a:failed_messages", encoded_val)
 
           {:error, error} ->
             CogyntLogger.error(
@@ -197,27 +192,27 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
          messages,
          %{event_definition_ids: event_definition_ids, demand: demand} = state
        ) do
-    {:ok, list_length} = RedisSingleInstance.list_length("a:#{event_definition_id}")
+    {:ok, list_length} = Redis.list_length("a:#{event_definition_id}")
 
     {list_items, updated_event_definition_id_list} =
       case list_length >= fetch_count do
         true ->
           # Get List Range by fetch_count
           {:ok, list_items} =
-            RedisSingleInstance.list_range("a:#{event_definition_id}", 0, fetch_count - 1)
+            Redis.list_range("a:#{event_definition_id}", 0, fetch_count - 1)
 
           # Trim List Range by fetch_count
-          RedisSingleInstance.list_trim("a:#{event_definition_id}", fetch_count, 100_000)
+          Redis.list_trim("a:#{event_definition_id}", fetch_count, 100_000)
 
           {list_items, event_definition_ids}
 
         false ->
           # Get List Range by list_length
           {:ok, list_items} =
-            RedisSingleInstance.list_range("a:#{event_definition_id}", 0, list_length - 1)
+            Redis.list_range("a:#{event_definition_id}", 0, list_length - 1)
 
           # Trim List Range by list_length
-          RedisSingleInstance.list_trim("a:#{event_definition_id}", list_length, -1)
+          Redis.list_trim("a:#{event_definition_id}", list_length, -1)
 
           # There is no more data left to process. Remove from the list
           updated_event_definition_id_list =
@@ -242,26 +237,26 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   # Will fetch the failed_messages from Redis list based on the demand
   # or the size of the Redis List
   defp fetch_and_release_failed_messages(%{demand: demand} = state) do
-    {:ok, list_length} = RedisSingleInstance.list_length("a:failed_messages")
+    {:ok, list_length} = Redis.list_length("a:failed_messages")
 
     list_items =
       case list_length >= demand do
         true ->
           # Get List Range by demand
-          {:ok, list_items} = RedisSingleInstance.list_range("a:failed_messages", 0, demand - 1)
+          {:ok, list_items} = Redis.list_range("a:failed_messages", 0, demand - 1)
 
           # Trim List Range by demand
-          RedisSingleInstance.list_trim("a:failed_messages", demand, 100_000)
+          Redis.list_trim("a:failed_messages", demand, 100_000)
 
           list_items
 
         false ->
           # Get List Range by list_length
           {:ok, list_items} =
-            RedisSingleInstance.list_range("a:failed_messages", 0, list_length - 1)
+            Redis.list_range("a:failed_messages", 0, list_length - 1)
 
           # Trim List Range by list_length
-          RedisSingleInstance.list_trim("a:failed_messages", list_length, -1)
+          Redis.list_trim("a:failed_messages", list_length, -1)
 
           list_items
       end

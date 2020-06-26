@@ -8,7 +8,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Events.EventDefinition
-  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
+  alias CogyntWorkstationIngest.ConsumerStateManager
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
   alias Models.Enums.ConsumerStatusTypeEnum
 

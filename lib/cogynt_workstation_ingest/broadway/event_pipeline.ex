@@ -74,8 +74,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   the pipeline.
   """
   def ack(:ack_id, successful, _failed) do
+    # TODO: Check if is finished Processing. If so trigger events that used
+    # to exist in event_processing cache
     Enum.each(successful, fn %Broadway.Message{data: %{event_definition: event_definition}} ->
-      RedisSingleInstance.hash_increment_by("b:#{event_definition.id}", "tmp", 1)
+      Redis.hash_increment_by("b:#{event_definition.id}", "tmp", 1)
     end)
   end
 

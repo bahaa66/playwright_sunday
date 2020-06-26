@@ -14,7 +14,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     EventLink
   }
 
-  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
+  alias CogyntWorkstationIngest.ConsumerStateManager
 
   # ---------------------------- #
   # --- Event Schema Methods --- #
@@ -361,7 +361,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       )
 
     Enum.each(event_definitions, fn ed ->
-      ConsumerStateManager.update_consumer_state(ed.id,
+      ConsumerStateManager.upsert_consumer_state(ed.id,
         status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
         topic: ed.topic
       )

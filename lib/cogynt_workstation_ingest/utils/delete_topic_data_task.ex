@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Utils.DeleteTopicDataTask do
   """
   use Task
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
+  alias CogyntWorkstationIngest.ConsumerStateManager
   alias Models.Events.EventDefinition
   alias CogyntWorkstationIngestWeb.Rpc.{IngestHandler, CogyntClient}
 

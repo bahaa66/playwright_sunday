@@ -6,7 +6,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.EventProcessingCache do
   use GenServer
   alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
   alias Models.Enums.ConsumerStatusTypeEnum
-  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
+  alias CogyntWorkstationIngest.ConsumerStateManager
 
   # -------------------- #
   # --- client calls --- #
@@ -154,7 +154,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.EventProcessingCache do
   # --- private methods --- #
   # ----------------------- #
   defp event_finished_processing(event_definition_id) do
-    %{status: status, topic: topic, nsid: nsid} =
+    {:ok, %{status: status, topic: topic, nsid: nsid}} =
       ConsumerStateManager.get_consumer_state(event_definition_id)
 
     cond do
@@ -185,7 +185,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.EventProcessingCache do
         end)
 
       status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
-        ConsumerStateManager.update_consumer_state(event_definition_id,
+        ConsumerStateManager.upsert_consumer_state(event_definition_id,
           topic: topic,
           status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
         )
