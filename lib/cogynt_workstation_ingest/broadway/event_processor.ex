@@ -289,10 +289,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         event_id: event_id
       })
       |> EventsContext.update_all_event_links_multi(delete_event_ids)
-      |> Multi.merge(fn %{insert_notifications: {_, notifications}} ->
-        Multi.new()
-        |> SystemNotificationContext.insert_all_multi(notifications)
-      end)
+      |> SystemNotificationContext.insert_all_multi()
       |> EventsContext.run_multi_transaction()
 
     case transaction_result do
@@ -346,10 +343,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         event_id: event_id
       })
       |> EventsContext.update_all_event_links_multi(delete_event_ids)
-      |> Multi.merge(fn %{update_notifications: {_, updated_notifications}} ->
-        Multi.new()
-        |> SystemNotificationContext.update_all_multi(updated_notifications)
-      end)
+      |> SystemNotificationContext.update_all_multi()
       |> EventsContext.run_multi_transaction()
 
     case transaction_result do
