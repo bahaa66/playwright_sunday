@@ -11,8 +11,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   # --- ingestion calls --- #
   # ----------------------- #
   def handle_request("ingest:start_consumer", event_definition) when is_map(event_definition) do
-    result =
-      ConsumerStateManager.manage_request(%{start_consumer: keys_to_atoms(event_definition)})
+    ConsumerStateManager.manage_request(%{start_consumer: keys_to_atoms(event_definition)})
 
     %{
       status: :ok,
@@ -193,7 +192,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
     try do
       response =
         Enum.reduce(notification_setting_ids, [], fn id, acc ->
-          case NotificationsTaskMonitor.is_processing?(id) do
+          case false do
             true ->
               acc ++
                 [

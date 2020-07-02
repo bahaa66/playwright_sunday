@@ -8,7 +8,6 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
 
   @page_size 2000
 
@@ -73,7 +72,10 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
         set: [tag_id: tag_id, deleted_at: deleted_at, title: ns_title]
       )
 
-    CogyntClient.publish_notifications(updated_notifications)
+    Redis.publish_async(
+      "notification_count_subscription",
+      NotificationsContext.notification_struct_to_map(updated_notifications)
+    )
 
     if page_number >= total_pages do
       CogyntLogger.info(

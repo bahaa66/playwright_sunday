@@ -6,7 +6,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   use Broadway
   alias Broadway.Message
-  alias CogyntWorkstationIngest.Config
+  alias Models.Enums.ConsumerStatusTypeEnum
+  alias CogyntWorkstationIngest.{Config, ConsumerStateManager}
   alias CogyntWorkstationIngest.Broadway.{Producer, EventProcessor}
 
   @pipeline_name :BroadwayEventPipeline
@@ -59,7 +60,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Failed to decode payload. Error: #{inspect(error)}"
+          "Failed to decode payload. Error: #{inspect(error, pretty: true)}"
         )
 
         %Message{
@@ -74,10 +75,21 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   the pipeline.
   """
   def ack(:ack_id, successful, _failed) do
-    # TODO: Check if is finished Processing. If so trigger events that used
-    # to exist in event_processing cache
+    # grouped_notifications =
+    #   Enum.group_by(successful, fn %Broadway.Message{data: %{event_definition: event_definition}} ->
+    #     event_definition.id
+    #   end)
+
+    # IO.inspect(grouped_notifications)
+
+    # TODO: cut down the redis reads by grouping on event_definition_id
     Enum.each(successful, fn %Broadway.Message{data: %{event_definition: event_definition}} ->
-      Redis.hash_increment_by("b:#{event_definition.id}", "tmp", 1)
+      {:ok, tmc} = Redis.hash_get("b:#{event_definition.id}", "tmc")
+      {:ok, tmp} = Redis.hash_increment_by("b:#{event_definition.id}", "tmp", 1)
+
+      if tmp >= String.to_integer(tmc) do
+        finished_processing(event_definition.id)
+      end
     end)
   end
 
@@ -123,4 +135,54 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   defp keys_to_atoms(val), do: val
+
+  defp finished_processing(event_definition_id) do
+    {:ok, %{status: status, topic: topic, nsid: nsid}} =
+      ConsumerStateManager.get_consumer_state(event_definition_id)
+
+    cond do
+      status ==
+          ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Triggering backfill notifications task: #{inspect(nsid, pretty: true)}"
+        )
+
+        Enum.each(nsid, fn id ->
+          ConsumerStateManager.manage_request(%{
+            backfill_notifications: id
+          })
+        end)
+
+      status ==
+          ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Triggering update notifications task: #{inspect(nsid, pretty: true)}"
+        )
+
+        Enum.each(nsid, fn id ->
+          ConsumerStateManager.manage_request(%{
+            update_notification_setting: id
+          })
+        end)
+
+      status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
+        ConsumerStateManager.upsert_consumer_state(event_definition_id,
+          topic: topic,
+          status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
+          module: __MODULE__
+        )
+
+      true ->
+        nil
+    end
+
+    Redis.publish_async("event_count_subscription", event_definition_id)
+
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "Finished processing all messages for EventDefinitionId: #{event_definition_id}"
+    )
+  end
 end

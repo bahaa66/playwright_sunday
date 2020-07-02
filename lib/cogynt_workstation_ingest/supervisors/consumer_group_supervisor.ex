@@ -21,7 +21,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   # --- Standard Ingestion Consumers --- #
   # ------------------------------------ #
   def start_child(event_definition) do
-    # TODO: Temp
+    # TODO: Temp until using authoring event streams
     create_kafka_worker(:standard)
 
     topic = event_definition.topic

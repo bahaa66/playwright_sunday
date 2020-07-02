@@ -97,26 +97,19 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     Enum.each(message_set, fn %Fetch.Message{value: json_message} ->
       case Jason.decode(json_message) do
         {:ok, message} ->
-          case Jason.encode(%{
-                 event: message,
-                 event_definition: event_definition,
-                 event_id: @defaults.event_id,
-                 retry_count: @defaults.retry_count
-               }) do
-            {:ok, encoded_val} ->
-              Redis.list_append("a:#{event_definition.id}", encoded_val)
-
-            {:error, error} ->
-              CogyntLogger.error(
-                "#{__MODULE__}",
-                "Failed to encode event_data. Error: #{inspect(error)}"
-              )
-          end
+          Redis.list_append("a:#{event_definition.id}", %{
+            event: message,
+            event_definition: event_definition,
+            event_id: @defaults.event_id,
+            retry_count: @defaults.retry_count
+          })
 
         {:error, error} ->
+          Redis.hash_increment_by("b:#{event_definition.id}", "tmc", -1)
+
           CogyntLogger.error(
             "#{__MODULE__}",
-            "Failed to decode json_message. Error: #{inspect(error)}"
+            "Failed to decode json_message. Error: #{inspect(error, pretty: true)}"
           )
       end
     end)
@@ -135,7 +128,10 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
                                       },
                                       status: status
                                     } ->
-      CogyntLogger.error("#{__MODULE__}", "Event message failed. #{inspect(status)}")
+      CogyntLogger.error(
+        "#{__MODULE__}",
+        "Event message failed. #{inspect(status, pretty: true)}"
+      )
 
       if retry_count < Config.producer_max_retry() do
         CogyntLogger.info(
@@ -143,21 +139,12 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
           "Retrying Failed Message, Id: #{event_definition.id}. Attempt: #{retry_count + 1}"
         )
 
-        case Jason.encode(%{
-               event: message,
-               event_definition: event_definition,
-               event_id: event_id,
-               retry_count: retry_count + 1
-             }) do
-          {:ok, encoded_val} ->
-            Redis.list_append("a:failed_messages", encoded_val)
-
-          {:error, error} ->
-            CogyntLogger.error(
-              "#{__MODULE__}",
-              "Failed to encode failed_message. Error: #{inspect(error)}"
-            )
-        end
+        Redis.list_append("a:failed_messages", %{
+          event: message,
+          event_definition: event_definition,
+          event_id: event_id,
+          retry_count: retry_count + 1
+        })
       end
     end)
   end
@@ -198,18 +185,16 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
       case list_length >= fetch_count do
         true ->
           # Get List Range by fetch_count
-          {:ok, list_items} =
-            Redis.list_range("a:#{event_definition_id}", 0, fetch_count - 1)
+          {:ok, list_items} = Redis.list_range("a:#{event_definition_id}", 0, fetch_count - 1)
 
           # Trim List Range by fetch_count
-          Redis.list_trim("a:#{event_definition_id}", fetch_count, 100_000)
+          Redis.list_trim("a:#{event_definition_id}", fetch_count, 100_000_000)
 
           {list_items, event_definition_ids}
 
         false ->
           # Get List Range by list_length
-          {:ok, list_items} =
-            Redis.list_range("a:#{event_definition_id}", 0, list_length - 1)
+          {:ok, list_items} = Redis.list_range("a:#{event_definition_id}", 0, list_length - 1)
 
           # Trim List Range by list_length
           Redis.list_trim("a:#{event_definition_id}", list_length, -1)
@@ -246,14 +231,13 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
           {:ok, list_items} = Redis.list_range("a:failed_messages", 0, demand - 1)
 
           # Trim List Range by demand
-          Redis.list_trim("a:failed_messages", demand, 100_000)
+          Redis.list_trim("a:failed_messages", demand, 100_000_000)
 
           list_items
 
         false ->
           # Get List Range by list_length
-          {:ok, list_items} =
-            Redis.list_range("a:failed_messages", 0, list_length - 1)
+          {:ok, list_items} = Redis.list_range("a:failed_messages", 0, list_length - 1)
 
           # Trim List Range by list_length
           Redis.list_trim("a:failed_messages", list_length, -1)

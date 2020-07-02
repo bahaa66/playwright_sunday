@@ -7,7 +7,6 @@ defmodule CogyntWorkstationIngest.Utils.DeleteEventDefinitionEventsTask do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.ConsumerStateManager
-  alias CogyntWorkstationIngest.Servers.Caches.EventProcessingCache
 
   @page_size 2000
 
@@ -65,7 +64,6 @@ defmodule CogyntWorkstationIngest.Utils.DeleteEventDefinitionEventsTask do
 
     if page_number >= total_pages do
       ConsumerStateManager.remove_consumer_state(event_definition_id)
-      EventProcessingCache.remove_event_processing_status(event_definition_id)
 
       CogyntLogger.info(
         "#{__MODULE__}",

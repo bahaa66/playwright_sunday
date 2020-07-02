@@ -23,7 +23,11 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
   @impl true
   def handle_info({:redix_pubsub, _pubsub, _ref, :subscribed, %{channel: channel}}, state) do
-    CogyntLogger.info("#{__MODULE__}", "Successfully subscribed to channel: #{inspect(channel)}")
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "Successfully subscribed to channel: #{inspect(channel, pretty: true)}"
+    )
+
     {:noreply, state}
   end
 
@@ -34,7 +38,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
       ) do
     CogyntLogger.info(
       "#{__MODULE__}",
-      "Channel: #{inspect(channel)}, Received message: #{inspect(payload)}"
+      "Channel: #{inspect(channel)}, Received message: #{inspect(payload, pretty: true)}"
     )
 
     {:noreply, state}

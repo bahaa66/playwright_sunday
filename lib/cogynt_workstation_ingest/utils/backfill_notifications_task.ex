@@ -9,8 +9,6 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Notifications.NotificationSetting
   alias Models.Events.EventDefinition
-  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
-
 
   @page_size 500
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -76,7 +74,10 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
         ]
       )
 
-    CogyntClient.publish_notifications(updated_notifications)
+    Redis.publish_async(
+      "notification_count_subscription",
+      NotificationsContext.notification_struct_to_map(updated_notifications)
+    )
 
     case page_number >= total_pages do
       true ->

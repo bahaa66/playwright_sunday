@@ -3,7 +3,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   The Events context: public interface for event related functionality.
   """
   import Ecto.Query, warn: false
-  alias CogyntWorkstationIngest.Repo
+  alias CogyntWorkstationIngest.{Repo, ConsumerStateManager}
   alias Ecto.Multi
   alias Models.Enums.ConsumerStatusTypeEnum
 
@@ -14,7 +14,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     EventLink
   }
 
-  alias CogyntWorkstationIngest.ConsumerStateManager
 
   # ---------------------------- #
   # --- Event Schema Methods --- #
@@ -363,7 +362,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     Enum.each(event_definitions, fn ed ->
       ConsumerStateManager.upsert_consumer_state(ed.id,
         status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
-        topic: ed.topic
+        topic: ed.topic,
+        module: __MODULE__
       )
     end)
   end

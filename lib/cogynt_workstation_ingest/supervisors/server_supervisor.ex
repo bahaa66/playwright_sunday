@@ -6,8 +6,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
 
   alias CogyntWorkstationIngest.Servers.Caches.{
     ConsumerRetryCache,
-    DrilldownCache,
-    EventProcessingCache
+    DrilldownCache
   }
 
   alias CogyntWorkstationIngest.Servers.PubSub.{
@@ -35,7 +34,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
       child_spec(Startup),
       child_spec(ConsumerMonitor, restart: :permanent),
       child_spec(NotificationsTaskMonitor, restart: :permanent),
-      child_spec(EventProcessingCache, restart: :permanent),
       child_spec(IngestPubSub, start_link_opts: [pubsub])
     ]
 

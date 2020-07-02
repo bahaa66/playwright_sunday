@@ -5,8 +5,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
-  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
   alias CogyntWorkstationIngest.Config
+  alias Models.Notifications.Notification
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -91,7 +91,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:error, reason} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "process_event/1 failed with reason: #{inspect(reason)}"
+          "process_event/1 failed with reason: #{inspect(reason, pretty: true)}"
         )
 
         raise "process_event/1 failed"
@@ -121,7 +121,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:error, reason} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "process_event/1 failed with reason: #{inspect(reason)}"
+          "process_event/1 failed with reason: #{inspect(reason, pretty: true)}"
         )
 
         raise "process_event/1 failed"
@@ -224,7 +224,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:error, reason} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "process_notifications/1 failed with reason: #{inspect(reason)}"
+          "process_notifications/1 failed with reason: #{inspect(reason, pretty: true)}"
         )
 
         raise "process_notifications/1 failed"
@@ -294,11 +294,17 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
          insert_notifications: {_count_created, created_notifications},
          update_notifications: {_count_deleted, updated_notifications}
        }} ->
-        CogyntClient.publish_notifications(created_notifications)
-        CogyntClient.publish_updated_notifications(updated_notifications)
+        total_notifications =
+          NotificationsContext.notification_struct_to_map(created_notifications) ++
+            updated_notifications
+
+        Redis.publish_async("notification_count_subscription", total_notifications)
 
       {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
-        CogyntClient.publish_notifications(created_notifications)
+        Redis.publish_async(
+          "notification_count_subscription",
+          NotificationsContext.notification_struct_to_map(created_notifications)
+        )
 
       {:ok, _} ->
         nil
@@ -306,7 +312,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:error, reason} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "execute_transaction/1 failed with reason: #{inspect(reason)}"
+          "execute_transaction/1 failed with reason: #{inspect(reason, pretty: true)}"
         )
 
         raise "execute_transaction/1 failed"
@@ -343,7 +349,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     case transaction_result do
       {:ok, %{update_notifications: {_count, updated_notifications}}} ->
-        CogyntClient.publish_updated_notifications(updated_notifications)
+        Redis.publish_async("notification_count_subscription", updated_notifications)
 
       {:ok, _} ->
         nil
@@ -351,7 +357,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:error, reason} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "execute_transaction/1 failed with reason: #{inspect(reason)}"
+          "execute_transaction/1 failed with reason: #{inspect(reason, pretty: true)}"
         )
 
         raise "execute_transaction/1 failed"
@@ -397,7 +403,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       nil ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "event has CRUD key but missing `id` field. Throwing away record. #{inspect(event)}",
+          "event has CRUD key but missing `id` field. Throwing away record. #{
+            inspect(event, pretty: true)
+          }",
           true
         )
 
@@ -439,7 +447,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           {:error, reason} ->
             CogyntLogger.error(
               "#{__MODULE__}",
-              "delete_event/1 failed with reason: #{inspect(reason)}"
+              "delete_event/1 failed with reason: #{inspect(reason, pretty: true)}"
             )
 
             raise "delete_event/1 failed"
@@ -461,7 +469,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           {:error, reason} ->
             CogyntLogger.error(
               "#{__MODULE__}",
-              "delete_event/1 failed with reason: #{inspect(reason)}"
+              "delete_event/1 failed with reason: #{inspect(reason, pretty: true)}"
             )
 
             raise "delete_event/1 failed"
@@ -497,7 +505,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           {:error, reason} ->
             CogyntLogger.error(
               "#{__MODULE__}",
-              "create_or_update_event/1 failed with reason: #{inspect(reason)}"
+              "create_or_update_event/1 failed with reason: #{inspect(reason, pretty: true)}"
             )
 
             raise "create_or_update_event/1 failed"

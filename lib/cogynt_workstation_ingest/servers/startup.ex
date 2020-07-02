@@ -5,6 +5,8 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
   use GenServer
   alias CogyntWorkstationIngest.Events.EventsContext
 
+  # TODO register redis pub/sub
+
   # -------------------- #
   # --- client calls --- #
   # -------------------- #
@@ -38,7 +40,7 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
       CogyntLogger.info("#{__MODULE__}", "Consumers Initialized")
     else
       {:error, error} ->
-        CogyntLogger.error("#{__MODULE__}", "App not started. #{inspect(error)}")
+        CogyntLogger.error("#{__MODULE__}", "App not started. #{inspect(error, pretty: true)}")
     end
   end
 end

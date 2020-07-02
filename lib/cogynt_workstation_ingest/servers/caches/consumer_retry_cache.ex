@@ -9,8 +9,6 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.ConsumerStateManager
-  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
-  alias Models.Enums.ConsumerStatusTypeEnum
 
   # -------------------- #
   # --- client calls --- #
@@ -83,15 +81,8 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
 
       with %EventDefinition{} = new_ed <- EventsContext.get_event_definition(event_definition.id),
            true <- is_nil(new_ed.deleted_at),
-           true <- new_ed.active,
-           {:ok, _pid} <- ConsumerStateManager.manage_request(%{start_consumer: event_definition}) do
-        CogyntClient.publish_consumer_status(
-          event_definition.id,
-          event_definition.topic,
-          ConsumerStatusTypeEnum.status()[:running]
-        )
-      else
-        _ -> nil
+           true <- new_ed.active do
+        ConsumerStateManager.manage_request(%{start_consumer: event_definition})
       end
     end)
 

@@ -68,7 +68,10 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
         )
 
       _ ->
-        CogyntLogger.warn("#{__MODULE__}", "Invalid args passed. Args: #{inspect(args)}")
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "Invalid args passed. Args: #{inspect(args, pretty: true)}"
+        )
     end)
   end
 end

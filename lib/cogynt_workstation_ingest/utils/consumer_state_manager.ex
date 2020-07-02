@@ -17,54 +17,39 @@ defmodule CogyntWorkstationIngest.ConsumerStateManager do
     status = Keyword.get(opts, :status, nil)
     topic = Keyword.get(opts, :topic, nil)
     prev_status = Keyword.get(opts, :prev_status, nil)
-    nsid = Keyword.get(opts, :nsid, [])
+    nsid = Keyword.get(opts, :nsid, nil)
+    module = Keyword.get(opts, :module, __MODULE__)
 
-    IO.inspect(opts, label: "@@@ OPTS")
+    IO.inspect(module, pretty: true, label: "@@@ Called From")
 
-    case Redis.key_exists("c:#{event_definition_id}") do
-      {:ok, 0} ->
+    case Redis.key_exists?("c:#{event_definition_id}") do
+      {:ok, false} ->
         # create consumer state record
-        case Jason.encode(%{
-               status: status,
-               topic: topic,
-               prev_status: prev_status,
-               nsid: nsid
-             }) do
-          {:ok, encoded_consumer_state} ->
-            Redis.hash_set_async(
-              "c:#{event_definition_id}",
-              "consumer_state",
-              encoded_consumer_state
-            )
+        consumer_state = %{
+          status: status,
+          topic: topic,
+          prev_status: prev_status,
+          nsid: nsid
+        }
 
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "New Consumer State Created for event_definition_id: #{event_definition_id}, #{
-                inspect(%{
-                  status: status,
-                  topic: topic,
-                  prev_status: prev_status,
-                  nsid: nsid
-                })
-              }"
-            )
+        Redis.hash_set_async("c:#{event_definition_id}", "consumer_state", consumer_state)
 
-            # TODO: add redis pub/sub for updating status to cogynt
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "New Consumer State Created for event_definition_id: #{event_definition_id}, #{
+            inspect(consumer_state, pretty: true)
+          }"
+        )
 
-            {:ok, :success}
+        Redis.publish_async("consumer_state_subscription", %{
+          id: event_definition_id,
+          topic: topic,
+          status: status
+        })
 
-          {:error, error} ->
-            CogyntLogger.error(
-              "#{__MODULE__}",
-              "Failed to encode consumer_state for EventDefinitionId: #{event_definition_id}, Error: #{
-                inspect(error)
-              }"
-            )
+        {:ok, :success}
 
-            {:error, :failed_to_create}
-        end
-
-      {:ok, 1} ->
+      {:ok, true} ->
         # update consumer state record
         {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
@@ -101,62 +86,46 @@ defmodule CogyntWorkstationIngest.ConsumerStateManager do
           end
 
         consumer_state =
-          if !Enum.empty?(nsid) do
+          if !is_nil(nsid) do
             Map.put(consumer_state, :nsid, nsid)
           else
             consumer_state
           end
 
-        case Jason.encode(consumer_state) do
-          {:ok, encoded_consumer_state} ->
-            Redis.hash_set_async(
-              "c:#{event_definition_id}",
-              "consumer_state",
-              encoded_consumer_state
-            )
+        Redis.hash_set_async("c:#{event_definition_id}", "consumer_state", consumer_state)
 
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "New Consumer State Created for event_definition_id: #{event_definition_id}, #{
-                inspect(consumer_state)
-              }"
-            )
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Consumer State Updated for event_definition_id: #{event_definition_id}, #{
+            inspect(consumer_state, pretty: true)
+          }"
+        )
 
-            # TODO add redis pub/sub for updating status to cogynt
+        Redis.publish_async("consumer_state_subscription", %{
+          id: event_definition_id,
+          topic: consumer_state.topic,
+          status: consumer_state.status
+        })
 
-            {:ok, :success}
-
-          {:error, error} ->
-            CogyntLogger.error(
-              "#{__MODULE__}",
-              "Failed to encode consumer_state for EventDefinitionId: #{event_definition_id}, Error: #{
-                inspect(error)
-              }"
-            )
-
-            {:error, :failed_to_update}
-        end
+        {:ok, :success}
     end
   end
 
   def get_consumer_state(event_definition_id) do
-    case Redis.hash_get("c:#{event_definition_id}", "consumer_state") do
+    case Redis.hash_get("c:#{event_definition_id}", "consumer_state", decode: true) do
       {:ok, nil} ->
-        # return the default consumer state
         {:ok, @default_state}
 
-      {:ok, json_consumer_state} ->
-        consumer_state =
-          Jason.decode!(json_consumer_state)
-          |> keys_to_atoms()
-
+      {:ok, consumer_state} ->
         {:ok, consumer_state}
+
+      {:error, _} ->
+        {:error, @default_state}
     end
   end
 
   def remove_consumer_state(event_definition_id) do
-    Redis.key_delete("c:#{event_definition_id}")
-    {:ok, :success}
+    for x <- ["a", "b", "c"], do: Redis.key_delete("#{x}:#{event_definition_id}")
   end
 
   # TODO
@@ -169,21 +138,15 @@ defmodule CogyntWorkstationIngest.ConsumerStateManager do
   end
 
   def finished_processing?(event_definition_id) do
-    case Redis.key_exists("b:#{event_definition_id}") do
-      {:ok, 0} ->
+    case Redis.key_exists?("b:#{event_definition_id}") do
+      {:ok, false} ->
         {:error, :key_does_not_exist}
 
-      {:ok, 1} ->
-        {:ok, field_list} = Redis.hash_get_all("b:#{event_definition_id}")
+      {:ok, true} ->
+        {:ok, tmc} = Redis.hash_get("b:#{event_definition_id}", "tmc")
+        {:ok, tmp} = Redis.hash_get("b:#{event_definition_id}", "tmp")
 
-        messages_map =
-          field_list
-          |> Enum.chunk_every(2)
-          |> keys_to_atoms()
-
-        IO.inspect(messages_map, label: "@@@ messages map")
-
-        {:ok, messages_map.tmc >= messages_map.tmp}
+        {:ok, String.to_integer(tmp) >= String.to_integer(tmc)}
     end
   end
 
@@ -294,7 +257,7 @@ defmodule CogyntWorkstationIngest.ConsumerStateManager do
       error ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "start_consumer/1 failed with error: #{inspect(error)}"
+          "start_consumer/1 failed with error: #{inspect(error, pretty: true)}"
         )
 
         internal_error_state(event_definition.id)
@@ -382,7 +345,7 @@ defmodule CogyntWorkstationIngest.ConsumerStateManager do
       error ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "stop_consumer/1 failed with error: #{inspect(error)}"
+          "stop_consumer/1 failed with error: #{inspect(error, pretty: true)}"
         )
 
         internal_error_state(event_definition.id)
@@ -481,7 +444,7 @@ defmodule CogyntWorkstationIngest.ConsumerStateManager do
       error ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "backfill_notifications failed with error: #{inspect(error)}"
+          "backfill_notifications failed with error: #{inspect(error, pretty: true)}"
         )
 
         internal_error_state(event_definition_id)
@@ -580,7 +543,7 @@ defmodule CogyntWorkstationIngest.ConsumerStateManager do
       error ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "update_notification_setting failed with error: #{inspect(error)}"
+          "update_notification_setting failed with error: #{inspect(error, pretty: true)}"
         )
 
         internal_error_state(event_definition_id)
@@ -639,9 +602,5 @@ defmodule CogyntWorkstationIngest.ConsumerStateManager do
 
         %{response: {:error, :internal_server_error}}
     end
-  end
-
-  defp keys_to_atoms(string_key_map) do
-    for {key, val} <- string_key_map, into: %{}, do: {String.to_atom(key), val}
   end
 end

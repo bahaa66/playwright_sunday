@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
   and remove the PID from the state.
   """
   use GenServer
-  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
   alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.ConsumerStateManager
 
@@ -39,31 +38,42 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
   end
 
   @impl true
-  def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
-    %{event_definition_id: event_definition_id, topic: topic} = Map.get(state, pid)
+  def handle_info({:DOWN, _ref, :process, pid, reason}, state) do
+    case reason do
+      :shutdown ->
+        new_state = Map.delete(state, pid)
+        {:noreply, new_state}
 
-    {:ok, %{status: status}} = ConsumerStateManager.get_consumer_state(event_definition_id)
+      :normal ->
+        new_state = Map.delete(state, pid)
+        {:noreply, new_state}
 
-    case ConsumerStateManager.finished_processing?(event_definition_id) do
-      true ->
-        check_consumer_state(
-          event_definition_id,
-          topic,
-          status,
-          ConsumerStatusTypeEnum.status()[:paused_and_finished]
-        )
+      _ ->
+        %{event_definition_id: event_definition_id, topic: topic} = Map.get(state, pid)
 
-      false ->
-        check_consumer_state(
-          event_definition_id,
-          topic,
-          status,
-          ConsumerStatusTypeEnum.status()[:paused_and_processing]
-        )
+        {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition_id)
+
+        case ConsumerStateManager.finished_processing?(event_definition_id) do
+          {:ok, true} ->
+            check_consumer_state(
+              event_definition_id,
+              topic,
+              consumer_state.status,
+              ConsumerStatusTypeEnum.status()[:paused_and_finished]
+            )
+
+          {:ok, false} ->
+            check_consumer_state(
+              event_definition_id,
+              topic,
+              consumer_state.status,
+              ConsumerStatusTypeEnum.status()[:paused_and_processing]
+            )
+        end
+
+        new_state = Map.delete(state, pid)
+        {:noreply, new_state}
     end
-
-    new_state = Map.delete(state, pid)
-    {:noreply, new_state}
   end
 
   # ----------------------- #
@@ -71,37 +81,20 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
   # ----------------------- #
   defp check_consumer_state(id, topic, status, new_status) do
     cond do
-      status == new_status ->
-        CogyntClient.publish_consumer_status(
-          id,
-          topic,
-          new_status
-        )
-
-      status == ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-        CogyntClient.publish_consumer_status(
-          id,
-          topic,
-          new_status
-        )
-
-      status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-        CogyntClient.publish_consumer_status(
-          id,
-          topic,
-          new_status
-        )
+      status == new_status or
+        status == ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
+          status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+        Redis.publish_async("consumer_state_subscription", %{
+          id: id,
+          topic: topic,
+          status: new_status
+        })
 
       true ->
         ConsumerStateManager.upsert_consumer_state(id,
           topic: topic,
-          status: new_status
-        )
-
-        CogyntClient.publish_consumer_status(
-          id,
-          topic,
-          new_status
+          status: new_status,
+          module: __MODULE__
         )
     end
   end
