@@ -1,4 +1,4 @@
-defmodule CogyntWorkstationIngest.Utils.DeleteDrilldownDataTask do
+defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
   @moduledoc """
   Task module that can bee called to execute the delete_drilldown_data_task work as a
   async task.

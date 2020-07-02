@@ -6,7 +6,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
   """
 
   use GenServer
-  alias CogyntWorkstationIngest.ConsumerStateManager
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext

@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngestWeb.Rpc.IngestHandler do
   alias CogyntWorkstationIngest.Servers.NotificationsTaskMonitor
   alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
   alias Models.Enums.ConsumerStatusTypeEnum
-  alias CogyntWorkstationIngest.ConsumerStateManager
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
 
   # ----------------------- #
   # --- ingestion calls --- #

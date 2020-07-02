@@ -8,7 +8,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Events.EventDefinition
-  alias CogyntWorkstationIngest.ConsumerStateManager
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
 
   # -------------------- #
   # --- client calls --- #

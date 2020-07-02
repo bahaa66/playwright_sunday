@@ -32,11 +32,10 @@ config :kafka_ex,
   # Dev Kafka
   # brokers: [
   #   {
-  #     System.get_env("KAFKA_BROKER") || "172.16.1.100",
+  #     System.get_env("KAFKA_BROKER") || "kafka-dst.cogilitycloud.com",
   #     (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
   #   }
   # ],
-  # Local Kafka
   brokers: [{"127.0.0.1", 9092}],
   disable_default_worker: true,
   auto_offset_reset: :earliest,
@@ -69,8 +68,8 @@ config :elasticsearch, :config,
 # Redis configurations
 config :redis, :application,
   host: System.get_env("COGYNT_REDIS_HOST") || "127.0.0.1",
-  port: System.get_env("COGYNT_REDIS_PORT") || "6379",
-  password: System.get_env("COGYNT_REDIS_PASSWORD") || "",
+  port: (System.get_env("COGYNT_REDIS_PORT") || "6379") |> String.to_integer(),
+  password: System.get_env("COGYNT_REDIS_PASSWORD") || nil,
   name: System.get_env("COGYNT_REDIS_NAME") || "",
   sentinel: System.get_env("COGYNT_REDIS_SENTINEL") || "",
   databse: System.get_env("COGYNT_REDIS_DATABASE") || "",

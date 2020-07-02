@@ -1,4 +1,4 @@
-defmodule CogyntWorkstationIngest.ConsumerStateManager do
+defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   @moduledoc """
   Genserver that keeps track of the State of each Consumer. Also knows which actions are
   allowed to be performed based on what state the consumer is in.
@@ -559,6 +559,10 @@ defmodule CogyntWorkstationIngest.ConsumerStateManager do
 
       consumer_state.status ==
           ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+        %{response: {:error, consumer_state.status}}
+
+      consumer_state.status ==
+          ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
         %{response: {:error, consumer_state.status}}
 
       true ->

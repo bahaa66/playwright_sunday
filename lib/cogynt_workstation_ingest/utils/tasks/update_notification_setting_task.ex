@@ -1,4 +1,4 @@
-defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
+defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationSettingTask do
   @moduledoc """
   Task module that can bee called to execute the update_notifications work as a
   async task.

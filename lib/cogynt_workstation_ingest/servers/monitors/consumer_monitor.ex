@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
   """
   use GenServer
   alias Models.Enums.ConsumerStatusTypeEnum
-  alias CogyntWorkstationIngest.ConsumerStateManager
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
 
   # -------------------- #
   # --- client calls --- #

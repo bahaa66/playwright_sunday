@@ -1,4 +1,4 @@
-defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
+defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
   @moduledoc """
   Task module that can bee called to execute the backfill_notifications work as a
   async task.

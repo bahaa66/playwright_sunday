@@ -3,7 +3,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   The Events context: public interface for event related functionality.
   """
   import Ecto.Query, warn: false
-  alias CogyntWorkstationIngest.{Repo, ConsumerStateManager}
+  alias CogyntWorkstationIngest.Repo
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias Ecto.Multi
   alias Models.Enums.ConsumerStatusTypeEnum
 
@@ -13,7 +14,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     EventDetail,
     EventLink
   }
-
 
   # ---------------------------- #
   # --- Event Schema Methods --- #

@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Broadway.EventProcessor
   alias CogyntWorkstationIngest.Config
-  alias Models.Notifications.Notification
 
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
 

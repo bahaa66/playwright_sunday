@@ -7,7 +7,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   use Broadway
   alias Broadway.Message
   alias Models.Enums.ConsumerStatusTypeEnum
-  alias CogyntWorkstationIngest.{Config, ConsumerStateManager}
+  alias CogyntWorkstationIngest.Config
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Broadway.{Producer, EventProcessor}
 
   @pipeline_name :BroadwayEventPipeline

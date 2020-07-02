@@ -1,4 +1,4 @@
-defmodule CogyntWorkstationIngest.Utils.DeleteEventDefinitionEventsTask do
+defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
   @moduledoc """
   Task module that can be called to paginate through the events of an event_definition and updates the
   deleted_at using the new deleted_at value of the event_definition.
@@ -6,7 +6,7 @@ defmodule CogyntWorkstationIngest.Utils.DeleteEventDefinitionEventsTask do
   use Task
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Events.EventDefinition
-  alias CogyntWorkstationIngest.ConsumerStateManager
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
 
   @page_size 2000
 

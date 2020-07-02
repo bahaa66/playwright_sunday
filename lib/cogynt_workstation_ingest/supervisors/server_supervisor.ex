@@ -26,7 +26,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   @impl true
   def init(_) do
     # Start Redis pub/sub
-    {:ok, pubsub} = Redix.PubSub.start_link()
+    {:ok, pubsub} = Redis.pub_sub_start()
 
     children = [
       child_spec(ConsumerRetryCache),

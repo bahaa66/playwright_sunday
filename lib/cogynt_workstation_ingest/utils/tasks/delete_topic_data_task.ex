@@ -1,11 +1,11 @@
-defmodule CogyntWorkstationIngest.Utils.DeleteTopicDataTask do
+defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
   @moduledoc """
   Task module that can bee called to execute the delete_topic_data work as a
   async task.
   """
   use Task
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngest.ConsumerStateManager
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias Models.Events.EventDefinition
 
   def start_link(arg) do
