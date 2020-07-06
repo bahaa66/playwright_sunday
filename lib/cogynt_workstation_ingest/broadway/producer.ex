@@ -94,25 +94,31 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     message_count = Enum.count(message_set)
     Redis.hash_increment_by("b:#{event_definition.id}", "tmc", message_count)
 
-    Enum.each(message_set, fn %Fetch.Message{value: json_message} ->
-      case Jason.decode(json_message) do
-        {:ok, message} ->
-          Redis.list_append("a:#{event_definition.id}", %{
-            event: message,
-            event_definition: event_definition,
-            event_id: @defaults.event_id,
-            retry_count: @defaults.retry_count
-          })
+    list_items =
+      Enum.reduce(message_set, [], fn %Fetch.Message{value: json_message}, acc ->
+        case Jason.decode(json_message) do
+          {:ok, message} ->
+            acc ++
+              [
+                %{
+                  event: message,
+                  event_definition: event_definition,
+                  event_id: @defaults.event_id,
+                  retry_count: @defaults.retry_count
+                }
+              ]
 
-        {:error, error} ->
-          Redis.hash_increment_by("b:#{event_definition.id}", "tmc", -1)
+          {:error, error} ->
+            Redis.hash_increment_by("b:#{event_definition.id}", "tmc", -1)
 
-          CogyntLogger.error(
-            "#{__MODULE__}",
-            "Failed to decode json_message. Error: #{inspect(error, pretty: true)}"
-          )
-      end
-    end)
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "Failed to decode json_message. Error: #{inspect(error, pretty: true)}"
+            )
+        end
+      end)
+
+    Redis.list_append_pipeline("a:#{event_definition.id}", list_items)
   end
 
   # Parse the %Broadway.Message{} struct returned from Broadway

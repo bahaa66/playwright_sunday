@@ -13,19 +13,20 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
     System.get_env("COGYNT_SECRET_KEY_BASE") ||
       "YqoQsxs2MpNBdH4PrtQYNY1JnJfscSFBIADEDqs6wSMIn3/8+TjYkbm6CrPx2yVJ",
   render_errors: [view: CogyntWorkstationIngestWeb.ErrorView, accepts: ~w(json)],
-  pubsub: [name: CogyntWorkstationIngestWeb.PubSub, adapter: Phoenix.PubSub.PG2],
-  https: [
-    port: (System.get_env("HTTPS_PORT") || "450") |> String.to_integer(),
-    otp_app: :cogynt_workstation_ingest,
-    keyfile: System.get_env("TLS_KEY_PATH") || "",
-    certfile: System.get_env("TLS_CERT_PATH") || ""
-  ],
+  pubsub_server: CogyntWorkstationIngestWeb.PubSub,
+  # https: [
+  #   port: (System.get_env("HTTPS_PORT") || "450") |> String.to_integer(),
+  #   otp_app: :cogynt_workstation_ingest,
+  #   keyfile: System.get_env("TLS_KEY_PATH") || "",
+  #   certfile: System.get_env("TLS_CERT_PATH") || ""
+  # ],
   http: [port: (System.get_env("HTTP_PORT") || "4002") |> String.to_integer()],
   debug_errors: true,
   code_reloader: true,
   check_origin: false,
   server: true,
-  watchers: []
+  watchers: [],
+  live_view: [signing_salt: System.get_env("COGYNT_AUTH_SALT") || "I45Kpw9a"]
 
 # Kafka Configurations
 config :kafka_ex,
@@ -147,4 +148,5 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   password: System.get_env("POSTGRESQL_PASSWORD") || "postgres",
   database: System.get_env("POSTGRESQL_DATABASE") || "cogynt_dev",
   hostname: System.get_env("POSTGRESQL_HOST") || "localhost",
-  pool_size: (System.get_env("POSTGRESQL_POOL_SIZE") || "10") |> String.to_integer()
+  pool_size: (System.get_env("POSTGRESQL_POOL_SIZE") || "10") |> String.to_integer(),
+  telemetry_prefix: [:cogynt_workstation_ingest, :repo]

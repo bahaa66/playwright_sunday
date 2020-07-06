@@ -9,7 +9,8 @@ defmodule CogyntWorkstationIngest.Application do
   alias CogyntWorkstationIngest.Supervisors.{
     ConsumerGroupSupervisor,
     ServerSupervisor,
-    TaskSupervisor
+    TaskSupervisor,
+    TelemetrySupervisor
   }
 
   alias CogyntWorkstationIngest.Servers.Startup
@@ -18,8 +19,11 @@ defmodule CogyntWorkstationIngest.Application do
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
+      {Phoenix.PubSub, [name: CogyntWorkstationIngestWeb.PubSub, adapter: Phoenix.PubSub.PG2]},
       # Start the Ecto repository
       CogyntWorkstationIngest.Repo,
+      # Start the TelemetrySupervisor,
+      TelemetrySupervisor,
       # Start the endpoint when the application starts
       CogyntWorkstationIngestWeb.Endpoint,
       # Start the Supervisor for Redis,
