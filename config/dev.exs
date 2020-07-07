@@ -14,12 +14,12 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
       "YqoQsxs2MpNBdH4PrtQYNY1JnJfscSFBIADEDqs6wSMIn3/8+TjYkbm6CrPx2yVJ",
   render_errors: [view: CogyntWorkstationIngestWeb.ErrorView, accepts: ~w(json)],
   pubsub_server: CogyntWorkstationIngestWeb.PubSub,
-  # https: [
-  #   port: (System.get_env("HTTPS_PORT") || "450") |> String.to_integer(),
-  #   otp_app: :cogynt_workstation_ingest,
-  #   keyfile: System.get_env("TLS_KEY_PATH") || "",
-  #   certfile: System.get_env("TLS_CERT_PATH") || ""
-  # ],
+  https: [
+    port: (System.get_env("HTTPS_PORT") || "450") |> String.to_integer(),
+    otp_app: :cogynt_workstation_ingest,
+    keyfile: System.get_env("TLS_KEY_PATH") || "",
+    certfile: System.get_env("TLS_CERT_PATH") || ""
+  ],
   http: [port: (System.get_env("HTTP_PORT") || "4002") |> String.to_integer()],
   debug_errors: true,
   code_reloader: true,
@@ -31,13 +31,13 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
 # Kafka Configurations
 config :kafka_ex,
   # Dev Kafka
-  # brokers: [
-  #   {
-  #     System.get_env("KAFKA_BROKER") || "kafka-dst.cogilitycloud.com",
-  #     (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
-  #   }
-  # ],
-  brokers: [{"127.0.0.1", 9092}],
+  brokers: [
+    {
+      System.get_env("KAFKA_BROKER") || "kafka-dst.cogilitycloud.com",
+      (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
+    }
+  ],
+  # brokers: [{"127.0.0.1", 9092}],
   disable_default_worker: true,
   auto_offset_reset: :earliest,
   kafka_version: "2.0",
