@@ -20,8 +20,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     nsid = Keyword.get(opts, :nsid, nil)
     module = Keyword.get(opts, :module, __MODULE__)
 
-    IO.inspect(module, pretty: true, label: "@@@ Called From")
-
     case Redis.key_exists?("c:#{event_definition_id}") do
       {:ok, false} ->
         # create consumer state record
@@ -126,15 +124,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
   def remove_consumer_state(event_definition_id) do
     for x <- ["a", "b", "c"], do: Redis.key_delete("#{x}:#{event_definition_id}")
-  end
-
-  # TODO
-  def list_consumer_states() do
-    # SCAN 0 MATCH "c:*"
-    # Enum each result
-    # HGETALL for each result
-    # Format results to maps
-    nil
   end
 
   def finished_processing?(event_definition_id) do

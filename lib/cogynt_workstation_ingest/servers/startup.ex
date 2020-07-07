@@ -5,8 +5,6 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
   use GenServer
   alias CogyntWorkstationIngest.Events.EventsContext
 
-  # TODO register redis pub/sub
-
   # -------------------- #
   # --- client calls --- #
   # -------------------- #

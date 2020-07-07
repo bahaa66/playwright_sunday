@@ -43,7 +43,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
   @impl true
   def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
-    # TODO implement retry for task if reason anything other than :normal or :shutdown
+    # TODO implement retry for backfill/update task if reason anything other than :normal or :shutdown
     notification_setting_id = Map.get(state, pid)
 
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
@@ -52,9 +52,6 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
       ConsumerStateManager.get_consumer_state(notification_setting.event_definition_id)
 
     nsid = List.delete(consumer_state.nsid, notification_setting_id)
-
-    IO.inspect(consumer_state, pretty: true, label: "@@@ NOTIFICATION MONITOR")
-    IO.inspect(nsid, pretty: true, label: "@@@ NOTIFICATION MONITOR")
 
     if Enum.empty?(nsid) do
       cond do
@@ -85,7 +82,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
       )
     end
 
-    # TODO Redis pub/sub notification task
+    # TODO Redis pub/sub notification finished
 
     new_state = Map.drop(state, [pid, notification_setting_id])
     {:noreply, new_state}

@@ -176,7 +176,6 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     end
   end
 
-  # TODO: Need to work on maintaining of the failed messages list
   # Will fetch the event_data from Redis list based on the fetch_count or
   # the size of the Redis List
   defp fetch_demand_from_redis(
