@@ -177,7 +177,7 @@ statefulset:
       runAsUser: 1000
   ## Configure volumeClaimTemplate block
   persistence:
-    useVolumeClaimTemplates: true
+    useVolumeClaimTemplates: false
     accessMode: ReadWriteOnce
     size: 4Gi
     mountPath: /blah
