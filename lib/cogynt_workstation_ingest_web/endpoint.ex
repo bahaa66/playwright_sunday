@@ -27,7 +27,7 @@ defmodule CogyntWorkstationIngestWeb.Endpoint do
 
   plug(Plug.RequestId)
   # plug(Plug.Telemetry, event_prefix: [:phoenix, :endpoint])
-  plug(Plug.QuietLogger, path: ["/healthz", "/livenessCheck", "/rpc/ingest", "/dashboard*"])
+  plug(Plug.QuietLogger, path: ["/healthz", "/livenessCheck", "/rpc/ingest", "/dashboard"])
 
   plug(Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
