@@ -1,3 +1,10 @@
+### [1.3.25](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.24...v1.3.25) (2020-07-07)
+
+
+### :bug: Bugfix
+
+* **helm:** disable unused pvc and mount in statefulsets ([966afb5](https://github.com/Cogility/cogynt-workstation-ingest/commit/966afb5dd9235024b707b7cfde38ee66b39046a4))
+
 ### [1.3.24](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.23...v1.3.24) (2020-07-07)
 
 
