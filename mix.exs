@@ -60,16 +60,18 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:quiet_logger, "~> 0.2.0"},
       {
         :models,
-        git: "git@github.com:cogility/cogynt-common.git",
-        sparse: "models",
-        tag: "v1.5.8",
-        override: true
+        # git: "git@github.com:cogility/cogynt-common.git",
+        # sparse: "models",
+        # tag: "v1.5.8",
+        path: "../cogynt-common/models", override: true
       },
-      {:migrations,
-       git: "git@github.com:cogility/cogynt-common.git",
-       sparse: "migrations",
-       tag: "v1.5.7",
-       override: true},
+      {
+        :migrations,
+        #  git: "git@github.com:cogility/cogynt-common.git",
+        #  sparse: "migrations",
+        #  tag: "v1.5.7",
+        path: "../cogynt-common/migrations", override: true
+      },
       {:utils,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "utils",

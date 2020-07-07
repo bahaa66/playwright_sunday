@@ -74,6 +74,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
     data
     |> DrilldownProcessor.process_template_data()
     |> DrilldownProcessor.update_cache()
+    |> IO.inspect
 
     message
   end

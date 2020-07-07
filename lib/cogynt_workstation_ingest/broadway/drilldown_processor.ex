@@ -3,6 +3,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
   Module that acts as the Broadway Processor for the DrilldownPipeline.
   """
   alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
+  alias CogyntWorkstationIngest.Broadway.DrilldownContext
 
   @doc """
   process_template_data/1
@@ -17,6 +18,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
           "id" => event["id"]
         }
 
+        DrilldownContext.update_template_solutions(event)
         Map.put(data, :sol_id, sol["id"])
         |> Map.put(:sol, sol)
 
@@ -41,5 +43,9 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
   """
   def update_cache(data) do
     DrilldownCache.put(data)
+  end
+
+  def update_db(data) do
+    data
   end
 end
