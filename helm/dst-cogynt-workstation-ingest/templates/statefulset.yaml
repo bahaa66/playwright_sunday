@@ -50,11 +50,11 @@ spec:
 {{ toYaml . | indent 6 }}
 {{- end }}
 {{ include "cogynt.files.volumes" . | indent 6 }}
-{{- if not .Values.statefulset.persistence.useVolumeClaimTemplates }}
-      - name: {{ (include "common.fullname" . ) }}
-        persistentVolumeClaim:
-          claimName: {{ .Values.statefulset.persistence.existingClaim | default (include "common.fullname" . ) }}
-{{- end }}
+#{{- if not .Values.statefulset.persistence.useVolumeClaimTemplates }}
+#      - name: {{ (include "common.fullname" . ) }}
+#        persistentVolumeClaim:
+#          claimName: {{ .Values.statefulset.persistence.existingClaim | default (include "common.fullname" . ) }}
+#{{- end }}
 {{ include "cogynt.initContainers" . | indent 6 }}
       containers:
       - name: {{ include "common.name" . }}
