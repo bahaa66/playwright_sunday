@@ -9,6 +9,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
   process_template_data/1
   """
   def process_template_data(%{event: event} = data) do
+    # IO.inspect data
     case event["event"] do
       nil ->
         sol = %{
@@ -18,7 +19,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
           "id" => event["id"]
         }
 
-        DrilldownContext.update_template_solutions(event)
         Map.put(data, :sol_id, sol["id"])
         |> Map.put(:sol, sol)
 
@@ -45,7 +45,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
     DrilldownCache.put(data)
   end
 
-  def update_db(data) do
-    data
+  def update_template_solutions(data) do
+    DrilldownContext.update_template_solutions(data)
   end
 end
