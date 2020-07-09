@@ -154,6 +154,53 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # --- EventDefinition Schema Methods --- #
   # -------------------------------------- #
   @doc """
+  Creates an EventDefinition.
+  ## Examples
+      iex> create_event_definition(%{field: value})
+      {:ok, %EventDefinition{}}
+      iex> create_event_definition(%{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+  """
+  def create_event_definition(attrs \\ %{}) do
+    %EventDefinition{}
+    |> EventDefinition.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Updates an EventDefinition.
+  ## Examples
+      iex> update_event_definition(event_definition, %{field: new_value})
+      {:ok, %EventDefinition{}}
+      iex> update_event_definition(event_definition, %{field: bad_value})
+      {:error, ...}
+  """
+  def update_event_definition(%EventDefinition{} = event_definition, attrs) do
+    event_definition
+    |> EventDefinition.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Will create the EventDefinition if no record is found for the event_definition_id.
+  If a record is found it updates the record with the new attrs.
+  ## Examples
+      iex> upsert_event_definition(%{field: value})
+      {:ok, %EventDefinition{}}
+      iex> upsert_event_definition(%{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+  """
+  def upsert_event_definition(attrs \\ %{}) do
+    case get_event_definition(attrs.id) do
+      nil ->
+        create_event_definition(attrs)
+
+      {:ok, %EventDefinition{} = event_definition} ->
+        update_event_definition(event_definition, attrs)
+    end
+  end
+
+  @doc """
   Returns the EventDefinition for id. Raises an error if it does
   not exist
   ## Examples
