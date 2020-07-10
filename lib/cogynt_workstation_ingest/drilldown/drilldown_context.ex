@@ -1,4 +1,4 @@
-defmodule CogyntWorkstationIngest.Broadway.DrilldownContext do
+defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   alias Models.Drilldown.TemplateSolutions
   alias CogyntWorkstationIngest.Repo
 
@@ -36,14 +36,20 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownContext do
 
   def get_template_solution(id), do: Repo.get(TemplateSolutions, id)
 
+
   defp create_template_solution(attrs) do
-    %TemplateSolutions{}
+    changeset = %TemplateSolutions{}
     |> TemplateSolutions.changeset(attrs)
-    |> Repo.insert()
+
+    case Repo.insert(changeset) do
+      {:ok, struct} -> struct
+      {:error, reason} ->
+        CogyntLogger.error("#{__MODULE__}", "create_template_solution failed with reason: #{inspect(reason)}")
+    end
 
   end
 
-  defp get_attrs(temp_sol, %{sol_id: id, sol: sol, evnt: evnt} = data) do
+  defp get_attrs(temp_sol, %{sol_id: _id, sol: sol, evnt: evnt} = data) do
     sol =  (temp_sol || %{"events" => %{}, "outcomes" => []})
     |> Map.merge(sol)
     cond do
@@ -88,7 +94,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownContext do
     temp_sol = TemplateSolutions.changeset(template_solution, new_data)
     case Repo.update(temp_sol) do
       {:ok, _struct} -> :ok
-      {:error, changeset} -> :ok
+      {:error, reason} -> CogyntLogger.error("#{__MODULE__}", "update_record failed with reason: #{inspect(reason)}")
     end
   end
 

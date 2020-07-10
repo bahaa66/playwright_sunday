@@ -3,7 +3,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
   Module that acts as the Broadway Processor for the DrilldownPipeline.
   """
   alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
-  alias CogyntWorkstationIngest.Broadway.DrilldownContext
+  alias CogyntWorkstationIngest.Drilldown.DrilldownContext
 
   @doc """
   process_template_data/1

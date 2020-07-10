@@ -2,7 +2,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
   use CogyntWorkstationIngestWeb, :controller
 
   alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
-  alias CogyntWorkstationIngest.Repo
+  alias CogyntWorkstationIngest.Drilldown.DrilldownContext
 
   @doc """
   Return a list of the info on all template instances for the given type
@@ -32,24 +32,13 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
   def show(conn, %{"id" => id}) do
     case is_authorized?(conn) do
       true ->
-         {:ok, data} = DrilldownCache.get(id)
+        #  {:ok, data} = DrilldownCache.get(id)
 
-        new_data = Repo.get(Models.Drilldown.TemplateSolutions, id)
+        data = DrilldownContext.get_template_solution(id)
         |> Map.from_struct()
         |> Map.drop([:__meta__, :created_at, :updated_at])
         |> stringify_map()
 
-        # IO.puts("*************IS EQUAL**********")
-        # IO.inspect Kernel.map_size(data)
-        # IO.inspect Kernel.map_size(new_data)
-        # IO.inspect Map.keys(data)
-        # IO.inspect Map.keys(new_data)
-        # IO.inspect Map.get(data, "template_type_name")
-        # IO.inspect Map.get(new_data, "template_type_name")
-        # IO.inspect Map.equal?(Map.get(data, "events"), Map.get(new_data, "events"))
-        # IO.puts("***********************")
-
-        data = new_data
         if data == nil do
           render(conn, "404.json")
         else
