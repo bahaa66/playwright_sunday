@@ -93,8 +93,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
       true ->
         ConsumerStateManager.upsert_consumer_state(id,
           topic: topic,
-          status: new_status,
-          module: __MODULE__
+          status: new_status
         )
     end
   end

@@ -59,8 +59,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
           ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
             topic: consumer_state.topic,
             nsid: nsid,
-            status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
-            module: __MODULE__
+            status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
           )
 
           EventsContext.get_event_definition_for_startup(notification_setting.event_definition_id)
@@ -71,14 +70,12 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
             topic: consumer_state.topic,
             nsid: nsid,
             prev_status: ConsumerStatusTypeEnum.status()[:paused_and_processing],
-            status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
-            module: __MODULE__
+            status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
           )
       end
     else
       ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
-        nsid: nsid,
-        module: __MODULE__
+        nsid: nsid
       )
     end
 

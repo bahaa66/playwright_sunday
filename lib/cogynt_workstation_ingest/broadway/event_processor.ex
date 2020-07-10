@@ -16,6 +16,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @elastic_blacklist [@entities, @crud, @partial, @risk_score]
 
   @doc """
+  Requires :event_definition_id field in the data map. Will get the latest EventDefinition
+  to store and use for the pipeline.
+  """
+  def fetch_event_definition(%{event_definition_id: event_definition_id} = data) do
+    event_definition_map =
+      EventsContext.get_event_definition(event_definition_id)
+      |> EventsContext.event_definition_struct_to_map()
+
+    Map.put(data, :event_definition, event_definition_map)
+  end
+
+  @doc """
   Requires event field in the data map. Based on the crud action value
   process_event/1 will create a single Event record in the database that is assosciated with
   the event_definition.id. It will also pull all the event_ids and doc_ids that need to be

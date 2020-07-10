@@ -28,7 +28,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
   # ----------------------- #
   defp delete_drilldown_data(delete_topics) do
     CogyntLogger.info("#{__MODULE__}", "Stoping the Drilldown ConsumerGroup")
-    ConsumerGroupSupervisor.stop_child()
+    ConsumerGroupSupervisor.stop_child(:drilldown)
 
     if delete_topics do
       CogyntLogger.info(
@@ -51,6 +51,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
     DrilldownCache.reset_state()
     Process.sleep(2000)
     CogyntLogger.info("#{__MODULE__}", "Starting the Drilldown ConsumerGroup")
-    ConsumerGroupSupervisor.start_child()
+    ConsumerGroupSupervisor.start_child(:drilldown)
   end
 end

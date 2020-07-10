@@ -150,4 +150,48 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
   def get_deployment(id) do
     Repo.get(Deployment, id)
   end
+
+  @doc """
+
+  """
+  def get_kafka_brokers(id) do
+    case get_deployment(id) do
+      nil ->
+        {:error, :does_not_exist}
+
+      {:ok, %Deployment{data_source: json_data}} ->
+        case Jason.decode(json_data) do
+          {:ok, data_sources} ->
+            uris =
+              Enum.reduce(data_sources, [], fn data_source, acc_0 ->
+                case data_source.kind == "kafka" do
+                  true ->
+                    uris =
+                      Enum.reduce(data_source.spec.brokers, [], fn %{host: host, port: port},
+                                                                   acc_1 ->
+                        acc_1 ++ [{host, port}]
+                      end)
+
+                    acc_0 ++ uris
+
+                  false ->
+                    acc_0
+                end
+              end)
+
+            {:ok, uris}
+
+          {:error, error} ->
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "Failed to decode json data_source object for Deployment_Id: #{id}. Data_Source: #{
+                inspect(json_data, pretty: true)
+              }.
+              } Error: #{inspect(error, pretty: true)}"
+            )
+
+            {:error, :json_decoding_error}
+        end
+    end
+  end
 end

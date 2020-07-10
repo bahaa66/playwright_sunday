@@ -43,7 +43,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
 
   @impl true
   def handle_info(:tick, state) do
-    ConsumerGroupSupervisor.start_child()
+    ConsumerGroupSupervisor.start_child(:drilldown)
     {:noreply, state}
   end
 

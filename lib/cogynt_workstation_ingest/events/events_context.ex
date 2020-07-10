@@ -302,6 +302,48 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.update_all(set: set)
   end
 
+  @doc """
+  Converts EventDefinition struct to a map
+  """
+  def event_definition_struct_to_map(%EventDefinition{} = event_definition) do
+    event_definition_details =
+      case event_definition do
+        %{event_definition_details: %Ecto.Association.NotLoaded{}} ->
+          []
+
+        %{event_definition_details: details} ->
+          details
+
+        _ ->
+          []
+      end
+
+    %{
+      id: event_definition.id,
+      title: event_definition.title,
+      topic: event_definition.topic,
+      event_type: event_definition.event_type,
+      deleted_at: event_definition.deleted_at,
+      authoring_event_definition_id: event_definition.authoring_event_definition_id,
+      active: event_definition.active,
+      deployment_status: event_definition.deployment_status,
+      version: event_definition.version,
+      deployment_id: event_definition.deployment_id,
+      manual_actions: event_definition.manual_actions,
+      created_at: event_definition.created_at,
+      updated_at: event_definition.updated_at,
+      primary_title_attribute: event_definition.primary_title_attribute,
+      fields:
+        Enum.reduce(event_definition_details, %{}, fn
+          %{field_name: n, field_type: t}, acc ->
+            Map.put_new(acc, n, t)
+
+          _, acc ->
+            acc
+        end)
+    }
+  end
+
   # -------------------------------- #
   # --- EventLink Schema Methods --- #
   # -------------------------------- #
@@ -409,8 +451,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     Enum.each(event_definitions, fn ed ->
       ConsumerStateManager.upsert_consumer_state(ed.id,
         status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
-        topic: ed.topic,
-        module: __MODULE__
+        topic: ed.topic
       )
     end)
   end
@@ -445,6 +486,10 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       deleted_at: event_definition.deleted_at,
       authoring_event_definition_id: event_definition.authoring_event_definition_id,
       active: event_definition.active,
+      deployment_status: event_definition.deployment_status,
+      version: event_definition.version,
+      deployment_id: event_definition.deployment_id,
+      manual_actions: event_definition.manual_actions,
       created_at: event_definition.created_at,
       updated_at: event_definition.updated_at,
       primary_title_attribute: event_definition.primary_title_attribute,

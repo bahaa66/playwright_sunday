@@ -51,10 +51,10 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
   def transform(payload, _opts) do
-    case Jason.decode(payload) do
+    case Jason.decode(payload, keys: :atoms) do
       {:ok, event} ->
         %Message{
-          data: keys_to_atoms(event),
+          data: event,
           acknowledger: {__MODULE__, :ack_id, :ack_data}
         }
 
@@ -77,12 +77,12 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   """
   def ack(:ack_id, successful, _failed) do
     # TODO: cut down the redis reads by grouping on event_definition_id
-    Enum.each(successful, fn %Broadway.Message{data: %{event_definition: event_definition}} ->
-      {:ok, tmc} = Redis.hash_get("b:#{event_definition.id}", "tmc")
-      {:ok, tmp} = Redis.hash_increment_by("b:#{event_definition.id}", "tmp", 1)
+    Enum.each(successful, fn %Broadway.Message{data: %{event_definition_id: event_definition_id}} ->
+      {:ok, tmc} = Redis.hash_get("b:#{event_definition_id}", "tmc")
+      {:ok, tmp} = Redis.hash_increment_by("b:#{event_definition_id}", "tmp", 1)
 
       if tmp >= String.to_integer(tmc) do
-        finished_processing(event_definition.id)
+        finished_processing(event_definition_id)
       end
     end)
   end
@@ -109,6 +109,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   @impl true
   def handle_message(_processor, %Message{data: data} = message, _context) do
     data
+    |> EventProcessor.fetch_event_definition()
     |> EventProcessor.process_event()
     |> EventProcessor.process_event_details_and_elasticsearch_docs()
     |> EventProcessor.process_notifications()
@@ -122,18 +123,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp keys_to_atoms(string_key_map) when is_map(string_key_map) do
-    for {key, val} <- string_key_map, into: %{} do
-      if key == "event_definition" do
-        {String.to_atom(key), keys_to_atoms(val)}
-      else
-        {String.to_atom(key), val}
-      end
-    end
-  end
-
-  defp keys_to_atoms(val), do: val
-
   defp finished_processing(event_definition_id) do
     {:ok, %{status: status, topic: topic, nsid: nsid}} =
       ConsumerStateManager.get_consumer_state(event_definition_id)
@@ -168,8 +157,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
       status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
         ConsumerStateManager.upsert_consumer_state(event_definition_id,
           topic: topic,
-          status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
-          module: __MODULE__
+          status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
         )
 
       true ->

@@ -4,8 +4,8 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
   Queues the messages to the appropriate Broadway Pipelines
   """
   use KafkaEx.GenConsumer
-  alias KafkaEx.Protocol.Fetch.Message
   alias CogyntWorkstationIngest.Broadway.{Producer, DrilldownProducer}
+  alias CogyntWorkstationIngest.Deployments.DeploymentsContext
 
   # TODO eventually do a POC on using another external Kafka consumer service
 

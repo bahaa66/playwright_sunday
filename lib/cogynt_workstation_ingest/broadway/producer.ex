@@ -21,9 +21,9 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     {:producer, %{event_definition_ids: [], demand: 0}}
   end
 
-  def enqueue(message_set, event_definition, type) when is_list(message_set) do
+  def enqueue(message_set, event_definition_id, type) when is_list(message_set) do
     producer_name = event_type_to_name(type)
-    GenServer.cast(producer_name, {:enqueue, message_set, event_definition})
+    GenServer.cast(producer_name, {:enqueue, message_set, event_definition_id})
   end
 
   def enqueue_failed_messages(broadway_messages, type) when is_list(broadway_messages) do
@@ -36,12 +36,12 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   # ------------------------ #
   @impl true
   def handle_cast(
-        {:enqueue, message_set, event_definition},
+        {:enqueue, message_set, event_definition_id},
         %{event_definition_ids: event_definition_ids, demand: 0} = state
       ) do
-    parse_kafka_message_set(message_set, event_definition)
+    parse_kafka_message_set(message_set, event_definition_id)
 
-    updated_event_definition_ids = Enum.uniq(event_definition_ids ++ [event_definition.id])
+    updated_event_definition_ids = Enum.uniq(event_definition_ids ++ [event_definition_id])
 
     new_state = Map.put(state, :event_definition_ids, updated_event_definition_ids)
 
@@ -50,12 +50,12 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
 
   @impl true
   def handle_cast(
-        {:enqueue, message_set, event_definition},
+        {:enqueue, message_set, event_definition_id},
         %{event_definition_ids: event_definition_ids} = state
       ) do
-    parse_kafka_message_set(message_set, event_definition)
+    parse_kafka_message_set(message_set, event_definition_id)
 
-    updated_event_definition_ids = Enum.uniq(event_definition_ids ++ [event_definition.id])
+    updated_event_definition_ids = Enum.uniq(event_definition_ids ++ [event_definition_id])
 
     new_state = Map.put(state, :event_definition_ids, updated_event_definition_ids)
 
@@ -89,10 +89,10 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   # ----------------------- #
   # Parse the %Fetch.Message{} struct returned from Kafka and
   # encode the event_data and append it to the List in Redis
-  defp parse_kafka_message_set(message_set, event_definition) do
+  defp parse_kafka_message_set(message_set, event_definition_id) do
     # Incr the total message count that has been consumed for this event_definition
     message_count = Enum.count(message_set)
-    Redis.hash_increment_by("b:#{event_definition.id}", "tmc", message_count)
+    Redis.hash_increment_by("b:#{event_definition_id}", "tmc", message_count)
 
     list_items =
       Enum.reduce(message_set, [], fn %Fetch.Message{value: json_message}, acc ->
@@ -102,14 +102,14 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
               [
                 %{
                   event: message,
-                  event_definition: event_definition,
+                  event_definition_id: event_definition_id,
                   event_id: @defaults.event_id,
                   retry_count: @defaults.retry_count
                 }
               ]
 
           {:error, error} ->
-            Redis.hash_increment_by("b:#{event_definition.id}", "tmc", -1)
+            Redis.hash_increment_by("b:#{event_definition_id}", "tmc", -1)
 
             CogyntLogger.error(
               "#{__MODULE__}",
@@ -118,7 +118,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
         end
       end)
 
-    Redis.list_append_pipeline("a:#{event_definition.id}", list_items)
+    Redis.list_append_pipeline("a:#{event_definition_id}", list_items)
   end
 
   # Parse the %Broadway.Message{} struct returned from Broadway
@@ -128,7 +128,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     Enum.each(broadway_messages, fn %Broadway.Message{
                                       data: %{
                                         event: message,
-                                        event_definition: event_definition,
+                                        event_definition_id: event_definition_id,
                                         event_id: event_id,
                                         retry_count: retry_count
                                       },
@@ -142,12 +142,12 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
       if retry_count < Config.producer_max_retry() do
         CogyntLogger.info(
           "#{__MODULE__}",
-          "Retrying Failed Message, Id: #{event_definition.id}. Attempt: #{retry_count + 1}"
+          "Retrying Failed Message, Id: #{event_definition_id}. Attempt: #{retry_count + 1}"
         )
 
         Redis.list_append("a:failed_messages", %{
           event: message,
-          event_definition: event_definition,
+          event_definition_id: event_definition_id,
           event_id: event_id,
           retry_count: retry_count + 1
         })

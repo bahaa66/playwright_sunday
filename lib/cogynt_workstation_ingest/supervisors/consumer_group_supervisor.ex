@@ -7,6 +7,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   use DynamicSupervisor
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer
+  alias CogyntWorkstationIngest.Deployments.DeploymentsContext
 
   def start_link(arg) do
     DynamicSupervisor.start_link(__MODULE__, arg, name: __MODULE__)
@@ -17,12 +18,15 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     DynamicSupervisor.init(strategy: :one_for_one)
   end
 
-  # ------------------------------------ #
-  # --- Standard Ingestion Consumers --- #
-  # ------------------------------------ #
-  def start_child(event_definition) do
-    # TODO: Temp until using authoring event streams
-    create_kafka_worker(:standard)
+  def start_child(event_definition) when is_map(event_definition) do
+    {:ok, uris} = DeploymentsContext.get_kafka_brokers(event_definition.deployment_id)
+
+    IO.inspect(uris, pretty: true, label: "***** KAFKA BROKERS")
+
+    create_kafka_worker(
+      uris: uris,
+      name: String.to_atom("deployment: #{event_definition.deployment_id}")
+    )
 
     topic = event_definition.topic
 
@@ -35,7 +39,12 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         start: {
           KafkaEx.ConsumerGroup,
           :start_link,
-          consumer_group_options(event_definition)
+          consumer_group_options(
+            name: "#{topic}-#{event_definition.id}",
+            topics: [event_definition.topic],
+            consumer_group_name: consumer_group_name(topic),
+            extra_consumer_args: %{event_definition: event_definition}
+          )
         },
         restart: :transient,
         shutdown: 5000,
@@ -45,6 +54,75 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       DynamicSupervisor.start_child(__MODULE__, child_spec)
     else
       {:error, nil}
+    end
+  end
+
+  def start_child(:drilldown) do
+    create_kafka_worker(name: :drilldown)
+    create_drilldown_topics()
+
+    child_spec = %{
+      id: :DrillDown,
+      start: {
+        KafkaEx.ConsumerGroup,
+        :start_link,
+        consumer_group_options(
+          name: "Drilldown-#{UUID.uuid1()}",
+          topics: [Config.topic_sols(), Config.topic_sol_events()],
+          consumer_group_name: :DrillDownGroup
+        )
+      },
+      restart: :transient,
+      shutdown: 5000,
+      type: :supervisor
+    }
+
+    DynamicSupervisor.start_child(__MODULE__, child_spec)
+  end
+
+  def start_child(:deployment) do
+    create_kafka_worker(name: :deployment_stream)
+
+    child_spec = %{
+      id: :Deployment,
+      start: {
+        KafkaEx.ConsumerGroup,
+        :start_link,
+        consumer_group_options(
+          name: "Deployment-#{UUID.uuid1()}",
+          topics: [Config.deployment_topic()],
+          consumer_group_name: :DeploymentGroup
+        )
+      },
+      restart: :transient,
+      shutdown: 5000,
+      type: :supervisor
+    }
+
+    DynamicSupervisor.start_child(__MODULE__, child_spec)
+  end
+
+  def stop_child(:drilldown) do
+    child_pid = Process.whereis(:DrillDownGroup)
+
+    if child_pid != nil do
+      DynamicSupervisor.terminate_child(__MODULE__, child_pid)
+      Process.sleep(1500)
+      {:ok, :success}
+    else
+      {:ok, :success}
+    end
+  end
+
+  def stop_child(:deployment) do
+    child_pid = Process.whereis(:DeploymentGroup)
+
+    if child_pid != nil do
+      DynamicSupervisor.terminate_child(__MODULE__, child_pid)
+      Process.sleep(1500)
+      {:ok, :success}
+    else
+      {:ok, :success}
     end
   end
 
@@ -60,83 +138,37 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  # --------------------------- #
-  # --- Drilldown Consumers --- #
-  # --------------------------- #
-
-  def start_child() do
-    create_kafka_worker(:drilldown)
-    create_drilldown_topics()
-
-    child_spec = %{
-      id: :DrillDown,
-      start: {
-        KafkaEx.ConsumerGroup,
-        :start_link,
-        drilldown_consumer_group_options()
-      },
-      restart: :transient,
-      shutdown: 5000,
-      type: :supervisor
-    }
-
-    DynamicSupervisor.start_child(__MODULE__, child_spec)
-  end
-
-  def stop_child() do
-    child_pid = Process.whereis(:DrillDownGroup)
-
-    if child_pid != nil do
-      DynamicSupervisor.terminate_child(__MODULE__, child_pid)
-      Process.sleep(1500)
-      {:ok, :success}
-    else
-      {:ok, :success}
-    end
-  end
-
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp consumer_group_options(event_definition) do
-    topic = event_definition.topic
-    id = event_definition.id
-    name = "#{topic}-#{id}"
+  defp consumer_group_options(opts) do
+    name = Keyword.get(opts, :name)
+    consumer_group_name = Keyword.get(opts, :consumer_group_name)
+    topics = Keyword.get(opts, :topics)
+    extra_consumer_args = Keyword.get(opts, :extra_consumer_args, %{})
 
     [
       KafkaConsumer,
       name,
-      [topic],
+      topics,
       [
-        name: consumer_group_name(topic),
+        name: consumer_group_name,
         commit_interval: Config.commit_interval(),
         commit_threshold: Config.commit_threshold(),
         heartbeat_interval: Config.heartbeat_interval(),
         max_restarts: Config.max_restarts(),
         max_seconds: Config.max_seconds(),
-        extra_consumer_args: %{event_definition: event_definition}
+        extra_consumer_args: extra_consumer_args
       ]
     ]
   end
 
-  defp drilldown_consumer_group_options do
-    [
-      KafkaConsumer,
-      "Drilldown-#{UUID.uuid1()}",
-      [Config.topic_sols(), Config.topic_sol_events()],
-      [
-        name: :DrillDownGroup,
-        commit_interval: Config.commit_interval(),
-        commit_threshold: Config.commit_threshold(),
-        heartbeat_interval: Config.heartbeat_interval(),
-        max_restarts: Config.max_restarts(),
-        max_seconds: Config.max_seconds()
-      ]
-    ]
-  end
+  defp create_kafka_worker(opts) do
+    uris = Keyword.get(opts, :uris, Config.kafka_brokers())
+    name = Keyword.get(opts, :name, :standard)
 
-  defp create_kafka_worker(worker_name) do
-    KafkaEx.create_worker(worker_name,
+    KafkaEx.create_worker(name,
+      uris: uris,
       consumer_group: "kafka_ex",
       consumer_group_update_interval: 100
     )
