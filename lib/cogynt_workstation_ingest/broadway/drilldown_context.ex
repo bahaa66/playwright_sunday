@@ -2,7 +2,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownContext do
   alias Models.Drilldown.TemplateSolutions
   alias CogyntWorkstationIngest.Repo
 
-  def update_template_solutions( %{sol_id: id, sol: sol, evnt: evnt} = data) do
+  def update_template_solutions( %{sol_id: id, sol: _sol, evnt: _evnt} = data) do
 
     case get_template_solution(id) do
       nil ->
@@ -46,11 +46,8 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownContext do
   defp get_attrs(temp_sol, %{sol_id: id, sol: sol, evnt: evnt} = data) do
     sol =  (temp_sol || %{"events" => %{}, "outcomes" => []})
     |> Map.merge(sol)
-
-
-      result = cond do
+    cond do
         Map.has_key?(data, :event) and not Map.has_key?(data.event, "aid") ->
-          sol =
            sol
             |> Map.put("outcomes", [evnt | sol["outcomes"]])
 
@@ -68,7 +65,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownContext do
             # IO.inspect(replace, label: "@@@@ Replacing")
           end
 
-          sol =
             sol
             |> Map.put("events", Map.put(sol["events"], key, evnt))
 
@@ -91,17 +87,13 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownContext do
 
     temp_sol = TemplateSolutions.changeset(template_solution, new_data)
     case Repo.update(temp_sol) do
-      {:ok, struct} -> :ok
+      {:ok, _struct} -> :ok
       {:error, changeset} -> :ok
     end
   end
 
   defp stringify_map(atom_map) do
     for {key, val} <- atom_map, into: %{}, do: {Atom.to_string(key), val}
-  end
-
-  defp atomize_map(string_map) do
-    for {key, val} <- string_map, into: %{}, do: {String.to_atom(key), val}
   end
 
 end
