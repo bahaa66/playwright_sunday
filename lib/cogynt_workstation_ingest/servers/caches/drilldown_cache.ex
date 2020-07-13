@@ -7,6 +7,8 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
 
+  # TODO needs to have state moved to PSQL or Redis
+
   # -------------------- #
   # --- client calls --- #
   # -------------------- #

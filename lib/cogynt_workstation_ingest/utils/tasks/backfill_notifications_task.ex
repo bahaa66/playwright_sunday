@@ -1,11 +1,10 @@
-defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
+defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
   @moduledoc """
   Task module that can bee called to execute the backfill_notifications work as a
   async task.
   """
   use Task
   require Ecto.Query
-  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Notifications.NotificationSetting
@@ -75,7 +74,10 @@ defmodule CogyntWorkstationIngest.Utils.BackfillNotificationsTask do
         ]
       )
 
-    NotificationSubscriptionCache.add_new_notifications(updated_notifications)
+    Redis.publish_async(
+      "notification_count_subscription",
+      NotificationsContext.notification_struct_to_map(updated_notifications)
+    )
 
     case page_number >= total_pages do
       true ->

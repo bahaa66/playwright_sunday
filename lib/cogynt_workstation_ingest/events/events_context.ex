@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   """
   import Ecto.Query, warn: false
   alias CogyntWorkstationIngest.Repo
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias Ecto.Multi
   alias Models.Enums.ConsumerStatusTypeEnum
 
@@ -13,8 +14,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     EventDetail,
     EventLink
   }
-
-  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
 
   # ---------------------------- #
   # --- Event Schema Methods --- #
@@ -361,9 +360,10 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       )
 
     Enum.each(event_definitions, fn ed ->
-      ConsumerStateManager.update_consumer_state(ed.id,
+      ConsumerStateManager.upsert_consumer_state(ed.id,
         status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
-        topic: ed.topic
+        topic: ed.topic,
+        module: __MODULE__
       )
     end)
   end

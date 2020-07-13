@@ -1,4 +1,4 @@
-defmodule CogyntWorkstationIngest.Utils.DeleteDrilldownDataTask do
+defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
   @moduledoc """
   Task module that can bee called to execute the delete_drilldown_data_task work as a
   async task.
@@ -7,6 +7,8 @@ defmodule CogyntWorkstationIngest.Utils.DeleteDrilldownDataTask do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
+
+  # TODO make sure drilldown is done processing then remove redis keys
 
   def start_link(arg) do
     Task.start_link(__MODULE__, :run, [arg])
@@ -41,11 +43,13 @@ defmodule CogyntWorkstationIngest.Utils.DeleteDrilldownDataTask do
 
       CogyntLogger.info(
         "#{__MODULE__}",
-        "Delete Drilldown Topics result: #{inspect(delete_topic_result)}"
+        "Delete Drilldown Topics result: #{inspect(delete_topic_result, pretty: true)}"
       )
     end
 
     CogyntLogger.info("#{__MODULE__}", "Resetting Drilldown Cache")
+    Redis.key_delete("drilldown_message_info")
+    Redis.key_delete("drilldown_event_messages")
     DrilldownCache.reset_state()
     Process.sleep(2000)
     CogyntLogger.info("#{__MODULE__}", "Starting the Drilldown ConsumerGroup")

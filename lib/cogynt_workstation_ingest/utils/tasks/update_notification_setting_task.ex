@@ -1,10 +1,9 @@
-defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
+defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationSettingTask do
   @moduledoc """
   Task module that can bee called to execute the update_notifications work as a
   async task.
   """
   use Task
-  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
   alias Models.Notifications.NotificationSetting
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias Models.Events.EventDefinition
@@ -73,7 +72,10 @@ defmodule CogyntWorkstationIngest.Utils.UpdateNotificationSettingTask do
         set: [tag_id: tag_id, deleted_at: deleted_at, title: ns_title]
       )
 
-    NotificationSubscriptionCache.add_new_notifications(updated_notifications)
+    Redis.publish_async(
+      "notification_count_subscription",
+      NotificationsContext.notification_struct_to_map(updated_notifications)
+    )
 
     if page_number >= total_pages do
       CogyntLogger.info(
