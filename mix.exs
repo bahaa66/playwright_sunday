@@ -41,7 +41,6 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:ecto_sql, "~> 3.0"},
       {:postgrex, ">= 0.0.0"},
       {:gettext, "~> 0.11"},
-      {:jsonrpc2, "~> 1.0"},
       {:jason, "~> 1.0"},
       {:ja_serializer, "~> 0.13.0"},
       {:uuid, "~> 1.1"},
