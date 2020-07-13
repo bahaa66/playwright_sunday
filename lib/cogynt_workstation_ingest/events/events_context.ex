@@ -12,7 +12,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     Event,
     EventDefinition,
     EventDetail,
-    EventLink
+    EventLink,
+    EventDefinitionDetail
   }
 
   # ---------------------------- #
@@ -193,10 +194,38 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   def upsert_event_definition(attrs \\ %{}) do
     case get_event_definition(attrs.id) do
       nil ->
-        create_event_definition(attrs)
+        result = create_event_definition(attrs)
 
-      {:ok, %EventDefinition{} = event_definition} ->
-        update_event_definition(event_definition, attrs)
+        case result do
+          {:ok, %EventDefinition{id: id} = event_definition} ->
+            if Map.has_key?(attrs, :fields) do
+              create_event_definition_fields(id, attrs.fields)
+            end
+
+            {:ok, %EventDefinition{} = event_definition}
+
+          _ ->
+            result
+        end
+
+      %EventDefinition{} = event_definition ->
+        result = update_event_definition(event_definition, attrs)
+
+        case result do
+          {:ok, %EventDefinition{id: id} = event_definition} ->
+            nil
+            # Delete all EventDefinitionDetails for id
+            delete_event_definition_details(id)
+            # Create new EventDefinitionDetails for id
+            if Map.has_key?(attrs, :fields) do
+              create_event_definition_fields(id, attrs.fields)
+            end
+
+            {:ok, %EventDefinition{} = event_definition}
+
+          _ ->
+            result
+        end
     end
   end
 
@@ -327,7 +356,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       authoring_event_definition_id: event_definition.authoring_event_definition_id,
       active: event_definition.active,
       deployment_status: event_definition.deployment_status,
-      version: event_definition.version,
       deployment_id: event_definition.deployment_id,
       manual_actions: event_definition.manual_actions,
       created_at: event_definition.created_at,
@@ -342,6 +370,34 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
             acc
         end)
     }
+  end
+
+  # -------------------------------------------- #
+  # --- EventDefinitionDetail Schema Methods --- #
+  # -------------------------------------------- #
+  @doc """
+  Creates an EventDefinitionDetail.
+  ## Examples
+      iex> create_event_definition_detail(%{field: value})
+      {:ok, %EventDefinitionDetail{}}
+      iex> create_event_definition_detail(%{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+  """
+  def create_event_definition_detail(attrs \\ %{}) do
+    %EventDefinitionDetail{}
+    |> EventDefinitionDetail.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Deletes all EventDefinitionDetails that are linked to an event_definition_id.
+  ## Examples
+      iex> delete_event_definition_details(id)
+      {:ok, %EventDefinitionDetail{}}
+  """
+  def delete_event_definition_details(id) do
+    from(details in EventDefinitionDetail, where: details.event_definition_id == ^id)
+    |> Repo.delete_all()
   end
 
   # -------------------------------- #
@@ -487,7 +543,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       authoring_event_definition_id: event_definition.authoring_event_definition_id,
       active: event_definition.active,
       deployment_status: event_definition.deployment_status,
-      version: event_definition.version,
       deployment_id: event_definition.deployment_id,
       manual_actions: event_definition.manual_actions,
       created_at: event_definition.created_at,
@@ -504,6 +559,26 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     }
 
     %{start_consumer: event_definition}
+  end
+
+  defp create_event_definition_fields(id, fields) do
+    Enum.each(fields, fn {key, val} ->
+      case is_atom(key) do
+        true ->
+          create_event_definition_detail(%{
+            event_definition_id: id,
+            field_name: Atom.to_string(key),
+            field_type: val.dataType
+          })
+
+        false ->
+          create_event_definition_detail(%{
+            event_definition_id: id,
+            field_name: key,
+            field_type: val["dataType"]
+          })
+      end
+    end)
   end
 
   defp filter_events(filter, query) do
@@ -526,6 +601,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       {:event_definition_ids, event_definition_ids}, q ->
         where(q, [ed], ed.id in ^event_definition_ids)
+
+      {:deployment_id, deployment_id}, q ->
+        where(q, [ed], ed.deployment_id == ^deployment_id)
     end)
   end
 

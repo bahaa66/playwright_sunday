@@ -36,32 +36,30 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
           filter: %{event_definition_ids: event_definition_ids},
           select: [
             :id,
-            :topic
+            :topic,
+            :deployment_id
           ]
         },
         set: [active: false]
       )
 
-    topics =
-      Enum.reduce(event_definition_data, [], fn %EventDefinition{
-                                                  id: _id,
-                                                  topic: topic
-                                                },
-                                                acc ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Stoping ConsumerGroup for #{topic}"
-        )
+    Enum.each(event_definition_data, fn %EventDefinition{
+                                          id: _id,
+                                          topic: topic,
+                                          deployment_id: deployment_id
+                                        } ->
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "Stoping ConsumerGroup for #{topic}"
+      )
 
-        ConsumerStateManager.manage_request(%{stop_consumer: topic})
+      ConsumerStateManager.manage_request(%{stop_consumer: topic})
 
-        acc ++ [topic]
-      end)
-
-    if delete_topics do
-      CogyntLogger.info("#{__MODULE__}", "Deleting Kakfa topics for #{topics}")
-
-      KafkaEx.delete_topics(topics, worker_name: :standard)
-    end
+      if delete_topics do
+        CogyntLogger.info("#{__MODULE__}", "Deleting Kakfa topic: #{topic}")
+        worker_name = String.to_atom("deployment#{deployment_id}")
+        KafkaEx.delete_topics(topic, worker_name: worker_name)
+      end
+    end)
   end
 end

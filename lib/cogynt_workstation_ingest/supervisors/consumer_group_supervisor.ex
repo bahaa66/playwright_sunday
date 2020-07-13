@@ -21,17 +21,17 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   def start_child(event_definition) when is_map(event_definition) do
     {:ok, uris} = DeploymentsContext.get_kafka_brokers(event_definition.deployment_id)
 
-    IO.inspect(uris, pretty: true, label: "***** KAFKA BROKERS")
+    worker_name = String.to_atom("deployment#{event_definition.deployment_id}")
 
     create_kafka_worker(
       uris: uris,
-      name: String.to_atom("deployment: #{event_definition.deployment_id}")
+      name: worker_name
     )
 
     topic = event_definition.topic
 
     existing_topics =
-      KafkaEx.metadata(worker_name: :standard).topic_metadatas |> Enum.map(& &1.topic)
+      KafkaEx.metadata(worker_name: worker_name).topic_metadatas |> Enum.map(& &1.topic)
 
     if Enum.member?(existing_topics, topic) do
       child_spec = %{

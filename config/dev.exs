@@ -31,13 +31,13 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
 # Kafka Configurations
 config :kafka_ex,
   # Dev Kafka
-  brokers: [
-    {
-      System.get_env("KAFKA_BROKER") || "kafka-dst.cogilitycloud.com",
-      (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
-    }
-  ],
-  # brokers: [{"127.0.0.1", 9092}],
+  # brokers: [
+  #   {
+  #     System.get_env("KAFKA_BROKER") || "kafka-dst.cogilitycloud.com",
+  #     (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
+  #   }
+  # ],
+  brokers: [{"127.0.0.1", 9092}],
   disable_default_worker: true,
   auto_offset_reset: :earliest,
   kafka_version: "2.0",

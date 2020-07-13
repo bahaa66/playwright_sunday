@@ -28,8 +28,10 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
               )
 
             "event_type" ->
-              # Store id as `authoring_event_definition_id` until field can be removed
+              # Temp Store id as `authoring_event_definition_id` until field can be removed
               Map.put(decoded_message, :authoring_event_definition_id, decoded_message.id)
+              |> Map.put(:topic, decoded_message.filter)
+              |> Map.put(:title, decoded_message.name)
               |> EventsContext.upsert_event_definition()
 
             "deployment" ->
@@ -41,7 +43,7 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
               current_event_definitions =
                 EventsContext.query_event_definitions(
                   filter: %{
-                    deployment_id: decoded_message.deployment_id
+                    deployment_id: decoded_message.id
                   }
                 )
 
@@ -54,7 +56,7 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
                                                         topic: topic
                                                       } = current_event_definition ->
                 case Enum.member?(
-                       decoded_message.event_definition_ids,
+                       decoded_message.event_type_ids,
                        event_definition_id
                      ) do
                   true ->
@@ -76,6 +78,9 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
                     })
                 end
               end)
+
+            _ ->
+              nil
           end
 
         {:error, error} ->
@@ -117,7 +122,7 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
   def update_deployment(%Deployment{} = deployment, attrs) do
     deployment
     |> Deployment.changeset(attrs)
-    |> Repo.insert()
+    |> Repo.update()
   end
 
   @doc """
@@ -134,7 +139,7 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
       nil ->
         create_deployment(attrs)
 
-      {:ok, %Deployment{} = deployment} ->
+      %Deployment{} = deployment ->
         update_deployment(deployment, attrs)
     end
   end
@@ -143,7 +148,7 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
   Returns the Deployment for id.
   ## Examples
       iex> get_deployment(id)
-      {:ok, %Deployment{}}
+      %Deployment{}
       iex> get_deployment(invalid_id)
        nil
   """
@@ -152,46 +157,49 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
   end
 
   @doc """
+  Parses the Brokers out of the data_sources json value stored in the
+  Deployments table. Example of the data_sources object that is being parsed.
+  "data_sources": [
+      {
+        "spec": {
+          "brokers": [{ "host": "kafka.cogilitycloud.com", "port": "31090" }]
+        },
+        "kind": "kafka",
+        "lock_version": 2,
+        "version": 1
+      }
+    ]
 
+    Responses:
+    {:ok, [{host, port}, {host, port}, {host, port}]} | {:error, :does_not_exist}
   """
   def get_kafka_brokers(id) do
     case get_deployment(id) do
       nil ->
         {:error, :does_not_exist}
 
-      {:ok, %Deployment{data_source: json_data}} ->
-        case Jason.decode(json_data) do
-          {:ok, data_sources} ->
-            uris =
-              Enum.reduce(data_sources, [], fn data_source, acc_0 ->
-                case data_source.kind == "kafka" do
-                  true ->
-                    uris =
-                      Enum.reduce(data_source.spec.brokers, [], fn %{host: host, port: port},
-                                                                   acc_1 ->
-                        acc_1 ++ [{host, port}]
-                      end)
+      %Deployment{data_sources: data_sources} ->
+        uris =
+          Enum.reduce(data_sources, [], fn data_source, acc_0 ->
+            case data_source["kind"] == "kafka" do
+              true ->
+                uris =
+                  Enum.reduce(data_source["spec"]["brokers"], [], fn %{
+                                                                       "host" => host,
+                                                                       "port" => port
+                                                                     },
+                                                                     acc_1 ->
+                    acc_1 ++ [{host, String.to_integer(port)}]
+                  end)
 
-                    acc_0 ++ uris
+                acc_0 ++ uris
 
-                  false ->
-                    acc_0
-                end
-              end)
+              false ->
+                acc_0
+            end
+          end)
 
-            {:ok, uris}
-
-          {:error, error} ->
-            CogyntLogger.error(
-              "#{__MODULE__}",
-              "Failed to decode json data_source object for Deployment_Id: #{id}. Data_Source: #{
-                inspect(json_data, pretty: true)
-              }.
-              } Error: #{inspect(error, pretty: true)}"
-            )
-
-            {:error, :json_decoding_error}
-        end
+        {:ok, uris}
     end
   end
 end
