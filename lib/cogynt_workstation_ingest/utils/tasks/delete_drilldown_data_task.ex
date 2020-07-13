@@ -48,6 +48,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
     end
 
     CogyntLogger.info("#{__MODULE__}", "Resetting Drilldown Cache")
+    Redis.key_delete("drilldown_message_info")
+    Redis.key_delete("drilldown_event_messages")
     DrilldownCache.reset_state()
     Process.sleep(2000)
     CogyntLogger.info("#{__MODULE__}", "Starting the Drilldown ConsumerGroup")
