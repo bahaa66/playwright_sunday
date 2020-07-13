@@ -9,7 +9,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
   process_template_data/1
   """
   def process_template_data(%{event: event} = data) do
-    # IO.inspect data
     case event["event"] do
       nil ->
         sol = %{
