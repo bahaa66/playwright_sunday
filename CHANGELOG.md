@@ -1,3 +1,17 @@
+### [1.3.22-develop.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.3.22-develop.1...v1.3.22-develop.2) (2020-07-08)
+
+
+### :bug: Bugfix
+
+* updated naming ([2fabf87](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/2fabf87980a99a0de6f6f214717d0f5b6106c2b3))
+
+### [1.3.22-develop.1](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.21...v1.3.22-develop.1) (2020-07-06)
+
+
+### :bug: Bugfix
+
+* update audit topic name ([c882220](https://github.com/Cogility/cogynt-workstation-ingest/commit/c8822208eeea7fa0bf8385961d90fb14e199c655))
+
 ### [1.3.21-develop.1](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.20...v1.3.21-develop.1) (2020-06-16)
 
 
