@@ -85,7 +85,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:redis,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "redis",
-       branch: "feature/CDST-596-redis-lib",
+       tag: "v1.6.2-beta",
        override: true}
     ]
   end

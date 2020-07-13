@@ -16,8 +16,6 @@ defmodule CogyntWorkstationIngestWeb.Router do
     plug(:put_secure_browser_headers)
   end
 
-  forward("/rpc/ingest", JSONRPC2.Servers.HTTP.Plug, CogyntWorkstationIngestWeb.Rpc.IngestHandler)
-
   if Mix.env() == :dev do
     scope "/" do
       pipe_through(:browser)

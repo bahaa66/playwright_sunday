@@ -58,14 +58,16 @@ defmodule LivenessCheck do
 
   defp redis_health?() do
     case Redis.ping() do
-      {:ok, pong} ->
+      {:ok, _pong} ->
         true
 
-      {:error, redis_connection_error} ->
+      {:error, :redis_connection_error} ->
         CogyntLogger.error("#{__MODULE__}", "LivenessCheck Failed on Redis Connection Error")
+        false
 
       _ ->
         CogyntLogger.error("#{__MODULE__}", "LivenessCheck Failed on Redis Internal Server Error")
+        false
     end
   end
 end
