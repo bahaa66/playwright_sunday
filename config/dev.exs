@@ -47,7 +47,7 @@ config :kafka_ex,
   sync_timeout: System.get_env("KAKFA_SYNC_TIMEOUT") || 15000,
   max_restarts: System.get_env("KAFKA_MAX_RESTARTS") || 10,
   max_seconds: System.get_env("KAFKA_MAX_SECONDS") || 60,
-  audit_topic: System.get_env("AUDIT_LOG_TOPIC") || "cogynt_audit_log",
+  audit_topic: System.get_env("AUDIT_LOG_TOPIC") || "_cogynt_audit_log",
   template_solution_topic: System.get_env("TEMPLATE_SOLUTION_TOPIC") || "template_solutions",
   template_solution_event_topic:
     System.get_env("TEMPLATE_SOLUTION_EVENT_TOPIC") || "template_solution_events",
