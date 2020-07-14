@@ -33,14 +33,14 @@ defmodule CogyntWorkstationIngest.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.4.0"},
-      {:phoenix_pubsub, "~> 1.1"},
+      {:phoenix, "~> 1.5.0", override: true},
+      {:phoenix_pubsub, "~> 2.0"},
+      {:phoenix_live_dashboard, "~> 0.1", only: [:dev]},
       {:distillery, "~> 2.1"},
       {:phoenix_ecto, "~> 4.0"},
       {:ecto_sql, "~> 3.0"},
       {:postgrex, ">= 0.0.0"},
       {:gettext, "~> 0.11"},
-      {:jsonrpc2, "~> 1.0"},
       {:jason, "~> 1.0"},
       {:ja_serializer, "~> 0.13.0"},
       {:uuid, "~> 1.1"},
@@ -58,6 +58,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
       {:scrivener_ecto, "~> 2.0"},
       {:quiet_logger, "~> 0.2.0"},
+      {:telemetry, "~> 0.4.0"},
+      {:telemetry_poller, "~> 0.4"},
       {
         :models,
         # git: "git@github.com:cogility/cogynt-common.git",
@@ -83,6 +85,11 @@ defmodule CogyntWorkstationIngest.MixProject do
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "elasticsearch",
        tag: "v1.5.3",
+       override: true},
+      {:redis,
+       git: "git@github.com:cogility/cogynt-common.git",
+       sparse: "redis",
+       tag: "v1.6.2-beta",
        override: true}
     ]
   end
@@ -95,8 +102,13 @@ defmodule CogyntWorkstationIngest.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
-      "ecto.reset": ["ecto.drop", "ecto.setup"],
+      "ecto.setup": [
+        "ecto.create",
+        "ecto.migrate",
+        "run priv/repo/seeds.exs",
+        "create_elastic_indexes"
+      ],
+      "ecto.reset": ["drop_elastic_indexes", "flush_redis_db", "ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate", "test"]
     ]
   end

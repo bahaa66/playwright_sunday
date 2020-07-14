@@ -9,7 +9,8 @@ defmodule CogyntWorkstationIngest.Application do
   alias CogyntWorkstationIngest.Supervisors.{
     ConsumerGroupSupervisor,
     ServerSupervisor,
-    TaskSupervisor
+    TaskSupervisor,
+    TelemetrySupervisor
   }
 
   alias CogyntWorkstationIngest.Servers.Startup
@@ -18,22 +19,27 @@ defmodule CogyntWorkstationIngest.Application do
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
+      {Phoenix.PubSub, [name: CogyntWorkstationIngestWeb.PubSub, adapter: Phoenix.PubSub.PG2]},
       # Start the Ecto repository
       CogyntWorkstationIngest.Repo,
+      # Start the TelemetrySupervisor,
+      TelemetrySupervisor,
       # Start the endpoint when the application starts
       CogyntWorkstationIngestWeb.Endpoint,
+      # Start the Supervisor for Redis,
+      child_spec_supervisor(RedisSupervisor, RedisSupervisor),
+      # Start the Supervisor for all Genserver modules
+      child_spec_supervisor(ServerSupervisor, ServerSupervisor),
+      # Start the DynamicSupervisor for KafkaEx ConsumerGroups
+      ConsumerGroupSupervisor,
       # Start the Supervisor for the Broadway EventPipeline
       EventPipeline,
       # Start the Supervisor for the Broadway LinkEventPipeline
       LinkEventPipeline,
       # Start the Supervisor for the Broadway DrilldownPipeline
       DrilldownPipeline,
-      # Start the DynamicSupervisor for KafkaEx ConsumerGroups
-      ConsumerGroupSupervisor,
       # The supervisor for all Task workers
-      TaskSupervisor,
-      # Start the Supervisor for all Genserver modules
-      child_spec_supervisor(ServerSupervisor, ServerSupervisor)
+      TaskSupervisor
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

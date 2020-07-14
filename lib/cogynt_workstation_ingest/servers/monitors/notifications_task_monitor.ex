@@ -6,8 +6,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
   """
 
   use GenServer
-  alias CogyntWorkstationIngestWeb.Rpc.CogyntClient
-  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
@@ -21,10 +20,6 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
   def monitor(pid, notification_setting_id) do
     GenServer.cast(__MODULE__, {:monitor, pid, notification_setting_id})
-  end
-
-  def is_processing?(notification_setting_id) do
-    GenServer.call(__MODULE__, {:is_processing, notification_setting_id}, 10_000)
   end
 
   # ------------------------ #
@@ -43,57 +38,64 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
       Map.put(state, pid, notification_setting_id)
       |> Map.put(notification_setting_id, pid)
 
+    Redis.hash_set("c:#{notification_setting_id}", "notification_task_status", 1)
+
+    Redis.publish("notification_status_subscription", %{
+      id: notification_setting_id,
+      status: "running"
+    })
+
     {:noreply, new_state}
   end
 
   @impl true
-  def handle_call({:is_processing, notification_setting_id}, _from, state) do
-    {:reply, Map.has_key?(state, notification_setting_id), state}
-  end
+  def handle_info({:DOWN, _ref, :process, pid, reason}, state) do
+    # TODO implement retry for backfill/update task if reason anything other than :normal or :shutdown
 
-  @impl true
-  def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
     notification_setting_id = Map.get(state, pid)
 
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
-    start_consumer_args =
-      EventsContext.get_event_definition_for_startup(notification_setting.event_definition_id)
-
-    %{status: status, topic: topic, prev_status: prev_status, nsid: nsid} =
+    {:ok, consumer_state} =
       ConsumerStateManager.get_consumer_state(notification_setting.event_definition_id)
 
-    nsid = List.delete(nsid, notification_setting_id)
+    nsid = List.delete(consumer_state.nsid, notification_setting_id)
 
     if Enum.empty?(nsid) do
       cond do
-        prev_status == ConsumerStatusTypeEnum.status()[:running] ->
-          ConsumerStateManager.update_consumer_state(notification_setting.event_definition_id,
-            topic: topic,
-            status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+        consumer_state.prev_status == ConsumerStatusTypeEnum.status()[:running] ->
+          ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
+            topic: consumer_state.topic,
+            nsid: nsid,
+            status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
+            module: __MODULE__
           )
 
-          ConsumerStateManager.manage_request(start_consumer_args)
+          EventsContext.get_event_definition_for_startup(notification_setting.event_definition_id)
+          |> ConsumerStateManager.manage_request()
 
         true ->
-          ConsumerStateManager.update_consumer_state(notification_setting.event_definition_id,
-            topic: topic,
-            status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+          ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
+            topic: consumer_state.topic,
+            nsid: nsid,
+            prev_status: ConsumerStatusTypeEnum.status()[:paused_and_processing],
+            status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
+            module: __MODULE__
           )
       end
     else
-      ConsumerStateManager.update_consumer_state(notification_setting.event_definition_id,
-        topic: topic,
-        status: status,
-        prev_status: prev_status,
-        nsid: nsid
+      ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
+        nsid: nsid,
+        module: __MODULE__
       )
     end
 
-    CogyntClient.publish_notification_task_status(
-      notification_setting_id,
-      :finished
-    )
+    Redis.key_delete("c:#{notification_setting_id}")
+
+    Redis.publish("notification_status_subscription", %{
+      id: notification_setting_id,
+      status: "finished"
+    })
 
     new_state = Map.drop(state, [pid, notification_setting_id])
     {:noreply, new_state}
