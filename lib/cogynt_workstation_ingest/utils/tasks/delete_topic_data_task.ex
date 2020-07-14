@@ -44,7 +44,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
 
     topics =
       Enum.reduce(event_definition_data, [], fn %EventDefinition{
-                                                  id: _id,
+                                                  id: id,
                                                   topic: topic
                                                 },
                                                 acc ->
@@ -54,6 +54,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
         )
 
         ConsumerStateManager.manage_request(%{stop_consumer: topic})
+        ConsumerStateManager.remove_consumer_state(id)
 
         acc ++ [topic]
       end)

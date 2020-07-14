@@ -66,6 +66,10 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   # --- private methods --- #
   # ----------------------- #
   defp parse_kafka_message_set(message_set) do
+    # Incr the total message count that has been consumed for this event_definition
+    message_count = Enum.count(message_set)
+    Redis.hash_increment_by("drilldown_message_info", "tmc", message_count)
+
     Enum.each(message_set, fn %Fetch.Message{value: json_message} ->
       case Jason.decode(json_message) do
         {:ok, message} ->
@@ -75,6 +79,8 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
           })
 
         {:error, error} ->
+          Redis.hash_increment_by("drilldown_message_info", "tmc", -1)
+
           CogyntLogger.error(
             "#{__MODULE__}",
             "Failed to decode json_message. Error: #{inspect(error)}"

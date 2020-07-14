@@ -15,7 +15,7 @@ defmodule LivenessCheck do
 
   @spec call(Plug.Conn.t(), options) :: Plug.Conn.t()
   def call(%Plug.Conn{} = conn, _opts) do
-    if elasticsearch_health?() and kafka_health?() and postgres_health?() do
+    if elasticsearch_health?() and kafka_health?() and postgres_health?() and redis_health?() do
       send_resp(conn, 200, @resp_body)
     else
       send_resp(conn, 500, @resp_body_error)
@@ -53,6 +53,21 @@ defmodule LivenessCheck do
       true
     rescue
       DBConnection.ConnectionError -> false
+    end
+  end
+
+  defp redis_health?() do
+    case Redis.ping() do
+      {:ok, _pong} ->
+        true
+
+      {:error, :redis_connection_error} ->
+        CogyntLogger.error("#{__MODULE__}", "LivenessCheck Failed on Redis Connection Error")
+        false
+
+      _ ->
+        CogyntLogger.error("#{__MODULE__}", "LivenessCheck Failed on Redis Internal Server Error")
+        false
     end
   end
 end

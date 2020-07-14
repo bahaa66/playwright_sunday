@@ -18,7 +18,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     topic = Keyword.get(opts, :topic, nil)
     prev_status = Keyword.get(opts, :prev_status, nil)
     nsid = Keyword.get(opts, :nsid, nil)
-    module = Keyword.get(opts, :module, __MODULE__)
 
     case Redis.key_exists?("c:#{event_definition_id}") do
       {:ok, false} ->

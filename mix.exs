@@ -41,7 +41,6 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:ecto_sql, "~> 3.0"},
       {:postgrex, ">= 0.0.0"},
       {:gettext, "~> 0.11"},
-      {:jsonrpc2, "~> 1.0"},
       {:jason, "~> 1.0"},
       {:ja_serializer, "~> 0.13.0"},
       {:uuid, "~> 1.1"},
@@ -90,7 +89,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:redis,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "redis",
-       branch: "feature/CDST-596-redis-lib",
+       tag: "v1.6.2-beta",
        override: true}
     ]
   end
@@ -103,8 +102,13 @@ defmodule CogyntWorkstationIngest.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
-      "ecto.reset": ["ecto.drop", "ecto.setup"],
+      "ecto.setup": [
+        "ecto.create",
+        "ecto.migrate",
+        "run priv/repo/seeds.exs",
+        "create_elastic_indexes"
+      ],
+      "ecto.reset": ["drop_elastic_indexes", "flush_redis_db", "ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate", "test"]
     ]
   end

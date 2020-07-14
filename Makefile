@@ -1,7 +1,7 @@
 ########################
 ## Variables
 ########################
-export APP_NAME = dst-cogynt-workstation-ingest
+export APP_NAME = cogynt-ws-ingest-otp
 export DOCKER_FILE = ./build/Dockerfile
 
 BUILD_HARNESS_ORG=Cogility
