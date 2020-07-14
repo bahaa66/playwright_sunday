@@ -38,12 +38,20 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
       Map.put(state, pid, notification_setting_id)
       |> Map.put(notification_setting_id, pid)
 
+    Redis.hash_set("c:#{notification_setting_id}", "notification_task_status", 1)
+
+    Redis.publish("notification_status_subscription", %{
+      id: notification_setting_id,
+      status: "running"
+    })
+
     {:noreply, new_state}
   end
 
   @impl true
-  def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
+  def handle_info({:DOWN, _ref, :process, pid, reason}, state) do
     # TODO implement retry for backfill/update task if reason anything other than :normal or :shutdown
+
     notification_setting_id = Map.get(state, pid)
 
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
@@ -79,7 +87,12 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
       )
     end
 
-    # TODO Redis pub/sub notification finished
+    Redis.key_delete("c:#{notification_setting_id}")
+
+    Redis.publish("notification_status_subscription", %{
+      id: notification_setting_id,
+      status: "finished"
+    })
 
     new_state = Map.drop(state, [pid, notification_setting_id])
     {:noreply, new_state}

@@ -1,0 +1,8 @@
+apiVersion: v1
+description: A declarative helm chart for deploying cogynt-ws-ingest-otp
+name: ws-ingest-otp
+version: v0.0.0-replaced.0
+appVersion: v0.0.0-replaced.0
+maintainers:
+- name: Cogility
+  email: devops@cogility.com

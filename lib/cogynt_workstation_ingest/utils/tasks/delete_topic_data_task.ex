@@ -44,7 +44,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
       )
 
     Enum.each(event_definition_data, fn %EventDefinition{
-                                          id: _id,
+                                          id: id,
                                           topic: topic,
                                           deployment_id: deployment_id
                                         } ->
@@ -54,6 +54,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
       )
 
       ConsumerStateManager.manage_request(%{stop_consumer: topic})
+      ConsumerStateManager.remove_consumer_state(id)
 
       if delete_topics do
         CogyntLogger.info("#{__MODULE__}", "Deleting Kakfa topic: #{topic}")

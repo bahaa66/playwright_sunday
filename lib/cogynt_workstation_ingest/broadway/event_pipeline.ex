@@ -76,14 +76,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   the pipeline.
   """
   def ack(:ack_id, successful, _failed) do
-    # grouped_notifications =
-    #   Enum.group_by(successful, fn %Broadway.Message{data: %{event_definition: event_definition}} ->
-    #     event_definition.id
-    #   end)
-
-    # IO.inspect(grouped_notifications)
-
-    # TODO: cut down the redis reads by grouping on event_definition_id
     Enum.each(successful, fn %Broadway.Message{data: %{event_definition_id: event_definition_id}} ->
       {:ok, tmc} = Redis.hash_get("b:#{event_definition_id}", "tmc")
       {:ok, tmp} = Redis.hash_increment_by("b:#{event_definition_id}", "tmp", 1)
