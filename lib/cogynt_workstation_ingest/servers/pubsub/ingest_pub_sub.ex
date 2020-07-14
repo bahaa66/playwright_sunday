@@ -47,7 +47,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
         ConsumerStateManager.manage_request(%{start_consumer: event_definition})
 
       {:ok, %{stop_consumer: event_definition}} ->
-        ConsumerStateManager.manage_request(%{stop_consumer: event_definition.topic})
+        ConsumerStateManager.manage_request(%{stop_consumer: event_definition.id})
 
       {:ok, %{backfill_notifications: notification_setting_id}} ->
         ConsumerStateManager.manage_request(%{backfill_notifications: notification_setting_id})

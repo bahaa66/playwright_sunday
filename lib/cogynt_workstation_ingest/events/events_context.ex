@@ -197,8 +197,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
            deployment_id: attrs.deployment_id
          }) do
       nil ->
-        attrs = Map.put(attrs, :id, Ecto.UUID.generate())
-        result = create_event_definition(attrs)
+        result =
+          Map.put(attrs, :id, Ecto.UUID.generate())
+          |> create_event_definition()
 
         case result do
           {:ok, %EventDefinition{id: id} = event_definition} ->
@@ -212,7 +213,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
             result
         end
 
-      {:ok, %EventDefinition{} = event_definition} ->
+      %EventDefinition{} = event_definition ->
         result = update_event_definition(event_definition, attrs)
 
         case result do
@@ -264,7 +265,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   Returns a single EventDefinition struct from the query
   ## Examples
       iex> get_event_definition_by(%{id: id})
-      {:ok, %EventDefinition{...}}
+      %EventDefinition{...}
       iex> get_event_definition_by(%{id: invalid_id})
       nil
   """

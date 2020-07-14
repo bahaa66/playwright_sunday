@@ -42,7 +42,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
           consumer_group_options(
             name: "#{topic}-#{event_definition.id}",
             topics: [event_definition.topic],
-            consumer_group_name: consumer_group_name(topic),
+            consumer_group_name: consumer_group_name(event_definition.id),
             extra_consumer_args: %{event_definition: event_definition}
           )
         },
@@ -126,8 +126,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def stop_child(topic) do
-    child_pid = Process.whereis(consumer_group_name(topic))
+  def stop_child(event_definition) do
+    child_pid = Process.whereis(consumer_group_name(event_definition))
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)
@@ -197,5 +197,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     )
   end
 
-  defp consumer_group_name(topic), do: String.to_atom(topic <> "Group")
+  defp consumer_group_name(event_definition),
+    do: String.to_atom(event_definition <> "Group")
 end

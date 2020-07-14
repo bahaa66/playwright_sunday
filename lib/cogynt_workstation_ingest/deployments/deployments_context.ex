@@ -53,8 +53,7 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
               # If they are in the list make sure to update the DeploymentStatus if it needs to be changed
               Enum.each(current_event_definitions, fn %EventDefinition{
                                                         deployment_status: deployment_status,
-                                                        id: event_definition_id,
-                                                        topic: topic
+                                                        id: event_definition_id
                                                       } = current_event_definition ->
                 case Enum.member?(
                        decoded_message.event_type_ids,
@@ -74,9 +73,14 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
                       deployment_status: DeploymentStatusTypeEnum.status()[:inactive]
                     })
 
-                    ConsumerStateManager.manage_request(%{
-                      stop_consumer: topic
-                    })
+                    {:ok, consumer_state} =
+                      ConsumerStateManager.get_consumer_state(event_definition_id)
+
+                    if consumer_state.status != nil do
+                      ConsumerStateManager.manage_request(%{
+                        stop_consumer: event_definition_id
+                      })
+                    end
                 end
               end)
 
