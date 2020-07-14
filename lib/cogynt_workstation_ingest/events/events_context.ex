@@ -192,8 +192,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       {:error, %Ecto.Changeset{}}
   """
   def upsert_event_definition(attrs \\ %{}) do
-    case get_event_definition(attrs.id) do
+    case get_event_definition_by(%{
+           authoring_event_definition_id: attrs.authoring_event_definition_id,
+           deployment_id: attrs.deployment_id
+         }) do
       nil ->
+        attrs = Map.put(attrs, :id, Ecto.UUID.generate())
         result = create_event_definition(attrs)
 
         case result do
@@ -208,7 +212,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
             result
         end
 
-      %EventDefinition{} = event_definition ->
+      {:ok, %EventDefinition{} = event_definition} ->
         result = update_event_definition(event_definition, attrs)
 
         case result do
