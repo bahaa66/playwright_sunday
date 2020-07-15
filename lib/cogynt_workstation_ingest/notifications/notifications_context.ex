@@ -240,7 +240,9 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
               title: n.title,
               notification_setting_id: n.notification_setting_id,
               created_at: n.created_at,
-              updated_at: n.updated_at
+              updated_at: n.updated_at,
+              assigned_to: n.assigned_to,
+              deleted_at: n.deleted_at
             }
           )
 
