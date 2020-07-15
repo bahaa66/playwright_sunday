@@ -8,18 +8,30 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
   import Ecto.Query
   alias Ecto.Multi
 
-  def insert_or_update_system_notifications(created_notifications) do
-    created_notifications
-    |> build_system_notifications()
-    |> bulk_insert_system_notifications()
-  end
+  # ------------------------------------------ #
+  # --- System Notification Schema Nethods --- #
+  # ------------------------------------------ #
+  @doc """
+  Will insert each SystemNotification record into the database
+  ## Examples
+      iex> bulk_insert_system_notifications(%{field: value})
+      {:ok, %SystemNotification{}}
+      iex> bulk_insert_system_notifications(%{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+  """
+  def bulk_insert_system_notifications(system_notifications) when is_list(system_notifications) do
+    system_notifications =
+      system_notifications
+      |> build_system_notifications()
 
-  def bulk_insert_system_notifications(system_notifications) do
     Repo.insert_all(SystemNotification, system_notifications,
       returning: [:id, :created_at, :updated_at, :assigned_to, :message, :title, :type, :details]
     )
   end
 
+  # --------------------- #
+  # --- Multi Methods --- #
+  # --------------------- #
   def insert_all_multi(multi \\ Multi.new()) do
     multi
     |> Multi.merge(fn %{insert_notifications: {_, notifications}} ->
@@ -33,7 +45,7 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
   end
 
   def update_all_multi(multi \\ Multi.new()) do
-    #just updating the sys_notificaitons from the query to have deleted title and msg
+    # just updating the sys_notificaitons from the query to have deleted title and msg
 
     multi
     |> Multi.merge(fn %{update_notifications: {_, updated_notifications}} ->
@@ -42,72 +54,95 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
     end)
   end
 
-  defp update_system_notifications(multi\\ Multi.new, notifications) do
-    if notifications != %{} do
-      deleted_notification_ids = notifications |> Enum.reduce([], fn notification, acc ->
-          if !is_nil(notification.deleted_at) do
-            [notification.id | acc]
-          else
-            acc
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+
+  defp build_system_notifications(notifications) do
+    case Enum.empty?(notifications) do
+      false ->
+        Enum.reduce(notifications, [], fn notification, acc ->
+          case !is_nil(notification.assigned_to) and is_nil(notification.deleted_at) do
+            true ->
+              notification_details = %NotificationDetails{
+                notification_id: notification.id,
+                event_id: notification.event_id
+              }
+
+              system_notification_details = %SystemNotificationDetails{
+                notification: notification_details
+              }
+
+              title = "Notification assigned"
+              message = "You have been assigned a new notification"
+
+              acc ++
+                [
+                  %{
+                    title: title,
+                    message: message,
+                    type: :info,
+                    assigned_to: notification.assigned_to,
+                    details: system_notification_details,
+                    created_at: DateTime.truncate(DateTime.utc_now(), :second),
+                    updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                  }
+                ]
+
+            false ->
+              acc
           end
         end)
 
-      if deleted_notification_ids != [] do
-          query =
-          from(sn in Models.System.SystemNotification,
-            where:
-              fragment(
-                """
-                ?->?->>? = ANY(?)
-                """,
-                sn.details,
-                ^"notification",
-                ^"notification_id",
-                ^deleted_notification_ids
-              )
-          )
-
-        multi
-        |> Multi.update_all(:update_system_notifications, query, set: [title: "Notification Retracted",
-        message: "One of your notifications has been retracted and no longer relevant.",
-        updated_at: DateTime.truncate(DateTime.utc_now(), :second)])
-      else
-        multi
-      end
-  else
-    multi
+      true ->
+        []
+    end
   end
-end
 
+  defp update_system_notifications(multi \\ Multi.new(), notifications) do
+    case Enum.empty?(notifications) do
+      false ->
+        deleted_notification_ids =
+          notifications
+          |> Enum.reduce([], fn notification, acc ->
+            if !is_nil(notification.deleted_at) do
+              [notification.id | acc]
+            else
+              acc
+            end
+          end)
 
-  defp build_system_notifications(notifications) when notifications != %{} do
-    Enum.reduce(notifications, [], fn notification, acc ->
-      if(!is_nil(notification.assigned_to) and is_nil(notification.deleted_at)) do
-        notif = %NotificationDetails{
-          notification_id: notification.id,
-          event_id: notification.event_id
-        }
+        case Enum.empty?(deleted_notification_ids) do
+          false ->
+            query =
+              from(sn in SystemNotification,
+                where:
+                  fragment(
+                    """
+                    ?->?->>? = ANY(?)
+                    """,
+                    sn.details,
+                    ^"notification",
+                    ^"notification_id",
+                    ^deleted_notification_ids
+                  )
+              )
 
-        sys_details = %SystemNotificationDetails{notification: notif}
+            multi
+            |> Multi.update_all(:update_system_notifications, query,
+              set: [
+                title: "Notification Retracted",
+                message: "One of your notifications has been retracted and no longer relevant.",
+                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+              ]
+            )
 
-        title = "Notification assigned"
-        message = "You have been assigned a new notification"
+          true ->
+            multi
+        end
 
-        acc ++
-          [
-            %{
-              title: title,
-              message: message,
-              type: :info,
-              assigned_to: notification.assigned_to,
-              details: sys_details,
-              created_at: DateTime.truncate(DateTime.utc_now(), :second),
-              updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-            }
-          ]
-      else
-        acc
-      end
-    end)
+      true ->
+        multi
+    end
   end
 end

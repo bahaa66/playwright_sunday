@@ -80,7 +80,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
       "notification_count_subscription",
       NotificationsContext.notification_struct_to_map(updated_notifications)
     )
-    SystemNotificationContext.insert_or_update_system_notifications(updated_notifications)
+
+    SystemNotificationContext.bulk_insert_system_notifications(updated_notifications)
 
     case page_number >= total_pages do
       true ->
