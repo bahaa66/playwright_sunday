@@ -51,10 +51,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
   def transform(payload, _opts) do
-    case Jason.decode(payload, keys: :atoms) do
+    case Jason.decode(payload) do
       {:ok, event} ->
         %Message{
-          data: event,
+          data: keys_to_atoms(event),
           acknowledger: {__MODULE__, :ack_id, :ack_data}
         }
 
@@ -118,6 +118,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
+  defp keys_to_atoms(string_key_map) when is_map(string_key_map) do
+    for {key, val} <- string_key_map, into: %{} do
+      {String.to_atom(key), val}
+    end
+  end
+
   defp finished_processing(event_definition_id) do
     {:ok, %{status: status, topic: topic, nsid: nsid}} =
       ConsumerStateManager.get_consumer_state(event_definition_id)
