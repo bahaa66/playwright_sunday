@@ -1,3 +1,3 @@
-defmodule Cogynt.Repo.Migrations.AlterSystemTagsAddDeletedAt do
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterSystemTagsAddDeletedAt do
   use Migrations.SystemTagsAddDeletedAt
 end
