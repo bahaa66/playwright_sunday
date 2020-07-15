@@ -37,11 +37,25 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   Transformation callback. Will transform the message that is returned
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
-  def transform(%{event: event, retry_count: retry_count}, _opts) do
-    %Message{
-      data: %{event: event, retry_count: retry_count},
-      acknowledger: {__MODULE__, :ack_id, :ack_data}
-    }
+  def transform(payload, _opts) do
+    case Jason.decode(payload, keys: :atoms) do
+      {:ok, event} ->
+        %Message{
+          data: event,
+          acknowledger: {__MODULE__, :ack_id, :ack_data}
+        }
+
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Failed to decode payload. Error: #{inspect(error)}"
+        )
+
+        %Message{
+          data: nil,
+          acknowledger: {__MODULE__, :ack_id, :ack_data}
+        }
+    end
   end
 
   @doc """

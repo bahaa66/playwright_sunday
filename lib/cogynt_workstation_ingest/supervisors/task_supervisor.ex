@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
   use DynamicSupervisor
   alias CogyntWorkstationIngest.Servers.NotificationsTaskMonitor
 
-  alias CogyntWorkstationIngest.Utils.{
+  alias CogyntWorkstationIngest.Utils.Tasks.{
     BackfillNotificationsTask,
     UpdateNotificationSettingTask,
     DeleteEventDefinitionEventsTask,
@@ -68,7 +68,10 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
         )
 
       _ ->
-        CogyntLogger.warn("#{__MODULE__}", "Invalid args passed. Args: #{inspect(args)}")
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "Invalid args passed. Args: #{inspect(args, pretty: true)}"
+        )
     end)
   end
 end

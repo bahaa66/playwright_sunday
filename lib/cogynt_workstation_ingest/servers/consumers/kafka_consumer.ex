@@ -7,13 +7,21 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
 
   alias CogyntWorkstationIngest.Broadway.{Producer, DrilldownProducer}
 
+  # TODO eventually do a POC on using another external Kafka consumer service
+
   @impl true
   def init(topic, _partition, %{event_definition: event_definition}) do
+    Redis.hash_increment_by("b:#{event_definition.id}", "tmc", 0)
+    Redis.hash_increment_by("b:#{event_definition.id}", "tmp", 0)
+
     {:ok, %{topic: topic, event_definition: event_definition}}
   end
 
   @impl true
   def init(_topic, _partition, _args) do
+    Redis.hash_increment_by("drilldown_message_info", "tmc", 0)
+    Redis.hash_increment_by("drilldown_message_info", "tmp", 0)
+
     {:ok, %{}}
   end
 
