@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterNotificationsAndNotificationSettingsTagIdRemoveDefaultValue do
+  use Migrations.NotificationsAndNotificationSettingsDropDefaultTagId
+end

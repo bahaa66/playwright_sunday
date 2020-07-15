@@ -62,16 +62,16 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:telemetry_poller, "~> 0.4"},
       {
         :models,
+        tag: "v1.6.4-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
-        tag: "v1.6.3-beta",
         override: true
       },
       {
         :migrations,
+        tag: "v1.6.4-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
-        tag: "v1.6.3-beta",
         override: true
       },
       {
