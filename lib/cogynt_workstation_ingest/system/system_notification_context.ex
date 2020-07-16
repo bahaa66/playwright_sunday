@@ -18,16 +18,24 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
       iex> bulk_insert_system_notifications(%{field: bad_value})
       {:error, %Ecto.Changeset{}}
   """
-  def bulk_insert_system_notifications(system_notifications) when is_list(system_notifications) do
-    system_notifications =
-      system_notifications
+  def bulk_insert_system_notifications(notifications) when is_list(notifications) do
+    notifications =
+      notifications
       |> build_system_notifications()
 
-    Repo.insert_all(SystemNotification, system_notifications,
+    Repo.insert_all(SystemNotification, notifications,
       returning: [:id, :created_at, :updated_at, :assigned_to, :message, :title, :type, :details]
     )
   end
 
+  @doc """
+  Will update each SystemNotification record into the database
+  ## Examples
+      iex> bulk_update_system_notifications(%{field: value})
+      {:ok, %SystemNotification{}}
+      iex> bulk_update_system_notifications(%{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+  """
   def bulk_update_system_notifications(notifications) do
     case Enum.empty?(notifications) do
       false ->
