@@ -40,7 +40,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
           KafkaEx.ConsumerGroup,
           :start_link,
           consumer_group_options(
-            name: "#{topic}-#{event_definition.id}",
+            name: "#{topic}-#{event_definition.id}-#{event_definition.started_at}",
             topics: [event_definition.topic],
             consumer_group_name: consumer_group_name(event_definition.id),
             extra_consumer_args: %{event_definition: event_definition}
@@ -126,8 +126,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def stop_child(event_definition) do
-    child_pid = Process.whereis(consumer_group_name(event_definition))
+  def stop_child(event_definition_id) do
+    child_pid = Process.whereis(consumer_group_name(event_definition_id))
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)

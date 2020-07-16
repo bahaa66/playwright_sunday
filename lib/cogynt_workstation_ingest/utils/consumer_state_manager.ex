@@ -142,7 +142,22 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     %{response: _response} =
       Enum.reduce(args, %{}, fn
         {:start_consumer, event_definition}, _acc ->
-          start_consumer(event_definition)
+          case is_nil(event_definition.started_at) do
+            true ->
+              started_at = DateTime.truncate(DateTime.utc_now(), :second)
+
+              EventsContext.update_event_definitions(
+                %{
+                  filter: %{event_definition_ids: [event_definition.id]}
+                },
+                set: [started_at: started_at]
+              )
+
+              start_consumer(Map.put(event_definition, :started_at, started_at))
+
+            false ->
+              start_consumer(event_definition)
+          end
 
         {:stop_consumer, event_definition_id}, _acc ->
           stop_consumer(event_definition_id)

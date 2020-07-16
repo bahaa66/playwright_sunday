@@ -4,7 +4,6 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
   Queues the messages to the appropriate Broadway Pipelines
   """
   use KafkaEx.GenConsumer
-  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Broadway.{Producer, DrilldownProducer}
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
 

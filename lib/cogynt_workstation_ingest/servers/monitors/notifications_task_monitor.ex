@@ -49,7 +49,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
   end
 
   @impl true
-  def handle_info({:DOWN, _ref, :process, pid, reason}, state) do
+  def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
     # TODO implement retry for backfill/update task if reason anything other than :normal or :shutdown
 
     notification_setting_id = Map.get(state, pid)
