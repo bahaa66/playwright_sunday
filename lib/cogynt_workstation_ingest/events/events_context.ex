@@ -358,6 +358,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       topic: event_definition.topic,
       event_type: event_definition.event_type,
       deleted_at: event_definition.deleted_at,
+      started_at: event_definition.started_at,
       authoring_event_definition_id: event_definition.authoring_event_definition_id,
       active: event_definition.active,
       deployment_status: event_definition.deployment_status,
