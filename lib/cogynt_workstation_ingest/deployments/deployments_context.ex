@@ -53,11 +53,13 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
               # If they are in the list make sure to update the DeploymentStatus if it needs to be changed
               Enum.each(current_event_definitions, fn %EventDefinition{
                                                         deployment_status: deployment_status,
-                                                        id: event_definition_id
+                                                        id: event_definition_id,
+                                                        authoring_event_definition_id:
+                                                          authoring_event_definition_id
                                                       } = current_event_definition ->
                 case Enum.member?(
                        decoded_message.event_type_ids,
-                       event_definition_id
+                       authoring_event_definition_id
                      ) do
                   true ->
                     if deployment_status == DeploymentStatusTypeEnum.status()[:inactive] or
@@ -68,6 +70,8 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
                     end
 
                   false ->
+                    IO.puts("Updating ED to DS inactive")
+
                     EventsContext.update_event_definition(current_event_definition, %{
                       active: false,
                       deployment_status: DeploymentStatusTypeEnum.status()[:inactive]

@@ -6,7 +6,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   alias CogyntWorkstationIngest.Repo
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias Ecto.Multi
-  alias Models.Enums.ConsumerStatusTypeEnum
+  alias Models.Enums.{ConsumerStatusTypeEnum, DeploymentStatusTypeEnum}
 
   alias Models.Events.{
     Event,
@@ -496,25 +496,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       ed
       |> build_start_consumer_args_from_ed()
       |> ConsumerStateManager.manage_request()
-    end)
-  end
-
-  def init_consumer_state_for_inactive_ed() do
-    event_definitions =
-      Repo.all(
-        from(
-          ed in EventDefinition,
-          where: is_nil(ed.deleted_at),
-          where: ed.active == false,
-          preload: [:event_definition_details]
-        )
-      )
-
-    Enum.each(event_definitions, fn ed ->
-      ConsumerStateManager.upsert_consumer_state(ed.id,
-        status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
-        topic: ed.topic
-      )
     end)
   end
 
