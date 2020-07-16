@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
   alias Models.System.{NotificationDetails, SystemNotificationDetails, SystemNotification}
   alias CogyntWorkstationIngest.Repo
   import Ecto.Query
-  alias Ecto.Multi
 
   # ------------------------------------------ #
   # --- System Notification Schema Nethods --- #
@@ -29,29 +28,50 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
     )
   end
 
-  # --------------------- #
-  # --- Multi Methods --- #
-  # --------------------- #
-  def insert_all_multi(multi \\ Multi.new()) do
-    multi
-    |> Multi.merge(fn %{insert_notifications: {_, notifications}} ->
-      Multi.new()
-      |> Multi.insert_all(
-        :create_system_notifications,
-        SystemNotification,
-        build_system_notifications(notifications)
-      )
-    end)
-  end
+  def bulk_update_system_notifications(notifications) do
+    case Enum.empty?(notifications) do
+      false ->
+        deleted_notification_ids =
+          notifications
+          |> Enum.reduce([], fn notification, acc ->
+            if !is_nil(notification.deleted_at) do
+              [notification.id | acc]
+            else
+              acc
+            end
+          end)
 
-  def update_all_multi(multi \\ Multi.new()) do
-    # just updating the sys_notificaitons from the query to have deleted title and msg
+        case Enum.empty?(deleted_notification_ids) do
+          false ->
+            query =
+              from(sn in SystemNotification,
+                where:
+                  fragment(
+                    """
+                    ?->?->>? = ANY(?)
+                    """,
+                    sn.details,
+                    ^"notification",
+                    ^"notification_id",
+                    ^deleted_notification_ids
+                  )
+              )
 
-    multi
-    |> Multi.merge(fn %{update_notifications: {_, updated_notifications}} ->
-      Multi.new()
-      |> update_system_notifications(updated_notifications)
-    end)
+            Repo.update_all(query,
+              set: [
+                title: "Notification Retracted",
+                message: "One of your notifications has been retracted and no longer relevant.",
+                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+              ]
+            )
+
+          true ->
+            nil
+        end
+
+      true ->
+        nil
+    end
   end
 
   # ----------------------- #
@@ -96,53 +116,6 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
 
       true ->
         []
-    end
-  end
-
-  defp update_system_notifications(multi \\ Multi.new(), notifications) do
-    case Enum.empty?(notifications) do
-      false ->
-        deleted_notification_ids =
-          notifications
-          |> Enum.reduce([], fn notification, acc ->
-            if !is_nil(notification.deleted_at) do
-              [notification.id | acc]
-            else
-              acc
-            end
-          end)
-
-        case Enum.empty?(deleted_notification_ids) do
-          false ->
-            query =
-              from(sn in SystemNotification,
-                where:
-                  fragment(
-                    """
-                    ?->?->>? = ANY(?)
-                    """,
-                    sn.details,
-                    ^"notification",
-                    ^"notification_id",
-                    ^deleted_notification_ids
-                  )
-              )
-
-            multi
-            |> Multi.update_all(:update_system_notifications, query,
-              set: [
-                title: "Notification Retracted",
-                message: "One of your notifications has been retracted and no longer relevant.",
-                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-              ]
-            )
-
-          true ->
-            multi
-        end
-
-      true ->
-        multi
     end
   end
 end

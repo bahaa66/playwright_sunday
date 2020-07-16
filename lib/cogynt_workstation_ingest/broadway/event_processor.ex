@@ -7,7 +7,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
-  alias Ecto.Multi
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -300,7 +299,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         event_id: event_id
       })
       |> EventsContext.update_all_event_links_multi(delete_event_ids)
-      |> SystemNotificationContext.insert_all_multi()
       |> EventsContext.run_multi_transaction()
 
     case transaction_result do
@@ -314,12 +312,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             updated_notifications
 
         Redis.publish_async("notification_count_subscription", total_notifications)
+        SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
+        SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
         Redis.publish_async(
           "notification_count_subscription",
           NotificationsContext.notification_struct_to_map(created_notifications)
         )
+
+        SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
 
       {:ok, _} ->
         nil
@@ -360,12 +362,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         event_id: event_id
       })
       |> EventsContext.update_all_event_links_multi(delete_event_ids)
-      |> SystemNotificationContext.update_all_multi()
       |> EventsContext.run_multi_transaction()
 
     case transaction_result do
       {:ok, %{update_notifications: {_count, updated_notifications}}} ->
         Redis.publish_async("notification_count_subscription", updated_notifications)
+        SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, _} ->
         nil
