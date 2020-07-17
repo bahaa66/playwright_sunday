@@ -31,8 +31,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     topic = event_definition.topic
     name = "#{topic}-#{event_definition.id}-#{event_definition.started_at}"
 
-    IO.inspect(name, label: "@@@ KAFKA NAME")
-
     existing_topics =
       KafkaEx.metadata(worker_name: worker_name).topic_metadatas |> Enum.map(& &1.topic)
 
