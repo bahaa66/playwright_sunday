@@ -32,6 +32,13 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
               Map.put(decoded_message, :authoring_event_definition_id, decoded_message.id)
               |> Map.put(:topic, decoded_message.filter)
               |> Map.put(:title, decoded_message.name)
+              |> Map.put_new_lazy(:event_type, fn ->
+                if is_nil(decoded_message.dsType) do
+                  :none
+                else
+                  decoded_message.dsType
+                end
+              end)
               |> Map.drop([:id])
               |> EventsContext.upsert_event_definition()
 
