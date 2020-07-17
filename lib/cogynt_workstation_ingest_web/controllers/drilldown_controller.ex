@@ -32,12 +32,8 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
   def show(conn, %{"id" => id}) do
     case is_authorized?(conn) do
       true ->
-        #  {:ok, data} = DrilldownCache.get(id)
-
-        data = DrilldownContext.get_template_solution(id)
-        |> Map.from_struct()
-        |> Map.drop([:__meta__, :created_at, :updated_at])
-        |> stringify_map()
+        # {:ok, data} = DrilldownCache.get(id)
+        {:ok, data} = DrilldownContext.get_template_solution_data(id)
 
         if data == nil do
           render(conn, "404.json")
