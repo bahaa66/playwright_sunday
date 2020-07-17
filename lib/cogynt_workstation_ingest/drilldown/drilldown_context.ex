@@ -2,6 +2,8 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   alias Models.Drilldown.TemplateSolutions
   alias CogyntWorkstationIngest.Repo
 
+  import Ecto.Query
+
   def update_template_solutions(%{sol_id: id, sol: _sol, evnt: _evnt} = data) do
     case get_template_solution(id) do
       nil ->
@@ -50,17 +52,30 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   end
 
   def get_template_solution_data(id) do
-    case get_template_solution(id) do
-      nil ->
-        {:ok, nil}
+      case get_template_solution(id) do
+        nil ->
+          {:ok, nil}
 
-      data ->
-        data = data
-        |> Map.from_struct()
-        |> Map.drop([:__meta__, :created_at, :updated_at])
-        |> stringify_map()
+        data ->
+          {:ok, process_template_solution(data)}
+      end
 
-        {:ok, data}
+  end
+
+  def list_template_solutions() do
+    query = from t in TemplateSolutions
+    try do
+      case Repo.all(query) do
+        [] -> {:ok, nil}
+        list -> {:ok, list}
+      end
+    rescue
+      e in Ecto.QueryError ->
+        CogyntLogger.error(
+            "#{__MODULE__}",
+            "get_template_solutions failed with reason: #{inspect(e)}"
+          )
+          {:ok, nil}
     end
   end
 
@@ -120,5 +135,12 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
 
   defp stringify_map(atom_map) do
     for {key, val} <- atom_map, into: %{}, do: {Atom.to_string(key), val}
+  end
+
+  defp process_template_solution(data) do
+    data
+        |> Map.from_struct()
+        |> Map.drop([:__meta__, :created_at, :updated_at])
+        |> stringify_map()
   end
 end

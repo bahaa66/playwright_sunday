@@ -2,8 +2,8 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   use CogyntWorkstationIngestWeb, :view
   use JaSerializer.PhoenixView
   alias CogyntWorkstationIngestWeb.JA_Keys
-  alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
   alias CogyntWorkstationIngestWeb.EventView
+  alias CogyntWorkstationIngest.Drilldown.DrilldownContext
 
   def render("401.json-api", _) do
     %{errors: %{detail: "User is not authenticated"}}
@@ -12,13 +12,10 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   def type, do: "solutions"
 
   def id(info, _conn) do
-    IO.puts("**************1**************")
     info["id"]
   end
 
   def attributes(info, _conn) do
-    IO.puts("**************2**************")
-
     info
     |> Map.delete("id")
     |> Map.delete(:id)
@@ -35,7 +32,6 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   )
 
   def children(info, _conn) do
-    IO.puts("**************3**************")
     # IO.inspect(info, label: "@@@@ Parent in drilldown")
 
     (Map.values(info["events"]) || [])
@@ -44,13 +40,8 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
       id = occ["published_by"]
 
       if id do
-        {:ok, inst} = DrilldownCache.get(id)
-        IO.inspect id
-        IO.inspect inst
-        {:ok, new_inst} = CogyntWorkstationIngest.Drilldown.DrilldownContext.get_template_solution_data(id)
+        {:ok, inst} = DrilldownContext.get_template_solution_data(id)
 
-        IO.inspect(new_inst)
-        inst = new_inst
         # inst
         if info["id"] == inst["id"] or Enum.member?(info["#visited"], inst["id"]) do
           # IO.inspect(occ, label: "@@@@ Event published by self?")
@@ -97,8 +88,6 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   )
 
   def outcomes(info, _conn) do
-    IO.puts("**************4**************")
-
     info["outcomes"]
     |> Enum.sort_by(& &1["id"])
   end
@@ -110,8 +99,6 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   )
 
   def events(info, _conn) do
-    IO.puts("**************5**************")
-
     if is_map(info["events"]) do
       Map.values(info["events"])
       |> Enum.filter(&(not (&1["$partial"] == true and &1["_confidence"] == 0.0)))

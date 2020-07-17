@@ -1,7 +1,5 @@
 defmodule CogyntWorkstationIngestWeb.DrilldownController do
   use CogyntWorkstationIngestWeb, :controller
-
-  alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
   alias CogyntWorkstationIngest.Drilldown.DrilldownContext
 
   @doc """
@@ -10,8 +8,11 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
   def index(conn, %{"id" => id}) do
     case is_authorized?(conn) do
       true ->
-        {:ok, data} = DrilldownCache.list()
+        {:ok, data} = DrilldownContext.list_template_solutions()
 
+        if data == nil do
+          render(conn, "404.json")
+        else
         data =
           data
           |> Map.drop([:timer])
@@ -20,6 +21,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
           |> Enum.map(&Map.put(Map.put(&1, "key", &1["id"]), "#visited", []))
 
         render(conn, "index.json-api", data: data)
+        end
 
       false ->
         render(conn, "401.json-api")
@@ -32,7 +34,6 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
   def show(conn, %{"id" => id}) do
     case is_authorized?(conn) do
       true ->
-        # {:ok, data} = DrilldownCache.get(id)
         {:ok, data} = DrilldownContext.get_template_solution_data(id)
 
         if data == nil do
@@ -67,7 +68,4 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
     # end
   end
 
-  defp stringify_map(atom_map) do
-    for {key, val} <- atom_map, into: %{}, do: {Atom.to_string(key), val}
-  end
 end
