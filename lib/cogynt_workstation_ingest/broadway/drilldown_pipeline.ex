@@ -88,9 +88,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
     data
     |> DrilldownProcessor.process_template_data()
     |> DrilldownProcessor.update_template_solutions()
-
-    # |> DrilldownProcessor.update_cache()
-
     message
   end
 end
