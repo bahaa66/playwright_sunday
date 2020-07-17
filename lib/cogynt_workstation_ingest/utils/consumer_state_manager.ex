@@ -183,7 +183,54 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
       cond do
         consumer_state.status == ConsumerStatusTypeEnum.status()[:running] ->
-          %{response: {:ok, consumer_state.status}}
+          case ConsumerGroupSupervisor.consumer_running?(event_definition.id) do
+            true ->
+              %{response: {:ok, consumer_state.status}}
+
+            false ->
+              case ConsumerGroupSupervisor.start_child(event_definition) do
+                {:error, nil} ->
+                  ConsumerRetryCache.retry_consumer(event_definition)
+
+                  upsert_consumer_state(
+                    event_definition.id,
+                    topic: event_definition.topic,
+                    status: ConsumerStatusTypeEnum.status()[:topic_does_not_exist],
+                    prev_status: consumer_state.status,
+                    nsid: consumer_state.nsid
+                  )
+
+                  %{response: {:ok, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}}
+
+                {:error, {:already_started, _pid}} ->
+                  upsert_consumer_state(
+                    event_definition.id,
+                    topic: event_definition.topic,
+                    status: ConsumerStatusTypeEnum.status()[:running],
+                    prev_status: consumer_state.status,
+                    nsid: consumer_state.nsid
+                  )
+
+                  %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
+
+                {:ok, pid} ->
+                  ConsumerMonitor.monitor(
+                    pid,
+                    event_definition.id,
+                    event_definition.topic
+                  )
+
+                  upsert_consumer_state(
+                    event_definition.id,
+                    topic: event_definition.topic,
+                    status: ConsumerStatusTypeEnum.status()[:running],
+                    prev_status: consumer_state.status,
+                    nsid: consumer_state.nsid
+                  )
+
+                  %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
+              end
+          end
 
         consumer_state.status ==
             ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->

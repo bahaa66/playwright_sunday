@@ -29,6 +29,9 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     )
 
     topic = event_definition.topic
+    name = "#{topic}-#{event_definition.id}-#{event_definition.started_at}"
+
+    IO.inspect(name, label: "@@@ KAFKA NAME")
 
     existing_topics =
       KafkaEx.metadata(worker_name: worker_name).topic_metadatas |> Enum.map(& &1.topic)
@@ -40,7 +43,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
           KafkaEx.ConsumerGroup,
           :start_link,
           consumer_group_options(
-            name: "#{topic}-#{event_definition.id}-#{event_definition.started_at}",
+            name: name,
             topics: [event_definition.topic],
             consumer_group_name: consumer_group_name(event_definition.id),
             extra_consumer_args: %{event_definition: event_definition}
@@ -135,6 +138,18 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       {:ok, :success}
     else
       {:ok, :success}
+    end
+  end
+
+  def consumer_running?(event_definition_id) do
+    child_pid = Process.whereis(consumer_group_name(event_definition_id))
+
+    case is_nil(child_pid) do
+      true ->
+        false
+
+      false ->
+        true
     end
   end
 
