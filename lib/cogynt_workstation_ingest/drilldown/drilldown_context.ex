@@ -26,7 +26,6 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
         data
 
       template_solution ->
-        # template_solution |> Map.from_struct() |> Map.drop([:__meta__])
         update_record(template_solution, sol)
         data
     end
@@ -99,12 +98,6 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
 
       Map.has_key?(data, :event) and Map.has_key?(data.event, :aid) ->
         key = evnt.id <> "!" <> evnt.assertion_id
-        replace = sol.events[key]
-
-        if replace != nil do
-          # IO.inspect(evnt, label: "@@@@ Received event")
-          # IO.inspect(replace, label: "@@@@ Replacing")
-        end
 
         sol
         |> Map.put(:events, Map.put(sol.events, key, evnt))
