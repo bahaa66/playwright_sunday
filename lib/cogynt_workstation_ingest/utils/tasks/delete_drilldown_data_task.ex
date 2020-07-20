@@ -6,7 +6,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
   use Task
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
+  alias CogyntWorkstationIngest.Drilldown.DrilldownContext
 
   # TODO make sure drilldown is done processing then remove redis keys
 
@@ -50,7 +50,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
     CogyntLogger.info("#{__MODULE__}", "Resetting Drilldown Cache")
     Redis.key_delete("drilldown_message_info")
     Redis.key_delete("drilldown_event_messages")
-    DrilldownCache.reset_state()
+    DrilldownContext.hard_delete_template_solutions_data()
     Process.sleep(2000)
     CogyntLogger.info("#{__MODULE__}", "Starting the Drilldown ConsumerGroup")
     ConsumerGroupSupervisor.start_child()
