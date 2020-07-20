@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   alias CogyntWorkstationIngest.Repo
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias Ecto.Multi
-  alias Models.Enums.{ConsumerStatusTypeEnum, DeploymentStatusTypeEnum}
 
   alias Models.Events.{
     Event,

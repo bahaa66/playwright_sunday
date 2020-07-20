@@ -87,4 +87,5 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
 
         {:ok, String.to_integer(tmp) >= String.to_integer(tmc)}
     end
+  end
 end
