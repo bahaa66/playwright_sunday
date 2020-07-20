@@ -52,18 +52,18 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   end
 
   def get_template_solution_data(id) do
-      case get_template_solution(id) do
-        nil ->
-          {:ok, nil}
+    case get_template_solution(id) do
+      nil ->
+        {:ok, nil}
 
-        data ->
-          {:ok, process_template_solution(data)}
-      end
-
+      data ->
+        {:ok, process_template_solution(data)}
+    end
   end
 
   def list_template_solutions() do
-    query = from t in TemplateSolutions
+    query = from(t in TemplateSolutions)
+
     try do
       case Repo.all(query) do
         [] -> {:ok, nil}
@@ -72,11 +72,17 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     rescue
       e in Ecto.QueryError ->
         CogyntLogger.error(
-            "#{__MODULE__}",
-            "get_template_solutions failed with reason: #{inspect(e)}"
-          )
-          {:ok, nil}
+          "#{__MODULE__}",
+          "get_template_solutions failed with reason: #{inspect(e)}"
+        )
+
+        {:ok, nil}
     end
+  end
+
+  def hard_delete_template_solutions_data() do
+    from(ts in TemplateSolutions)
+    |> Repo.delete_all()
   end
 
   defp get_attrs(temp_sol, %{sol_id: _id, sol: sol, evnt: evnt} = data) do
@@ -139,8 +145,8 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
 
   defp process_template_solution(data) do
     data
-        |> Map.from_struct()
-        |> Map.drop([:__meta__, :created_at, :updated_at])
-        |> stringify_map()
+    |> Map.from_struct()
+    |> Map.drop([:__meta__, :created_at, :updated_at])
+    |> stringify_map()
   end
 end
