@@ -17,6 +17,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @elastic_blacklist [@entities, @crud, @partial, @risk_score]
 
   @doc """
+  Requires :event_definition_id field in the data map. Will get the latest EventDefinition
+  to store and use for the pipeline.
+  """
+  def fetch_event_definition(%{event_definition_id: event_definition_id} = data) do
+    event_definition_map =
+      EventsContext.get_event_definition(event_definition_id)
+      |> EventsContext.event_definition_struct_to_map()
+
+    Map.put(data, :event_definition, event_definition_map)
+  end
+
+  @doc """
   Requires event field in the data map. Based on the crud action value
   process_event/1 will create a single Event record in the database that is assosciated with
   the event_definition.id. It will also pull all the event_ids and doc_ids that need to be
@@ -287,7 +299,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         event_id: event_id
       })
       |> EventsContext.update_all_event_links_multi(delete_event_ids)
-      |> SystemNotificationContext.insert_all_multi()
       |> EventsContext.run_multi_transaction()
 
     case transaction_result do
@@ -301,12 +312,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             updated_notifications
 
         Redis.publish_async("notification_count_subscription", total_notifications)
+        SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
+        SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
         Redis.publish_async(
           "notification_count_subscription",
           NotificationsContext.notification_struct_to_map(created_notifications)
         )
+
+        SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
 
       {:ok, _} ->
         nil
@@ -347,12 +362,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         event_id: event_id
       })
       |> EventsContext.update_all_event_links_multi(delete_event_ids)
-      |> SystemNotificationContext.update_all_multi()
       |> EventsContext.run_multi_transaction()
 
     case transaction_result do
       {:ok, %{update_notifications: {_count, updated_notifications}}} ->
         Redis.publish_async("notification_count_subscription", updated_notifications)
+        SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, _} ->
         nil

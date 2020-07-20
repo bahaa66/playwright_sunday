@@ -28,7 +28,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
   # ----------------------- #
   defp delete_drilldown_data(delete_topics) do
     CogyntLogger.info("#{__MODULE__}", "Stoping the Drilldown ConsumerGroup")
-    ConsumerGroupSupervisor.stop_child()
+    ConsumerGroupSupervisor.stop_child(:drilldown)
 
     if delete_topics do
       CogyntLogger.info(
@@ -48,11 +48,44 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
     end
 
     CogyntLogger.info("#{__MODULE__}", "Resetting Drilldown Cache")
-    Redis.key_delete("drilldown_message_info")
-    Redis.key_delete("drilldown_event_messages")
-    DrilldownContext.hard_delete_template_solutions_data()
-    Process.sleep(2000)
-    CogyntLogger.info("#{__MODULE__}", "Starting the Drilldown ConsumerGroup")
-    ConsumerGroupSupervisor.start_child()
+    reset_drilldown()
+  end
+
+  defp reset_drilldown(counter \\ 0) do
+    if counter >= 6 do
+      Redis.key_delete("drilldown_message_info")
+      Redis.key_delete("drilldown_event_messages")
+      DrilldownContext.hard_delete_template_solutions_data()
+      Process.sleep(2000)
+      CogyntLogger.info("#{__MODULE__}", "Starting the Drilldown ConsumerGroup")
+      ConsumerGroupSupervisor.start_child(:drilldown)
+    else
+      case finished_processing?() do
+        true ->
+          Redis.key_delete("drilldown_message_info")
+          Redis.key_delete("drilldown_event_messages")
+          DrilldownContext.hard_delete_template_solutions_data()
+          Process.sleep(2000)
+          CogyntLogger.info("#{__MODULE__}", "Starting the Drilldown ConsumerGroup")
+          ConsumerGroupSupervisor.start_child(:drilldown)
+
+        false ->
+          Process.sleep(10_000)
+          reset_drilldown(counter + 1)
+      end
+    end
+  end
+
+  defp finished_processing?() do
+    case Redis.key_exists?("drilldown_message_info") do
+      {:ok, false} ->
+        {:error, :key_does_not_exist}
+
+      {:ok, true} ->
+        {:ok, tmc} = Redis.hash_get("drilldown_message_info", "tmc")
+        {:ok, tmp} = Redis.hash_get("drilldown_message_info", "tmp")
+
+        {:ok, String.to_integer(tmp) >= String.to_integer(tmc)}
+    end
   end
 end

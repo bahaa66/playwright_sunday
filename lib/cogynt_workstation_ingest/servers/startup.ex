@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
   """
   use GenServer
   alias CogyntWorkstationIngest.Events.EventsContext
+  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
 
   # -------------------- #
   # --- client calls --- #
@@ -34,8 +35,9 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
     with :ok <- Application.ensure_started(:phoenix),
          :ok <- Application.ensure_started(:postgrex) do
       EventsContext.start_consumers_for_active_ed()
-      EventsContext.init_consumer_state_for_inactive_ed()
       CogyntLogger.info("#{__MODULE__}", "Consumers Initialized")
+      ConsumerGroupSupervisor.start_child(:deployment)
+      CogyntLogger.info("#{__MODULE__}", "Started Deployment Stream")
     else
       {:error, error} ->
         CogyntLogger.error("#{__MODULE__}", "App not started. #{inspect(error, pretty: true)}")

@@ -19,11 +19,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       producer: [
         module: {Producer, []},
         concurrency: 1,
-        transformer: {__MODULE__, :transform, []}
-        # rate_limiting: [
-        #   allowed_messages: Config.producer_allowed_messages(),
-        #   interval: Config.producer_rate_limit_interval()
-        # ]
+        transformer: {__MODULE__, :transform, []},
+        rate_limiting: [
+          allowed_messages: Config.producer_allowed_messages(),
+          interval: Config.producer_rate_limit_interval()
+        ]
       ],
       processors: [
         default: [
@@ -76,12 +76,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   the pipeline.
   """
   def ack(:ack_id, successful, _failed) do
-    Enum.each(successful, fn %Broadway.Message{data: %{event_definition: event_definition}} ->
-      {:ok, tmc} = Redis.hash_get("b:#{event_definition.id}", "tmc")
-      {:ok, tmp} = Redis.hash_increment_by("b:#{event_definition.id}", "tmp", 1)
+    Enum.each(successful, fn %Broadway.Message{data: %{event_definition_id: event_definition_id}} ->
+      {:ok, tmc} = Redis.hash_get("b:#{event_definition_id}", "tmc")
+      {:ok, tmp} = Redis.hash_increment_by("b:#{event_definition_id}", "tmp", 1)
 
       if tmp >= String.to_integer(tmc) do
-        finished_processing(event_definition.id)
+        finished_processing(event_definition_id)
       end
     end)
   end
@@ -106,6 +106,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @impl true
   def handle_message(_processor, %Message{data: data} = message, _context) do
     data
+    |> EventProcessor.fetch_event_definition()
     |> EventProcessor.process_event()
     |> EventProcessor.process_event_details_and_elasticsearch_docs()
     |> EventProcessor.process_notifications()
@@ -119,15 +120,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   # ----------------------- #
   defp keys_to_atoms(string_key_map) when is_map(string_key_map) do
     for {key, val} <- string_key_map, into: %{} do
-      if key == "event_definition" do
-        {String.to_atom(key), keys_to_atoms(val)}
-      else
-        {String.to_atom(key), val}
-      end
+      {String.to_atom(key), val}
     end
   end
-
-  defp keys_to_atoms(val), do: val
 
   defp finished_processing(event_definition_id) do
     {:ok, %{status: status, topic: topic, nsid: nsid}} =
@@ -163,8 +158,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
         ConsumerStateManager.upsert_consumer_state(event_definition_id,
           topic: topic,
-          status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
-          module: __MODULE__
+          status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
         )
 
       true ->

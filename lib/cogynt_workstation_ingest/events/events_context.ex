@@ -6,13 +6,13 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   alias CogyntWorkstationIngest.Repo
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias Ecto.Multi
-  alias Models.Enums.ConsumerStatusTypeEnum
 
   alias Models.Events.{
     Event,
     EventDefinition,
     EventDetail,
-    EventLink
+    EventLink,
+    EventDefinitionDetail
   }
 
   # ---------------------------- #
@@ -154,6 +154,86 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # --- EventDefinition Schema Methods --- #
   # -------------------------------------- #
   @doc """
+  Creates an EventDefinition.
+  ## Examples
+      iex> create_event_definition(%{field: value})
+      {:ok, %EventDefinition{}}
+      iex> create_event_definition(%{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+  """
+  def create_event_definition(attrs \\ %{}) do
+    %EventDefinition{}
+    |> EventDefinition.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Updates an EventDefinition.
+  ## Examples
+      iex> update_event_definition(event_definition, %{field: new_value})
+      {:ok, %EventDefinition{}}
+      iex> update_event_definition(event_definition, %{field: bad_value})
+      {:error, ...}
+  """
+  def update_event_definition(%EventDefinition{} = event_definition, attrs) do
+    event_definition
+    |> EventDefinition.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Will create the EventDefinition if no record is found for the event_definition_id.
+  If a record is found it updates the record with the new attrs.
+  ## Examples
+      iex> upsert_event_definition(%{field: value})
+      {:ok, %EventDefinition{}}
+      iex> upsert_event_definition(%{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+  """
+  def upsert_event_definition(attrs \\ %{}) do
+    case get_event_definition_by(%{
+           authoring_event_definition_id: attrs.authoring_event_definition_id,
+           deployment_id: attrs.deployment_id
+         }) do
+      nil ->
+        result =
+          Map.put(attrs, :id, Ecto.UUID.generate())
+          |> create_event_definition()
+
+        case result do
+          {:ok, %EventDefinition{id: id} = event_definition} ->
+            if Map.has_key?(attrs, :fields) do
+              create_event_definition_fields(id, attrs.fields)
+            end
+
+            {:ok, %EventDefinition{} = event_definition}
+
+          _ ->
+            result
+        end
+
+      %EventDefinition{} = event_definition ->
+        result = update_event_definition(event_definition, attrs)
+
+        case result do
+          {:ok, %EventDefinition{id: id} = event_definition} ->
+            nil
+            # Delete all EventDefinitionDetails for id
+            delete_event_definition_details(id)
+            # Create new EventDefinitionDetails for id
+            if Map.has_key?(attrs, :fields) do
+              create_event_definition_fields(id, attrs.fields)
+            end
+
+            {:ok, %EventDefinition{} = event_definition}
+
+          _ ->
+            result
+        end
+    end
+  end
+
+  @doc """
   Returns the EventDefinition for id. Raises an error if it does
   not exist
   ## Examples
@@ -184,7 +264,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   Returns a single EventDefinition struct from the query
   ## Examples
       iex> get_event_definition_by(%{id: id})
-      {:ok, %EventDefinition{...}}
+      %EventDefinition{...}
       iex> get_event_definition_by(%{id: invalid_id})
       nil
   """
@@ -253,6 +333,76 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         select(q, ^select)
     end)
     |> Repo.update_all(set: set)
+  end
+
+  @doc """
+  Converts EventDefinition struct to a map
+  """
+  def event_definition_struct_to_map(%EventDefinition{} = event_definition) do
+    event_definition_details =
+      case event_definition do
+        %{event_definition_details: %Ecto.Association.NotLoaded{}} ->
+          []
+
+        %{event_definition_details: details} ->
+          details
+
+        _ ->
+          []
+      end
+
+    %{
+      id: event_definition.id,
+      title: event_definition.title,
+      topic: event_definition.topic,
+      event_type: event_definition.event_type,
+      deleted_at: event_definition.deleted_at,
+      started_at: event_definition.started_at,
+      authoring_event_definition_id: event_definition.authoring_event_definition_id,
+      active: event_definition.active,
+      deployment_status: event_definition.deployment_status,
+      deployment_id: event_definition.deployment_id,
+      manual_actions: event_definition.manual_actions,
+      created_at: event_definition.created_at,
+      updated_at: event_definition.updated_at,
+      primary_title_attribute: event_definition.primary_title_attribute,
+      fields:
+        Enum.reduce(event_definition_details, %{}, fn
+          %{field_name: n, field_type: t}, acc ->
+            Map.put_new(acc, n, t)
+
+          _, acc ->
+            acc
+        end)
+    }
+  end
+
+  # -------------------------------------------- #
+  # --- EventDefinitionDetail Schema Methods --- #
+  # -------------------------------------------- #
+  @doc """
+  Creates an EventDefinitionDetail.
+  ## Examples
+      iex> create_event_definition_detail(%{field: value})
+      {:ok, %EventDefinitionDetail{}}
+      iex> create_event_definition_detail(%{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+  """
+  def create_event_definition_detail(attrs \\ %{}) do
+    %EventDefinitionDetail{}
+    |> EventDefinitionDetail.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Deletes all EventDefinitionDetails that are linked to an event_definition_id.
+  ## Examples
+      iex> delete_event_definition_details(id)
+      {:ok, %EventDefinitionDetail{}}
+  """
+  def delete_event_definition_details(id) do
+    from(details in EventDefinitionDetail, where: details.event_definition_id == ^id)
+    |> Repo.delete_all()
   end
 
   # -------------------------------- #
@@ -348,26 +498,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     end)
   end
 
-  def init_consumer_state_for_inactive_ed() do
-    event_definitions =
-      Repo.all(
-        from(
-          ed in EventDefinition,
-          where: is_nil(ed.deleted_at),
-          where: ed.active == false,
-          preload: [:event_definition_details]
-        )
-      )
-
-    Enum.each(event_definitions, fn ed ->
-      ConsumerStateManager.upsert_consumer_state(ed.id,
-        status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
-        topic: ed.topic,
-        module: __MODULE__
-      )
-    end)
-  end
-
   def get_event_definition_for_startup(event_definition_id) do
     Repo.get(EventDefinition, event_definition_id)
     |> Repo.preload(:event_definition_details)
@@ -396,8 +526,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       topic: event_definition.topic,
       event_type: event_definition.event_type,
       deleted_at: event_definition.deleted_at,
+      started_at: event_definition.started_at,
       authoring_event_definition_id: event_definition.authoring_event_definition_id,
       active: event_definition.active,
+      deployment_status: event_definition.deployment_status,
+      deployment_id: event_definition.deployment_id,
+      manual_actions: event_definition.manual_actions,
       created_at: event_definition.created_at,
       updated_at: event_definition.updated_at,
       primary_title_attribute: event_definition.primary_title_attribute,
@@ -412,6 +546,26 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     }
 
     %{start_consumer: event_definition}
+  end
+
+  defp create_event_definition_fields(id, fields) do
+    Enum.each(fields, fn {key, val} ->
+      case is_atom(key) do
+        true ->
+          create_event_definition_detail(%{
+            event_definition_id: id,
+            field_name: Atom.to_string(key),
+            field_type: val.dataType
+          })
+
+        false ->
+          create_event_definition_detail(%{
+            event_definition_id: id,
+            field_name: key,
+            field_type: val["dataType"]
+          })
+      end
+    end)
   end
 
   defp filter_events(filter, query) do
@@ -434,6 +588,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       {:event_definition_ids, event_definition_ids}, q ->
         where(q, [ed], ed.id in ^event_definition_ids)
+
+      {:deployment_id, deployment_id}, q ->
+        where(q, [ed], ed.deployment_id == ^deployment_id)
     end)
   end
 

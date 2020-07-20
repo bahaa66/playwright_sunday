@@ -37,27 +37,47 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
         {:redix_pubsub, _pubsub, _ref, :message, %{channel: channel, payload: json_payload}},
         state
       ) do
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "Channel: #{inspect(channel)}, Received message: #{inspect(json_payload, pretty: true)}"
-    )
-
     case Jason.decode(json_payload, keys: :atoms) do
-      {:ok, %{start_consumer: event_definition}} ->
+      {:ok, %{start_consumer: event_definition} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
         ConsumerStateManager.manage_request(%{start_consumer: event_definition})
 
-      {:ok, %{stop_consumer: event_definition}} ->
-        ConsumerStateManager.manage_request(%{stop_consumer: event_definition.topic})
+      {:ok, %{stop_consumer: event_definition} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
 
-      {:ok, %{backfill_notifications: notification_setting_id}} ->
+        ConsumerStateManager.manage_request(%{stop_consumer: event_definition.id})
+
+      {:ok, %{backfill_notifications: notification_setting_id} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
         ConsumerStateManager.manage_request(%{backfill_notifications: notification_setting_id})
 
-      {:ok, %{update_notification_setting: notification_setting_id}} ->
+      {:ok, %{update_notification_setting: notification_setting_id} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
         ConsumerStateManager.manage_request(%{
           update_notification_setting: notification_setting_id
         })
 
-      {:ok, %{delete_event_definition_events: event_definition_id}} ->
+      {:ok, %{delete_event_definition_events: event_definition_id} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
         ConsumerStateManager.manage_request(%{delete_event_definition_events: event_definition_id})
 
       {:ok,
@@ -67,7 +87,12 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
            event_definition_ids: event_definition_ids,
            topics: delete_topics
          }
-       }} ->
+       } = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
         try do
           if reset_drilldown do
             TaskSupervisor.start_child(%{delete_drilldown_data: delete_topics})

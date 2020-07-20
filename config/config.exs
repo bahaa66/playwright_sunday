@@ -18,6 +18,7 @@ config :cogynt_workstation_ingest, :clients,
   elasticsearch_client: Elasticsearch
 
 config :kafka_ex,
+  deployment_topic: "deployment",
   kafka_client: KafkaEx
 
 # Configurations for keys in Cogynt Core events
