@@ -2,44 +2,46 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
   @moduledoc """
   Module that acts as the Broadway Processor for the DrilldownPipeline.
   """
-  alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
+  alias CogyntWorkstationIngest.Drilldown.DrilldownContext
 
   @doc """
   process_template_data/1
   """
   def process_template_data(%{event: event} = data) do
-    case event["event"] do
-      nil ->
-        sol = %{
-          "retracted" => event["retracted"],
-          "template_type_name" => event["template_type_name"],
-          "template_type_id" => event["template_type_id"],
-          "id" => event["id"]
-        }
+    case Map.has_key?(event, :event) do
+      false ->
+        sol = event
 
-        Map.put(data, :sol_id, sol["id"])
+        Map.put(data, :sol_id, sol.id)
         |> Map.put(:sol, sol)
 
-      val ->
+      true ->
+        event_new = Map.get(event, :event, nil)
+
+        aid = Map.get(event, :aid, nil)
+
         evnt =
-          val
-          |> Map.put("assertion_id", event["aid"])
+          if aid != nil do
+            event_new
+            |> Map.put(:assertion_id, event.aid)
+          else
+            event_new
+          end
 
         sol = %{
-          "id" => event["id"]
+          id: event.id
         }
 
-        Map.put(data, :sol_id, sol["id"])
+        Map.put(data, :sol_id, sol.id)
         |> Map.put(:sol, sol)
         |> Map.put(:evnt, evnt)
     end
   end
 
   @doc """
-  update_cache/1 passes the data map object to the DrilldownCache to
-  have its state updated with the new data
+  update_template_solutions/1 passes the data map object to the DrilldownContext to update pg
   """
-  def update_cache(data) do
-    DrilldownCache.put(data)
+  def update_template_solutions(data) do
+    DrilldownContext.update_template_solutions(data)
   end
 end
