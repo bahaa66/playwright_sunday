@@ -2,7 +2,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
   @moduledoc """
   Module that acts as the Broadway Processor for the DrilldownPipeline.
   """
-  alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
   alias CogyntWorkstationIngest.Drilldown.DrilldownContext
 
   @doc """
@@ -40,13 +39,8 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
   end
 
   @doc """
-  update_cache/1 passes the data map object to the DrilldownCache to
-  have its state updated with the new data
+  update_template_solutions/1 passes the data map object to the DrilldownContext to update pg
   """
-  def update_cache(data) do
-    DrilldownCache.put(data)
-  end
-
   def update_template_solutions(data) do
     DrilldownContext.update_template_solutions(data)
   end
