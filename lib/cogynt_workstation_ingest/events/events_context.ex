@@ -15,6 +15,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     EventDefinitionDetail
   }
 
+  alias Models.EventDetailTemplates.{
+    EventDetailTemplate,
+    EventDetailTemplateGroup,
+    EventDetailTemplateGroupItem
+  }
+
   # ---------------------------- #
   # --- Event Schema Methods --- #
   # ---------------------------- #
@@ -238,7 +244,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   not exist
   ## Examples
       iex> get_event_definition!(id)
-      {:ok, %EventDefinition{}}
+      %EventDefinition{}
       iex> get_event_definition!(invalid_id)
        ** (Ecto.NoResultsError)
   """
@@ -251,7 +257,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   Returns the EventDefinition for id.
   ## Examples
       iex> get_event_definition(id)
-      {:ok, %EventDefinition{}}
+      %EventDefinition{}
       iex> get_event_definition(invalid_id)
        nil
   """
@@ -336,6 +342,22 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   @doc """
+  Updates the deleted_at values for all EventDetailTemplate
+  data associated with the EventDefinition
+  """
+  def delete_event_definition_data(%EventDefinition{} = event_definition) do
+    now = DateTime.truncate(DateTime.utc_now(), :second)
+
+    {_count, event_detail_templates} =
+      delete_event_definition_event_detail_templates(event_definition, now)
+
+    {_count, event_detail_templates_groups} =
+      delete_event_definition_event_detail_template_groups(event_detail_templates)
+
+    delete_event_definition_event_detail_template_group_items(event_detail_templates_groups)
+  end
+
+  @doc """
   Converts EventDefinition struct to a map
   """
   def event_definition_struct_to_map(%EventDefinition{} = event_definition) do
@@ -375,6 +397,70 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
             acc
         end)
     }
+  end
+
+  # ------------------------------------------ #
+  # --- EventDetailTemplate Schema Methods --- #
+  # ------------------------------------------ #
+  @doc """
+  Given an %EventDefinition{} struct and a deleted_at timestamp it will update all
+  %EventDetailTemplate{} for the event_definition_id to be deleted
+    ## Examples
+      iex> delete_event_definition_event_detail_templates(%{id: event_definition_id}, deleted_at)
+      {count, [%EventDetailTemplate{...}]}
+      iex> delete_event_definition_event_detail_templates(%{id: invalid_id}, deleted_at)
+      nil
+  """
+  def delete_event_definition_event_detail_templates(%{id: definition_id}, deleted_at) do
+    queryable =
+      from(et in EventDetailTemplate)
+      |> where([et], et.event_definition_id == ^definition_id)
+      |> where([et], is_nil(et.deleted_at))
+      |> select([et], et)
+
+    Repo.update_all(queryable, set: [deleted_at: deleted_at])
+  end
+
+  @doc """
+  Given a list of %EventDetailTemplates{} it will update all
+  %EventDetailTemplateGroup{} be deleted
+    ## Examples
+      iex> delete_event_definition_event_detail_template_groups([%EventDetailTemplate{}])
+      {count, [%EventDetailTemplateGroup{...}]}
+  """
+  def delete_event_definition_event_detail_template_groups(event_detail_templates)
+      when is_list(event_detail_templates) do
+    template_ids = Enum.map(event_detail_templates, fn t -> t.id end)
+    deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
+
+    queryable =
+      from(g in EventDetailTemplateGroup)
+      |> where([g], g.event_detail_template_id in ^template_ids)
+      |> where([g], is_nil(g.deleted_at))
+      |> select([g], g)
+
+    Repo.update_all(queryable, set: [deleted_at: deleted_at])
+  end
+
+  @doc """
+  Given a list of %EventDetailTemplates{} it will update all
+  %EventDetailTemplateGroup{} be deleted
+    ## Examples
+      iex> delete_event_definition_event_detail_template_group_items([%EventDetailTemplateGroup{}])
+      {count, [%EventDetailTemplateGroupItem{...}]}
+  """
+  def delete_event_definition_event_detail_template_group_items(event_detail_template_groups)
+      when is_list(event_detail_template_groups) do
+    group_ids = Enum.map(event_detail_template_groups, fn g -> g.id end)
+    deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
+
+    queryable =
+      from(i in EventDetailTemplateGroupItem)
+      |> where([i], i.event_detail_template_group_id in ^group_ids)
+      |> where([i], is_nil(i.deleted_at))
+      |> select([i], i)
+
+    Repo.update_all(queryable, set: [deleted_at: deleted_at])
   end
 
   # -------------------------------------------- #
