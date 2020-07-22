@@ -38,6 +38,31 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.insert()
   end
 
+   @doc """
+  Querys Events based on the filter args
+  ## Examples
+      iex> query_events(
+        %{
+          filter: %{
+            event_definition_id: "c1607818-7f32-11ea-bc55-0242ac130003"
+          }
+        }
+      )
+      [%Event{}, %Event{}]
+  """
+  def query_events(args) do
+    query =
+      Enum.reduce(args, from(ns in Event), fn
+        {:filter, filter}, q ->
+          filter_events(filter, q)
+
+        {:select, select}, q ->
+          select(q, ^select)
+      end)
+
+    Repo.all(query)
+  end
+
   @doc """
   Returns all event_ids that have records that match for the core_id
   and are not deleted
@@ -63,24 +88,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     else
       event_ids
     end
-  end
-
-  @doc """
-  Will soft delete all events for the event_ids passed in
-  ## Examples
-      iex> soft_delete_events(["4123449c-2de0-482f-bea8-5efdb837be08"])
-      {integer(), nil | [term()]}
-      iex> soft_delete_events("invalid_id")
-      {integer(), nil | [term()]}
-  """
-  def soft_delete_events(event_ids) when length(event_ids) > 0 do
-    deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
-
-    from(
-      e in Event,
-      where: e.id in ^event_ids
-    )
-    |> Repo.update_all(set: [deleted_at: deleted_at])
   end
 
   @doc """
