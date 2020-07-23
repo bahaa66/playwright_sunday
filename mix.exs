@@ -81,11 +81,14 @@ defmodule CogyntWorkstationIngest.MixProject do
         tag: "v1.6.3-beta",
         override: true
       },
-      {:elasticsearch,
-       git: "git@github.com:cogility/cogynt-common.git",
-       sparse: "elasticsearch",
-       tag: "v1.5.3",
-       override: true},
+      {
+        :elasticsearch,
+        # tag: "v1.5.3",
+        git: "git@github.com:cogility/cogynt-common.git",
+        sparse: "elasticsearch",
+        branch: "bug/CDST-626-cleanup-risk-history-data",
+        override: true
+      },
       {:redis,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "redis",
