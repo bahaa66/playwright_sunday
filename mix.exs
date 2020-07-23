@@ -83,10 +83,9 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :elasticsearch,
-        # tag: "v1.5.3",
+        tag: "v1.6.6-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
-        branch: "bug/CDST-626-cleanup-risk-history-data",
         override: true
       },
       {:redis,
