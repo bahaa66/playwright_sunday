@@ -21,10 +21,14 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationSettingTask do
   # --- Private Methods --- #
   # ----------------------- #
   defp update_notifications(notification_setting_id) do
-    with %NotificationSetting{id: id} = notification_setting <-
+    with %NotificationSetting{} = notification_setting <-
            NotificationsContext.get_notification_setting(notification_setting_id),
          %EventDefinition{} = event_definition <-
-           EventsContext.get_event_definition!(notification_setting.event_definition_id) do
+           EventsContext.get_event_definition(notification_setting.event_definition_id),
+         {:ok, %NotificationSetting{} = updated_notification_setting} <-
+           NotificationsContext.update_notification_setting(notification_setting, %{
+             deleted_at: DateTime.truncate(DateTime.utc_now(), :second)
+           }) do
       CogyntLogger.info(
         "#{__MODULE__}",
         "Running update notifications task for ID: #{notification_setting_id}"
@@ -32,16 +36,24 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationSettingTask do
 
       page =
         NotificationsContext.get_page_of_notifications(
-          %{filter: %{notification_setting_id: id}},
+          %{filter: %{notification_setting_id: notification_setting_id}},
           page_size: @page_size
         )
 
-      process_page(page, notification_setting, event_definition)
+      process_page(page, updated_notification_setting, event_definition)
     else
       nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
           "Notification setting not found for ID: #{notification_setting_id}"
+        )
+
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "BackfillNotificationTask failed for ID: #{notification_setting_id}. Error: #{
+            inspect(error, pretty: true)
+          }"
         )
     end
   end

@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
   deleted_at using the new deleted_at value of the event_definition.
   """
   use Task
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
@@ -26,6 +27,14 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
         "#{__MODULE__}",
         "Running delete event definition events task for ID: #{event_definition_id}"
       )
+
+      EventsContext.delete_event_definition_data(event_definition)
+      ConsumerStateManager.manage_request(%{stop_consumer: event_definition_id})
+
+      Elasticsearch.delete_by_query(Config.event_index_alias(), %{
+        field: "event_definition_id",
+        value: event_definition_id
+      })
 
       EventsContext.update_event_definition(event_definition, %{started_at: nil})
 

@@ -128,7 +128,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   def finished_processing?(event_definition_id) do
     case Redis.key_exists?("b:#{event_definition_id}") do
       {:ok, false} ->
-        {:error, :key_does_not_exist}
+        {:ok, true}
 
       {:ok, true} ->
         {:ok, tmc} = Redis.hash_get("b:#{event_definition_id}", "tmc")
@@ -153,7 +153,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 set: [started_at: started_at]
               )
 
-              start_consumer(Map.put(event_definition, :started_at, started_at))
+              Map.put(event_definition, :started_at, started_at)
+              |> start_consumer()
 
             false ->
               start_consumer(event_definition)

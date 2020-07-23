@@ -127,6 +127,20 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     Repo.update_all(query, set: set)
   end
 
+  @doc """
+  Updates an NotificationSetting.
+  ## Examples
+      iex> update_notification_setting(notification_setting, %{field: new_value})
+      {:ok, %NotificationSetting{}}
+      iex> update_notification_setting(notification_setting, %{field: bad_value})
+      {:error, ...}
+  """
+  def update_notification_setting(%NotificationSetting{} = notification_setting, attrs) do
+    notification_setting
+    |> NotificationSetting.changeset(attrs)
+    |> Repo.update()
+  end
+
   def notification_struct_to_map(notifications) do
     Enum.reduce(notifications, [], fn %Notification{} = notification, acc ->
       acc ++
