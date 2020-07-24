@@ -60,6 +60,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:quiet_logger, "~> 0.2.0"},
       {:telemetry, "~> 0.4.0"},
       {:telemetry_poller, "~> 0.4"},
+      {:recase, "~> 0.5"},
       {
         :models,
         tag: "v1.6.5-beta",
