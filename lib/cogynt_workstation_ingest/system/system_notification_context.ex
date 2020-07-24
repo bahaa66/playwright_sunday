@@ -101,8 +101,8 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
                 notification: notification_details
               }
 
-              title = "Notification assigned"
-              message = "You have been assigned a new notification"
+              title = "Notificaition Assignment."
+              message = "#{Recase.to_title(notification.title)} is now assigned to you."
 
               acc ++
                 [
