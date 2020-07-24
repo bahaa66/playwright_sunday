@@ -62,7 +62,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       "deleting event for retry message: #{event_id}"
     )
 
-    EventsContext.soft_delete_events([event_id])
+    EventsContext.update_events(
+      %{filter: %{event_ids: [event_id]}},
+      set: [deleted_at: DateTime.truncate(DateTime.utc_now(), :second)]
+    )
 
     {:ok,
      %{
@@ -118,7 +121,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       "deleting event for retry message: #{event_id}"
     )
 
-    EventsContext.soft_delete_events([event_id])
+    EventsContext.update_events(
+      %{filter: %{event_ids: [event_id]}},
+      set: [deleted_at: DateTime.truncate(DateTime.utc_now(), :second)]
+    )
 
     case EventsContext.create_event(%{
            event_definition_id: event_definition.id,
