@@ -1,31 +1,16 @@
-### [1.3.25](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.24...v1.3.25) (2020-07-07)
+### [1.3.22-develop.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.3.22-develop.1...v1.3.22-develop.2) (2020-07-08)
 
 
 ### :bug: Bugfix
 
-* **helm:** disable unused pvc and mount in statefulsets ([966afb5](https://github.com/Cogility/cogynt-workstation-ingest/commit/966afb5dd9235024b707b7cfde38ee66b39046a4))
+* updated naming ([2fabf87](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/2fabf87980a99a0de6f6f214717d0f5b6106c2b3))
 
-### [1.3.24](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.23...v1.3.24) (2020-07-07)
-
-
-### :bug: Bugfix
-
-* **helm:** disable unused pvc and mount in statefulsets ([2918cf9](https://github.com/Cogility/cogynt-workstation-ingest/commit/2918cf91facfba39e38e0c802cedae312c6443f4))
-
-### [1.3.23](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.22...v1.3.23) (2020-06-24)
+### [1.3.22-develop.1](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.21...v1.3.22-develop.1) (2020-07-06)
 
 
 ### :bug: Bugfix
 
-* update query to not include deleted at ([b568e57](https://github.com/Cogility/cogynt-workstation-ingest/commit/b568e57620670b4b1921de4271c895b1f0c1be98))
-* **query optimize:** Merge pull request [#80](https://github.com/Cogility/cogynt-workstation-ingest/issues/80) from Cogility/hotfix/db-optimization ([635b4a3](https://github.com/Cogility/cogynt-workstation-ingest/commit/635b4a39538d94d79d198276702d9eb0ccdc6075))
-
-### [1.3.22](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.21...v1.3.22) (2020-06-17)
-
-
-### :bug: Bugfix
-
-* Merge pull request [#79](https://github.com/Cogility/cogynt-workstation-ingest/issues/79) from Cogility/develop ([bdb4213](https://github.com/Cogility/cogynt-workstation-ingest/commit/bdb42132f4a9001db89ab7d604b9e8bd886d60d4))
+* update audit topic name ([c882220](https://github.com/Cogility/cogynt-workstation-ingest/commit/c8822208eeea7fa0bf8385961d90fb14e199c655))
 
 ### [1.3.21-develop.1](https://github.com/Cogility/cogynt-workstation-ingest/compare/v1.3.20...v1.3.21-develop.1) (2020-06-16)
 

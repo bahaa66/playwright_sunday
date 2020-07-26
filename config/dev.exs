@@ -13,7 +13,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
     System.get_env("COGYNT_SECRET_KEY_BASE") ||
       "YqoQsxs2MpNBdH4PrtQYNY1JnJfscSFBIADEDqs6wSMIn3/8+TjYkbm6CrPx2yVJ",
   render_errors: [view: CogyntWorkstationIngestWeb.ErrorView, accepts: ~w(json)],
-  pubsub: [name: CogyntWorkstationIngestWeb.PubSub, adapter: Phoenix.PubSub.PG2],
+  pubsub_server: CogyntWorkstationIngestWeb.PubSub,
   https: [
     port: (System.get_env("HTTPS_PORT") || "450") |> String.to_integer(),
     otp_app: :cogynt_workstation_ingest,
@@ -25,29 +25,29 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   code_reloader: true,
   check_origin: false,
   server: true,
-  watchers: []
+  watchers: [],
+  live_view: [signing_salt: System.get_env("COGYNT_AUTH_SALT") || "I45Kpw9a"]
 
 # Kafka Configurations
 config :kafka_ex,
   # Dev Kafka
   brokers: [
     {
-      System.get_env("KAFKA_BROKER") || "172.16.1.100",
+      System.get_env("KAFKA_BROKER") || "kafka-dst.cogilitycloud.com",
       (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
     }
   ],
-  # Local Kafka
   # brokers: [{"127.0.0.1", 9092}],
   disable_default_worker: true,
   auto_offset_reset: :earliest,
   kafka_version: "2.0",
-  commit_interval: System.get_env("KAFKA_COMMIT_INTERVAL") || 1000,
-  commit_threshold: System.get_env("KAFKA_COMMIT_THRESHOLD") || 1000,
+  commit_interval: System.get_env("KAFKA_COMMIT_INTERVAL") || 10000,
+  commit_threshold: System.get_env("KAFKA_COMMIT_THRESHOLD") || 10000,
   heartbeat_interval: System.get_env("KAFKA_HEARTBEAT_INTERVAL") || 3000,
   sync_timeout: System.get_env("KAKFA_SYNC_TIMEOUT") || 15000,
   max_restarts: System.get_env("KAFKA_MAX_RESTARTS") || 10,
   max_seconds: System.get_env("KAFKA_MAX_SECONDS") || 60,
-  audit_topic: System.get_env("AUDIT_LOG_TOPIC") || "cogynt_audit_log",
+  audit_topic: System.get_env("AUDIT_LOG_TOPIC") || "_cogynt_audit_log",
   template_solution_topic: System.get_env("TEMPLATE_SOLUTION_TOPIC") || "template_solutions",
   template_solution_event_topic:
     System.get_env("TEMPLATE_SOLUTION_EVENT_TOPIC") || "template_solution_events",
@@ -65,6 +65,19 @@ config :elasticsearch, :config,
   event_index_alias: System.get_env("EVENT_INDEX_ALIAS") || "event",
   risk_history_index_alias: System.get_env("RISK_HISTORY_INDEX_ALIAS") || "risk_history",
   utc_offset: 0
+
+# Redis configurations
+config :redis, :application,
+  host: System.get_env("COGYNT_REDIS_HOST") || "127.0.0.1",
+  port: (System.get_env("COGYNT_REDIS_PORT") || "6379") |> String.to_integer(),
+  password: System.get_env("COGYNT_REDIS_PASSWORD") || nil,
+  name: System.get_env("COGYNT_REDIS_NAME") || "",
+  sentinel: System.get_env("COGYNT_REDIS_SENTINEL") || "",
+  databse: System.get_env("COGYNT_REDIS_DATABASE") || "",
+  pools: System.get_env("COGYNT_REDIS_POOLS") || 5,
+  exit_on_disconnection: System.get_env("COGYNT_REDIS_EXIT_ON_DISCONNECTION") || true,
+  sync_connect: System.get_env("COGYNT_REDIS_SYNC_CONNECT") || true,
+  instance: System.get_env("COGYNT_REDIS_INSTANCE") || :single
 
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, :event_pipeline,
@@ -135,4 +148,5 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   password: System.get_env("POSTGRESQL_PASSWORD") || "postgres",
   database: System.get_env("POSTGRESQL_DATABASE") || "cogynt_dev",
   hostname: System.get_env("POSTGRESQL_HOST") || "localhost",
-  pool_size: (System.get_env("POSTGRESQL_POOL_SIZE") || "10") |> String.to_integer()
+  pool_size: (System.get_env("POSTGRESQL_POOL_SIZE") || "10") |> String.to_integer(),
+  telemetry_prefix: [:cogynt_workstation_ingest, :repo]

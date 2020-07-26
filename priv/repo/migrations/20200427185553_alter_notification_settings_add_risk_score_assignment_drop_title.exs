@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterNotificationSettingsAddRiskScoreAssignment do
+  use Migrations.NotificationSettingsAddRiskRangeAssignment
+end

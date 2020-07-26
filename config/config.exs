@@ -8,7 +8,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   url: [host: "localhost"],
   secret_key_base: "YqoQsxs2MpNBdH4PrtQYNY1JnJfscSFBIADEDqs6wSMIn3/8+TjYkbm6CrPx2yVJ",
   render_errors: [view: CogyntWorkstationIngestWeb.ErrorView, accepts: ~w(json)],
-  pubsub: [name: CogyntWorkstationIngest.PubSub, adapter: Phoenix.PubSub.PG2]
+  pubsub_server: CogyntWorkstationIngestWeb.PubSub
 
 # cogynt-common configurations
 config :migrations, :application, repo: CogyntWorkstationIngest.Repo
@@ -18,6 +18,7 @@ config :cogynt_workstation_ingest, :clients,
   elasticsearch_client: Elasticsearch
 
 config :kafka_ex,
+  deployment_topic: "deployment",
   kafka_client: KafkaEx
 
 # Configurations for keys in Cogynt Core events

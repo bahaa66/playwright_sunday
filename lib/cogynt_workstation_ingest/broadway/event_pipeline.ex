@@ -6,7 +6,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   use Broadway
   alias Broadway.Message
+  alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.Config
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Broadway.{Producer, EventProcessor}
 
   @pipeline_name :BroadwayEventPipeline
@@ -48,19 +50,40 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   Transformation callback. Will transform the message that is returned
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
-  def transform(event, _opts) do
-    %Message{
-      data: event,
-      acknowledger: {__MODULE__, :ack_id, :ack_data}
-    }
+  def transform(payload, _opts) do
+    case Jason.decode(payload) do
+      {:ok, event} ->
+        %Message{
+          data: keys_to_atoms(event),
+          acknowledger: {__MODULE__, :ack_id, :ack_data}
+        }
+
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Failed to decode payload. Error: #{inspect(error, pretty: true)}"
+        )
+
+        %Message{
+          data: nil,
+          acknowledger: {__MODULE__, :ack_id, :ack_data}
+        }
+    end
   end
 
   @doc """
   Acknowledge callback. Will get all success or failed messages from
   the pipeline.
   """
-  def ack(:ack_id, _successful, _failed) do
-    # CogyntLogger.info("#{__MODULE__}", "Messages Ackd.")
+  def ack(:ack_id, successful, _failed) do
+    Enum.each(successful, fn %Broadway.Message{data: %{event_definition_id: event_definition_id}} ->
+      {:ok, tmc} = Redis.hash_get("b:#{event_definition_id}", "tmc")
+      {:ok, tmp} = Redis.hash_increment_by("b:#{event_definition_id}", "tmp", 1)
+
+      if tmp >= String.to_integer(tmc) do
+        finished_processing(event_definition_id)
+      end
+    end)
   end
 
   @doc """
@@ -70,7 +93,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   @impl true
   def handle_failed(messages, _args) do
-    CogyntLogger.error("#{__MODULE__}", "Messages failed. #{inspect(messages)}")
     Producer.enqueue_failed_messages(messages, @pipeline_name)
     messages
   end
@@ -84,11 +106,70 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @impl true
   def handle_message(_processor, %Message{data: data} = message, _context) do
     data
+    |> EventProcessor.fetch_event_definition()
     |> EventProcessor.process_event()
     |> EventProcessor.process_event_details_and_elasticsearch_docs()
     |> EventProcessor.process_notifications()
     |> EventProcessor.execute_transaction()
 
     message
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp keys_to_atoms(string_key_map) when is_map(string_key_map) do
+    for {key, val} <- string_key_map, into: %{} do
+      {String.to_atom(key), val}
+    end
+  end
+
+  defp finished_processing(event_definition_id) do
+    {:ok, %{status: status, topic: topic, nsid: nsid}} =
+      ConsumerStateManager.get_consumer_state(event_definition_id)
+
+    cond do
+      status ==
+          ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Triggering backfill notifications task: #{inspect(nsid, pretty: true)}"
+        )
+
+        Enum.each(nsid, fn id ->
+          ConsumerStateManager.manage_request(%{
+            backfill_notifications: id
+          })
+        end)
+
+      status ==
+          ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Triggering update notifications task: #{inspect(nsid, pretty: true)}"
+        )
+
+        Enum.each(nsid, fn id ->
+          ConsumerStateManager.manage_request(%{
+            update_notification_setting: id
+          })
+        end)
+
+      status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
+        ConsumerStateManager.upsert_consumer_state(event_definition_id,
+          topic: topic,
+          status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+        )
+
+      true ->
+        nil
+    end
+
+    Redis.publish_async("event_count_subscription", event_definition_id)
+
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "Finished processing all messages for EventDefinitionId: #{event_definition_id}"
+    )
   end
 end

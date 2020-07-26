@@ -4,8 +4,8 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   """
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
-  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
   alias CogyntWorkstationIngest.Broadway.EventProcessor
+  alias CogyntWorkstationIngest.System.SystemNotificationContext
   alias CogyntWorkstationIngest.Config
 
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
@@ -19,7 +19,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
       nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
-          "link event missing entities field. LinkEvent: #{inspect(event)}"
+          "link event missing entities field. LinkEvent: #{inspect(event, pretty: true)}"
         )
 
         Map.put(data, :validated, false)
@@ -28,7 +28,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         if Enum.empty?(entities) or Enum.count(entities) == 1 do
           CogyntLogger.warn(
             "#{__MODULE__}",
-            "entity field is empty or only has 1 link obect. Entity: #{inspect(entities)}"
+            "entity field is empty or only has 1 link obect. Entity: #{
+              inspect(entities, pretty: true)
+            }"
           )
 
           Map.put(data, :validated, false)
@@ -55,7 +57,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
               nil ->
                 CogyntLogger.warn(
                   "#{__MODULE__}",
-                  "link object missing id field. LinkObject: #{inspect(link_object)}"
+                  "link object missing id field. LinkObject: #{inspect(link_object, pretty: true)}"
                 )
 
                 acc_1
@@ -109,7 +111,8 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           :title,
           :notification_setting_id,
           :created_at,
-          :updated_at
+          :updated_at,
+          :assigned_to
         ]
       )
       |> EventsContext.update_all_events_multi(delete_event_ids)
@@ -127,11 +130,21 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
          insert_notifications: {_count_created, created_notifications},
          update_notifications: {_count_deleted, updated_notifications}
        }} ->
-        NotificationSubscriptionCache.add_new_notifications(created_notifications)
-        NotificationSubscriptionCache.add_updated_notifications(updated_notifications)
+        total_notifications =
+          NotificationsContext.notification_struct_to_map(created_notifications) ++
+            updated_notifications
+
+        Redis.publish_async("notification_count_subscription", total_notifications)
+        SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
+        SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
-        NotificationSubscriptionCache.add_new_notifications(created_notifications)
+        Redis.publish_async(
+          "notification_count_subscription",
+          NotificationsContext.notification_struct_to_map(created_notifications)
+        )
+
+        SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
 
       {:ok, _} ->
         nil
@@ -139,7 +152,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
       {:error, reason} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "execute_transaction/1 failed with reason: #{inspect(reason)}"
+          "execute_transaction/1 failed with reason: #{inspect(reason, pretty: true)}"
         )
 
         raise "execute_transaction/1 failed"
@@ -178,7 +191,8 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
     case transaction_result do
       {:ok, %{update_notifications: {_count, updated_notifications}}} ->
-        NotificationSubscriptionCache.add_updated_notifications(updated_notifications)
+        Redis.publish_async("notification_count_subscription", updated_notifications)
+        SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, _} ->
         nil
@@ -186,7 +200,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
       {:error, reason} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "execute_transaction/1 failed with reason: #{inspect(reason)}"
+          "execute_transaction/1 failed with reason: #{inspect(reason, pretty: true)}"
         )
 
         raise "execute_transaction/1 failed"

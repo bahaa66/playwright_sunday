@@ -5,8 +5,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
-  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
   alias CogyntWorkstationIngest.Config
+  alias CogyntWorkstationIngest.System.SystemNotificationContext
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -15,6 +15,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
   @lexicons Application.get_env(:cogynt_workstation_ingest, :core_keys)[:lexicons]
   @elastic_blacklist [@entities, @crud, @partial, @risk_score]
+
+  @doc """
+  Requires :event_definition_id field in the data map. Will get the latest EventDefinition
+  to store and use for the pipeline.
+  """
+  def fetch_event_definition(%{event_definition_id: event_definition_id} = data) do
+    event_definition_map =
+      EventsContext.get_event_definition(event_definition_id)
+      |> EventsContext.event_definition_struct_to_map()
+
+    Map.put(data, :event_definition, event_definition_map)
+  end
 
   @doc """
   Requires event field in the data map. Based on the crud action value
@@ -50,7 +62,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       "deleting event for retry message: #{event_id}"
     )
 
-    EventsContext.soft_delete_events([event_id])
+    EventsContext.update_events(
+      %{filter: %{event_ids: [event_id]}},
+      set: [deleted_at: DateTime.truncate(DateTime.utc_now(), :second)]
+    )
 
     {:ok,
      %{
@@ -91,7 +106,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:error, reason} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "process_event/1 failed with reason: #{inspect(reason)}"
+          "process_event/1 failed with reason: #{inspect(reason, pretty: true)}"
         )
 
         raise "process_event/1 failed"
@@ -106,7 +121,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       "deleting event for retry message: #{event_id}"
     )
 
-    EventsContext.soft_delete_events([event_id])
+    EventsContext.update_events(
+      %{filter: %{event_ids: [event_id]}},
+      set: [deleted_at: DateTime.truncate(DateTime.utc_now(), :second)]
+    )
 
     case EventsContext.create_event(%{
            event_definition_id: event_definition.id,
@@ -121,7 +139,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:error, reason} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "process_event/1 failed with reason: #{inspect(reason)}"
+          "process_event/1 failed with reason: #{inspect(reason, pretty: true)}"
         )
 
         raise "process_event/1 failed"
@@ -224,7 +242,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:error, reason} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "process_notifications/1 failed with reason: #{inspect(reason)}"
+          "process_notifications/1 failed with reason: #{inspect(reason, pretty: true)}"
         )
 
         raise "process_notifications/1 failed"
@@ -276,7 +294,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           :title,
           :notification_setting_id,
           :created_at,
-          :updated_at
+          :updated_at,
+          :assigned_to
         ]
       )
       |> EventsContext.update_all_events_multi(delete_event_ids)
@@ -294,11 +313,21 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
          insert_notifications: {_count_created, created_notifications},
          update_notifications: {_count_deleted, updated_notifications}
        }} ->
-        NotificationSubscriptionCache.add_new_notifications(created_notifications)
-        NotificationSubscriptionCache.add_updated_notifications(updated_notifications)
+        total_notifications =
+          NotificationsContext.notification_struct_to_map(created_notifications) ++
+            updated_notifications
+
+        Redis.publish_async("notification_count_subscription", total_notifications)
+        SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
+        SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
-        NotificationSubscriptionCache.add_new_notifications(created_notifications)
+        Redis.publish_async(
+          "notification_count_subscription",
+          NotificationsContext.notification_struct_to_map(created_notifications)
+        )
+
+        SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
 
       {:ok, _} ->
         nil
@@ -306,7 +335,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:error, reason} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "execute_transaction/1 failed with reason: #{inspect(reason)}"
+          "execute_transaction/1 failed with reason: #{inspect(reason, pretty: true)}"
         )
 
         raise "execute_transaction/1 failed"
@@ -343,7 +372,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     case transaction_result do
       {:ok, %{update_notifications: {_count, updated_notifications}}} ->
-        NotificationSubscriptionCache.add_updated_notifications(updated_notifications)
+        Redis.publish_async("notification_count_subscription", updated_notifications)
+        SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, _} ->
         nil
@@ -351,7 +381,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:error, reason} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "execute_transaction/1 failed with reason: #{inspect(reason)}"
+          "execute_transaction/1 failed with reason: #{inspect(reason, pretty: true)}"
         )
 
         raise "execute_transaction/1 failed"
@@ -397,7 +427,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       nil ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "event has CRUD key but missing `id` field. Throwing away record. #{inspect(event)}",
+          "event has CRUD key but missing `id` field. Throwing away record. #{
+            inspect(event, pretty: true)
+          }",
           true
         )
 
@@ -439,7 +471,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           {:error, reason} ->
             CogyntLogger.error(
               "#{__MODULE__}",
-              "delete_event/1 failed with reason: #{inspect(reason)}"
+              "delete_event/1 failed with reason: #{inspect(reason, pretty: true)}"
             )
 
             raise "delete_event/1 failed"
@@ -461,7 +493,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           {:error, reason} ->
             CogyntLogger.error(
               "#{__MODULE__}",
-              "delete_event/1 failed with reason: #{inspect(reason)}"
+              "delete_event/1 failed with reason: #{inspect(reason, pretty: true)}"
             )
 
             raise "delete_event/1 failed"
@@ -497,7 +529,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           {:error, reason} ->
             CogyntLogger.error(
               "#{__MODULE__}",
-              "create_or_update_event/1 failed with reason: #{inspect(reason)}"
+              "create_or_update_event/1 failed with reason: #{inspect(reason, pretty: true)}"
             )
 
             raise "create_or_update_event/1 failed"

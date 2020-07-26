@@ -1,13 +1,13 @@
-defmodule CogyntWorkstationIngest.Utils.DeleteEventDefinitionEventsTask do
+defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
   @moduledoc """
   Task module that can be called to paginate through the events of an event_definition and updates the
   deleted_at using the new deleted_at value of the event_definition.
   """
   use Task
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Events.EventDefinition
-  alias CogyntWorkstationIngest.Servers.ConsumerStateManager
-  alias CogyntWorkstationIngest.Servers.Caches.EventProcessingCache
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
 
   @page_size 2000
 
@@ -27,6 +27,27 @@ defmodule CogyntWorkstationIngest.Utils.DeleteEventDefinitionEventsTask do
         "#{__MODULE__}",
         "Running delete event definition events task for ID: #{event_definition_id}"
       )
+
+      EventsContext.delete_event_definition_data(event_definition)
+      ConsumerStateManager.manage_request(%{stop_consumer: event_definition_id})
+
+      Elasticsearch.delete_by_query(Config.event_index_alias(), %{
+        field: "event_definition_id",
+        value: event_definition_id
+      })
+
+      case EventsContext.get_core_ids_for_event_definition_id(event_definition_id) do
+        [] ->
+          nil
+
+        core_ids ->
+          Elasticsearch.delete_by_query(Config.risk_history_index_alias(), %{
+            field: "id",
+            value: core_ids
+          })
+      end
+
+      EventsContext.update_event_definition(event_definition, %{started_at: nil})
 
       page =
         EventsContext.get_page_of_events(
@@ -65,7 +86,6 @@ defmodule CogyntWorkstationIngest.Utils.DeleteEventDefinitionEventsTask do
 
     if page_number >= total_pages do
       ConsumerStateManager.remove_consumer_state(event_definition_id)
-      EventProcessingCache.remove_event_processing_status(event_definition_id)
 
       CogyntLogger.info(
         "#{__MODULE__}",

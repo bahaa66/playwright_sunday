@@ -40,6 +40,8 @@ defmodule CogyntWorkstationIngest.Config do
   def topic_sols(), do: Application.get_env(:kafka_ex, :template_solution_topic)
   def topic_sol_events(), do: Application.get_env(:kafka_ex, :template_solution_event_topic)
   def kafka_client(), do: Application.get_env(:kafka_ex, :kafka_client)
+  def kafka_brokers(), do: Application.get_env(:kafka_ex, :brokers)
+  def deployment_topic(), do: Application.get_env(:kafka_ex, :deployment_topic)
 
   def cogynt_otp_service_name(), do: rpc()[:cogynt_otp_service_name]
   def cogynt_otp_service_port(), do: rpc()[:cogynt_otp_service_port]

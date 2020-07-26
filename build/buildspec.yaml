@@ -1,7 +1,7 @@
 version: 0.2
 env:
   variables:
-    GIT_REPO_NAME: 'cogynt-workstation-ingest'
+    GIT_REPO_NAME: 'cogynt-ws-ingest-otp'
   parameter-store:
     GH_TOKEN: '/global/GH_TOKEN'
 phases:

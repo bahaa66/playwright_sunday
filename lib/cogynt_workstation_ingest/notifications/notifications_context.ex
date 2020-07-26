@@ -127,13 +127,35 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     Repo.update_all(query, set: set)
   end
 
-  defp filter_notifications(filter, query) do
-    Enum.reduce(filter, query, fn
-      {:notification_ids, notification_ids}, q ->
-        where(q, [n], n.id in ^notification_ids)
+  @doc """
+  Updates an NotificationSetting.
+  ## Examples
+      iex> update_notification_setting(notification_setting, %{field: new_value})
+      {:ok, %NotificationSetting{}}
+      iex> update_notification_setting(notification_setting, %{field: bad_value})
+      {:error, ...}
+  """
+  def update_notification_setting(%NotificationSetting{} = notification_setting, attrs) do
+    notification_setting
+    |> NotificationSetting.changeset(attrs)
+    |> Repo.update()
+  end
 
-      {:notification_setting_id, notification_setting_id}, q ->
-        where(q, [n], n.notification_setting_id == ^notification_setting_id)
+  def notification_struct_to_map(notifications) do
+    Enum.reduce(notifications, [], fn %Notification{} = notification, acc ->
+      acc ++
+        [
+          %{
+            event_id: notification.event_id,
+            user_id: notification.user_id,
+            tag_id: notification.tag_id,
+            id: notification.id,
+            title: notification.title,
+            notification_setting_id: notification.notification_setting_id,
+            created_at: notification.created_at,
+            updated_at: notification.updated_at
+          }
+        ]
     end)
   end
 
@@ -232,7 +254,9 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
               title: n.title,
               notification_setting_id: n.notification_setting_id,
               created_at: n.created_at,
-              updated_at: n.updated_at
+              updated_at: n.updated_at,
+              assigned_to: n.assigned_to,
+              deleted_at: n.deleted_at
             }
           )
 
@@ -271,5 +295,18 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
         CogyntLogger.warn("#{__MODULE__}", "Risk Range validation failed")
         false
     end
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp filter_notifications(filter, query) do
+    Enum.reduce(filter, query, fn
+      {:notification_ids, notification_ids}, q ->
+        where(q, [n], n.id in ^notification_ids)
+
+      {:notification_setting_id, notification_setting_id}, q ->
+        where(q, [n], n.notification_setting_id == ^notification_setting_id)
+    end)
   end
 end
