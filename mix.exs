@@ -63,16 +63,14 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:recase, "~> 0.5"},
       {
         :models,
-        # tag: "v1.6.5-beta",
-        branch: "feature/CDST-635-event-definition-colors",
+        tag: "v1.6.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        # tag: "v1.6.5-beta",
-        branch: "feature/CDST-635-event-definition-colors",
+        tag: "v1.6.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
