@@ -38,7 +38,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.insert()
   end
 
-   @doc """
+  @doc """
   Querys Events based on the filter args
   ## Examples
       iex> query_events(
@@ -230,7 +230,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
         case result do
           {:ok, %EventDefinition{id: id} = event_definition} ->
-            nil
             # Delete all EventDefinitionDetails for id
             delete_event_definition_details(id)
             # Create new EventDefinitionDetails for id
