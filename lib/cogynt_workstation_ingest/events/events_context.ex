@@ -38,7 +38,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.insert()
   end
 
-   @doc """
+  @doc """
   Querys Events based on the filter args
   ## Examples
       iex> query_events(
@@ -214,8 +214,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           |> create_event_definition()
 
         case result do
-          IO.inspect(attrs, pretty: true, label: "*** UPDATING ED")
           {:ok, %EventDefinition{id: id} = event_definition} ->
+            IO.inspect(attrs, pretty: true, label: "*** UPDATING ED")
+
             if Map.has_key?(attrs, :fields) do
               create_event_definition_fields(id, attrs.fields)
             end
@@ -223,6 +224,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
             {:ok, %EventDefinition{} = event_definition}
 
           _ ->
+            IO.inspect(attrs, pretty: true, label: "*** UPDATING ED")
             result
         end
 
