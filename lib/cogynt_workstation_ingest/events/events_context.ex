@@ -215,8 +215,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
         case result do
           {:ok, %EventDefinition{id: id} = event_definition} ->
-            IO.inspect(attrs, pretty: true, label: "*** UPDATING ED")
-
             if Map.has_key?(attrs, :fields) do
               create_event_definition_fields(id, attrs.fields)
             end
@@ -224,7 +222,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
             {:ok, %EventDefinition{} = event_definition}
 
           _ ->
-            IO.inspect(attrs, pretty: true, label: "*** UPDATING ED")
             result
         end
 
