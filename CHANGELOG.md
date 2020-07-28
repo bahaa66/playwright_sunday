@@ -1,3 +1,17 @@
+## [1.4.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.3.25...v1.4.0) (2020-07-27)
+
+
+### :bug: Bugfix
+
+* update audit topic name ([c882220](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/c8822208eeea7fa0bf8385961d90fb14e199c655))
+* updated naming ([2fabf87](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/2fabf87980a99a0de6f6f214717d0f5b6106c2b3))
+* **lmetrics deps:** remove dev only ([d477ab7](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/d477ab7f8e1c72536d88c6eb34480eb88994fd5b))
+
+
+### :sparkles: Feature
+
+* **Release 1.5.5:** Merge pull request [#90](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/90) from Cogility/develop ([e566df2](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/e566df2f2d473236a635bef1c8623c86d401d6d8))
+
 ### [1.3.22-develop.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.3.22-develop.1...v1.3.22-develop.2) (2020-07-08)
 
 
