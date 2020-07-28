@@ -102,6 +102,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
           include_deleted: true
         )
 
+      Redis.publish_async("event_count_subscription", event_definition_id)
+
       process_page(next_page, event_definition)
     end
 
