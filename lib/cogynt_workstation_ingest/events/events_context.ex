@@ -38,7 +38,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.insert()
   end
 
-   @doc """
+  @doc """
   Querys Events based on the filter args
   ## Examples
       iex> query_events(
@@ -232,7 +232,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           {:ok, %EventDefinition{id: id} = event_definition} ->
             nil
             # Delete all EventDefinitionDetails for id
-            delete_event_definition_details(id)
+            hard_delete_event_definition_details(id)
             # Create new EventDefinitionDetails for id
             if Map.has_key?(attrs, :fields) do
               create_event_definition_fields(id, attrs.fields)
@@ -346,6 +346,20 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         select(q, ^select)
     end)
     |> Repo.update_all(set: set)
+  end
+
+  @doc """
+  Removes all the records in the EventDefinitions table.
+  It returns a tuple containing the number of entries
+  and any returned result as second element. The second
+  element is nil by default unless a select is supplied
+  in the delete query
+    ## Examples
+      iex> hard_delete_event_definitions()
+      {10, nil}
+  """
+  def hard_delete_event_definitions() do
+    Repo.delete_all(EventDefinition)
   end
 
   @doc """
@@ -488,14 +502,22 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   @doc """
-  Deletes all EventDefinitionDetails that are linked to an event_definition_id.
-  ## Examples
-      iex> delete_event_definition_details(id)
-      {:ok, %EventDefinitionDetail{}}
+  Removes all the records in the EventDefinitionDetails table.
+  It returns a tuple containing the number of entries
+  and any returned result as second element. The second
+  element is nil by default unless a select is supplied
+  in the delete query
+    ## Examples
+      iex> hard_delete_event_definitions()
+      {10, nil}
   """
-  def delete_event_definition_details(id) do
+  def hard_delete_event_definition_details(id) do
     from(details in EventDefinitionDetail, where: details.event_definition_id == ^id)
     |> Repo.delete_all()
+  end
+
+  def hard_delete_event_definition_details() do
+    Repo.delete_all(EventDefinitionDetail)
   end
 
   # -------------------------------- #

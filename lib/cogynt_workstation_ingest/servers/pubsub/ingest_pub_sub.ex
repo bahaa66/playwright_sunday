@@ -114,6 +114,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
        %{
          dev_delete: %{
            drilldown: reset_drilldown,
+           deployment: reset_deployment,
            event_definition_ids: event_definition_ids,
            topics: delete_topics
          }
@@ -126,6 +127,10 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
         try do
           if reset_drilldown do
             TaskSupervisor.start_child(%{delete_drilldown_data: delete_topics})
+          end
+
+          if reset_deployment do
+            TaskSupervisor.start_child(%{delete_deployment_data: delete_topics})
           end
 
           if length(event_definition_ids) > 0 do

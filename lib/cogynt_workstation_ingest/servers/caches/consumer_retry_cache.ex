@@ -83,6 +83,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
            true <- is_nil(new_ed.deleted_at),
            true <- new_ed.active do
         ConsumerStateManager.manage_request(%{start_consumer: event_definition})
+        true = :ets.delete(table_name, event_definition)
       end
     end)
 

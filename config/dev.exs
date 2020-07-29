@@ -121,6 +121,10 @@ config :cogynt_workstation_ingest, :consumer_retry_cache,
   time_delay: System.get_env("CONSUMER_RETRY_CACHE_TIME_DELAY") || 600_000,
   max_retry: System.get_env("CONSUMER_RETRY_CACHE_MAX_RETRY") || 144
 
+config :cogynt_workstation_ingest, :deployment_retry_cache,
+  time_delay: System.get_env("DEPLOYMENT_RETRY_CACHE_TIME_DELAY") || 30_000,
+  max_retry: System.get_env("DEPLOYMENT_RETRY_CACHE_MAX_RETRY") || 2880
+
 config :cogynt_workstation_ingest, :notification_subscription_cache,
   notification_subscription_timer: System.get_env("NOTIFICATION_SUBSCRIPTION_TIMER") || 5000
 

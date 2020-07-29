@@ -173,6 +173,20 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
   end
 
   @doc """
+  Removes all the records in the Deployment table.
+  It returns a tuple containing the number of entries
+  and any returned result as second element. The second
+  element is nil by default unless a select is supplied
+  in the delete query
+    ## Examples
+      iex> hard_delete_deployments()
+      {10, nil}
+  """
+  def hard_delete_deployments() do
+    Repo.delete_all(Deployment)
+  end
+
+  @doc """
   Parses the Brokers out of the data_sources json value stored in the
   Deployments table. Example of the data_sources object that is being parsed.
   "data_sources": [

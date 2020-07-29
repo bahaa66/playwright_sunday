@@ -8,8 +8,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Drilldown.DrilldownContext
 
-  # TODO make sure drilldown is done processing then remove redis keys
-
   def start_link(arg) do
     Task.start_link(__MODULE__, :run, [arg])
   end

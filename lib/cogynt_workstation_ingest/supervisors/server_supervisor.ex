@@ -4,7 +4,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   """
   use Supervisor
 
-  alias CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache
+  alias CogyntWorkstationIngest.Servers.Caches.{ConsumerRetryCache, DeploymentConsumerRetryCache}
 
   alias CogyntWorkstationIngest.Servers.PubSub.{
     IngestPubSub
@@ -27,6 +27,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
 
     children = [
       child_spec(ConsumerRetryCache),
+      child_spec(DeploymentConsumerRetryCache),
       child_spec(Startup),
       child_spec(ConsumerMonitor, restart: :permanent),
       child_spec(NotificationsTaskMonitor, restart: :permanent),
