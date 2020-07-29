@@ -1,3 +1,10 @@
+### [1.4.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.1...v1.4.2) (2020-07-29)
+
+
+### :bug: Bugfix
+
+* force deps update ([ceccd08](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/ceccd080be2c56beb66e8687f5936aa44197b160))
+
 ### [1.4.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.0...v1.4.1) (2020-07-29)
 
 
