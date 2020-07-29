@@ -1,3 +1,10 @@
+### [1.4.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.0...v1.4.1) (2020-07-29)
+
+
+### :bug: Bugfix
+
+* hardcode redis port ([3dde0ce](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/3dde0ce8d194d51d6c732186ecafc0debf41c307))
+
 ## [1.4.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.3.25...v1.4.0) (2020-07-27)
 
 
