@@ -1,3 +1,10 @@
+### [1.4.5-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.4...v1.4.5-develop.1) (2020-07-30)
+
+
+### :bug: Bugfix
+
+* put changes back into master ([045e07a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/045e07afdf9d21d41843f2a11782dfb43b1d2170))
+
 ### [1.4.4-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.3...v1.4.4-develop.1) (2020-07-30)
 
 
