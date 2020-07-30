@@ -59,7 +59,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
       ConsumerGroupSupervisor.start_child(:drilldown)
     else
       case finished_processing?() do
-        true ->
+        {:ok, true} ->
           Redis.key_delete("drilldown_message_info")
           Redis.key_delete("drilldown_event_messages")
           DrilldownContext.hard_delete_template_solutions_data()
@@ -67,7 +67,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
           CogyntLogger.info("#{__MODULE__}", "Starting the Drilldown ConsumerGroup")
           ConsumerGroupSupervisor.start_child(:drilldown)
 
-        false ->
+        _ ->
           Process.sleep(10_000)
           reset_drilldown(counter + 1)
       end
