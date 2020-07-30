@@ -8,10 +8,14 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   alias Broadway.Message
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Broadway.{DrilldownProducer, DrilldownProcessor}
+  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
 
   @pipeline_name :BroadwayDrilldown
 
   def start_link(_args) do
+    # Start DrilldownConsumerGroup
+    ConsumerGroupSupervisor.start_child(:drilldown)
+
     Broadway.start_link(__MODULE__,
       name: @pipeline_name,
       producer: [
@@ -62,8 +66,11 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   Acknowledge callback. Will get all success or failed messages from
   the pipeline.
   """
-  def ack(:ack_id, _successful, _failed) do
-    # CogyntLogger.info("#{__MODULE__}", "Messages Ackd.")
+  def ack(:ack_id, successful, _failed) do
+    Enum.each(successful, fn %Broadway.Message{data: data} ->
+      # {:ok, tmc} = Redis.hash_get("drilldown_message_info", "tmc")
+      {:ok, tmp} = Redis.hash_increment_by("drilldown_message_info", "tmp", 1)
+    end)
   end
 
   @doc """
@@ -88,6 +95,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
     data
     |> DrilldownProcessor.process_template_data()
     |> DrilldownProcessor.update_template_solutions()
+
     message
   end
 end
