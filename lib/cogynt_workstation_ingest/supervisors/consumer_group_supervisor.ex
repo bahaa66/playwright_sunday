@@ -8,6 +8,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
+  alias Models.Deployments.Deployment
 
   def start_link(arg) do
     DynamicSupervisor.start_link(__MODULE__, arg, name: __MODULE__)
@@ -58,29 +59,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def start_child(:drilldown) do
-    create_kafka_worker(name: :drilldown)
-    create_drilldown_topics()
-
-    child_spec = %{
-      id: :DrillDown,
-      start: {
-        KafkaEx.ConsumerGroup,
-        :start_link,
-        consumer_group_options(
-          name: "Drilldown-#{UUID.uuid1()}",
-          topics: [Config.topic_sols(), Config.topic_sol_events()],
-          consumer_group_name: :DrillDownGroup
-        )
-      },
-      restart: :transient,
-      shutdown: 5000,
-      type: :supervisor
-    }
-
-    DynamicSupervisor.start_child(__MODULE__, child_spec)
-  end
-
   def start_child(:deployment) do
     create_kafka_worker(name: :deployment_stream)
 
@@ -96,7 +74,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
           consumer_group_options(
             name: "Deployment-#{UUID.uuid1()}",
             topics: [Config.deployment_topic()],
-            consumer_group_name: :DeploymentGroup
+            consumer_group_name: consumer_group_name("Deployment")
           )
         },
         restart: :transient,
@@ -110,8 +88,61 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
+  def start_child(:drilldown, deployment \\ %Deployment{}) do
+    case deployment do
+      %Deployment{id: nil} ->
+        create_kafka_worker(name: :drilldown)
+        create_drilldown_topics(:drilldown)
+
+        child_spec = %{
+          id: :DrillDown,
+          start: {
+            KafkaEx.ConsumerGroup,
+            :start_link,
+            consumer_group_options(
+              name: "Drilldown-#{UUID.uuid1()}",
+              topics: [Config.topic_sols(), Config.topic_sol_events()],
+              consumer_group_name: consumer_group_name("Drilldown")
+            )
+          },
+          restart: :transient,
+          shutdown: 5000,
+          type: :supervisor
+        }
+
+        DynamicSupervisor.start_child(__MODULE__, child_spec)
+
+      %Deployment{id: id} ->
+        {:ok, uris} = DeploymentsContext.get_kafka_brokers(id)
+
+        hash_string = Integer.to_string(:erlang.phash2(uris))
+        worker_name = String.to_atom("drilldown" <> hash_string)
+
+        create_kafka_worker(uris: uris, name: worker_name)
+        create_drilldown_topics(worker_name)
+
+        child_spec = %{
+          id: :DrillDown,
+          start: {
+            KafkaEx.ConsumerGroup,
+            :start_link,
+            consumer_group_options(
+              name: "Drilldown-#{hash_string}-#{UUID.uuid1()}",
+              topics: [Config.topic_sols(), Config.topic_sol_events()],
+              consumer_group_name: consumer_group_name("Drilldown-#{hash_string}")
+            )
+          },
+          restart: :transient,
+          shutdown: 5000,
+          type: :supervisor
+        }
+
+        DynamicSupervisor.start_child(__MODULE__, child_spec)
+    end
+  end
+
   def stop_child(:drilldown) do
-    child_pid = Process.whereis(:DrillDownGroup)
+    child_pid = Process.whereis(consumer_group_name("Drilldown"))
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)
@@ -123,7 +154,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def stop_child(:deployment) do
-    child_pid = Process.whereis(:DeploymentGroup)
+    child_pid = Process.whereis(consumer_group_name("Deployment"))
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)
@@ -146,8 +177,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def consumer_running?(event_definition_id) do
-    child_pid = Process.whereis(consumer_group_name(event_definition_id))
+  def consumer_running?(name) do
+    child_pid = Process.whereis(consumer_group_name(name))
 
     case is_nil(child_pid) do
       true ->
@@ -194,7 +225,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     )
   end
 
-  defp create_drilldown_topics do
+  defp create_drilldown_topics(worker_name) do
     KafkaEx.create_topics(
       [
         %{
@@ -212,11 +243,11 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
           config_entries: Config.topic_config()
         }
       ],
-      worker_name: :drilldown,
+      worker_name: worker_name,
       timeout: 10_000
     )
   end
 
-  defp consumer_group_name(event_definition),
-    do: String.to_atom(event_definition <> "Group")
+  defp consumer_group_name(name),
+    do: String.to_atom(name <> "Group")
 end
