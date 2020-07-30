@@ -230,7 +230,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
         case result do
           {:ok, %EventDefinition{id: id} = event_definition} ->
-            nil
             # Delete all EventDefinitionDetails for id
             hard_delete_event_definition_details(id)
             # Create new EventDefinitionDetails for id
@@ -409,6 +408,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       created_at: event_definition.created_at,
       updated_at: event_definition.updated_at,
       primary_title_attribute: event_definition.primary_title_attribute,
+      color: event_definition.color,
       fields:
         Enum.reduce(event_definition_details, %{}, fn
           %{field_name: n, field_type: t}, acc ->
@@ -650,6 +650,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       created_at: event_definition.created_at,
       updated_at: event_definition.updated_at,
       primary_title_attribute: event_definition.primary_title_attribute,
+      color: event_definition.color,
       fields:
         Enum.reduce(event_definition_details, %{}, fn
           %{field_name: n, field_type: t}, acc ->

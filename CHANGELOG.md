@@ -1,3 +1,31 @@
+### [1.4.4-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.3...v1.4.4-develop.1) (2020-07-30)
+
+
+### :bug: Bugfix
+
+* **color:** remove from master ([eee8c56](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/eee8c5660274ccabd34cf3a03c49aae33a1076f1))
+* put changes back into master ([045e07a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/045e07afdf9d21d41843f2a11782dfb43b1d2170))
+
+### [1.4.3-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.2...v1.4.3-develop.1) (2020-07-30)
+
+### [1.4.3](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.2...v1.4.3) (2020-07-30)
+
+* **start drilldown consumer:** Merge pull request [#94](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/94) from Cogility/hotfix/start-drilldown-consumer ([2d67a0d](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/2d67a0d60110ceb2d07352cb7ba2d25a8c4e153e))
+
+### [1.4.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.1...v1.4.2) (2020-07-29)
+
+
+### :bug: Bugfix
+
+* force deps update ([ceccd08](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/ceccd080be2c56beb66e8687f5936aa44197b160))
+
+### [1.4.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.0...v1.4.1) (2020-07-29)
+
+
+### :bug: Bugfix
+
+* hardcode redis port ([3dde0ce](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/3dde0ce8d194d51d6c732186ecafc0debf41c307))
+
 ## [1.4.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.3.25...v1.4.0) (2020-07-27)
 
 
