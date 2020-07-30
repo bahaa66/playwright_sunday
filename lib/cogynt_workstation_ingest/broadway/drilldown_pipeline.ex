@@ -33,8 +33,19 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
           max_demand: Config.drilldown_processor_max_demand(),
           min_demand: Config.drilldown_processor_min_demand()
         ]
-      ]
+      ],
+      partition_by: &partition/1
     )
+  end
+
+  defp partition(msg) do
+    case msg.data.event.id do
+      nil ->
+        :rand.uniform(100_000)
+
+      id ->
+        :erlang.phash2(id)
+    end
   end
 
   @doc """
