@@ -1,3 +1,10 @@
+### [1.4.4](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.3...v1.4.4) (2020-07-30)
+
+
+### :bug: Bugfix
+
+* **color:** remove from master ([eee8c56](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/eee8c5660274ccabd34cf3a03c49aae33a1076f1))
+
 ### [1.4.3](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.2...v1.4.3) (2020-07-30)
 
 
