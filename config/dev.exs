@@ -69,7 +69,7 @@ config :elasticsearch, :config,
 # Redis configurations
 config :redis, :application,
   host: System.get_env("COGYNT_REDIS_HOST") || "127.0.0.1",
-  port: (System.get_env("COGYNT_REDIS_PORT") || "6379") |> String.to_integer(),
+  port: 6379,
   password: System.get_env("COGYNT_REDIS_PASSWORD") || nil,
   name: System.get_env("COGYNT_REDIS_NAME") || "",
   sentinel: System.get_env("COGYNT_REDIS_SENTINEL") || "",
