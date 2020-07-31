@@ -85,6 +85,34 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
       ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
         nsid: nsid
       )
+
+      cond do
+        consumer_state.status ==
+            ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "Triggering backfill notifications task: #{inspect(nsid, pretty: true)}"
+          )
+
+          Enum.each(nsid, fn id ->
+            ConsumerStateManager.manage_request(%{
+              backfill_notifications: id
+            })
+          end)
+
+        consumer_state.status ==
+            ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "Triggering update notifications task: #{inspect(nsid, pretty: true)}"
+          )
+
+          Enum.each(nsid, fn id ->
+            ConsumerStateManager.manage_request(%{
+              update_notification_setting: id
+            })
+          end)
+      end
     end
 
     Redis.key_delete("c:#{notification_setting_id}")

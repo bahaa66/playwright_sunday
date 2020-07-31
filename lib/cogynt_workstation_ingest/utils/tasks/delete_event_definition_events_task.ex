@@ -7,7 +7,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Events.EventDefinition
-  alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
 
   @page_size 2000
