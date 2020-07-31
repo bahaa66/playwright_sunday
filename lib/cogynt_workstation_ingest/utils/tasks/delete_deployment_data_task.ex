@@ -7,6 +7,9 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Servers.Caches.DeploymentConsumerRetryCache
+  alias CogyntWorkstationIngest.Events.EventsContext
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
+  alias Models.Events.EventDefinition
 
   def start_link(arg) do
     Task.start_link(__MODULE__, :run, [arg])
@@ -43,6 +46,25 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
         "#{__MODULE__}",
         "Delete Deployment Topics result: #{inspect(delete_topic_result, pretty: true)}"
       )
+
+      event_definitions = EventsContext.list_event_definitions()
+
+      Enum.each(event_definitions, fn %EventDefinition{
+                                        id: id,
+                                        topic: topic,
+                                        deployment_id: deployment_id
+                                      } ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Stoping ConsumerGroup for #{topic}"
+        )
+
+        ConsumerStateManager.manage_request(%{stop_consumer: id})
+
+        CogyntLogger.info("#{__MODULE__}", "Deleting Kakfa topic: #{topic}")
+        worker_name = String.to_atom("deployment#{deployment_id}")
+        KafkaEx.delete_topics([topic], worker_name: worker_name)
+      end)
     end
 
     CogyntLogger.info("#{__MODULE__}", "Resetting Deployment Data")
