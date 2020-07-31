@@ -1,3 +1,10 @@
+### [1.4.5](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.4...v1.4.5) (2020-07-31)
+
+
+### :bug: Bugfix
+
+* **helm:** migrated helm values ([e87d17a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/e87d17adf5095718e91350cc93b74682d33c3f4e))
+
 ### [1.4.4](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.3...v1.4.4) (2020-07-30)
 
 
