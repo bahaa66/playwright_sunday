@@ -7,6 +7,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Events.EventDefinition
+  alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
 
   @page_size 2000
@@ -70,8 +71,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
 
   defp process_page(
          %{entries: entries, page_number: page_number, total_pages: total_pages},
-         %{id: event_definition_id, deleted_at: deleted_at} = event_definition
+         %{id: event_definition_id} = event_definition
        ) do
+    deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
+
     event_ids = Enum.map(entries, fn e -> e.id end)
 
     EventsContext.update_events(
