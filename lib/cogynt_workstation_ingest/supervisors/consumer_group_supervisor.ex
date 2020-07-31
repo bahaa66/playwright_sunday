@@ -141,8 +141,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def stop_child(:drilldown) do
-    child_pid = Process.whereis(consumer_group_name("Drilldown"))
+  def stop_child(event_definition_id) when is_binary(event_definition_id) do
+    child_pid = Process.whereis(consumer_group_name(event_definition_id))
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)
@@ -165,15 +165,32 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def stop_child(event_definition_id) do
-    child_pid = Process.whereis(consumer_group_name(event_definition_id))
+  def stop_child(:drilldown, deployment \\ %Deployment{}) do
+    case deployment do
+      %Deployment{id: nil} ->
+        child_pid = Process.whereis(consumer_group_name("Drilldown"))
 
-    if child_pid != nil do
-      DynamicSupervisor.terminate_child(__MODULE__, child_pid)
-      Process.sleep(1500)
-      {:ok, :success}
-    else
-      {:ok, :success}
+        if child_pid != nil do
+          DynamicSupervisor.terminate_child(__MODULE__, child_pid)
+          Process.sleep(1500)
+          {:ok, :success}
+        else
+          {:ok, :success}
+        end
+
+      %Deployment{id: id} ->
+        {:ok, uris} = DeploymentsContext.get_kafka_brokers(id)
+
+        hash_string = Integer.to_string(:erlang.phash2(uris))
+        child_pid = Process.whereis(consumer_group_name("Drilldown-#{hash_string}"))
+
+        if child_pid != nil do
+          DynamicSupervisor.terminate_child(__MODULE__, child_pid)
+          Process.sleep(1500)
+          {:ok, :success}
+        else
+          {:ok, :success}
+        end
     end
   end
 

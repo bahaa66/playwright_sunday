@@ -126,10 +126,15 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
         try do
           if reset_drilldown do
-            TaskSupervisor.start_child(%{delete_drilldown_data: delete_topics})
+            TaskSupervisor.start_child(%{
+              delete_drilldown_data: %{
+                delete_topics: delete_topics,
+                deleting_deployments: reset_deployment
+              }
+            })
           end
 
-          if reset_deployment do
+          if !reset_drilldown and reset_deployment do
             TaskSupervisor.start_child(%{delete_deployment_data: delete_topics})
           end
 

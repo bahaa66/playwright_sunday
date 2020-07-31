@@ -44,7 +44,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
 
       CogyntLogger.info(
         "#{__MODULE__}",
-        "Delete Deployment Topics result: #{inspect(delete_topic_result, pretty: true)}"
+        "Deleted Deployment Topics result: #{inspect(delete_topic_result, pretty: true)}"
       )
 
       event_definitions = EventsContext.list_event_definitions()
