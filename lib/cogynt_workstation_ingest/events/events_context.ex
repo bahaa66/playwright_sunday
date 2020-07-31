@@ -167,6 +167,16 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # --- EventDefinition Schema Methods --- #
   # -------------------------------------- #
   @doc """
+  Lists all the EventDefinitions stored in the database
+  ## Examples
+      iex> list_event_definitions()
+      [%EventDefinition{}, ...]
+  """
+  def list_event_definitions do
+    Repo.all(EventDefinition)
+  end
+
+  @doc """
   Creates an EventDefinition.
   ## Examples
       iex> create_event_definition(%{field: value})

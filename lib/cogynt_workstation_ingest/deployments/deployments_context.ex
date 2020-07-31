@@ -116,6 +116,16 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
   # --- Deployment Schema Methods --- #
   # --------------------------------- #
   @doc """
+  Lists all the Deployments
+  ## Examples
+      iex> list_deployments()
+      [%Deployment{}, ...]
+  """
+  def list_deployments do
+    Repo.all(Deployment)
+  end
+
+  @doc """
   Creates a Deployment entry.
   ## Examples
       iex> create_deployment(%{field: value})
