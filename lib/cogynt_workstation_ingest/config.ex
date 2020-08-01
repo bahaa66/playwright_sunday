@@ -24,6 +24,9 @@ defmodule CogyntWorkstationIngest.Config do
   def consumer_retry_time_delay(), do: consumer_retry_cache()[:time_delay]
   def consumer_retry_max_retry(), do: consumer_retry_cache()[:max_retry]
 
+  def deployment_consumer_retry_time_delay(), do: deployment_retry_cache()[:time_delay]
+  def deployment_consumer_retry_max_retry(), do: deployment_retry_cache()[:max_retry]
+
   def notification_subscription_timer(),
     do: notification_subscription_cache()[:notification_subscription_timer]
 
@@ -77,6 +80,9 @@ defmodule CogyntWorkstationIngest.Config do
 
   defp consumer_retry_cache(),
     do: Application.get_env(:cogynt_workstation_ingest, :consumer_retry_cache)
+
+  defp deployment_retry_cache(),
+    do: Application.get_env(:cogynt_workstation_ingest, :deployment_retry_cache)
 
   defp notification_subscription_cache(),
     do: Application.get_env(:cogynt_workstation_ingest, :notification_subscription_cache)

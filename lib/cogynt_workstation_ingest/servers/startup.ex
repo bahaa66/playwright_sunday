@@ -5,6 +5,7 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
   use GenServer
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
+  alias CogyntWorkstationIngest.Servers.Caches.DeploymentConsumerRetryCache
 
   # -------------------- #
   # --- client calls --- #
@@ -36,11 +37,21 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
          :ok <- Application.ensure_started(:postgrex) do
       EventsContext.start_consumers_for_active_ed()
       CogyntLogger.info("#{__MODULE__}", "Consumers Initialized")
-      ConsumerGroupSupervisor.start_child(:deployment)
-      CogyntLogger.info("#{__MODULE__}", "Started Deployment Stream")
+
+      case ConsumerGroupSupervisor.start_child(:deployment) do
+        {:error, nil} ->
+          CogyntLogger.warn("#{__MODULE__}", "Deployment Topic DNE. Adding to RetryCache")
+          DeploymentConsumerRetryCache.retry_consumer(:deployment)
+
+        _ ->
+          CogyntLogger.info("#{__MODULE__}", "Started Deployment Stream")
+      end
     else
       {:error, error} ->
-        CogyntLogger.error("#{__MODULE__}", "App not started. #{inspect(error, pretty: true)}")
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "CogyntWorkstationIngest Application not started. #{inspect(error, pretty: true)}"
+        )
     end
   end
 end

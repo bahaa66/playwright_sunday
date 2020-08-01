@@ -58,7 +58,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
       if delete_topics do
         CogyntLogger.info("#{__MODULE__}", "Deleting Kakfa topic: #{topic}")
         worker_name = String.to_atom("deployment#{deployment_id}")
-        KafkaEx.delete_topics(topic, worker_name: worker_name)
+        KafkaEx.delete_topics([topic], worker_name: worker_name)
       end
     end)
   end
