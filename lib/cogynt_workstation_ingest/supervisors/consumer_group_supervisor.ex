@@ -84,23 +84,30 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   def start_child(:deployment) do
     create_kafka_worker(name: :deployment_stream)
 
-    child_spec = %{
-      id: :Deployment,
-      start: {
-        KafkaEx.ConsumerGroup,
-        :start_link,
-        consumer_group_options(
-          name: "Deployment-#{UUID.uuid1()}",
-          topics: [Config.deployment_topic()],
-          consumer_group_name: :DeploymentGroup
-        )
-      },
-      restart: :transient,
-      shutdown: 5000,
-      type: :supervisor
-    }
+    existing_topics =
+      KafkaEx.metadata(worker_name: :deployment_stream).topic_metadatas |> Enum.map(& &1.topic)
 
-    DynamicSupervisor.start_child(__MODULE__, child_spec)
+    if Enum.member?(existing_topics, "deployment") do
+      child_spec = %{
+        id: :Deployment,
+        start: {
+          KafkaEx.ConsumerGroup,
+          :start_link,
+          consumer_group_options(
+            name: "Deployment-#{UUID.uuid1()}",
+            topics: [Config.deployment_topic()],
+            consumer_group_name: :DeploymentGroup
+          )
+        },
+        restart: :transient,
+        shutdown: 5000,
+        type: :supervisor
+      }
+
+      DynamicSupervisor.start_child(__MODULE__, child_spec)
+    else
+      {:error, nil}
+    end
   end
 
   def stop_child(:drilldown) do

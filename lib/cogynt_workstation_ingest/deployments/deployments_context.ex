@@ -114,6 +114,16 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
   # --- Deployment Schema Methods --- #
   # --------------------------------- #
   @doc """
+  Lists all the Deployments
+  ## Examples
+      iex> list_deployments()
+      [%Deployment{}, ...]
+  """
+  def list_deployments do
+    Repo.all(Deployment)
+  end
+
+  @doc """
   Creates a Deployment entry.
   ## Examples
       iex> create_deployment(%{field: value})
@@ -170,6 +180,20 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
   """
   def get_deployment(id) do
     Repo.get(Deployment, id)
+  end
+
+  @doc """
+  Removes all the records in the Deployment table.
+  It returns a tuple containing the number of entries
+  and any returned result as second element. The second
+  element is nil by default unless a select is supplied
+  in the delete query
+    ## Examples
+      iex> hard_delete_deployments()
+      {10, nil}
+  """
+  def hard_delete_deployments() do
+    Repo.delete_all(Deployment)
   end
 
   @doc """

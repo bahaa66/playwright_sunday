@@ -33,8 +33,19 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
           max_demand: Config.drilldown_processor_max_demand(),
           min_demand: Config.drilldown_processor_min_demand()
         ]
-      ]
+      ],
+      partition_by: &partition/1
     )
+  end
+
+  defp partition(msg) do
+    case msg.data.event.id do
+      nil ->
+        :rand.uniform(100_000)
+
+      id ->
+        :erlang.phash2(id)
+    end
   end
 
   @doc """
@@ -67,9 +78,9 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   the pipeline.
   """
   def ack(:ack_id, successful, _failed) do
-    Enum.each(successful, fn %Broadway.Message{data: data} ->
+    Enum.each(successful, fn _ ->
       # {:ok, tmc} = Redis.hash_get("drilldown_message_info", "tmc")
-      {:ok, tmp} = Redis.hash_increment_by("drilldown_message_info", "tmp", 1)
+      {:ok, _tmp} = Redis.hash_increment_by("drilldown_message_info", "tmp", 1)
     end)
   end
 
