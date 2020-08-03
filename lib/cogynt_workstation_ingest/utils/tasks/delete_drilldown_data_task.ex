@@ -40,7 +40,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
       hash_string = Integer.to_string(:erlang.phash2(uris))
       worker_name = String.to_atom("drilldown" <> hash_string)
 
-      if delete_topics do
+      if delete_drilldown_topics do
         CogyntLogger.info(
           "#{__MODULE__}",
           "Deleting the Drilldown Topics. #{Config.topic_sols()}, #{Config.topic_sol_events()}. For KafkaWorker: #{
@@ -63,15 +63,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
 
     CogyntLogger.info("#{__MODULE__}", "Resetting Drilldown Data")
 
-    if deleting_deployments do
-      # Do not start the DrilldownConsumers since their deployments are going
-      # to be removed. They will be created when new deployments are created
-      reset_drilldown([])
-      # trigger delete deployment task
-      TaskSupervisor.start_child(%{delete_deployment_data: delete_topics})
-    else
-      reset_drilldown(deployments)
-    end
+    reset_drilldown(deployments)
   end
 
   defp reset_drilldown(deployments, counter \\ 0) do

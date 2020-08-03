@@ -29,47 +29,46 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
   # --- Private Methods --- #
   # ----------------------- #
   defp delete_deployment_data() do
-    # Reset all Drilldowndata
+    # Reset all Drilldowndata first
     DeleteDrilldownDataTask.run(true)
 
     CogyntLogger.info("#{__MODULE__}", "Stoping the Deployment ConsumerGroup")
     ConsumerGroupSupervisor.stop_child(:deployment)
 
-    if delete_topics do
-      CogyntLogger.info(
-        "#{__MODULE__}",
-        "Deleting the Deployment Topic: deployment"
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "Deleting the Deployment Topic: deployment"
+    )
+
+    delete_topic_result =
+      KafkaEx.delete_topics(["deployment"],
+        worker_name: :deployment_stream
       )
 
-      delete_topic_result =
-        KafkaEx.delete_topics(["deployment"],
-          worker_name: :deployment_stream
-        )
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "Deleted Deployment Topics result: #{inspect(delete_topic_result, pretty: true)}"
+    )
 
+    event_definitions = EventsContext.list_event_definitions()
+
+    Enum.each(event_definitions, fn %EventDefinition{
+                                      id: id,
+                                      topic: topic,
+                                      deployment_id: deployment_id
+                                    } ->
       CogyntLogger.info(
         "#{__MODULE__}",
-        "Deleted Deployment Topics result: #{inspect(delete_topic_result, pretty: true)}"
+        "Stoping ConsumerGroup for #{topic}"
       )
 
-      event_definitions = EventsContext.list_event_definitions()
+      # TODO: Need to check consumer state ?
+      ConsumerStateManager.manage_request(%{stop_consumer: id})
 
-      Enum.each(event_definitions, fn %EventDefinition{
-                                        id: id,
-                                        topic: topic,
-                                        deployment_id: deployment_id
-                                      } ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Stoping ConsumerGroup for #{topic}"
-        )
-
-        ConsumerStateManager.manage_request(%{stop_consumer: id})
-
-        CogyntLogger.info("#{__MODULE__}", "Deleting Kakfa topic: #{topic}")
-        worker_name = String.to_atom("deployment#{deployment_id}")
-        KafkaEx.delete_topics([topic], worker_name: worker_name)
-      end)
-    end
+      CogyntLogger.info("#{__MODULE__}", "Deleting Kakfa topic: #{topic}")
+      worker_name = String.to_atom("deployment#{deployment_id}")
+      KafkaEx.delete_topics([topic], worker_name: worker_name)
+    end)
 
     CogyntLogger.info("#{__MODULE__}", "Resetting Deployment Data")
     reset_deployment_data()

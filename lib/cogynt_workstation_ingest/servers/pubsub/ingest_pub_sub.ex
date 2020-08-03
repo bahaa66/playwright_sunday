@@ -113,9 +113,15 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
       {:ok,
        %{
          dev_delete: %{
-           drilldown: %{reset_drilldown: reset_drilldown, delete_drilldown_topics: delete_drilldown_topics},
+           drilldown: %{
+             reset_drilldown: reset_drilldown,
+             delete_drilldown_topics: delete_drilldown_topics
+           },
            deployment: reset_deployment,
-           event_definition_ids: %{event_definition_ids: event_definition_ids, delete_topics: delete_topics}
+           event_definition_ids: %{
+             event_definition_ids: event_definition_ids,
+             delete_topics: delete_topics
+           }
          }
        } = request} ->
         CogyntLogger.warn(
@@ -124,27 +130,25 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
         )
 
         try do
-          if reset_drilldown do
-            TaskSupervisor.start_child(%{
-              delete_drilldown_data: %{
-                delete_topics: delete_drilldown_topics,
-                deleting_deployments: reset_deployment
-              }
-            })
+          if reset_deployment do
+            TaskSupervisor.start_child(%{delete_deployment_data: nil})
+          else
+            if reset_drilldown do
+              TaskSupervisor.start_child(%{
+                delete_drilldown_data: delete_drilldown_topics
+              })
+            end
+
+            if length(event_definition_ids) > 0 do
+              TaskSupervisor.start_child(%{
+                delete_topic_data: %{
+                  event_definition_ids: event_definition_ids,
+                  delete_topics: delete_topics
+                }
+              })
+            end
           end
 
-          if !reset_drilldown and reset_deployment do
-            TaskSupervisor.start_child(%{delete_deployment_data: delete_topics})
-          end
-
-          if length(event_definition_ids) > 0 do
-            TaskSupervisor.start_child(%{
-              delete_topic_data: %{
-                event_definition_ids: event_definition_ids,
-                delete_topics: delete_topics
-              }
-            })
-          end
         rescue
           error ->
             CogyntLogger.error(
