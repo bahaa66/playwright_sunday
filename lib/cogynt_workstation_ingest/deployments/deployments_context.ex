@@ -10,6 +10,7 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
   alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
+  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
 
   # ----------------------------- #
   # --- Kafka Consumer Method --- #
@@ -44,7 +45,7 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
 
             "deployment" ->
               # Upsert Deployments
-              upsert_deployment(decoded_message)
+              {:ok, %Deployment{} = deployment} = upsert_deployment(decoded_message)
 
               # Fetch all event_definitions that exists and are assosciated with
               # the deployment_id
@@ -77,8 +78,6 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
                     end
 
                   false ->
-                    IO.puts("Updating ED to DS inactive")
-
                     EventsContext.update_event_definition(current_event_definition, %{
                       active: false,
                       deployment_status: DeploymentStatusTypeEnum.status()[:inactive]
@@ -94,6 +93,9 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
                     end
                 end
               end)
+
+              # Start Drilldown Consumer for Deployment
+              ConsumerGroupSupervisor.start_child(:drilldown, deployment)
 
             _ ->
               nil
