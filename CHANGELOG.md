@@ -1,3 +1,10 @@
+### [1.5.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.0...v1.5.1) (2020-08-03)
+
+
+### :bug: Bugfix
+
+* **livenessCheck hotfix:** change default kafka worker ([829a353](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/829a353b0175f69ccec49293115c46475a0ee841))
+
 ## [1.5.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.5...v1.5.0) (2020-08-03)
 
 
