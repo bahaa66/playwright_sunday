@@ -1,3 +1,10 @@
+## [1.5.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.5...v1.5.0) (2020-08-03)
+
+
+### :sparkles: Feature
+
+* force build ([8c96e9b](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/8c96e9b64a9fb5a3c55d3a838114ea7946411bbf))
+
 ### [1.4.5](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.4...v1.4.5) (2020-07-31)
 
 
