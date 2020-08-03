@@ -55,10 +55,11 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
           {DeleteEventDefinitionEventsTask, event_definition_id}
         )
 
-      {:delete_drilldown_data, delete_topics} ->
+      {:delete_drilldown_data,
+       %{delete_topics: _delete_topics, deleting_deployments: _deleting_deployments} = args} ->
         DynamicSupervisor.start_child(
           __MODULE__,
-          {DeleteDrilldownDataTask, delete_topics}
+          {DeleteDrilldownDataTask, args}
         )
 
       {:delete_deployment_data, delete_topics} ->

@@ -8,14 +8,10 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   alias Broadway.Message
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Broadway.{DrilldownProducer, DrilldownProcessor}
-  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
 
   @pipeline_name :BroadwayDrilldown
 
   def start_link(_args) do
-    # Start DrilldownConsumerGroup
-    ConsumerGroupSupervisor.start_child(:drilldown)
-
     Broadway.start_link(__MODULE__,
       name: @pipeline_name,
       producer: [
