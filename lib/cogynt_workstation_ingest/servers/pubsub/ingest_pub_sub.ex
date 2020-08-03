@@ -113,13 +113,12 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
       {:ok,
        %{
          dev_delete: %{
-           drilldown: reset_drilldown,
+           drilldown: %{reset_drilldown: reset_drilldown, delete_drilldown_topics: delete_drilldown_topics},
            deployment: reset_deployment,
-           event_definition_ids: event_definition_ids,
-           topics: delete_topics
+           event_definition_ids: %{event_definition_ids: event_definition_ids, delete_topics: delete_topics}
          }
        } = request} ->
-        CogyntLogger.info(
+        CogyntLogger.warn(
           "#{__MODULE__}",
           "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
         )
@@ -128,7 +127,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
           if reset_drilldown do
             TaskSupervisor.start_child(%{
               delete_drilldown_data: %{
-                delete_topics: delete_topics,
+                delete_topics: delete_drilldown_topics,
                 deleting_deployments: reset_deployment
               }
             })

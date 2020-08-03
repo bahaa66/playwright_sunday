@@ -14,21 +14,21 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
     Task.start_link(__MODULE__, :run, [arg])
   end
 
-  def run(%{delete_topics: delete_topics, deleting_deployments: deleting_deployments}) do
+  def run(delete_drilldown_topics) do
     CogyntLogger.info(
       "#{__MODULE__}",
-      "Running delete_drilldown_data_task with option delete_topics: #{delete_topics}, deleting_deployments: #{
-        deleting_deployments
+      "Running delete_drilldown_data_task with option delete_drilldown_topics: #{
+        delete_drilldown_topics
       }"
     )
 
-    delete_drilldown_data(deleting_deployments, delete_topics)
+    delete_drilldown_data(delete_drilldown_topics)
   end
 
   # ----------------------- #
   # --- Private Methods --- #
   # ----------------------- #
-  defp delete_drilldown_data(deleting_deployments, delete_topics) do
+  defp delete_drilldown_data(delete_drilldown_topics) do
     deployments = DeploymentsContext.list_deployments()
 
     Enum.each(deployments, fn %Deployment{id: id} = deployment ->

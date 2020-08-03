@@ -10,24 +10,28 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias Models.Events.EventDefinition
+  alias CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask
 
   def start_link(arg) do
     Task.start_link(__MODULE__, :run, [arg])
   end
 
-  def run(delete_topics) do
+  def run() do
     CogyntLogger.info(
       "#{__MODULE__}",
-      "Running delete_deployment_data_task with option delete_topics: #{delete_topics}"
+      "Running delete_deployment_data_task"
     )
 
-    delete_deployment_data(delete_topics)
+    delete_deployment_data()
   end
 
   # ----------------------- #
   # --- Private Methods --- #
   # ----------------------- #
-  defp delete_deployment_data(delete_topics) do
+  defp delete_deployment_data() do
+    # Reset all Drilldowndata
+    DeleteDrilldownDataTask.run(true)
+
     CogyntLogger.info("#{__MODULE__}", "Stoping the Deployment ConsumerGroup")
     ConsumerGroupSupervisor.stop_child(:deployment)
 
