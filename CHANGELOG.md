@@ -1,3 +1,11 @@
+### [1.5.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.1...v1.5.2) (2020-08-04)
+
+
+### :bug: Bugfix
+
+* Merge pull request [#97](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/97) from Cogility/hotfix/update-manual-actions-attr ([14d0485](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/14d0485a89ca99e56774a693f8def57d7d0c3824))
+* update manual actions expected attribute ([1588420](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/1588420652f5d71393b2c0866c1a95aaf7fee3b4))
+
 ### [1.5.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.0...v1.5.1) (2020-08-03)
 
 
