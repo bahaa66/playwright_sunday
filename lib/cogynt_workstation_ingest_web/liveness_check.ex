@@ -39,7 +39,13 @@ defmodule LivenessCheck do
 
   defp kafka_health?() do
     try do
-      _result = KafkaEx.metadata(worker_name: :drilldown)
+      _worker_result =
+        KafkaEx.create_worker(:livenessCheckWorker,
+          consumer_group: "kafka_ex",
+          consumer_group_update_interval: 100
+        )
+
+      _metadata_result = KafkaEx.metadata(worker_name: :livenessCheckWorker)
       true
     rescue
       _ ->

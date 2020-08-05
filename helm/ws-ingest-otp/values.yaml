@@ -24,18 +24,23 @@ secrets:
 env:
   ENV: prod
   CHECK_LICENSE: true
-  POSTGRESQL_HOST: "cogynt-dst-cogynt-otp-postgresql"
+  POSTGRESQL_HOST: dst-6-ws-otp-postgresql-headless"
   POSTGRESQL_USERNAME: "cogynt-cogynt-user"
   POSTGRESQL_DATABASE: "cogynt_repo"
   POSTGRESQL_POOL_SIZE: 10
   ELASTIC_USERNAME: "elastic-user"
-  ELASTIC_URL: "cogynt-elasticsearch-master:9200"
-  KAFKA_BROKER: "cogynt-cp-kafka"
-  KAFKA_PORT: "9092"
-  COGYNT_OTP_SERVICE_NAME: "http://cogynt-dst-cogynt-otp"
+  ELASTIC_URL: 'dst-6-ws-otp-elasticsearch-master-headless:9200'
+  KAFKA_BROKER: '{{repl if eq (ConfigOption "kafka_broker") "" }}cp-helm-charts-cp-kafka{{repl else}}{{repl ConfigOption "kafka_broker" }}{{repl end}}'
+  KAFKA_PORT: '{{repl if eq (ConfigOption "kafka_port") "" }}9092{{repl else}}{{repl ConfigOption "kafka_port" }}{{repl end}}'
+  COGYNT_OTP_SERVICE_NAME: "http://dst-6-ws-otp"
   COGYNT_OTP_SERVICE_PORT: 4000
   TLS_KEY_PATH: "/opt/cogility/certs/server.key"
   TLS_CERT_PATH: "/opt/cogility/certs/server.cert"
+  COGYNT_REDIS_HOST: "dst-8-ws-redis-headless"
+  COGYNT_REDIS_PORT: 6379
+  COGYNT_REDIS_NAME: 'redis_user'
+  COGYNT_REDIS_SENTINEL: ''
+  COGYNT_REDIS_DATABASE: ''
   HTTP_PORT: 4000
   HTTPS_PORT: 8443
   LOG_LEVEL: debug
@@ -71,6 +76,11 @@ envValueFrom:
       secretKeyRef:
         name: cogynt-elasticsearch-password
         key: elasticsearch-password
+  - name: COGYNT_REDIS_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: cogynt-redis-password
+        key: redis-password
 
 
 deployment:
@@ -128,13 +138,13 @@ ingress:
       ingress.kubernetes.io/force-ssl-redirect: "false"
       kubernetes.io/ingress.allow-http: "true"
       contour.heptio.com/tls-minimum-protocol-version: "TLSv1_2"
-    host: '{{repl (LicenseFieldValue "sd-caws")}}.{{repl (ConfigOption "hostname")}}'
+    host: repl{{LicenseFieldValue "sd_caws"}}.{{repl ConfigOption "hostname" }}
     paths:
       - /api/drilldown
     tls:
     - secretName: cogynt-global-files-tls
       hosts:
-      - '{{repl (LicenseFieldValue "sd-caws")}}.{{repl (ConfigOption "hostname")}}'
+      - repl{{LicenseFieldValue "sd_caws"}}.{{repl ConfigOption "hostname" }}
 
 initContainers:
   set-cert-ownership:
@@ -201,6 +211,6 @@ statefulset:
         mode: 0400
   - name: cogynt-dst-cogynt-worksation-ingest-tls
     emptyDir:
-      sizeLimit: "25k"
+      sizeLimit: "100k"
 
 
