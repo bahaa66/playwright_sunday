@@ -1,0 +1,81 @@
+defmodule CogyntWorkstationIngest.Servers.Caches.DeleteEventDefinitionDataCache do
+  @moduledoc """
+  Keeps track of the EventDefinitionId status when performing a delete_task.
+  Need to store this data because a delete task cannot be completed until a pipeline
+  is finished processing all data for a given EventDefinitionId
+  """
+  use GenServer
+  alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
+
+  # -------------------- #
+  # --- client calls --- #
+  # -------------------- #
+  def start_link do
+    GenServer.start_link(__MODULE__, [], name: __MODULE__)
+  end
+
+  def get_status(event_definition_id) do
+    GenServer.call(__MODULE__, {:get_status, event_definition_id})
+  end
+
+  def update_status(event_definition_id, args) do
+    GenServer.cast(__MODULE__, {:update_status, event_definition_id, args})
+  end
+
+  # ------------------------ #
+  # --- server callbacks --- #
+  # ------------------------ #
+  @impl true
+  def init(_args) do
+    {:ok, %{}}
+  end
+
+  @impl true
+  def handle_call({:get_status, event_definition_id}, _from, state) do
+    {:reply, Map.get(state, event_definition_id, %{}), state}
+  end
+
+  @impl true
+  def handle_cast({:update_status, event_definition_id, args}, state) do
+    status = Keyword.get(args, :status)
+    hard_delete = Keyword.get(args, :hard_delete, false)
+
+    case Map.get(state, event_definition_id, %{}) do
+      %{} ->
+        new_ed_state =
+          Map.put(%{}, :status, status)
+          |> Map.put(:hard_delete, hard_delete)
+
+        {:noreply, Map.put(state, event_definition_id, new_ed_state)}
+
+      %{status: :waiting, hard_delete: hard_del} = ed ->
+        case status do
+          :ready ->
+            # Trigger delete
+            TaskSupervisor.start_child(%{
+              delete_topic_data: %{
+                event_definition_ids: [event_definition_id],
+                hard_delete: hard_del,
+                delete_topics: false
+              }
+            })
+
+            {:noreply, Map.delete(state, event_definition_id)}
+
+          _ ->
+            new_ed_state =
+              Map.put(ed, :status, status)
+              |> Map.put(:hard_delete, hard_delete)
+
+            {:noreply, Map.put(state, event_definition_id, new_ed_state)}
+        end
+
+      ed ->
+        new_ed_state =
+          Map.put(ed, :status, status)
+          |> Map.put(:hard_delete, hard_delete)
+
+        {:noreply, Map.put(state, event_definition_id, new_ed_state)}
+    end
+  end
+end

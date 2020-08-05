@@ -44,6 +44,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           status: status
         })
 
+        check_if_event_definition_is_waiting_deletion(event_definition_id, status)
+
         {:ok, :success}
 
       {:ok, true} ->
@@ -103,6 +105,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           topic: consumer_state.topic,
           status: consumer_state.status
         })
+
+        check_if_event_definition_is_waiting_deletion(event_definition_id, consumer_state.status)
 
         {:ok, :success}
     end
@@ -656,6 +660,25 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         )
 
         %{response: {:error, :internal_server_error}}
+    end
+  end
+
+  defp check_if_event_definition_is_waiting_deletion(event_definition_id, new_status) do
+    case DeleteEventDefinitionDataCache.get_status(event_definition_id) do
+      %{} ->
+        nil
+
+      _ ->
+        cond do
+          new_status == ConsumerStatusTypeEnum.status()[:paused_and_processing] or
+              new_status == ConsumerStatusTypeEnum.status()[:running] ->
+            nil
+
+          true ->
+            DeleteEventDefinitionDataCache.update_status(event_definition.id,
+              status: :ready
+            )
+        end
     end
   end
 end

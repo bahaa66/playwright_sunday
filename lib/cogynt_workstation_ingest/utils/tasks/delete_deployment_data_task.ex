@@ -76,6 +76,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
 
   defp reset_deployment_data() do
     DeploymentsContext.hard_delete_deployments()
+    # TODO: Need to call delete_event_definition with all event_def_ids and hard_Delete true
     Process.sleep(2000)
     CogyntLogger.info("#{__MODULE__}", "Starting the Deployment ConsumerGroup")
 

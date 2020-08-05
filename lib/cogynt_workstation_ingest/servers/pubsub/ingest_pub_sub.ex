@@ -118,7 +118,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
              delete_drilldown_topics: delete_drilldown_topics
            },
            deployment: reset_deployment,
-           event_definition_ids: %{
+           event_definitions: %{
              event_definition_ids: event_definition_ids,
              delete_topics: delete_topics
            }
@@ -143,12 +143,12 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
               TaskSupervisor.start_child(%{
                 delete_topic_data: %{
                   event_definition_ids: event_definition_ids,
+                  hard_delete: false,
                   delete_topics: delete_topics
                 }
               })
             end
           end
-
         rescue
           error ->
             CogyntLogger.error(

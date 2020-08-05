@@ -47,8 +47,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
           })
       end
 
-      EventsContext.update_event_definition(event_definition, %{started_at: nil})
-
       page =
         EventsContext.get_page_of_events(
           %{filter: %{event_definition_id: event_definition.id}},
@@ -87,6 +85,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
     )
 
     if page_number >= total_pages do
+      EventsContext.update_event_definition(event_definition, %{active: false, started_at: nil})
       ConsumerStateManager.remove_consumer_state(event_definition_id)
       Redis.publish_async("event_count_subscription", event_definition_id)
 
