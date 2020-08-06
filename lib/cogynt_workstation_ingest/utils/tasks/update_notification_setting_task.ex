@@ -24,11 +24,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationSettingTask do
     with %NotificationSetting{} = notification_setting <-
            NotificationsContext.get_notification_setting(notification_setting_id),
          %EventDefinition{} = event_definition <-
-           EventsContext.get_event_definition(notification_setting.event_definition_id),
-         {:ok, %NotificationSetting{} = updated_notification_setting} <-
-           NotificationsContext.update_notification_setting(notification_setting, %{
-             deleted_at: DateTime.truncate(DateTime.utc_now(), :second)
-           }) do
+           EventsContext.get_event_definition(notification_setting.event_definition_id) do
       CogyntLogger.info(
         "#{__MODULE__}",
         "Running update notifications task for ID: #{notification_setting_id}"
@@ -40,7 +36,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationSettingTask do
           page_size: @page_size
         )
 
-      process_page(page, updated_notification_setting, event_definition)
+      process_page(page, notification_setting, event_definition)
     else
       nil ->
         CogyntLogger.warn(
