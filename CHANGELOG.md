@@ -1,3 +1,10 @@
+### [1.5.4](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.3...v1.5.4) (2020-08-06)
+
+
+### :bug: Bugfix
+
+* **update_notification:** trigger build ([e3b012a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/e3b012aa7c47743cc1bf3c544f9849764a8a224f))
+
 ### [1.5.3](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.2...v1.5.3) (2020-08-05)
 
 
