@@ -46,7 +46,7 @@ env:
   LOG_LEVEL: debug
   EVENTPIPELINE_PROCESSOR_STAGES: 20
   LINKEVENTPIPELINE_PROCESSOR_STAGES: 20
-  DRILLDOWN_PROCESSOR_STAGES: 5
+  DRILLDOWN_PROCESSOR_STAGES: 10
 
   # COGYNT_HOST: http://cogynt-dst-cogynt-worksation-ingest.{{ .Release.namespace }}
 
