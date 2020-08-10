@@ -31,6 +31,10 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     GenServer.cast(producer_name, {:enqueue_failed_messages, broadway_messages})
   end
 
+  def flush_queue(event_definition_id) do
+    Redis.key_delete("a:#{event_definition_id}")
+  end
+
   # ------------------------ #
   # --- server callbacks --- #
   # ------------------------ #

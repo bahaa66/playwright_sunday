@@ -3,7 +3,13 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
   Dynamic Supervisor for all CogyntWorkstationIngest modules that implement Task.
   """
   use DynamicSupervisor
-  alias CogyntWorkstationIngest.Servers.NotificationsTaskMonitor
+
+  alias CogyntWorkstationIngest.Servers.{
+    NotificationsTaskMonitor,
+    EventDefinitionTaskMonitor,
+    DrilldownTaskMonitor,
+    DeploymentTaskMonitor
+  }
 
   alias CogyntWorkstationIngest.Utils.Tasks.{
     BackfillNotificationsTask,
@@ -50,30 +56,45 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
         {:ok, pid}
 
       {:delete_event_definition_events, event_definition_id} ->
-        DynamicSupervisor.start_child(
-          __MODULE__,
-          {DeleteEventDefinitionEventsTask, event_definition_id}
-        )
+        {:ok, pid} =
+          DynamicSupervisor.start_child(
+            __MODULE__,
+            {DeleteEventDefinitionEventsTask, event_definition_id}
+          )
 
-      {:delete_drilldown_data,
-       %{delete_topics: _delete_topics, deleting_deployments: _deleting_deployments} = args} ->
-        DynamicSupervisor.start_child(
-          __MODULE__,
-          {DeleteDrilldownDataTask, args}
-        )
+        EventDefinitionsTaskMonitor.monitor(pid, event_definition_id)
+        {:ok, pid}
 
-      {:delete_deployment_data, delete_topics} ->
-        DynamicSupervisor.start_child(
-          __MODULE__,
-          {DeleteDeploymentDataTask, delete_topics}
-        )
+      {:delete_drilldown_data, delete_drilldown_topics} ->
+        {:ok, pid} =
+          DynamicSupervisor.start_child(
+            __MODULE__,
+            {DeleteDrilldownDataTask, delete_drilldown_topics}
+          )
+
+        DrilldownTaskMonitor.monitor(pid)
+        {:ok, pid}
+
+      {:delete_deployment_data, nil} ->
+        {:ok, pid} =
+          DynamicSupervisor.start_child(
+            __MODULE__,
+            {DeleteDeploymentDataTask}
+          )
+
+        DeploymentTaskMonitor.monitor(pid)
+        {:ok, pid}
 
       {:delete_topic_data,
-       %{event_definition_ids: _event_definition_ids, delete_topics: _delete_topics} = args} ->
-        DynamicSupervisor.start_child(
-          __MODULE__,
-          {DeleteTopicDataTask, args}
-        )
+       %{event_definition_ids: event_definition_ids, delete_topics: _delete_topics} = args} ->
+        {:ok, pid} =
+          DynamicSupervisor.start_child(
+            __MODULE__,
+            {DeleteTopicDataTask, args}
+          )
+
+        EventDefinitionsTaskMonitor.monitor(pid, event_definition_ids)
+        {:ok, pid}
 
       _ ->
         CogyntLogger.warn(

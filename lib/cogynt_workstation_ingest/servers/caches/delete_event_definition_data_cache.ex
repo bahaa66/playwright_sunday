@@ -22,6 +22,10 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DeleteEventDefinitionDataCache 
     GenServer.cast(__MODULE__, {:update_status, event_definition_id, args})
   end
 
+  def remove_status(event_definition_id) do
+    GenServer.cast(__MODULE__, {:remove_status, event_definition_id})
+  end
+
   # ------------------------ #
   # --- server callbacks --- #
   # ------------------------ #
@@ -77,5 +81,10 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DeleteEventDefinitionDataCache 
 
         {:noreply, Map.put(state, event_definition_id, new_ed_state)}
     end
+  end
+
+  @impl true
+  def handle_cast({:remove_status, event_definition_id}, state) do
+    {:noreply, Map.delete(state, event_definition_id)}
   end
 end

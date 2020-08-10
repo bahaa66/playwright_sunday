@@ -7,6 +7,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
+  alias CogyntWorkstationIngest.Broadway.Producer
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.Servers.Caches.DeleteEventDefinitionDataCache
@@ -65,7 +66,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
           KafkaEx.delete_topics([event_definition.topic], worker_name: worker_name)
         end
 
-        # Third check the consumer_state to make sure if it has any data left in the pipeline
+        # Third flush any data that might be stored waiting to process
+        Producer.flush_queue(event_definition.id)
+
+        # Fourth check the consumer_state to make sure if it has any data left in the pipeline
         {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
 
         cond do
@@ -83,144 +87,122 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
               "Deleting data for event definition: #{event_definition_id}"
             )
 
-            if hard_delete_event_definitions do
-              # Remove records from elasticsearch first
-              case Elasticsearch.delete_by_query(Config.event_index_alias(), %{
-                     field: "event_definition_id",
-                     value: event_definition.id
-                   }) do
-                {:ok, _count} ->
-                  CogyntLogger.info(
-                    "#{__MODULE__}",
-                    "Elasticsearch data deleted for event definition: #{event_definition.id}"
-                  )
-
-                {:error, error} ->
-                  CogyntLogger.error(
-                    "#{__MODULE__}",
-                    "There was an error deleting elasticsearch data for event definition: #{
-                      event_definition.id
-                    }\nError: #{inspect(error)}"
-                  )
-              end
-
-              case EventsContext.get_core_ids_for_event_definition_id(event_definition.id) do
-                [] ->
-                  nil
-
-                core_ids ->
-                  Elasticsearch.delete_by_query(Config.risk_history_index_alias(), %{
-                    field: "id",
-                    value: core_ids
-                  })
-              end
-
-              EventsContext.hard_delete_event_definition(event_definition)
-              ConsumerStateManager.remove_consumer_state(event_definition.id)
-            else
-              # Fetch all events to delete
-              %{entries: events, metadata: metadata} =
-                EventsContext.get_page_of_events(
-                  %{event_definition_id: event_definition.id},
-                  %{limit: Config.delete_data_event_page_limit()}
+            # Fifth remove all records from Elasticsearch
+            case Elasticsearch.delete_by_query(Config.event_index_alias(), %{
+                   field: "event_definition_id",
+                   value: event_definition.id
+                 }) do
+              {:ok, _count} ->
+                CogyntLogger.info(
+                  "#{__MODULE__}",
+                  "Elasticsearch data deleted for event definition: #{event_definition.id}"
                 )
 
-              counts =
-                if length(events) > 0 do
-                  delete_event_definition_data(events, metadata, event_definition.id)
-                else
-                  %{}
-                end
+              {:error, error} ->
+                CogyntLogger.error(
+                  "#{__MODULE__}",
+                  "There was an error deleting elasticsearch data for event definition: #{
+                    event_definition.id
+                  }\nError: #{inspect(error)}"
+                )
+            end
 
-              # Delete notifications
-              {notification_settings_count, notification_settings} =
-                NotificationsContext.hard_delete_notification_settings(%{
-                  event_definition_id: event_definition.id,
-                  select: NotificationSetting.__schema__(:fields)
+            case EventsContext.get_core_ids_for_event_definition_id(event_definition.id) do
+              [] ->
+                nil
+
+              core_ids ->
+                Elasticsearch.delete_by_query(Config.risk_history_index_alias(), %{
+                  field: "id",
+                  value: core_ids
                 })
+            end
 
-              counts = Map.put(counts, :notification_settings, notification_settings_count)
+            # Sixth delete all event_definition_data. Anything linked to the
+            # event_definition_id
+            page =
+              EventsContext.get_page_of_events(%{
+                filter: %{event_definition_id: event_definition.id},
+                page_number: 1,
+                page_size: Config.delete_data_event_page_size(),
+                include_deleted: true
+              })
 
-              case Elasticsearch.delete_by_query(Config.event_index_alias(), %{
-                     field: "event_definition_id",
-                     value: event_definition.id
-                   }) do
-                {:ok, _count} ->
-                  CogyntLogger.info(
-                    "#{__MODULE__}",
-                    "Elasticsearch data deleted for event definition: #{event_definition.id}"
-                  )
+            if length(page.entries) > 0 do
+              delete_event_definition_data(page, event_definition.id)
+            end
 
-                {:error, error} ->
-                  CogyntLogger.error(
-                    "#{__MODULE__}",
-                    "There was an error deleting elasticsearch data for event definition: #{
-                      event_definition.id
-                    }\nError: #{inspect(error)}"
-                  )
-              end
+            # Delete notifications
+            {notification_settings_count, notification_settings} =
+              NotificationsContext.hard_delete_notification_settings(%{
+                event_definition_id: event_definition.id,
+                select: NotificationSetting.__schema__(:fields)
+              })
 
-              case EventsContext.get_core_ids_for_event_definition_id(event_definition.id) do
-                [] ->
-                  nil
+            # Finally check if we are hard_deleting the event_definition or
+            # just updating the deleted_at column
+            if hard_delete_event_definitions do
+              EventsContext.hard_delete_event_definition(event_definition)
+              ConsumerStateManager.remove_consumer_state(event_definition.id)
+              DeleteEventDefinitionDataCache.remove_status(event_definition.id)
 
-                core_ids ->
-                  Elasticsearch.delete_by_query(Config.risk_history_index_alias(), %{
-                    field: "id",
-                    value: core_ids
-                  })
-              end
-
+              # Trigger ingest pub/sub subscription
+              # Absinthe.Subscription.publish(
+              #   CogyntWeb.Endpoint,
+              #   Map.merge(
+              #     updated_event_definition,
+              #     %{
+              #       is_being_deleted: false,
+              #       active: false
+              #     }
+              #   ),
+              #   event_definition_deleted: "event_definition_deleted:*"
+              # )
+            else
               case EventsContext.update_event_definition(event_definition, %{
                      active: false,
                      started_at: nil
                    }) do
                 {:ok, %EventDefinition{} = updated_event_definition} ->
-                  case remove_event_defintion(event_definition.id) do
-                    {:ok, _event_definition_id} ->
-                      EventsContext.remove_event_definition_consumer_state(
-                        updated_event_definition.id
-                      )
+                  ConsumerStateManager.remove_consumer_state(event_definition.id)
+                  DeleteEventDefinitionDataCache.remove_status(event_definition.id)
 
-                      # Trigger ingest pub/sub subscription
-                      # Absinthe.Subscription.publish(
-                      #   CogyntWeb.Endpoint,
-                      #   Map.merge(
-                      #     updated_event_definition,
-                      #     %{
-                      #       is_being_deleted: false,
-                      #       active: false
-                      #     }
-                      #   ),
-                      #   event_definition_deleted: "event_definition_deleted:*"
-                      # )
+                  # Trigger ingest pub/sub subscription
+                  # Absinthe.Subscription.publish(
+                  #   CogyntWeb.Endpoint,
+                  #   Map.merge(
+                  #     updated_event_definition,
+                  #     %{
+                  #       is_being_deleted: false,
+                  #       active: false
+                  #     }
+                  #   ),
+                  #   event_definition_deleted: "event_definition_deleted:*"
+                  # )
 
-                      if !hard_delete do
-                        Enum.each(notification_settings, fn ns ->
-                          nil
-                          # Trigger ingest pub/sub subscription
-                          # Absinthe.Subscription.publish(
-                          #   CogyntWeb.Endpoint,
-                          #   ns,
-                          #   notification_setting_deleted: "notification_setting_deleted:*"
-                          # )
-                        end)
-                      end
+                  # Enum.each(notification_settings, fn ns ->
+                  #   nil
+                  #   # Trigger ingest pub/sub subscription
+                  #   # Absinthe.Subscription.publish(
+                  #   #   CogyntWeb.Endpoint,
+                  #   #   ns,
+                  #   #   notification_setting_deleted: "notification_setting_deleted:*"
+                  #   # )
+                  # end)
 
-                      CogyntLogger.info(
-                        "#{__MODULE__}",
-                        "Finished deleting data for event definition: #{
-                          updated_event_definition.id
-                        }\ndeletion_counts: #{inspect(counts)}"
-                      )
+                  CogyntLogger.info(
+                    "#{__MODULE__}",
+                    "Finished deleting data for event definition: #{updated_event_definition.id}\ndeletion_counts: #{
+                      inspect(counts)
+                    }"
+                  )
 
-                      {:ok, updated_event_definition}
-                  end
+                  {:ok, updated_event_definition}
 
                 {:error, error} ->
                   CogyntLogger.error(
                     "#{__MODULE__}",
-                    "Something went wronng deleting the event definition: #{inspect(error)}"
+                    "Something went wrong deleting the event definition: #{inspect(error)}"
                   )
 
                   {:error, error}
@@ -230,7 +212,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
     end
   end
 
-  defp delete_event_definition_data(events, %{after: after_cursor}, event_definition_id) do
+  defp delete_event_definition_data(
+         %{entries: events, page_number: page_number, total_pages: total_pages},
+         event_definition_id
+       ) do
     event_ids = Enum.map(events, fn e -> e.id end)
 
     # Delete notifications
@@ -259,37 +244,19 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
         item_type: "event"
       })
 
-    if after_cursor != nil do
-      # If there is an after cursor then we continue to the next page.
-      %{entries: events, metadata: metadata} =
-        EventsContext.get_page_of_events(%{event_definition_id: event_definition_id}, %{
-          limit: Config.delete_data_event_page_limit(),
-          after: after_cursor
+    if page_number >= total_pages do
+      CogyntLogger.info("#{__MODULE__}", "Finished removing all event_definition_data")
+    else
+      next_page =
+        EventsContext.get_page_of_events(%{
+          filter: %{event_definition_id: event_definition.id},
+          page_number: page_number + 1,
+          page_size: Config.delete_data_event_page_size(),
+          preload_details: false,
+          include_deleted: true
         })
 
-      %{
-        event_collection_items: e_i_count,
-        event_details: e_d_count,
-        events: e_count,
-        notification_collection_items: n_i_count,
-        notifications: n_count
-      } = delete_event_definition_data(events, metadata, event_definition_id)
-
-      %{
-        event_collection_items: e_i_count + event_item_count,
-        event_details: e_d_count + event_detail_count,
-        events: e_count + event_count,
-        notification_collection_items: n_i_count + notification_item_count,
-        notifications: n_count + notification_count
-      }
-    else
-      %{
-        event_collection_items: event_item_count,
-        event_details: event_detail_count,
-        events: event_count,
-        notification_collection_items: notification_item_count,
-        notifications: notification_count
-      }
+      delete_event_definition_data(next_page, event_definition_id)
     end
   end
 end
