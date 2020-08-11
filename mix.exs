@@ -84,7 +84,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :elasticsearch,
-        tag: "v1.6.6-beta",
+        branch: "hotfix/upsert-changes",
+        #tag: "v1.6.6-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
         override: true
