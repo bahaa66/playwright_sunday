@@ -3,9 +3,11 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   The Events context: public interface for event related functionality.
   """
   import Ecto.Query, warn: false
-  alias CogyntWorkstationIngest.Repo
-  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias Ecto.Multi
+  alias CogyntWorkstationIngest.Repo
+  alias Models.Enums.ConsumerStatusTypeEnum
+  alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
 
   alias Models.Events.{
     Event,
@@ -305,15 +307,27 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       )
       [%EventDefinition{}, %EventDefinition{}]
   """
-  def query_event_definitions(args) do
-    Enum.reduce(args, from(ed in EventDefinition), fn
-      {:filter, filter}, q ->
-        filter_event_definitions(filter, q)
+  def query_event_definitions(args, opts \\ []) do
+    preload_details = Keyword.get(opts, :preload_details, false)
 
-      {:select, select}, q ->
-        select(q, ^select)
-    end)
-    |> Repo.all()
+    query =
+      Enum.reduce(args, from(ed in EventDefinition), fn
+        {:filter, filter}, q ->
+          filter_event_definitions(filter, q)
+
+        {:select, select}, q ->
+          select(q, ^select)
+      end)
+
+    query =
+      if preload_details do
+        query
+        |> preload(:event_details)
+      else
+        query
+      end
+
+    Repo.all(query)
   end
 
   @doc """
@@ -605,75 +619,73 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # ----------------------------------- #
   # --- Application Startup Methods --- #
   # ----------------------------------- #
-  def start_consumers_for_active_ed() do
+  def initalize_consumer_states() do
+    # Fetch all active EventDefinitions and start their consumers
     event_definitions =
-      Repo.all(
-        from(
-          ed in EventDefinition,
-          where: is_nil(ed.deleted_at),
-          where: ed.active == true,
-          preload: [:event_definition_details]
-        )
+      query_event_definitions(
+        %{
+          filter: %{
+            active: true,
+            deleted_at: nil
+          }
+        },
+        preload_detail: true
       )
 
     Enum.each(event_definitions, fn ed ->
-      ed
-      |> build_start_consumer_args_from_ed()
-      |> ConsumerStateManager.manage_request()
+      ed_map = event_definition_struct_to_map(ed)
+      ConsumerStateManager.manage_request(%{start_consumer: ed_map})
     end)
-  end
 
-  def get_event_definition_for_startup(event_definition_id) do
-    Repo.get(EventDefinition, event_definition_id)
-    |> Repo.preload(:event_definition_details)
-    |> build_start_consumer_args_from_ed()
+    # Fetch all EventDefinitions and check if they were in the middle of
+    # any tasks when application was restarted. If so trigger the tasks
+    # again
+    event_definitions =
+      query_event_definitions(
+        %{
+          filter: %{
+            deleted_at: nil
+          }
+        },
+        preload_detail: true
+      )
+
+    Enum.each(event_definitions, fn ed ->
+      {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(ed.id)
+
+      cond do
+        consumer_state.status ==
+            ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+          Enum.each(consumer_state.nsid, fn nsid ->
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Initalizing backfill notifications task: #{inspect(nsid, pretty: true)}"
+            )
+
+            TaskSupervisor.start_child(%{backfill_notifications: nsid})
+          end)
+
+        consumer_state.status ==
+            ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+          Enum.each(consumer_state.nsid, fn nsid ->
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Initalizing update notifications task: #{inspect(nsid, pretty: true)}"
+            )
+
+            TaskSupervisor.start_child(%{update_notification_setting: nsid})
+          end)
+
+        true ->
+          # No tasks to trigger
+          nil
+      end
+    end)
   end
 
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp build_start_consumer_args_from_ed(event_definition) do
-    event_definition_details =
-      case event_definition do
-        %{event_definition_details: %Ecto.Association.NotLoaded{}} ->
-          []
-
-        %{event_definition_details: details} ->
-          details
-
-        _ ->
-          []
-      end
-
-    event_definition = %{
-      id: event_definition.id,
-      title: event_definition.title,
-      topic: event_definition.topic,
-      event_type: event_definition.event_type,
-      deleted_at: event_definition.deleted_at,
-      started_at: event_definition.started_at,
-      authoring_event_definition_id: event_definition.authoring_event_definition_id,
-      active: event_definition.active,
-      deployment_status: event_definition.deployment_status,
-      deployment_id: event_definition.deployment_id,
-      manual_actions: event_definition.manual_actions,
-      created_at: event_definition.created_at,
-      updated_at: event_definition.updated_at,
-      primary_title_attribute: event_definition.primary_title_attribute,
-      color: event_definition.color,
-      fields:
-        Enum.reduce(event_definition_details, %{}, fn
-          %{field_name: n, field_type: t}, acc ->
-            Map.put_new(acc, n, t)
-
-          _, acc ->
-            acc
-        end)
-    }
-
-    %{start_consumer: event_definition}
-  end
-
   defp create_event_definition_fields(id, fields) do
     Enum.each(fields, fn {key, val} ->
       case is_atom(key) do
@@ -717,6 +729,15 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       {:deployment_id, deployment_id}, q ->
         where(q, [ed], ed.deployment_id == ^deployment_id)
+
+      {:active, active}, q ->
+        where(q, [ed], ed.active == ^active)
+
+      {:deleted_at, nil}, q ->
+        where(q, [ed], is_nil(ed.deleted_at))
+
+      {:deleted_at, _}, q ->
+        where(q, [ed], is_nil(ed.deleted_at) == false)
     end)
   end
 
