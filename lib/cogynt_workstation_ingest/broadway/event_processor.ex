@@ -207,15 +207,31 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             |> Map.put(:elasticsearch_docs, acc_elasticsearch_docs)
 
           true ->
-            acc_remove_fields = Map.get(acc, :remove_fields, [])
-            Map.put(acc, :remove_fields, acc_remove_fields ++ [field_name])
+            acc_remove_docs = Map.get(acc, :remove_docs, [])
+
+            case event["id"] do
+              nil ->
+                Map.put(
+                  acc,
+                  :remove_docs,
+                  acc_remove_docs ++
+                    [EventDocumentBuilder.build_document_id(event_id, field_name)]
+                )
+
+              core_id ->
+                Map.put(
+                  acc,
+                  :remove_docs,
+                  acc_remove_docs ++ [EventDocumentBuilder.build_document_id(core_id, field_name)]
+                )
+            end
         end
       end)
 
     Map.put(data, :event_details, Map.get(results, :event_details, []))
     |> Map.put(:event_docs, %{
       event_docs: Map.get(results, :elasticsearch_docs, []),
-      remove_fields: Map.get(results, :remove_fields, [])
+      remove_docs_for_update: Map.get(results, :remove_docs, [])
     })
     |> Map.put(:risk_history_doc, RiskHistoryDocumentBuilder.build_document(event_id, event))
   end
@@ -442,12 +458,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           true
         )
 
-        {:error, {nil, nil}}
+        {:error, %{}}
 
       core_id ->
-        delete_event_ids = EventsContext.get_events_by_core_id(core_id, event_definition.id)
-        delete_doc_ids = EventDocumentBuilder.build_document_ids(core_id, event_definition)
-        {:ok, {delete_event_ids, delete_doc_ids}}
+        event_ids = EventsContext.get_events_by_core_id(core_id, event_definition.id)
+        doc_ids = EventDocumentBuilder.build_document_ids(core_id, event_definition)
+        {:ok, %{delete_event_ids: event_ids, delete_doc_ids: doc_ids}}
     end
   end
 
@@ -455,7 +471,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     # Delete event -> get all data to remove + create a new event
     # append new event to the list of data to remove
     case fetch_data_to_delete(data) do
-      {:error, {nil, nil}} ->
+      {:error, %{}} ->
         # will skip all steps in the pipeline ignoring this record
         {:ok,
          %{
@@ -464,7 +480,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
            delete_doc_ids: nil
          }}
 
-      {:ok, {nil, delete_doc_ids}} ->
+      {:ok, %{delete_event_ids: nil, delete_doc_ids: doc_ids}} ->
         case EventsContext.create_event(%{
                event_definition_id: event_definition.id,
                core_id: event["id"]
@@ -474,7 +490,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
              %{
                event_id: event_id,
                delete_event_ids: [event_id],
-               delete_doc_ids: delete_doc_ids
+               delete_doc_ids: doc_ids
              }}
 
           {:error, reason} ->
@@ -486,7 +502,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             raise "delete_event/1 failed"
         end
 
-      {:ok, {delete_event_ids, delete_doc_ids}} ->
+      {:ok, %{delete_event_ids: event_ids, delete_doc_ids: doc_ids}} ->
         case EventsContext.create_event(%{
                event_definition_id: event_definition.id,
                core_id: event["id"]
@@ -495,8 +511,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             {:ok,
              %{
                event_id: event_id,
-               delete_event_ids: delete_event_ids ++ [event_id],
-               delete_doc_ids: delete_doc_ids
+               delete_event_ids: event_ids ++ [event_id],
+               delete_doc_ids: doc_ids
              }}
 
           {:error, reason} ->
@@ -513,7 +529,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   defp create_or_update_event(%{event: event, event_definition: event_definition} = data) do
     # Update event -> get all data to remove + create a new event
     case fetch_data_to_delete(data) do
-      {:error, {nil, nil}} ->
+      {:error, %{}} ->
         # will skip all steps in the pipeline ignoring this record
         {:ok,
          %{
@@ -522,7 +538,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
            delete_doc_ids: nil
          }}
 
-      {:ok, {delete_event_ids, _delete_doc_ids}} ->
+      # ignore the delete_doc_ids. We do upserts in elastic so we do not
+      # need to delete then insert
+      {:ok, %{delete_event_ids: event_ids}} ->
         case EventsContext.create_event(%{
                event_definition_id: event_definition.id,
                core_id: event["id"]
@@ -531,7 +549,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             {:ok,
              %{
                event_id: event_id,
-               delete_event_ids: delete_event_ids,
+               delete_event_ids: event_ids,
                delete_doc_ids: nil
              }}
 
@@ -547,17 +565,32 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   defp update_event_docs(
-         %{event_docs: event_docs, remove_fields: remove_fields},
+         %{event_docs: event_docs, remove_docs_for_update: remove_docs_for_update},
          delete_event_doc_ids
        ) do
-    if !is_nil(delete_event_doc_ids) and !Enum.empty?(delete_event_doc_ids) do
+    if is_null_or_empty?(delete_event_doc_ids) == false do
       {:ok, _} =
         Elasticsearch.bulk_delete_document(Config.event_index_alias(), delete_event_doc_ids)
-    end
+    else
+      if is_null_or_empty?(remove_docs_for_update) == false do
+        {:ok, _} =
+          Elasticsearch.bulk_delete_document(Config.event_index_alias(), remove_docs_for_update)
+      end
 
-    if !is_nil(event_docs) and !Enum.empty?(event_docs) do
-      {:ok, _} =
-        Elasticsearch.bulk_upsert_document(Config.event_index_alias(), event_docs, remove_fields)
+      if is_null_or_empty?(event_docs) == false do
+        {:ok, %{"errors" => errors}} =
+          Elasticsearch.bulk_upsert_document(
+            Config.event_index_alias(),
+            event_docs
+          )
+
+        if errors do
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "Elasticsearch.bulk_upsert_document/3 errors was true"
+          )
+        end
+      end
     end
   end
 
@@ -574,5 +607,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       false ->
         :ok
     end
+  end
+
+  defp is_null_or_empty?(enumerable) do
+    is_nil(enumerable) or Enum.empty?(enumerable)
   end
 end
