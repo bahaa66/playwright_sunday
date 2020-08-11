@@ -8,6 +8,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationSettingTask do
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.Events.EventsContext
+  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
 
   @page_size 2000
 
@@ -80,8 +81,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationSettingTask do
         set: [tag_id: tag_id, deleted_at: deleted_at, title: ns_title]
       )
 
-    Redis.publish_async(
-      "notification_count_subscription",
+    NotificationSubscriptionCache.add_notifications(
       NotificationsContext.notification_struct_to_map(updated_notifications)
     )
 

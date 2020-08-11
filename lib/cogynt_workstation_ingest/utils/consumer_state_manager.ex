@@ -620,6 +620,10 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
         %{response: {:error, consumer_state.status}}
 
+      consumer_state.status ==
+          ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
+        %{response: {:error, consumer_state.status}}
+
       true ->
         TaskSupervisor.start_child(%{delete_event_definition_events: event_definition_id})
         %{response: {:ok, :success}}

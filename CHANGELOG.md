@@ -1,3 +1,10 @@
+## [1.6.0-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.3-develop.1...v1.6.0-develop.1) (2020-08-11)
+
+
+### :sparkles: Feature
+
+* **CDST-682:** Merge pull request [#101](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/101) from Cogility/hotfix/resolve-consumer-notification-status ([42cd25a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/42cd25a04694d394306c2093f4372614781c7b8f))
+
 ### [1.5.3-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.2...v1.5.3-develop.1) (2020-08-05)
 
 
