@@ -1,3 +1,10 @@
+## [1.6.0-develop.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.1...v1.6.0-develop.2) (2020-08-11)
+
+
+### :bug: Bugfix
+
+* **CDST-682:** Merge pull request [#102](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/102) from Cogility/hotfix/CDST-682-elastic-bulk-upsert ([2eb1d1a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/2eb1d1a6d4451cd3743bff48c28a82163837f37c))
+
 ## [1.6.0-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.3-develop.1...v1.6.0-develop.1) (2020-08-11)
 
 
