@@ -70,8 +70,11 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
             status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
           )
 
-          EventsContext.get_event_definition_for_startup(notification_setting.event_definition_id)
-          |> ConsumerStateManager.manage_request()
+          ed_map =
+            EventsContext.get_event_definition(notification_setting.event_definition_id)
+            |> EventsContext.event_definition_struct_to_map()
+
+          ConsumerStateManager.manage_request(%{start_consumer: ed_map})
 
         true ->
           ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,

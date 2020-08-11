@@ -7,6 +7,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
+  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -160,8 +161,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     action = Map.get(event, @crud)
     event = format_lexicon_data(event)
 
-    {event_details, event_docs} =
-      Enum.reduce(event, {[], []}, fn {field_name, field_value}, {acc_events, acc_docs} = acc ->
+    results =
+      Enum.reduce(event, Map.new(), fn {field_name, field_value}, acc ->
         field_type = event_definition.fields[field_name]
 
         case is_nil(field_value) or field_value == "" do
@@ -169,8 +170,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             field_value = encode_json(field_value)
 
             # Build event_details list
-            updated_events =
-              acc_events ++
+            acc_event_details = Map.get(acc, :event_details, [])
+
+            acc_event_details =
+              acc_event_details ++
                 [
                   %{
                     event_id: event_id,
@@ -181,33 +184,39 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                 ]
 
             # Build elasticsearch docs list
-            # If event is delete action or field_name is in blacklist we do not need to insert into elasticƒ
-            updated_docs =
+            # If event is delete action or field_name is in blacklist we do not need to insert into elastic
+            acc_elasticsearch_docs = Map.get(acc, :elasticsearch_docs, [])
+
+            acc_elasticsearch_docs =
               if Enum.member?(@elastic_blacklist, field_name) == false and action != @delete do
-                acc_docs ++
+                acc_elasticsearch_docs ++
                   [
                     EventDocumentBuilder.build_document(
                       event,
                       field_name,
                       field_value,
                       event_definition,
-                      event_id,
-                      action
+                      event_id
                     )
                   ]
               else
-                acc_docs
+                acc_elasticsearch_docs
               end
 
-            {updated_events, updated_docs}
+            Map.put(acc, :event_details, acc_event_details)
+            |> Map.put(:elasticsearch_docs, acc_elasticsearch_docs)
 
           true ->
-            acc
+            acc_remove_fields = Map.get(acc, :remove_fields, [])
+            Map.put(acc, :remove_fields, acc_remove_fields ++ [field_name])
         end
       end)
 
-    Map.put(data, :event_details, event_details)
-    |> Map.put(:event_docs, event_docs)
+    Map.put(data, :event_details, Map.get(results, :event_details, []))
+    |> Map.put(:event_docs, %{
+      event_docs: Map.get(results, :elasticsearch_docs, []),
+      remove_fields: Map.get(results, :remove_fields, [])
+    })
     |> Map.put(:risk_history_doc, RiskHistoryDocumentBuilder.build_document(event_id, event))
   end
 
@@ -317,13 +326,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           NotificationsContext.notification_struct_to_map(created_notifications) ++
             updated_notifications
 
-        Redis.publish_async("notification_count_subscription", total_notifications)
+        NotificationSubscriptionCache.add_notifications(total_notifications)
+
         SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
         SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
-        Redis.publish_async(
-          "notification_count_subscription",
+        NotificationSubscriptionCache.add_notifications(
           NotificationsContext.notification_struct_to_map(created_notifications)
         )
 
@@ -372,7 +381,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     case transaction_result do
       {:ok, %{update_notifications: {_count, updated_notifications}}} ->
-        Redis.publish_async("notification_count_subscription", updated_notifications)
+        NotificationSubscriptionCache.add_notifications(updated_notifications)
         SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, _} ->
@@ -537,14 +546,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
-  defp update_event_docs(new_event_docs, delete_event_doc_ids) do
+  defp update_event_docs(
+         %{event_docs: event_docs, remove_fields: remove_fields},
+         delete_event_doc_ids
+       ) do
     if !is_nil(delete_event_doc_ids) and !Enum.empty?(delete_event_doc_ids) do
       {:ok, _} =
         Elasticsearch.bulk_delete_document(Config.event_index_alias(), delete_event_doc_ids)
     end
 
-    if !is_nil(new_event_docs) and !Enum.empty?(new_event_docs) do
-      {:ok, _} = Elasticsearch.bulk_upsert_document(Config.event_index_alias(), new_event_docs)
+    if !is_nil(event_docs) and !Enum.empty?(event_docs) do
+      {:ok, _} =
+        Elasticsearch.bulk_upsert_document(Config.event_index_alias(), event_docs, remove_fields)
     end
   end
 

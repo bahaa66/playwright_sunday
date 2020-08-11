@@ -10,6 +10,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
   alias Models.Notifications.NotificationSetting
   alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.System.SystemNotificationContext
+  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
 
   @page_size 500
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -76,8 +77,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
         ]
       )
 
-    Redis.publish_async(
-      "notification_count_subscription",
+    NotificationSubscriptionCache.add_notifications(
       NotificationsContext.notification_struct_to_map(updated_notifications)
     )
 

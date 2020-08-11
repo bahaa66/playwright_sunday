@@ -31,11 +31,11 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
 
   # ----------------------- #
   # --- private methods --- #
-  # ----------------------- #
+  # ----------------------- #l
   defp initialize_consumers() do
     with :ok <- Application.ensure_started(:phoenix),
          :ok <- Application.ensure_started(:postgrex) do
-      EventsContext.start_consumers_for_active_ed()
+      EventsContext.initalize_consumer_states()
       CogyntLogger.info("#{__MODULE__}", "Consumers Initialized")
 
       case ConsumerGroupSupervisor.start_child(:deployment) do

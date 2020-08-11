@@ -6,6 +6,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Broadway.EventProcessor
   alias CogyntWorkstationIngest.System.SystemNotificationContext
+  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
   alias CogyntWorkstationIngest.Config
 
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
@@ -134,13 +135,12 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           NotificationsContext.notification_struct_to_map(created_notifications) ++
             updated_notifications
 
-        Redis.publish_async("notification_count_subscription", total_notifications)
+        NotificationSubscriptionCache.add_notifications(total_notifications)
         SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
         SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
-        Redis.publish_async(
-          "notification_count_subscription",
+        NotificationSubscriptionCache.add_notifications(
           NotificationsContext.notification_struct_to_map(created_notifications)
         )
 
@@ -191,7 +191,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
     case transaction_result do
       {:ok, %{update_notifications: {_count, updated_notifications}}} ->
-        Redis.publish_async("notification_count_subscription", updated_notifications)
+        NotificationSubscriptionCache.add_notifications(updated_notifications)
         SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, _} ->
