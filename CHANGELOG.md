@@ -1,3 +1,10 @@
+## [1.6.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.4...v1.6.0) (2020-08-11)
+
+
+### :sparkles: Feature
+
+* **CDST-682:** cherry-pick changes ([1b3165e](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/1b3165e1fa962019a1b5a1fee01fac0a46c92491))
+
 ### [1.5.4](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.3...v1.5.4) (2020-08-06)
 
 
