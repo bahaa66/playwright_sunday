@@ -19,11 +19,11 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventPipeline do
       producer: [
         module: {Producer, []},
         concurrency: 1,
-        transformer: {__MODULE__, :transform, []},
-        rate_limiting: [
-          allowed_messages: Config.producer_allowed_messages(),
-          interval: Config.producer_rate_limit_interval()
-        ]
+        transformer: {__MODULE__, :transform, []}
+        # rate_limiting: [
+        #   allowed_messages: Config.producer_allowed_messages(),
+        #   interval: Config.producer_rate_limit_interval()
+        # ]
       ],
       processors: [
         default: [
