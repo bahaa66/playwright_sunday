@@ -1,3 +1,10 @@
+### [1.6.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.1...v1.6.2) (2020-08-13)
+
+
+### :bug: Bugfix
+
+* Merge pull request [#105](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/105) from Cogility/hotfix/cherrypick-merge ([d339ab7](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/d339ab7804c073ee7b3553845f3034f492d54c85))
+
 ### [1.6.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0...v1.6.1) (2020-08-11)
 
 
