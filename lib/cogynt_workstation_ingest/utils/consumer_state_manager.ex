@@ -5,11 +5,17 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   """
 
   alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, TaskSupervisor}
-  alias CogyntWorkstationIngest.Servers.{ConsumerMonitor}
-  alias CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache
+  alias CogyntWorkstationIngest.Servers.ConsumerMonitor
+
+  alias CogyntWorkstationIngest.Servers.Caches.{
+    ConsumerRetryCache,
+    DeleteEventDefinitionDataCache
+  }
+
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
+
+  alias Models.Enums.ConsumerStatusTypeEnum
 
   @default_state %{topic: nil, nsid: [], status: nil, prev_status: nil}
 
@@ -679,7 +685,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
             nil
 
           true ->
-            DeleteEventDefinitionDataCache.update_status(event_definition.id,
+            DeleteEventDefinitionDataCache.update_status(event_definition_id,
               status: :ready
             )
         end

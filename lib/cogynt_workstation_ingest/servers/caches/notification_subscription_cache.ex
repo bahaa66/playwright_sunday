@@ -71,7 +71,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache d
         true = :ets.delete(table_name, key)
 
         if is_null_or_empty?(notifications) == false do
-          Redis.publish_async("notification_count_subscription", notifications)
+          Redis.publish_async("notifications_subscription", %{notifications: notifications})
         end
 
         {:noreply, %{state | timer: timer_ref}}

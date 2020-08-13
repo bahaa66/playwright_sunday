@@ -40,7 +40,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
     Redis.hash_set("c:#{notification_setting_id}", "notification_task_status", 1)
 
-    Redis.publish("notification_status_subscription", %{
+    Redis.publish("notification_settings_subscription", %{
       id: notification_setting_id,
       status: "running"
     })
@@ -120,7 +120,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
     Redis.key_delete("c:#{notification_setting_id}")
 
-    Redis.publish("notification_status_subscription", %{
+    Redis.publish("notification_settings_subscription", %{
       id: notification_setting_id,
       status: "finished"
     })

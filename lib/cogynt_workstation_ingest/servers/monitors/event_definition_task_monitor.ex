@@ -37,14 +37,14 @@ defmodule CogyntWorkstationIngest.Servers.EventDefinitionTaskMonitor do
     new_state = Map.put(state, pid, event_definition_ids)
 
     Enum.each(event_definition_ids, fn event_definition_id ->
-      Redis.hash_set("event_definition_task", event_definition_id, "running")
+      Redis.hash_set("event_definition_task", event_definition_id, true)
     end)
 
-    Redis.p_expire("event_definition_task", 30000)
+    Redis.key_pexpire("event_definition_task", 30000)
 
-    Redis.publish("event_definition_task_status_subscription", %{
+    Redis.publish("event_definitions_subscription", %{
       event_definition_ids: event_definition_ids,
-      status: "running"
+      deleting: true
     })
 
     {:noreply, new_state}
@@ -56,12 +56,12 @@ defmodule CogyntWorkstationIngest.Servers.EventDefinitionTaskMonitor do
 
     new_state = Map.put(state, pid, event_definition_id)
 
-    Redis.hash_set("event_definition_task", event_definition_id, "running")
-    Redis.p_expire("event_definition_task", 30000)
+    Redis.hash_set("event_definition_task", event_definition_id, true)
+    Redis.key_pexpire("event_definition_task", 30000)
 
-    Redis.publish("event_definition_task_status_subscription", %{
+    Redis.publish("event_definitions_subscription", %{
       event_definition_ids: [event_definition_id],
-      status: "running"
+      deleting: true
     })
 
     {:noreply, new_state}
@@ -78,18 +78,18 @@ defmodule CogyntWorkstationIngest.Servers.EventDefinitionTaskMonitor do
         Redis.hash_delete("event_definition_task", event_definition_id)
       end)
 
-      Redis.publish("event_definition_task_status_subscription", %{
+      Redis.publish("event_definitions_subscription", %{
         event_definition_ids: val,
-        status: "finished"
+        deleting: false
       })
 
       {:noreply, Map.delete(state, pid)}
     else
       Redis.hash_delete("event_definition_task", val)
 
-      Redis.publish("event_definition_task_status_subscription", %{
+      Redis.publish("event_definitions_subscription", %{
         event_definition_ids: [val],
-        status: "finished"
+        deleting: false
       })
     end
 

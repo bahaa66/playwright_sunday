@@ -30,22 +30,22 @@ defmodule CogyntWorkstationIngest.Servers.DrilldownTaskMonitor do
   def handle_cast({:monitor, pid}, state) do
     Process.monitor(pid)
 
-    Redis.hash_set("drilldown_task", "task_status", "running")
+    Redis.hash_set("drilldown_task", "task_status", true)
     Redis.hash_set("drilldown_task", "pid", pid)
-    Redis.p_expire("drilldown_task", 30000)
+    Redis.key_pexpire("drilldown_task", 30000)
 
-    Redis.publish("drilldown_task_status_subscription", %{status: "running"})
+    Redis.publish("drilldown_task_status_subscription", %{deleting: true})
 
     {:noreply, state}
   end
 
   @impl true
-  def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
+  def handle_info({:DOWN, _ref, :process, _pid, _reason}, state) do
     # TODO implement retry for backfill/update task if reason anything other than :normal or :shutdown
 
     Redis.key_delete("drilldown_task")
 
-    Redis.publish("drilldown_task_status_subscription", %{status: "finished"})
+    Redis.publish_async("drilldown_task_status_subscription", %{deleting: false})
 
     {:noreply, state}
   end

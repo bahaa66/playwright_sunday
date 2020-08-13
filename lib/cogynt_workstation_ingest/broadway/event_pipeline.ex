@@ -165,7 +165,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         nil
     end
 
-    Redis.publish_async("event_count_subscription", event_definition_id)
+    Redis.publish_async("event_definitions_subscription", %{count: event_definition_id})
 
     CogyntLogger.info(
       "#{__MODULE__}",

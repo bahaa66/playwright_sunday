@@ -62,7 +62,7 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
             {DeleteEventDefinitionEventsTask, event_definition_id}
           )
 
-        EventDefinitionsTaskMonitor.monitor(pid, event_definition_id)
+        EventDefinitionTaskMonitor.monitor(pid, event_definition_id)
         {:ok, pid}
 
       {:delete_drilldown_data, delete_drilldown_topics} ->
@@ -93,7 +93,7 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
             {DeleteTopicDataTask, args}
           )
 
-        EventDefinitionsTaskMonitor.monitor(pid, event_definition_ids)
+        EventDefinitionTaskMonitor.monitor(pid, event_definition_ids)
         {:ok, pid}
 
       _ ->

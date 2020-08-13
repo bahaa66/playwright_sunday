@@ -4,25 +4,27 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
   async task.
   """
   use Task
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
+  alias CogyntWorkstationIngest.Collections.CollectionsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Broadway.Producer
+  alias CogyntWorkstationIngest.Servers.Caches.DeleteEventDefinitionDataCache
+
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
-  alias CogyntWorkstationIngest.Servers.Caches.DeleteEventDefinitionDataCache
+  alias Models.Notifications.NotificationSetting
 
   def start_link(arg) do
     Task.start_link(__MODULE__, :run, [arg])
   end
 
-  def run(
-        %{
-          event_definition_ids: event_definition_ids,
-          hard_delete_event_definitions: hard_delete_event_definitions,
-          delete_topics: delete_topics
-        } = args
-      ) do
+  def run(%{
+        event_definition_ids: event_definition_ids,
+        hard_delete_event_definitions: hard_delete_event_definitions,
+        delete_topics: delete_topics
+      }) do
     CogyntLogger.info(
       "#{__MODULE__}",
       "Running delete_topic_data_task for event_definition_ids: #{event_definition_ids}, hard_delete_event_definitions: #{
@@ -124,7 +126,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
               EventsContext.get_page_of_events(%{
                 filter: %{event_definition_id: event_definition.id},
                 page_number: 1,
-                page_size: Config.delete_data_event_page_size(),
+                page_size: 100,
+                preload_details: false,
                 include_deleted: true
               })
 
@@ -133,31 +136,37 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
             end
 
             # Delete notifications
-            {notification_settings_count, notification_settings} =
+            {_notification_settings_count, notification_settings} =
               NotificationsContext.hard_delete_notification_settings(%{
-                event_definition_id: event_definition.id,
+                filter: %{
+                  event_definition_id: event_definition.id
+                },
                 select: NotificationSetting.__schema__(:fields)
               })
 
             # Finally check if we are hard_deleting the event_definition or
             # just updating the deleted_at column
             if hard_delete_event_definitions do
-              EventsContext.hard_delete_event_definition(event_definition)
+              {:ok, %EventDefinition{} = deleted_event_definition} =
+                EventsContext.hard_delete_event_definition(event_definition)
+
               ConsumerStateManager.remove_consumer_state(event_definition.id)
               DeleteEventDefinitionDataCache.remove_status(event_definition.id)
 
-              # Trigger ingest pub/sub subscription
-              # Absinthe.Subscription.publish(
-              #   CogyntWeb.Endpoint,
-              #   Map.merge(
-              #     updated_event_definition,
-              #     %{
-              #       is_being_deleted: false,
-              #       active: false
-              #     }
-              #   ),
-              #   event_definition_deleted: "event_definition_deleted:*"
-              # )
+              Redis.publish_async(
+                "event_definition_subscription",
+                %{
+                  deleted:
+                    Map.merge(
+                      # ??
+                      deleted_event_definition,
+                      %{
+                        is_being_deleted: false,
+                        active: false
+                      }
+                    )
+                }
+              )
             else
               case EventsContext.update_event_definition(event_definition, %{
                      active: false,
@@ -167,45 +176,40 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
                   ConsumerStateManager.remove_consumer_state(event_definition.id)
                   DeleteEventDefinitionDataCache.remove_status(event_definition.id)
 
-                  # Trigger ingest pub/sub subscription
-                  # Absinthe.Subscription.publish(
-                  #   CogyntWeb.Endpoint,
-                  #   Map.merge(
-                  #     updated_event_definition,
-                  #     %{
-                  #       is_being_deleted: false,
-                  #       active: false
-                  #     }
-                  #   ),
-                  #   event_definition_deleted: "event_definition_deleted:*"
-                  # )
+                  Redis.publish_async(
+                    "event_definitions_subscription",
+                    %{
+                      deleted:
+                        Map.merge(
+                          # ??
+                          updated_event_definition,
+                          %{
+                            is_being_deleted: false,
+                            active: false
+                          }
+                        )
+                    }
+                  )
 
-                  # Enum.each(notification_settings, fn ns ->
-                  #   nil
-                  #   # Trigger ingest pub/sub subscription
-                  #   # Absinthe.Subscription.publish(
-                  #   #   CogyntWeb.Endpoint,
-                  #   #   ns,
-                  #   #   notification_setting_deleted: "notification_setting_deleted:*"
-                  #   # )
-                  # end)
+                  Enum.each(notification_settings, fn ns ->
+                    Redis.publish_async(
+                      "notification_settings_subscription",
+                      %{
+                        deleted: ns
+                      }
+                    )
+                  end)
 
                   CogyntLogger.info(
                     "#{__MODULE__}",
-                    "Finished deleting data for event definition: #{updated_event_definition.id}\ndeletion_counts: #{
-                      inspect(counts)
-                    }"
+                    "Finished deleting data for event definition: #{updated_event_definition.id}"
                   )
-
-                  {:ok, updated_event_definition}
 
                 {:error, error} ->
                   CogyntLogger.error(
                     "#{__MODULE__}",
                     "Something went wrong deleting the event definition: #{inspect(error)}"
                   )
-
-                  {:error, error}
               end
             end
         end
@@ -219,39 +223,55 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
     event_ids = Enum.map(events, fn e -> e.id end)
 
     # Delete notifications
-    {notification_count, notifications} =
-      NotificationsContext.hard_delete_notifications(%{event_ids: event_ids, select: [:id]})
+    {_notification_count, notifications} =
+      NotificationsContext.hard_delete_notifications(%{
+        filter: %{event_ids: event_ids},
+        select: [:id]
+      })
 
     notification_ids = Enum.map(notifications, fn n -> n.id end)
 
     # Delete notification collection items
-    {notification_item_count, _} =
+    {_notification_item_count, _} =
       CollectionsContext.hard_delete_collection_items(%{
-        item_ids: notification_ids,
-        item_type: "notification"
+        filter: %{
+          item_ids: notification_ids,
+          item_type: "notification"
+        }
       })
 
     # Delete event details
-    {event_detail_count, _} = EventsContext.hard_delete_event_details(%{event_ids: event_ids})
+    {_event_detail_count, _} =
+      EventsContext.hard_delete_event_details(%{
+        filter: %{event_ids: event_ids}
+      })
 
     # Delete events
-    {event_count, _} = EventsContext.hard_delete_events(%{ids: event_ids})
+    {_event_count, _} =
+      EventsContext.hard_delete_events(%{
+        filter: %{event_ids: event_ids}
+      })
 
     # Delete event collection items
-    {event_item_count, _} =
+    {_event_item_count, _} =
       CollectionsContext.hard_delete_collection_items(%{
-        item_ids: event_ids,
-        item_type: "event"
+        filter: %{
+          item_ids: event_ids,
+          item_type: "event"
+        }
       })
 
     if page_number >= total_pages do
-      CogyntLogger.info("#{__MODULE__}", "Finished removing all event_definition_data")
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "Finished Removing All EventDefinitionData For DevDelete Action"
+      )
     else
       next_page =
         EventsContext.get_page_of_events(%{
-          filter: %{event_definition_id: event_definition.id},
+          filter: %{event_definition_id: event_definition_id},
           page_number: page_number + 1,
-          page_size: Config.delete_data_event_page_size(),
+          page_size: 100,
           preload_details: false,
           include_deleted: true
         })

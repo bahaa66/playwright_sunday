@@ -63,7 +63,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:recase, "~> 0.5"},
       {
         :models,
-        tag: "v1.6.7-beta",
+        # tag: "v1.6.7-beta",
+        branch: "feature/CDST-647-redis-expire-methods",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true

@@ -87,7 +87,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
     if page_number >= total_pages do
       EventsContext.update_event_definition(event_definition, %{active: false, started_at: nil})
       ConsumerStateManager.remove_consumer_state(event_definition_id)
-      Redis.publish_async("event_count_subscription", event_definition_id)
+      Redis.publish_async("event_definitions_subscription", %{count: event_definition_id})
 
       CogyntLogger.info(
         "#{__MODULE__}",
@@ -103,7 +103,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
           include_deleted: true
         )
 
-      Redis.publish_async("event_count_subscription", event_definition_id)
+      Redis.publish_async("event_definitions_subscription", %{count: event_definition_id})
 
       process_page(next_page, event_definition)
     end

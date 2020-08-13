@@ -165,6 +165,41 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.update_all(set: set)
   end
 
+  @doc """
+  Deletes Event and removes their rows from the database.
+  ## Examples
+      iex> hard_delete_events(%{
+        filter: %{ids: "73c3c043-73ff-4d09-b206-029641880cf5"}
+      })
+      {3, nil}
+  """
+  def hard_delete_events(args) do
+    Enum.reduce(args, from(e in Event), fn
+      {:filter, filter}, q ->
+        filter_events(filter, q)
+    end)
+    |> Repo.delete_all(timeout: 60_000)
+  end
+
+  # ---------------------------------- #
+  # --- EventDetail Schema Methods --- #
+  # ---------------------------------- #
+  @doc """
+  Deletes EventDetails and removes their rows from the database.
+  ## Examples
+      ex> hard_delete_event_details(%{
+        filter: %{event_ids: "73c3c043-73ff-4d09-b206-029641880cf5"}
+      })
+      {3, nil}
+  """
+  def hard_delete_event_details(args) do
+    Enum.reduce(args, from(e in EventDetail), fn
+      {:filter, filter}, q ->
+        filter_event_details(filter, q)
+    end)
+    |> Repo.delete_all(timeout: 60_000)
+  end
+
   # -------------------------------------- #
   # --- EventDefinition Schema Methods --- #
   # -------------------------------------- #
@@ -369,6 +404,16 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         select(q, ^select)
     end)
     |> Repo.update_all(set: set)
+  end
+
+  @doc """
+  Hard deletes an event definition by removing it's from the database.
+  ## Examples
+      iex> hard_delete_event_definition(event_definition)
+      {:ok, %EventDefinition{}}
+  """
+  def hard_delete_event_definition(%EventDefinition{} = event_definition) do
+    Repo.delete(event_definition)
   end
 
   @doc """
@@ -716,6 +761,13 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       {:event_ids, event_ids}, q ->
         where(q, [e], e.id in ^event_ids)
+    end)
+  end
+
+  defp filter_event_details(filter, query) do
+    Enum.reduce(filter, query, fn
+      {:event_ids, event_ids}, q ->
+        where(q, [e], e.event_id in ^event_ids)
     end)
   end
 
