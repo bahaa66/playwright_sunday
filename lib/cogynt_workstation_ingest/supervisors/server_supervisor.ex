@@ -7,7 +7,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   alias CogyntWorkstationIngest.Servers.Caches.{
     ConsumerRetryCache,
     DeploymentConsumerRetryCache,
-    NotificationSubscriptionCache
+    NotificationSubscriptionCache,
+    DrilldownCache
   }
 
   alias CogyntWorkstationIngest.Servers.PubSub.{
@@ -33,6 +34,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
       child_spec(ConsumerRetryCache),
       child_spec(NotificationSubscriptionCache),
       child_spec(DeploymentConsumerRetryCache),
+      child_spec(DrilldownCache),
       child_spec(Startup),
       child_spec(ConsumerMonitor, restart: :permanent),
       child_spec(NotificationsTaskMonitor, restart: :permanent),
