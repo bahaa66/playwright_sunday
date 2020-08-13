@@ -17,11 +17,11 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
       producer: [
         module: {DrilldownProducer, []},
         concurrency: 1,
-        transformer: {__MODULE__, :transform, []},
-        rate_limiting: [
-          allowed_messages: Config.drilldown_producer_allowed_messages(),
-          interval: Config.drilldown_producer_rate_limit_interval()
-        ]
+        transformer: {__MODULE__, :transform, []}
+        # rate_limiting: [
+        #   allowed_messages: Config.drilldown_producer_allowed_messages(),
+        #   interval: Config.drilldown_producer_rate_limit_interval()
+        # ]
       ],
       processors: [
         default: [
