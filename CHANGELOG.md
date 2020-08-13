@@ -1,3 +1,11 @@
+## [1.6.0-develop.4](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.3...v1.6.0-develop.4) (2020-08-13)
+
+
+### :bug: Bugfix
+
+* **drilldown:** Merge pull request [#100](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/100) from Cogility/hotfix/increase-drilldown-processors ([3625f1e](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/3625f1e4ede6438ddbe6b5356a4be31a94cd1c3d))
+* **rate limiting:** Merge pull request [#106](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/106) from Cogility/hotfix/remove-broadway-rate-limiting ([aa871ee](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/aa871eed9d771d3c2819669588403d5cb21e65c5))
+
 ## [1.6.0-develop.3](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.2...v1.6.0-develop.3) (2020-08-13)
 
 
