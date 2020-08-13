@@ -98,7 +98,7 @@ config :cogynt_workstation_ingest, :link_event_pipeline,
     (System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || "90") |> String.to_integer()
 
 config :cogynt_workstation_ingest, :drilldown_pipeline,
-  processor_stages: (System.get_env("DRILLDOWN_PROCESSOR_STAGES") || "3") |> String.to_integer(),
+  processor_stages: (System.get_env("DRILLDOWN_PROCESSOR_STAGES") || "5") |> String.to_integer(),
   processor_max_demand:
     (System.get_env("DRILLDOWN_PROCESSOR_MAX_DEMAND") || "100") |> String.to_integer(),
   processor_min_demand:
@@ -128,9 +128,6 @@ config :cogynt_workstation_ingest, :deployment_retry_cache,
 
 config :cogynt_workstation_ingest, :notification_subscription_cache,
   notification_subscription_timer: System.get_env("NOTIFICATION_SUBSCRIPTION_TIMER") || 5000
-
-config :cogynt_workstation_ingest, :drilldown_cache,
-  time_delay: System.get_env("DRILLDOWN_CACHE_TIME_DELAY") || 1_000
 
 # rpc server/client configurations
 config :cogynt_workstation_ingest, :rpc,

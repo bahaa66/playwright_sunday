@@ -7,8 +7,9 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
   alias CogyntWorkstationIngest.Config
   alias Models.Deployments.Deployment
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngest.Drilldown.DrilldownContext
+  # alias CogyntWorkstationIngest.Drilldown.DrilldownContext
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
+  alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
 
   def start_link(arg) do
     Task.start_link(__MODULE__, :run, [arg])
@@ -70,7 +71,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
     if counter >= 6 do
       Redis.key_delete("drilldown_message_info")
       Redis.key_delete("drilldown_event_messages")
-      DrilldownContext.hard_delete_template_solutions_data()
+      DrilldownCache.reset_state()
+      # DrilldownContext.hard_delete_template_solutions_data()
       Process.sleep(2000)
 
       Enum.each(deployments, fn deployment ->
@@ -82,11 +84,13 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
         ConsumerGroupSupervisor.start_child(:drilldown, deployment)
       end)
     else
+      Redis.key_delete("drilldown_event_messages")
+
       case finished_processing?() do
         {:ok, true} ->
           Redis.key_delete("drilldown_message_info")
-          Redis.key_delete("drilldown_event_messages")
-          DrilldownContext.hard_delete_template_solutions_data()
+          # DrilldownContext.hard_delete_template_solutions_data()
+          DrilldownCache.reset_state()
           Process.sleep(2000)
 
           Enum.each(deployments, fn deployment ->
@@ -99,6 +103,11 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
           end)
 
         _ ->
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "DrilldownData still in pipeline, flushing and trying again in 10 seconds"
+          )
+
           Process.sleep(10_000)
           reset_drilldown(deployments, counter + 1)
       end
