@@ -115,6 +115,8 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
               "#{__MODULE__}",
               "Failed to decode json_message. Error: #{inspect(error, pretty: true)}"
             )
+
+            acc
         end
       end)
 

@@ -70,23 +70,31 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
     message_count = Enum.count(message_set)
     Redis.hash_increment_by("drilldown_message_info", "tmc", message_count)
 
-    Enum.each(message_set, fn %Fetch.Message{value: json_message} ->
-      case Jason.decode(json_message) do
-        {:ok, message} ->
-          Redis.list_append("drilldown_event_messages", %{
-            event: message,
-            retry_count: 0
-          })
+    list_items =
+      Enum.reduce(message_set, [], fn %Fetch.Message{value: json_message}, acc ->
+        case Jason.decode(json_message) do
+          {:ok, message} ->
+            acc ++
+              [
+                %{
+                  event: message,
+                  retry_count: 0
+                }
+              ]
 
-        {:error, error} ->
-          Redis.hash_increment_by("drilldown_message_info", "tmc", -1)
+          {:error, error} ->
+            Redis.hash_increment_by("drilldown_message_info", "tmc", -1)
 
-          CogyntLogger.error(
-            "#{__MODULE__}",
-            "Failed to decode json_message. Error: #{inspect(error)}"
-          )
-      end
-    end)
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "Failed to decode json_message. Error: #{inspect(error)}"
+            )
+
+            acc
+        end
+      end)
+
+    Redis.list_append_pipeline("drilldown_event_messages", list_items)
   end
 
   defp parse_failed_broadway_messages(broadway_messages) do
