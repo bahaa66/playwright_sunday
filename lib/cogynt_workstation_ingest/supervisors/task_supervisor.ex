@@ -16,7 +16,7 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
     UpdateNotificationSettingTask,
     DeleteEventDefinitionEventsTask,
     DeleteDrilldownDataTask,
-    DeleteTopicDataTask,
+    DeleteEventDefinitionsAndTopicsTask,
     DeleteDeploymentDataTask
   }
 
@@ -85,12 +85,12 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
         DeploymentTaskMonitor.monitor(pid)
         {:ok, pid}
 
-      {:delete_topic_data,
+      {:delete_event_definitions_and_topics,
        %{event_definition_ids: event_definition_ids, delete_topics: _delete_topics} = args} ->
         {:ok, pid} =
           DynamicSupervisor.start_child(
             __MODULE__,
-            {DeleteTopicDataTask, args}
+            {DeleteEventDefinitionsAndTopicsTask, args}
           )
 
         EventDefinitionTaskMonitor.monitor(pid, event_definition_ids)

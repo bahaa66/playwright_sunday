@@ -57,7 +57,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DeleteEventDefinitionDataCache 
           :ready ->
             # Trigger delete
             TaskSupervisor.start_child(%{
-              delete_topic_data: %{
+              delete_event_definitions_and_topics: %{
                 event_definition_ids: [event_definition_id],
                 hard_delete: hard_del,
                 delete_topics: false

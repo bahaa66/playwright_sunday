@@ -618,7 +618,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     is_nil(enumerable) or Enum.empty?(enumerable)
   end
 
-  defp is_null_or_empty?(binary) when is_binary(binary) do
+  defp is_null_or_empty?(binary) do
     is_nil(binary) or binary == ""
   end
 end

@@ -5,12 +5,13 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
   """
   use Task
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
-  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
+  alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, TaskSupervisor}
   alias CogyntWorkstationIngest.Servers.Caches.DeploymentConsumerRetryCache
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
-  alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask
+
+  alias Models.Events.EventDefinition
 
   def start_link(arg) do
     Task.start_link(__MODULE__, :run, [arg])
@@ -75,8 +76,22 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
   end
 
   defp reset_deployment_data() do
+    event_definitions = EventsContext.list_event_definitions()
+
+    event_definition_ids =
+      Enum.reduce(event_definitions, [], fn event_definition, acc ->
+        acc ++ [event_definition.id]
+      end)
+
+    TaskSupervisor.start_child(%{
+      delete_event_definitions_and_topics: %{
+        event_definition_ids: event_definition_ids,
+        hard_delete: true,
+        delete_topics: true
+      }
+    })
+
     DeploymentsContext.hard_delete_deployments()
-    # TODO: Need to call delete_event_definition with all event_def_ids and hard_Delete true
     Process.sleep(2000)
     CogyntLogger.info("#{__MODULE__}", "Starting the Deployment ConsumerGroup")
 

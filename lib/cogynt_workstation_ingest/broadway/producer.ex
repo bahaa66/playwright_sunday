@@ -32,7 +32,9 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   end
 
   def flush_queue(event_definition_id) do
+    {:ok, list_length} = Redis.list_length("a:#{event_definition_id}")
     Redis.key_delete("a:#{event_definition_id}")
+    Redis.hash_increment_by("b:#{event_definition_id}", "tmc", -list_length)
   end
 
   # ------------------------ #

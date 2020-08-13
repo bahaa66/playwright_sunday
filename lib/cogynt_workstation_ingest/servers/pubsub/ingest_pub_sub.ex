@@ -141,7 +141,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
             if length(event_definition_ids) > 0 do
               TaskSupervisor.start_child(%{
-                delete_topic_data: %{
+                delete_event_definitions_and_topics: %{
                   event_definition_ids: event_definition_ids,
                   hard_delete: false,
                   delete_topics: delete_topics
