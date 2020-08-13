@@ -1,3 +1,10 @@
+### [1.6.3](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.2...v1.6.3) (2020-08-13)
+
+
+### :bug: Bugfix
+
+* **rate limiting:** Merge pull request [#106](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/106) from Cogility/hotfix/remove-broadway-rate-limiting ([de57121](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/de571210cf4676c3f99d39b83d5c9cefd5cba157))
+
 ### [1.6.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.1...v1.6.2) (2020-08-13)
 
 
