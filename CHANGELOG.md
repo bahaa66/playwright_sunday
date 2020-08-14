@@ -1,3 +1,10 @@
+### [1.6.4](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.3...v1.6.4) (2020-08-14)
+
+
+### :bug: Bugfix
+
+* **ingest app restart:** Merge pull request [#107](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/107) from Cogility/hotfix/producer-keys-to-redis ([aeb769c](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/aeb769c3548398dd8371fd10e517afaaebf4ead0))
+
 ### [1.6.3](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.2...v1.6.3) (2020-08-13)
 
 
