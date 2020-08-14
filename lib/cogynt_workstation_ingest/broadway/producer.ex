@@ -259,9 +259,6 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
        ) do
     {:ok, list_length} = Redis.list_length("a:#{event_definition_id}")
 
-    IO.inspect(fetch_count, label: "***FETCH COUNT")
-    IO.inspect(list_length, label: "LIST LENGTH")
-
     {list_items, updated_event_definition_ids} =
       case list_length >= fetch_count and fetch_count > 0 do
         true ->
@@ -312,10 +309,6 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
             val ->
               val
           end
-
-        IO.inspect(Enum.count(new_messages), label: "MESSAGE COUNT")
-        IO.inspect(demand, label: "PRE DEMAND")
-        IO.inspect(new_demand, label: "NEW DEMAND")
 
         new_state =
           Map.put(state, :event_definition_ids, updated_event_definition_ids)
