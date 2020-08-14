@@ -423,7 +423,14 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
       cond do
         consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
-          TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+          if is_nil(DeleteEventDefinitionDataCache.get_status(event_definition_id)) do
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Triggering backfill notifications task: #{inspect(notification_setting_id)}"
+            )
+
+            TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+          end
 
           upsert_consumer_state(
             event_definition_id,
@@ -452,7 +459,13 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
         consumer_state.status ==
             ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-          if Enum.member?(consumer_state.nsid, notification_setting_id) do
+          if Enum.member?(consumer_state.nsid, notification_setting_id) and
+               is_nil(DeleteEventDefinitionDataCache.get_status(event_definition_id)) do
+                CogyntLogger.info(
+                  "#{__MODULE__}",
+                  "Triggering backfill notifications task: #{inspect(notification_setting_id)}"
+                )
+
             TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
           end
 
@@ -471,7 +484,13 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
           case finished_processing?(event_definition_id) do
             {:ok, true} ->
-              TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+              if is_nil(DeleteEventDefinitionDataCache.get_status(event_definition_id)) do
+                CogyntLogger.info(
+                  "#{__MODULE__}",
+                  "Triggering backfill notifications task: #{inspect(notification_setting_id)}"
+                )
+                TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+              end
 
               upsert_consumer_state(
                 event_definition_id,
@@ -522,7 +541,13 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
       cond do
         consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
-          TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
+          if is_nil(DeleteEventDefinitionDataCache.get_status(event_definition_id)) do
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Triggering update notifications task: #{inspect(notification_setting_id)}"
+            )
+            TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
+          end
 
           upsert_consumer_state(
             event_definition_id,
@@ -551,7 +576,13 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
         consumer_state.status ==
             ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-          if Enum.member?(consumer_state.nsid, notification_setting_id) do
+          if Enum.member?(consumer_state.nsid, notification_setting_id) and
+               is_nil(DeleteEventDefinitionDataCache.get_status(event_definition_id)) do
+                CogyntLogger.info(
+                  "#{__MODULE__}",
+                  "Triggering update notifications task: #{inspect(notification_setting_id)}"
+                )
+
             TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
           end
 
@@ -570,7 +601,14 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
           case finished_processing?(event_definition_id) do
             {:ok, true} ->
-              TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
+              if is_nil(DeleteEventDefinitionDataCache.get_status(event_definition_id)) do
+                CogyntLogger.info(
+                  "#{__MODULE__}",
+                  "Triggering update notifications task: #{inspect(notification_setting_id)}"
+                )
+
+                TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
+              end
 
               upsert_consumer_state(
                 event_definition_id,
@@ -675,7 +713,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
   defp check_if_event_definition_is_waiting_deletion(event_definition_id, new_status) do
     case DeleteEventDefinitionDataCache.get_status(event_definition_id) do
-      %{} ->
+      nil ->
+        IO.inspect(new_status, label: "Changing Status && Delete Cache Empty")
         nil
 
       _ ->
@@ -685,7 +724,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
             nil
 
           true ->
-            DeleteEventDefinitionDataCache.update_status(event_definition_id,
+            DeleteEventDefinitionDataCache.upsert_status(event_definition_id,
               status: :ready
             )
         end

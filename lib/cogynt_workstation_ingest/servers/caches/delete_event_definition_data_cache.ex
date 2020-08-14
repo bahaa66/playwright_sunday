@@ -15,14 +15,17 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DeleteEventDefinitionDataCache 
   end
 
   def get_status(event_definition_id) do
+    IO.puts("GET STATUS")
     GenServer.call(__MODULE__, {:get_status, event_definition_id})
   end
 
-  def update_status(event_definition_id, args) do
-    GenServer.cast(__MODULE__, {:update_status, event_definition_id, args})
+  def upsert_status(event_definition_id, args) do
+    IO.inspect(args, label: "UPDATING STATUS")
+    GenServer.cast(__MODULE__, {:upsert_status, event_definition_id, args})
   end
 
   def remove_status(event_definition_id) do
+    IO.puts("REMOVING STATUS")
     GenServer.cast(__MODULE__, {:remove_status, event_definition_id})
   end
 
@@ -36,50 +39,40 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DeleteEventDefinitionDataCache 
 
   @impl true
   def handle_call({:get_status, event_definition_id}, _from, state) do
-    {:reply, Map.get(state, event_definition_id, %{}), state}
+    {:reply, Map.get(state, event_definition_id, nil), state}
   end
 
   @impl true
-  def handle_cast({:update_status, event_definition_id, args}, state) do
-    status = Keyword.get(args, :status)
+  def handle_cast({:upsert_status, event_definition_id, args}, state) do
+    new_status = Keyword.get(args, :status)
     hard_delete = Keyword.get(args, :hard_delete, false)
 
-    case Map.get(state, event_definition_id, %{}) do
-      %{} ->
-        new_ed_state =
-          Map.put(%{}, :status, status)
-          |> Map.put(:hard_delete, hard_delete)
+    case Map.get(state, event_definition_id, nil) do
+      nil ->
+        {:noreply,
+         Map.put(
+           state,
+           event_definition_id,
+           Map.new([{:status, new_status}, {:hard_delete, hard_delete}])
+         )}
 
-        {:noreply, Map.put(state, event_definition_id, new_ed_state)}
-
-      %{status: :waiting, hard_delete: hard_del} = ed ->
-        case status do
-          :ready ->
-            # Trigger delete
+      %{status: status, hard_delete: delete} = ed ->
+        cond do
+          status == :waiting and new_status == :ready ->
             TaskSupervisor.start_child(%{
               delete_event_definitions_and_topics: %{
                 event_definition_ids: [event_definition_id],
-                hard_delete: hard_del,
+                hard_delete: delete,
                 delete_topics: false
               }
             })
 
             {:noreply, Map.delete(state, event_definition_id)}
 
-          _ ->
-            new_ed_state =
-              Map.put(ed, :status, status)
-              |> Map.put(:hard_delete, hard_delete)
-
+          true ->
+            new_ed_state = Map.put(ed, :status, new_status)
             {:noreply, Map.put(state, event_definition_id, new_ed_state)}
         end
-
-      ed ->
-        new_ed_state =
-          Map.put(ed, :status, status)
-          |> Map.put(:hard_delete, hard_delete)
-
-        {:noreply, Map.put(state, event_definition_id, new_ed_state)}
     end
   end
 

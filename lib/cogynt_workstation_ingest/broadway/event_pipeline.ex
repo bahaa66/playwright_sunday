@@ -131,11 +131,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     cond do
       status ==
           ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Triggering backfill notifications task: #{inspect(nsid, pretty: true)}"
-        )
-
         Enum.each(nsid, fn id ->
           ConsumerStateManager.manage_request(%{
             backfill_notifications: id
@@ -144,11 +139,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
       status ==
           ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Triggering update notifications task: #{inspect(nsid, pretty: true)}"
-        )
-
         Enum.each(nsid, fn id ->
           ConsumerStateManager.manage_request(%{
             update_notification_setting: id

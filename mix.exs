@@ -85,7 +85,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :elasticsearch,
-        tag: "v1.7.3",
+        # tag: "v1.7.3",
+        branch: "feature/CDST-647-redis-expire-methods",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
         override: true

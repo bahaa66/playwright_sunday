@@ -89,7 +89,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
                   "Messages still processing. Will finish DevDelete when they are flushed from pipeline"
                 )
 
-                DeleteEventDefinitionDataCache.update_status(event_definition.id,
+                DeleteEventDefinitionDataCache.upsert_status(event_definition.id,
                   status: :waiting,
                   hard_delete: hard_delete_event_definitions
                 )
@@ -106,7 +106,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
               "Messages still processing. Will finish DevDelete when they are flushed from pipeline"
             )
 
-            DeleteEventDefinitionDataCache.update_status(event_definition.id,
+            DeleteEventDefinitionDataCache.upsert_status(event_definition.id,
               status: :waiting,
               hard_delete: hard_delete_event_definitions
             )
@@ -158,13 +158,15 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
     # Sixth delete all event_definition_data. Anything linked to the
     # event_definition_id
     page =
-      EventsContext.get_page_of_events(%{
-        filter: %{event_definition_id: event_definition.id},
+      EventsContext.get_page_of_events(
+        %{
+          filter: %{event_definition_id: event_definition.id}
+        },
         page_number: 1,
         page_size: 100,
         preload_details: false,
         include_deleted: true
-      })
+      )
 
     if length(page.entries) > 0 do
       delete_event_definition_data(page, event_definition.id)
@@ -301,13 +303,15 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
       )
     else
       next_page =
-        EventsContext.get_page_of_events(%{
-          filter: %{event_definition_id: event_definition_id},
+        EventsContext.get_page_of_events(
+          %{
+            filter: %{event_definition_id: event_definition_id}
+          },
           page_number: page_number + 1,
           page_size: 100,
           preload_details: false,
           include_deleted: true
-        })
+        )
 
       delete_event_definition_data(next_page, event_definition_id)
     end
