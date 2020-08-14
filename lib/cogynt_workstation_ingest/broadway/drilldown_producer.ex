@@ -57,6 +57,11 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   end
 
   @impl true
+  def handle_info(:retry_failed_messages, %{demand: 0} = state) do
+    {:noreply, [], state}
+  end
+
+  @impl true
   def handle_info(:retry_failed_messages, state) do
     {messages, new_state} = fetch_and_release_failed_messages_from_redis(state)
     {:noreply, messages, new_state}
@@ -122,72 +127,107 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   end
 
   defp fetch_demand_from_redis(%{demand: demand} = state) do
-    {:ok, list_length} = Redis.list_length("drilldown_event_messages")
+    if demand <= 0 do
+      {[], state}
+    else
+      {:ok, list_length} = Redis.list_length("drilldown_event_messages")
 
-    list_items =
-      case list_length >= demand do
-        true ->
-          # Get List Range by fetch_count
-          {:ok, list_items} = Redis.list_range("drilldown_event_messages", 0, demand - 1)
+      list_items =
+        case list_length >= demand and demand > 0 do
+          true ->
+            # Get List Range by fetch_count
+            {:ok, list_items} = Redis.list_range("drilldown_event_messages", 0, demand - 1)
 
-          # Trim List Range by fetch_count
-          Redis.list_trim("drilldown_event_messages", demand, 100_000_000)
+            # Trim List Range by fetch_count
+            Redis.list_trim("drilldown_event_messages", demand, 100_000_000)
 
-          list_items
+            list_items
 
-        false ->
-          # Get List Range by list_length
-          {:ok, list_items} = Redis.list_range("drilldown_event_messages", 0, list_length - 1)
+          false ->
+            if list_length > 0 do
+              # Get List Range by list_length
+              {:ok, list_items} = Redis.list_range("drilldown_event_messages", 0, list_length - 1)
 
-          # Trim List Range by list_length
-          Redis.list_trim("drilldown_event_messages", list_length, -1)
+              # Trim List Range by list_length
+              Redis.list_trim("drilldown_event_messages", list_length, -1)
 
-          list_items
+              list_items
+            else
+              []
+            end
+        end
+
+      case list_items do
+        [] ->
+          {[], state}
+
+        new_messages ->
+          new_demand =
+            case demand - Enum.count(new_messages) do
+              val when val < 0 ->
+                0
+
+              val ->
+                val
+            end
+
+          new_state = Map.put(state, :demand, new_demand)
+
+          {new_messages, new_state}
       end
-
-    case list_items do
-      [] ->
-        {[], state}
-
-      new_messages ->
-        new_state = Map.put(state, :demand, demand - Enum.count(new_messages))
-
-        {new_messages, new_state}
     end
   end
 
   defp fetch_and_release_failed_messages_from_redis(%{demand: demand} = state) do
-    {:ok, list_length} = Redis.list_length("drilldown_failed_messages")
+    if demand <= 0 do
+      {[], state}
+    else
+      {:ok, list_length} = Redis.list_length("drilldown_failed_messages")
 
-    list_items =
-      case list_length >= demand do
-        true ->
-          # Get List Range by fetch_count
-          {:ok, list_items} = Redis.list_range("drilldown_failed_messages", 0, demand - 1)
+      list_items =
+        case list_length >= demand do
+          true ->
+            # Get List Range by fetch_count
+            {:ok, list_items} = Redis.list_range("drilldown_failed_messages", 0, demand - 1)
 
-          # Trim List Range by fetch_count
-          Redis.list_trim("drilldown_failed_messages", demand, 100_000_000)
+            # Trim List Range by fetch_count
+            Redis.list_trim("drilldown_failed_messages", demand, 100_000_000)
 
-          list_items
+            list_items
 
-        false ->
-          # Get List Range by list_length
-          {:ok, list_items} = Redis.list_range("drilldown_failed_messages", 0, list_length - 1)
+          false ->
+            if list_length > 0 do
+              # Get List Range by list_length
+              {:ok, list_items} =
+                Redis.list_range("drilldown_failed_messages", 0, list_length - 1)
 
-          # Trim List Range by list_length
-          Redis.list_trim("drilldown_failed_messages", list_length, -1)
+              # Trim List Range by list_length
+              Redis.list_trim("drilldown_failed_messages", list_length, -1)
 
-          list_items
+              list_items
+            else
+              []
+            end
+        end
+
+      case list_items do
+        [] ->
+          {[], state}
+
+        new_messages ->
+          new_demand =
+            case demand - Enum.count(new_messages) do
+              val when val < 0 ->
+                0
+
+              val ->
+                val
+            end
+
+          new_state = Map.put(state, :demand, new_demand)
+
+          {new_messages, new_state}
       end
-
-    case list_items do
-      [] ->
-        {[], state}
-
-      new_messages ->
-        new_state = Map.put(state, :demand, demand - Enum.count(new_messages))
-
-        {new_messages, new_state}
     end
   end
 end
