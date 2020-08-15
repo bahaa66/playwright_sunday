@@ -256,4 +256,8 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         :ok
     end
   end
+
+  defp is_null_or_empty?(enumerable) do
+    is_nil(enumerable) or Enum.empty?(enumerable)
+  end
 end
