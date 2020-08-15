@@ -89,7 +89,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           event_details: event_details,
           link_events: link_events,
           delete_event_ids: delete_event_ids,
-          event_docs: event_docs,
+          event_docs: event_doc_data,
           risk_history_doc: risk_history_doc,
           delete_docs: doc_ids,
           crud_action: action,
@@ -97,7 +97,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         } = data
       ) do
     # elasticsearch updates
-    update_event_docs(event_docs, doc_ids)
+    update_event_docs(event_doc_data, doc_ids)
     update_risk_history_doc(risk_history_doc)
 
     transaction_result =
@@ -166,7 +166,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           event_details: event_details,
           link_events: link_events,
           delete_event_ids: delete_event_ids,
-          event_docs: event_docs,
+          event_docs: event_doc_data,
           risk_history_doc: risk_history_doc,
           delete_docs: doc_ids,
           crud_action: action,
@@ -174,7 +174,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         } = data
       ) do
     # elasticsearch updates
-    update_event_docs(event_docs, doc_ids)
+    update_event_docs(event_doc_data, doc_ids)
     update_risk_history_doc(risk_history_doc)
 
     transaction_result =
@@ -212,13 +212,33 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp update_event_docs(event_docs, event_doc_ids) do
-    case is_nil(event_doc_ids) or Enum.empty?(event_doc_ids) do
-      true ->
-        {:ok, _} = Elasticsearch.bulk_upsert_document(Config.event_index_alias(), event_docs)
+  defp update_event_docs(
+         %{event_docs: event_docs, remove_docs_for_update: remove_docs_for_update},
+         delete_event_doc_ids
+       ) do
+    if is_null_or_empty?(delete_event_doc_ids) == false do
+      {:ok, _} =
+        Elasticsearch.bulk_delete_document(Config.event_index_alias(), delete_event_doc_ids)
+    else
+      if is_null_or_empty?(remove_docs_for_update) == false do
+        {:ok, _} =
+          Elasticsearch.bulk_delete_document(Config.event_index_alias(), remove_docs_for_update)
+      end
 
-      false ->
-        {:ok, _} = Elasticsearch.bulk_delete_document(Config.event_index_alias(), event_doc_ids)
+      if is_null_or_empty?(event_docs) == false do
+        {:ok, %{"errors" => errors}} =
+          Elasticsearch.bulk_upsert_document(
+            Config.event_index_alias(),
+            event_docs
+          )
+
+        if errors do
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "Elasticsearch.bulk_upsert_document/3 errors was true"
+          )
+        end
+      end
     end
   end
 
@@ -235,5 +255,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
       false ->
         :ok
     end
+  end
+
+  defp is_null_or_empty?(enumerable) do
+    is_nil(enumerable) or Enum.empty?(enumerable)
   end
 end
