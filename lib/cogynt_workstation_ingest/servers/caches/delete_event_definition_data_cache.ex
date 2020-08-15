@@ -59,6 +59,8 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DeleteEventDefinitionDataCache 
       %{status: status, hard_delete: delete} = ed ->
         cond do
           status == :waiting and new_status == :ready ->
+            Process.sleep(1000)
+
             TaskSupervisor.start_child(%{
               delete_event_definitions_and_topics: %{
                 event_definition_ids: [event_definition_id],

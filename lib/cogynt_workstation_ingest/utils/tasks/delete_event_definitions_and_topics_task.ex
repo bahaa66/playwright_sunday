@@ -190,20 +190,21 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
       ConsumerStateManager.remove_consumer_state(event_definition.id)
       DeleteEventDefinitionDataCache.remove_status(event_definition.id)
 
-      Redis.publish_async(
-        "event_definition_subscription",
-        %{
-          deleted:
-            Map.merge(
-              # ??
-              deleted_event_definition,
-              %{
-                is_being_deleted: false,
-                active: false
-              }
-            )
-        }
-      )
+      # TODO: Do i need to set the active and deleted values ? and can this be
+      # a map or does it have to be a struct ?
+      # Redis.publish_async(
+      #   "event_definition_subscription",
+      #   %{
+      #     deleted:
+      #       Map.merge(
+      #         deleted_event_definition,
+      #         %{
+      #           is_being_deleted: false,
+      #           active: false
+      #         }
+      #       )
+      #   }
+      # )
     else
       case EventsContext.update_event_definition(event_definition, %{
              active: false,
@@ -213,29 +214,31 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
           ConsumerStateManager.remove_consumer_state(event_definition.id)
           DeleteEventDefinitionDataCache.remove_status(event_definition.id)
 
-          Redis.publish_async(
-            "event_definitions_subscription",
-            %{
-              deleted:
-                Map.merge(
-                  # ??
-                  updated_event_definition,
-                  %{
-                    is_being_deleted: false,
-                    active: false
-                  }
-                )
-            }
-          )
+          # TODO: Do i need to set the active and deleted values ? and can this be
+          # a map or does it have to be a struct ?
+          # Redis.publish_async(
+          #   "event_definitions_subscription",
+          #   %{
+          #     deleted:
+          #       Map.merge(
+          #         updated_event_definition,
+          #         %{
+          #           is_being_deleted: false,
+          #           active: false
+          #         }
+          #       )
+          #   }
+          # )
 
-          Enum.each(notification_settings, fn ns ->
-            Redis.publish_async(
-              "notification_settings_subscription",
-              %{
-                deleted: ns
-              }
-            )
-          end)
+          # TODO: Can this be a map or does it have to be a struct ?
+          # Enum.each(notification_settings, fn ns ->
+          #   Redis.publish_async(
+          #     "notification_settings_subscription",
+          #     %{
+          #       deleted: ns
+          #     }
+          #   )
+          # end)
 
           CogyntLogger.info(
             "#{__MODULE__}",
