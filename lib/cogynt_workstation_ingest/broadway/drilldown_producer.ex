@@ -25,6 +25,12 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
     GenServer.cast(List.first(process_names), {:enqueue_failed_messages, broadway_messages})
   end
 
+  def flush_queue() do
+    {:ok, list_length} = Redis.list_length("drilldown_event_messages")
+    Redis.key_delete("drilldown_event_messages")
+    Redis.hash_increment_by("drilldown_message_info", "tmc", -list_length)
+  end
+
   # ------------------------ #
   # --- server callbacks --- #
   # ------------------------ #
@@ -51,6 +57,8 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   @impl true
   def handle_demand(incoming_demand, %{demand: demand} = state) when incoming_demand > 0 do
     total_demand = incoming_demand + demand
+    IO.inspect(incoming_demand, label: "*** INCOMING DEMAND")
+    IO.inspect(demand, label: "*** CURRENT DEMAND")
     new_state = Map.put(state, :demand, total_demand)
     {messages, new_state} = fetch_demand_from_redis(new_state)
     {:noreply, messages, new_state}
@@ -127,6 +135,8 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   end
 
   defp fetch_demand_from_redis(%{demand: demand} = state) do
+    IO.inspect(demand, label: "*** FETCH COUNT")
+
     if demand <= 0 do
       {[], state}
     else
@@ -170,6 +180,9 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
               val ->
                 val
             end
+
+          IO.inspect(new_demand, label: "NEW DEMAND")
+          IO.inspect(Enum.count(new_messages), label: "MESSAGE COUNT")
 
           new_state = Map.put(state, :demand, new_demand)
 
