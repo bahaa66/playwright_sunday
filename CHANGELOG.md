@@ -1,3 +1,10 @@
+## [1.6.0-develop.7](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.6...v1.6.0-develop.7) (2020-08-16)
+
+
+### :bug: Bugfix
+
+* **drilldown:** Merge pull request [#109](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/109) from Cogility/hotfix/drilldown-cache-bug-fixes ([86382a0](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/86382a04603664c4013ce68109bbc33fa679acee))
+
 ## [1.6.0-develop.6](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.5...v1.6.0-develop.6) (2020-08-15)
 
 
