@@ -7,9 +7,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
   alias CogyntWorkstationIngest.Config
   alias Models.Deployments.Deployment
   alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, TaskSupervisor}
-  #alias CogyntWorkstationIngest.Drilldown.DrilldownContext
+  # alias CogyntWorkstationIngest.Drilldown.DrilldownContext
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
+  alias CogyntWorkstationIngest.Broadway.DrilldownProducer
 
   def start_link(arg) do
     Task.start_link(__MODULE__, :run, [arg])
@@ -78,7 +79,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
   defp reset_drilldown(deployments, counter \\ 0) do
     if counter >= 6 do
       Redis.key_delete("drilldown_message_info")
-      Redis.key_delete("drilldown_event_messages")
       DrilldownCache.reset_state()
       # DrilldownContext.hard_delete_template_solutions_data()
       Process.sleep(2000)
@@ -92,7 +92,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
         ConsumerGroupSupervisor.start_child(:drilldown, deployment)
       end)
     else
-      Redis.key_delete("drilldown_event_messages")
+      DrilldownProducer.flush_queue()
 
       case finished_processing?() do
         {:ok, true} ->
