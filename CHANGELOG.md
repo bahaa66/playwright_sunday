@@ -1,3 +1,10 @@
+## [1.6.0-develop.6](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.5...v1.6.0-develop.6) (2020-08-15)
+
+
+### :bug: Bugfix
+
+* **elastic link event changes:** Merge pull request [#108](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/108) from Cogility/hotfix/update-link-event-processor ([a1d5da9](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/a1d5da9e959819bb78ae50a6b6517ffe93fbaac0))
+
 ## [1.6.0-develop.5](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.4...v1.6.0-develop.5) (2020-08-14)
 
 
