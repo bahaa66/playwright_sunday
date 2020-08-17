@@ -12,6 +12,9 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
 
   @impl true
   def init(_args) do
+    # Trap exit
+    Process.flag(:trap_exit, true)
+
     {:producer, %{demand: 0}}
   end
 
@@ -79,6 +82,35 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   def handle_info(:retry_failed_messages, state) do
     {messages, new_state} = fetch_and_release_failed_messages_from_redis(state)
     {:noreply, messages, new_state}
+  end
+
+  @impl true
+  def handle_info({:EXIT, _pid, :normal}, state) do
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "GenStage DrilldownProducer being shutdown... Redis state being flushed"
+    )
+
+    Redis.key_delete("drilldown_event_messages")
+    Redis.key_delete("drilldown_message_info")
+
+    {:noreply, state}
+  end
+
+  # Callback that will persist data to the filesystem before the server shuts down
+  @impl true
+  def terminate(reason, state) do
+    CogyntLogger.warn(
+      "#{__MODULE__}",
+      "GenStage DrilldownProducer crashed for the following reason: #{
+        inspect(reason, pretty: true)
+      }... Redis state being flushed"
+    )
+
+    Redis.key_delete("drilldown_event_messages")
+    Redis.key_delete("drilldown_message_info")
+
+    {:stop, reason, state}
   end
 
   # ----------------------- #
