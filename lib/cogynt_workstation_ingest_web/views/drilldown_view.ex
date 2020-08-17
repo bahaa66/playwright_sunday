@@ -41,14 +41,17 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
 
       if id do
         # {:ok, inst} = DrilldownContext.get_template_solution_data(id)
-        {:ok, inst} = DrilldownCache.get(id)
+        case DrilldownCache.get(id) do
+          {:ok, nil} ->
+            nil
 
-        # inst
-        if info.id == Map.get(inst, :id, nil) or
-             Enum.member?(info["#visited"], Map.get(inst, :id, nil)) do
-          nil
-        else
-          inst
+          {:ok, inst} ->
+            # inst
+            if info.id == inst.id or Enum.member?(info["#visited"], inst.id) do
+              nil
+            else
+              inst
+            end
         end
       else
         nil
@@ -57,7 +60,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
     |> Enum.filter(&(&1 != nil))
     |> Enum.uniq()
     |> Enum.map(fn inst ->
-      inst_id = Map.get(inst, :id, nil)
+      inst_id = inst.id
       visited = [inst_id | info["#visited"]]
       # Convert id to a unique id combining parent and child ids
       # put original id in "key", only if the parent has key.  This
@@ -65,10 +68,10 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
       # show use the real id.
       if info["key"] do
         inst
-        |> Map.put("key", Map.get(inst, :id, nil))
+        |> Map.put("key", inst.id)
         |> Map.put(
           :id,
-          info.id <> "|" <> Map.get(inst, :id, nil) <> "|" <> (inst.assertion_id || "")
+          info.id <> "|" <> inst.id <> "|" <> (inst.assertion_id || "")
         )
       else
         inst

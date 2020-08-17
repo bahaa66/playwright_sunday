@@ -1,3 +1,10 @@
+## [1.6.0-develop.8](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.7...v1.6.0-develop.8) (2020-08-16)
+
+
+### :bug: Bugfix
+
+* **debug:** Merge pull request [#110](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/110) from Cogility/hotfix/drilldown-processor-demand ([04448e7](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/04448e79fbed63cf80c19a755b748f35d207aa11))
+
 ## [1.6.0-develop.7](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.6...v1.6.0-develop.7) (2020-08-16)
 
 

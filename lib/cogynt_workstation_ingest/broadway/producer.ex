@@ -64,9 +64,15 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   end
 
   def flush_queue(event_definition_id) do
-    {:ok, list_length} = Redis.list_length("a:#{event_definition_id}")
-    Redis.key_delete("a:#{event_definition_id}")
-    Redis.hash_increment_by("b:#{event_definition_id}", "tmc", -list_length)
+    case Redis.key_exists?("a:#{event_definition_id}") do
+      {:ok, false} ->
+        Redis.hash_set("b:#{event_definition_id}", "tmc", 0)
+
+      {:ok, true} ->
+        {:ok, list_length} = Redis.list_length("a:#{event_definition_id}")
+        Redis.key_delete("a:#{event_definition_id}")
+        Redis.hash_increment_by("b:#{event_definition_id}", "tmc", -list_length)
+    end
   end
 
   # ------------------------ #
@@ -102,8 +108,8 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   end
 
   @impl true
-  def handle_cast({:enqueue_failed_messages, broadway_messages}, state) do
-    parse_failed_broadway_messages(broadway_messages)
+  def handle_cast({:enqueue_failed_messages, broadway_messages}, %{name: name} = state) do
+    parse_failed_broadway_messages(broadway_messages, name)
     Process.send_after(self(), :retry_failed_messages, Config.producer_time_delay())
     {:noreply, [], state}
   end
@@ -198,7 +204,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   # Parse the %Broadway.Message{} struct returned from Broadway
   # pipeline and encode the failed_messages and append it to the List
   # in Redis
-  defp parse_failed_broadway_messages(broadway_messages) do
+  defp parse_failed_broadway_messages(broadway_messages, name) do
     Enum.each(broadway_messages, fn %Broadway.Message{
                                       data: %{
                                         event: message,
@@ -219,7 +225,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
           "Retrying Failed Message, Id: #{event_definition_id}. Attempt: #{retry_count + 1}"
         )
 
-        Redis.list_append("a:failed_messages", %{
+        Redis.list_append(name <> "failed_messages", %{
           event: message,
           event_definition_id: event_definition_id,
           event_id: event_id,
@@ -263,10 +269,17 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
          messages,
          %{event_definition_ids: event_definition_ids, name: name, demand: demand} = state
        ) do
-    {:ok, list_length} = Redis.list_length("a:#{event_definition_id}")
+    {:ok, list_length} =
+      case Redis.key_exists?("a:#{event_definition_id}") do
+        {:ok, false} ->
+          {:ok, 0}
+
+        {:ok, true} ->
+          Redis.list_length("a:#{event_definition_id}")
+      end
 
     {list_items, updated_event_definition_ids} =
-      case list_length >= fetch_count and fetch_count > 0 do
+      case list_length >= fetch_count do
         true ->
           # Get List Range by fetch_count
           {:ok, list_items} = Redis.list_range("a:#{event_definition_id}", 0, fetch_count - 1)
@@ -277,6 +290,11 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
           {list_items, event_definition_ids}
 
         false ->
+          # There is no more data left to process. Remove from the list
+          updated_event_definition_ids = List.delete(event_definition_ids, event_definition_id)
+
+          Redis.hash_set(name, "event_definition_ids", updated_event_definition_ids)
+
           if list_length > 0 do
             # Get List Range by list_length
             {:ok, list_items} = Redis.list_range("a:#{event_definition_id}", 0, list_length - 1)
@@ -284,25 +302,14 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
             # Trim List Range by list_length
             Redis.list_trim("a:#{event_definition_id}", list_length, -1)
 
-            # There is no more data left to process. Remove from the list
-            updated_event_definition_ids = List.delete(event_definition_ids, event_definition_id)
-
-            Redis.hash_set(name, "event_definition_ids", updated_event_definition_ids)
-
             {list_items, updated_event_definition_ids}
           else
-            # There is no more data left to process. Remove from the list
-            updated_event_definition_ids = List.delete(event_definition_ids, event_definition_id)
-
-            Redis.hash_set(name, "event_definition_ids", updated_event_definition_ids)
-
             {[], updated_event_definition_ids}
           end
       end
 
     case list_items do
       [] ->
-        IO.puts("HERE")
         new_state = Map.put(state, :event_definition_ids, updated_event_definition_ids)
         {messages, new_state}
 
@@ -326,27 +333,34 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
 
   # Will fetch the failed_messages from Redis list based on the demand
   # or the size of the Redis List
-  defp fetch_and_release_failed_messages(%{demand: demand} = state) do
-    {:ok, list_length} = Redis.list_length("a:failed_messages")
+  defp fetch_and_release_failed_messages(%{demand: demand, name: name} = state) do
+    {:ok, list_length} =
+      case Redis.key_exists?(name <> "failed_messages") do
+        {:ok, false} ->
+          {:ok, 0}
+
+        {:ok, true} ->
+          Redis.list_length(name <> "failed_messages")
+      end
 
     list_items =
-      case list_length >= demand and demand > 0 do
+      case list_length >= demand do
         true ->
           # Get List Range by demand
-          {:ok, list_items} = Redis.list_range("a:failed_messages", 0, demand - 1)
+          {:ok, list_items} = Redis.list_range(name <> "failed_messages", 0, demand - 1)
 
           # Trim List Range by demand
-          Redis.list_trim("a:failed_messages", demand, 100_000_000)
+          Redis.list_trim(name <> "failed_messages", demand, 100_000_000)
 
           list_items
 
         false ->
           if list_length > 0 do
             # Get List Range by list_length
-            {:ok, list_items} = Redis.list_range("a:failed_messages", 0, list_length - 1)
+            {:ok, list_items} = Redis.list_range(name <> "failed_messages", 0, list_length - 1)
 
             # Trim List Range by list_length
-            Redis.list_trim("a:failed_messages", list_length, -1)
+            Redis.list_trim(name <> "failed_messages", list_length, -1)
 
             list_items
           else
@@ -361,7 +375,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
       new_messages ->
         new_demand =
           case demand - Enum.count(new_messages) do
-            val when val < 0 ->
+            val when val <= 0 ->
               0
 
             val ->
