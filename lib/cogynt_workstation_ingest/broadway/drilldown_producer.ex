@@ -26,9 +26,15 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   end
 
   def flush_queue() do
-    {:ok, list_length} = Redis.list_length("drilldown_event_messages")
-    Redis.key_delete("drilldown_event_messages")
-    Redis.hash_increment_by("drilldown_message_info", "tmc", -list_length)
+    case Redis.key_exists?("drilldown_event_messages") do
+      {:ok, false} ->
+        Redis.hash_set("drilldown_message_info", "tmc", 0)
+
+      {:ok, true} ->
+        {:ok, list_length} = Redis.list_length("drilldown_event_messages")
+        Redis.key_delete("drilldown_event_messages")
+        Redis.hash_increment_by("drilldown_message_info", "tmc", -list_length)
+    end
   end
 
   # ------------------------ #
@@ -57,8 +63,8 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   @impl true
   def handle_demand(incoming_demand, %{demand: demand} = state) when incoming_demand > 0 do
     total_demand = incoming_demand + demand
-    IO.inspect(incoming_demand, label: "*** INCOMING DEMAND")
-    IO.inspect(demand, label: "*** CURRENT DEMAND")
+    # IO.inspect(incoming_demand, label: "*** INCOMING DEMAND")
+    # IO.inspect(demand, label: "*** CURRENT DEMAND")
     new_state = Map.put(state, :demand, total_demand)
     {messages, new_state} = fetch_demand_from_redis(new_state)
     {:noreply, messages, new_state}
@@ -135,15 +141,22 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   end
 
   defp fetch_demand_from_redis(%{demand: demand} = state) do
-    IO.inspect(demand, label: "*** FETCH COUNT")
+    # IO.inspect(demand, label: "*** FETCH COUNT")
 
     if demand <= 0 do
       {[], state}
     else
-      {:ok, list_length} = Redis.list_length("drilldown_event_messages")
+      {:ok, list_length} =
+        case Redis.key_exists?("drilldown_event_messages") do
+          {:ok, false} ->
+            {:ok, 0}
+
+          {:ok, true} ->
+            Redis.list_length("drilldown_event_messages")
+        end
 
       list_items =
-        case list_length >= demand and demand > 0 do
+        case list_length >= demand do
           true ->
             # Get List Range by fetch_count
             {:ok, list_items} = Redis.list_range("drilldown_event_messages", 0, demand - 1)
@@ -174,15 +187,15 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
         new_messages ->
           new_demand =
             case demand - Enum.count(new_messages) do
-              val when val < 0 ->
+              val when val <= 0 ->
                 0
 
               val ->
                 val
             end
 
-          IO.inspect(new_demand, label: "NEW DEMAND")
-          IO.inspect(Enum.count(new_messages), label: "MESSAGE COUNT")
+          # IO.inspect(new_demand, label: "NEW DEMAND")
+          # IO.inspect(Enum.count(new_messages), label: "MESSAGE COUNT")
 
           new_state = Map.put(state, :demand, new_demand)
 
@@ -195,7 +208,14 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
     if demand <= 0 do
       {[], state}
     else
-      {:ok, list_length} = Redis.list_length("drilldown_failed_messages")
+      {:ok, list_length} =
+        case Redis.key_exists?("drilldown_failed_messages") do
+          {:ok, false} ->
+            {:ok, 0}
+
+          {:ok, true} ->
+            Redis.list_length("drilldown_failed_messages")
+        end
 
       list_items =
         case list_length >= demand do
@@ -230,7 +250,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
         new_messages ->
           new_demand =
             case demand - Enum.count(new_messages) do
-              val when val < 0 ->
+              val when val <= 0 ->
                 0
 
               val ->
