@@ -1,3 +1,10 @@
+## [1.6.0-develop.11](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.10...v1.6.0-develop.11) (2020-08-17)
+
+
+### :bug: Bugfix
+
+* **drilldown debug:** Merge pull request [#114](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/114) from Cogility/hotfix/drilldown-consumer-groups-restart ([13ae005](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/13ae0054d5e3d17309ae020201ee7e8db155551a))
+
 ## [1.6.0-develop.10](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.9...v1.6.0-develop.10) (2020-08-17)
 
 
