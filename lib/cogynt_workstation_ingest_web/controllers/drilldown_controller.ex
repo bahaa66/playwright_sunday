@@ -43,8 +43,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
         else
           data =
             data
-            |> atom_to_string()
-            |> Map.put("key", data.id)
+            |> Map.put(:key, data.id)
             |> Map.put("#visited", [])
 
           render(conn, "show.json-api", data: data)
