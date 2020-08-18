@@ -89,7 +89,19 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
         unit: {:native, :millisecond}
       ),
       summary(
-        "redix.list_append_pipeline.duration",
+        "redix.stream_add.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "redix.stream_length.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "redix.stream_trim.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "redix.stream_read.duration",
         unit: {:native, :millisecond}
       )
     ]
