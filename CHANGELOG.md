@@ -1,3 +1,10 @@
+## [1.7.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.10...v1.7.0) (2020-08-18)
+
+
+### :sparkles: Feature
+
+* **redis streams:** Merge pull request [#115](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/115) from Cogility/feature/redis-streams-drilldown ([1cd5bad](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/1cd5bad42690373f0de2b4ea541ec67b12c944eb))
+
 ### [1.6.10](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.9...v1.6.10) (2020-08-17)
 
 
