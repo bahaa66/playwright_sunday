@@ -69,12 +69,5 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
     #     true
     # end
   end
-  defp atom_to_string(data) do
-    data |> Map.new(fn {k,v} ->
-      {Atom.to_string(k), v} end)
-  end
 
-  defp string_to_atom(data) do
-    data |> Map.new(fn {k, v} -> {String.to_atom(k), v} end)
-  end
 end
