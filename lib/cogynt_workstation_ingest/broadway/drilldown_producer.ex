@@ -185,11 +185,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
             # Trim Stream by demand read
             Redis.stream_trim(stream_name, stream_length - demand)
 
-            # # Read Stream by demand{
-            # {:ok, tmp_stream_length} = Redis.stream_length(stream_name)
-
-            # IO.inspect(tmp_stream_length, label: "NEW STREAM LENGTH")
-
             stream_events
 
           false ->
@@ -202,8 +197,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
                   Enum.flat_map(level_1, fn [_, [_, value_2]] -> [value_2] end)
                 end)
 
-              # Trim Stream by length read
-              # TODO:  can have length of 0 ?
               Redis.stream_trim(stream_name, 0)
 
               stream_events
