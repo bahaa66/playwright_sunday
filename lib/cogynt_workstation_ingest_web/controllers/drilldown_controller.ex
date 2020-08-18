@@ -19,8 +19,8 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
             data
             |> Map.drop([:timer])
             |> Map.values()
-            |> Enum.filter(&(&1["template_type_id"] == id))
-            |> Enum.map(&Map.put(Map.put(&1, "key", &1["id"]), "#visited", []))
+            |> Enum.filter(&(&1.template_type_id == id))
+            |> Enum.map(&Map.put(Map.put(&1, :key, &1.id), "#_visited", []))
 
           render(conn, "index.json-api", data: data)
         end
