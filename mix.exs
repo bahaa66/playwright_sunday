@@ -89,11 +89,13 @@ defmodule CogyntWorkstationIngest.MixProject do
         sparse: "elasticsearch",
         override: true
       },
-      {:redis,
-       git: "git@github.com:cogility/cogynt-common.git",
-       sparse: "redis",
-       tag: "v1.6.2-beta",
-       override: true}
+      {
+        :redis,
+        tag: "v1.7.5",
+        git: "git@github.com:cogility/cogynt-common.git",
+        sparse: "redis",
+        override: true
+      }
     ]
   end
 
