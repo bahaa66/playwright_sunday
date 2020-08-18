@@ -13,7 +13,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   def type, do: "solutions"
 
   def id(info, _conn) do
-    info.id
+    info["id"]
   end
 
   def attributes(info, _conn) do
@@ -32,7 +32,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   )
 
   def children(info, _conn) do
-    (Map.values(info.events) || [])
+    (Map.values(info["events"]) || [])
     |> Enum.filter(
       &(not (Map.get(&1, :"$partial", false) == true and Map.get(&1, :_confidence, nil) == 0.0))
     )
@@ -47,7 +47,8 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
 
           {:ok, inst} ->
             # inst
-            if info.id == inst.id or Enum.member?(info["#visited"], inst.id) do
+            inst = atom_to_string(inst)
+            if info["id"] == inst["id"] or Enum.member?(info["#visited"], inst["id"]) do
               nil
             else
               inst
@@ -60,7 +61,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
     |> Enum.filter(&(&1 != nil))
     |> Enum.uniq()
     |> Enum.map(fn inst ->
-      inst_id = inst.id
+      inst_id = inst["id"]
       visited = [inst_id | info["#visited"]]
       # Convert id to a unique id combining parent and child ids
       # put original id in "key", only if the parent has key.  This
@@ -68,17 +69,18 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
       # show use the real id.
       if info["key"] do
         inst
-        |> Map.put("key", inst.id)
+        |> Map.put("key", inst["id"])
         |> Map.put(
-          :id,
-          info.id <> "|" <> inst.id <> "|" <> (inst.assertion_id || "")
+          "id",
+          info["id"] <> "|" <> inst["id"] <> "|" <> (inst["assertion_id"] || "")
         )
       else
         inst
       end
       |> Map.put("#visited", visited)
     end)
-    |> Enum.sort_by(& &1.id)
+    |> Enum.sort_by(& &1["id"])
+
   end
 
   has_many(:outcomes,
@@ -88,8 +90,9 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   )
 
   def outcomes(info, _conn) do
-    info.outcomes
+    info["outcomes"]
     |> Enum.sort_by(& &1.id)
+    |> Enum.map(fn item -> atom_to_string(item) end)
   end
 
   has_many(:events,
@@ -99,18 +102,35 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   )
 
   def events(info, _conn) do
-    if is_map(info.events) do
-      Map.values(info.events)
+    if is_map(info["events"]) do
+      Map.values(info["events"])
       |> Enum.filter(
         &(not (Map.get(&1, :"$partial", false) == true and Map.get(&1, :_confidence, nil) == 0.0))
       )
       |> Enum.sort_by(& &1.id)
+      |> Enum.map(fn item -> atom_to_string(item) end)
     else
       info.events
       |> Enum.filter(
         &(not (Map.get(&1, :"$partial", false) == true and Map.get(&1, :_confidence, nil) == 0.0))
       )
       |> Enum.sort_by(& &1.id)
+      |> Enum.map(fn item -> atom_to_string(item) end)
     end
+  end
+
+  defp string_to_atom(data) do
+    data |> Map.new(fn {k, v} -> {String.to_atom(k), v} end)
+  end
+
+  defp atom_to_string(data) do
+    data
+    |> Map.new(fn {k,v} ->
+      if is_atom(k) do
+      {Atom.to_string(k), v}
+      else
+        {k, v}
+      end
+    end)
   end
 end
