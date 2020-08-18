@@ -47,7 +47,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
           "#{__MODULE__}",
           "Deleting the Drilldown Topics. #{Config.topic_sols()}, #{Config.topic_sol_events()}. For KafkaWorker: #{
             worker_name
-          }, Brokers: #{uris}"
+          }, Brokers: #{inspect(uris)}"
         )
 
         # Delete topics for worker
