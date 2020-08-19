@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
   @doc """
   process_template_data/1
   """
-  def process_template_data(%{"event" => event} = data) do
+  def process_template_data(%{event: event} = data) do
     case event["event"] do
       nil ->
         sol = %{

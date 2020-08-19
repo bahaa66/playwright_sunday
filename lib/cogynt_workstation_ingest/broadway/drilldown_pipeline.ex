@@ -50,9 +50,9 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   """
   def transform(payload, _opts) do
     case Jason.decode(payload) do
-      {:ok, event} ->
+      {:ok, %{"event" => event, "retry_count" => retry_count}} ->
         %Message{
-          data: event,
+          data: %{event: event, retry_count: retry_count},
           acknowledger: {__MODULE__, :ack_id, :ack_data}
         }
 
