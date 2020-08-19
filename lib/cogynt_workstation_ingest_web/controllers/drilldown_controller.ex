@@ -34,7 +34,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
     case is_authorized?(conn) do
       true ->
         # {:ok, data} = DrilldownCache.get(id)
-        data = DrilldownContext.get_template_solution(id)
+        data = DrilldownContext.get_template_solution_data(id)
 
         if data == nil do
           render(conn, "404.json")

@@ -40,7 +40,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
 
       if id do
         # {:ok, inst} = DrilldownCache.get(id)
-        inst = DrilldownContext.get_template_solution(id)
+        inst = DrilldownContext.get_template_solution_data(id)
         # inst
         if info["id"] == inst["id"] or Enum.member?(info["#visited"], inst["id"]) do
           # IO.inspect(occ, label: "@@@@ Event published by self?")

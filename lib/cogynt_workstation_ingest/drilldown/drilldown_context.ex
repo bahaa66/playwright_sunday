@@ -2,8 +2,6 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   alias Models.Drilldown.TemplateSolutions
   alias CogyntWorkstationIngest.Repo
 
-  import Ecto.Query
-
   # -------------------------------- #
   # --- Drilldown Schema Methods --- #
   # -------------------------------- #
@@ -19,6 +17,19 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
 
   """
   def get_template_solution(id), do: Repo.get(TemplateSolutions, id)
+
+  @doc """
+
+  """
+  def get_template_solution_data(id) do
+    case get_template_solution(id) do
+      nil ->
+        nil
+
+      data ->
+        process_template_solution(data)
+    end
+  end
 
   @doc """
 
@@ -50,33 +61,9 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     end
   end
 
-  defp create_template_solution(attrs) do
-    changeset =
-      %TemplateSolutions{}
-      |> TemplateSolutions.changeset(attrs)
+  @doc """
 
-    case Repo.insert(changeset) do
-      {:ok, struct} ->
-        struct
-
-      {:error, reason} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "create_template_solution failed with reason: #{inspect(reason)}"
-        )
-    end
-  end
-
-  def get_template_solution_data(id) do
-    case get_template_solution(id) do
-      nil ->
-        {:ok, nil}
-
-      data ->
-        {:ok, process_template_solution(data)}
-    end
-  end
-
+  """
   def hard_delete_template_solutions_data() do
     try do
       result = Repo.query("TRUNCATE template_solutions", [])
@@ -90,6 +77,26 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
         CogyntLogger.error(
           "#{__MODULE__}",
           "hard_delete_template_solutions_data failed with reason: #{inspect(e)}"
+        )
+    end
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp create_template_solution(attrs) do
+    changeset =
+      %TemplateSolutions{}
+      |> TemplateSolutions.changeset(attrs)
+
+    case Repo.insert(changeset) do
+      {:ok, struct} ->
+        struct
+
+      {:error, reason} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "create_template_solution failed with reason: #{inspect(reason)}"
         )
     end
   end

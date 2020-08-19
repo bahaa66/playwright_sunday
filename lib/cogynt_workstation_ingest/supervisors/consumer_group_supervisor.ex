@@ -94,13 +94,24 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         create_kafka_worker(name: :drilldown)
         create_drilldown_topics(:drilldown)
 
+        consumer_group_id =
+          case Redis.hash_get("dcgid", "Drilldown") do
+            {:ok, nil} ->
+              id = "#{UUID.uuid1()}"
+              Redis.hash_set("dcgid", "Drilldown", id)
+              "Drilldown" <> "-" <> id
+
+            {:ok, consumer_group_id} ->
+              "Drilldown" <> "-" <> consumer_group_id
+          end
+
         child_spec = %{
           id: :DrillDown,
           start: {
             KafkaEx.ConsumerGroup,
             :start_link,
             consumer_group_options(
-              name: "Drilldown-#{UUID.uuid1()}",
+              name: consumer_group_id,
               topics: [Config.topic_sols(), Config.topic_sol_events()],
               consumer_group_name: consumer_group_name("Drilldown")
             )
@@ -118,6 +129,17 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         hash_string = Integer.to_string(:erlang.phash2(uris))
         worker_name = String.to_atom("drilldown" <> hash_string)
 
+        consumer_group_id =
+          case Redis.hash_get("dcgid", "Drilldown-#{hash_string}") do
+            {:ok, nil} ->
+              id = "#{UUID.uuid1()}"
+              Redis.hash_set("dcgid", "Drilldown-#{hash_string}", id)
+              "Drilldown-#{hash_string}" <> "-" <> id
+
+            {:ok, consumer_group_id} ->
+              "Drilldown-#{hash_string}" <> "-" <> consumer_group_id
+          end
+
         create_kafka_worker(uris: uris, name: worker_name)
         create_drilldown_topics(worker_name)
 
@@ -127,7 +149,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
             KafkaEx.ConsumerGroup,
             :start_link,
             consumer_group_options(
-              name: "Drilldown-#{hash_string}-#{UUID.uuid1()}",
+              name: consumer_group_id,
               topics: [Config.topic_sols(), Config.topic_sol_events()],
               consumer_group_name: consumer_group_name("Drilldown-#{hash_string}")
             )
