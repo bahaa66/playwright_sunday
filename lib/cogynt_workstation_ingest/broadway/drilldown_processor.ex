@@ -42,7 +42,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
   """
   def upsert_template_solutions(data) do
     # DrilldownCache.put(data)
-    #IO.inspect(data, label: "DATA")
     DrilldownContext.upsert_template_solutions(data)
   end
 end
