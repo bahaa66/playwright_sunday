@@ -78,27 +78,39 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   end
 
   def hard_delete_template_solutions_data() do
-    from(ts in TemplateSolutions)
-    |> Repo.delete_all()
+    try do
+      result = Repo.query("TRUNCATE template_solutions", [])
+
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "hard_delete_template_solutions_data completed with result: #{result}"
+      )
+    rescue
+      e ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "hard_delete_template_solutions_data failed with reason: #{inspect(e)}"
+        )
+    end
   end
 
   defp get_attrs(temp_sol, %{sol_id: _id, sol: sol, evnt: evnt} = data) do
-    sol = (temp_sol || %{events: %{}, outcomes: []}) |> Map.merge(sol)
+    sol = (temp_sol || %{"events" => %{}, "outcomes" => []}) |> Map.merge(sol)
 
     cond do
-      Map.has_key?(data, :event) and not Map.has_key?(data.event, :aid) ->
+      Map.has_key?(data, :event) and not Map.has_key?(data.event, "aid") ->
         sol
-        |> Map.put(:outcomes, [evnt | sol.outcomes])
+        |> Map.put("outcomes", [evnt | sol["outcomes"]])
 
-      Map.has_key?(evnt, :published_by) and sol.id == evnt.published_by ->
+      Map.has_key?(evnt, "published_by") and sol.id == evnt["published_by"] ->
         # event is input and published by same instance
         temp_sol
 
-      Map.has_key?(data, :event) and Map.has_key?(data.event, :aid) ->
-        key = evnt.id <> "!" <> evnt.assertion_id
+      Map.has_key?(data, :event) and Map.has_key?(data.event, "aid") ->
+        key = evnt["id"] <> "!" <> evnt["assertion_id"]
 
         sol
-        |> Map.put(:events, Map.put(sol.events, key, evnt))
+        |> Map.put("events", Map.put(sol["events"], key, evnt))
 
       true ->
         data
