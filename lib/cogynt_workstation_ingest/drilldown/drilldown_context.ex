@@ -80,8 +80,20 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   end
 
   def hard_delete_template_solutions_data() do
-    from(ts in TemplateSolutions)
-    |> Repo.delete_all()
+    try do
+      result = Repo.query("TRUNCATE template_solutions", [])
+
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "hard_delete_template_solutions_data completed with result: #{result}"
+      )
+    rescue
+      e ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "hard_delete_template_solutions_data failed with reason: #{inspect(e)}"
+        )
+    end
   end
 
   defp get_attrs(temp_sol, %{sol_id: _id, sol: sol, evnt: evnt} = data) do
