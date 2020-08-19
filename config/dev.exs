@@ -98,7 +98,7 @@ config :cogynt_workstation_ingest, :link_event_pipeline,
     (System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || "80") |> String.to_integer()
 
 config :cogynt_workstation_ingest, :drilldown_pipeline,
-  processor_stages: (System.get_env("DRILLDOWN_PROCESSOR_STAGES") || "5") |> String.to_integer(),
+  processor_stages: (System.get_env("DRILLDOWN_PROCESSOR_STAGES") || "10") |> String.to_integer(),
   processor_max_demand:
     (System.get_env("DRILLDOWN_PROCESSOR_MAX_DEMAND") || "100") |> String.to_integer(),
   processor_min_demand:

@@ -94,41 +94,55 @@
 
 ### :bug: Bugfix
 
-* Merge pull request [#97](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/97) from Cogility/hotfix/update-manual-actions-attr ([14d0485](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/14d0485a89ca99e56774a693f8def57d7d0c3824))
-* update manual actions expected attribute ([1588420](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/1588420652f5d71393b2c0866c1a95aaf7fee3b4))
+* **drilldown:** Merge pull request [#100](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/100) from Cogility/hotfix/increase-drilldown-processors ([3625f1e](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/3625f1e4ede6438ddbe6b5356a4be31a94cd1c3d))
+* **rate limiting:** Merge pull request [#106](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/106) from Cogility/hotfix/remove-broadway-rate-limiting ([aa871ee](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/aa871eed9d771d3c2819669588403d5cb21e65c5))
 
-### [1.5.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.0...v1.5.1) (2020-08-03)
+## [1.6.0-develop.3](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.2...v1.6.0-develop.3) (2020-08-13)
 
 
 ### :bug: Bugfix
 
-* **livenessCheck hotfix:** change default kafka worker ([829a353](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/829a353b0175f69ccec49293115c46475a0ee841))
+* Merge pull request [#104](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/104) from Cogility/hotfix/switch-drilldown-back-to-cache ([aa5d084](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/aa5d084f135fae1bb7238d88f20a2eb7738520bf))
 
-## [1.5.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.5...v1.5.0) (2020-08-03)
+## [1.6.0-develop.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.1...v1.6.0-develop.2) (2020-08-11)
+
+
+### :bug: Bugfix
+
+* **CDST-682:** Merge pull request [#102](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/102) from Cogility/hotfix/CDST-682-elastic-bulk-upsert ([2eb1d1a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/2eb1d1a6d4451cd3743bff48c28a82163837f37c))
+
+## [1.6.0-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.3-develop.1...v1.6.0-develop.1) (2020-08-11)
 
 
 ### :sparkles: Feature
 
-* force build ([8c96e9b](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/8c96e9b64a9fb5a3c55d3a838114ea7946411bbf))
+* **CDST-682:** Merge pull request [#101](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/101) from Cogility/hotfix/resolve-consumer-notification-status ([42cd25a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/42cd25a04694d394306c2093f4372614781c7b8f))
 
-### [1.4.5](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.4...v1.4.5) (2020-07-31)
+### [1.5.3-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.2...v1.5.3-develop.1) (2020-08-05)
 
 
 ### :bug: Bugfix
 
-* **helm:** migrated helm values ([e87d17a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/e87d17adf5095718e91350cc93b74682d33c3f4e))
+* put changes back into master ([045e07a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/045e07afdf9d21d41843f2a11782dfb43b1d2170))
 
-### [1.4.4](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.3...v1.4.4) (2020-07-30)
+### [1.4.5-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.4...v1.4.5-develop.1) (2020-07-30)
+
+
+### :bug: Bugfix
+
+* put changes back into master ([045e07a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/045e07afdf9d21d41843f2a11782dfb43b1d2170))
+
+### [1.4.4-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.3...v1.4.4-develop.1) (2020-07-30)
 
 
 ### :bug: Bugfix
 
 * **color:** remove from master ([eee8c56](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/eee8c5660274ccabd34cf3a03c49aae33a1076f1))
+* put changes back into master ([045e07a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/045e07afdf9d21d41843f2a11782dfb43b1d2170))
+
+### [1.4.3-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.2...v1.4.3-develop.1) (2020-07-30)
 
 ### [1.4.3](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.4.2...v1.4.3) (2020-07-30)
-
-
-### :bug: Bugfix
 
 * **start drilldown consumer:** Merge pull request [#94](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/94) from Cogility/hotfix/start-drilldown-consumer ([2d67a0d](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/2d67a0d60110ceb2d07352cb7ba2d25a8c4e153e))
 

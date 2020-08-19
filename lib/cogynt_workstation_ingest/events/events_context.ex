@@ -432,6 +432,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       created_at: event_definition.created_at,
       updated_at: event_definition.updated_at,
       primary_title_attribute: event_definition.primary_title_attribute,
+      color: event_definition.color,
       fields:
         Enum.reduce(event_definition_details, %{}, fn
           %{field_name: n, field_type: t}, acc ->

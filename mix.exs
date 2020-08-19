@@ -63,14 +63,14 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:recase, "~> 0.5"},
       {
         :models,
-        tag: "v1.7.0",
+        tag: "v1.6.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.7.0",
+        tag: "v1.6.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
@@ -89,11 +89,13 @@ defmodule CogyntWorkstationIngest.MixProject do
         sparse: "elasticsearch",
         override: true
       },
-      {:redis,
-       git: "git@github.com:cogility/cogynt-common.git",
-       sparse: "redis",
-       tag: "v1.6.2-beta",
-       override: true}
+      {
+        :redis,
+        tag: "v1.7.5",
+        git: "git@github.com:cogility/cogynt-common.git",
+        sparse: "redis",
+        override: true
+      }
     ]
   end
 
