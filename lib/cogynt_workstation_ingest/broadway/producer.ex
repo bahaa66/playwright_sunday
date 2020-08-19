@@ -146,7 +146,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     )
 
     # persist state to redis
-    Redis.hash_set(name <> "_keys", "event_definition_ids", event_definition_ids)
+    Redis.hash_set(name <> "k", "event_definition_ids", event_definition_ids)
     {:noreply, state}
   end
 
