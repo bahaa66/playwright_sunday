@@ -91,7 +91,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :redis,
-        tag: "v1.7.5",
+        # tag: "v1.7.5",
+        branch: "feature/redis-more-streams",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true
