@@ -75,8 +75,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   """
   def ack(:ack_id, successful, _failed) do
     Enum.each(successful, fn _ ->
-      # {:ok, tmc} = Redis.hash_get("drilldown_message_info", "tmc")
-      {:ok, _tmp} = Redis.hash_increment_by("drilldown_message_info", "tmp", 1)
+      {:ok, _tmp} = Redis.hash_increment_by("dmi", "tmp", 1)
     end)
   end
 
