@@ -4,7 +4,6 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
   in the state
   """
   use GenServer
-  alias CogyntWorkstationIngest.Config
 
   # TODO needs to have state moved to PSQL or Redis
 
