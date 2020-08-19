@@ -24,8 +24,8 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
 
   @impl true
   def init(_topic, _partition, _args) do
-    Redis.hash_increment_by("drilldown_message_info", "tmc", 0)
-    Redis.hash_increment_by("drilldown_message_info", "tmp", 0)
+    Redis.hash_increment_by("dmi", "tmc", 0)
+    Redis.hash_increment_by("dmi", "tmp", 0)
 
     {:ok, %{drilldown: true}}
   end

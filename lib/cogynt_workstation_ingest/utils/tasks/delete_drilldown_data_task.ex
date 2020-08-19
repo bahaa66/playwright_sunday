@@ -127,21 +127,21 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
 
   defp reset_cached_data() do
     DrilldownProducer.flush_queue()
-    Redis.key_delete("drilldown_message_info")
     Redis.key_delete("dcgid")
-    Redis.hash_increment_by("drilldown_message_info", "tmp", 0)
+    Redis.key_delete("dmi")
+    Redis.hash_increment_by("dmi", "tmp", 0)
     DrilldownContext.hard_delete_template_solutions_data()
     # DrilldownCache.reset_state()
   end
 
   defp finished_processing?() do
-    case Redis.key_exists?("drilldown_message_info") do
+    case Redis.key_exists?("dmi") do
       {:ok, false} ->
         {:error, :key_does_not_exist}
 
       {:ok, true} ->
-        {:ok, tmc} = Redis.hash_get("drilldown_message_info", "tmc")
-        {:ok, tmp} = Redis.hash_get("drilldown_message_info", "tmp")
+        {:ok, tmc} = Redis.hash_get("dmi", "tmc")
+        {:ok, tmp} = Redis.hash_get("dmi", "tmp")
 
         {:ok, String.to_integer(tmp) >= String.to_integer(tmc)}
     end
