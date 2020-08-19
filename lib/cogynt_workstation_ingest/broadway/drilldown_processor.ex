@@ -37,11 +37,12 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
   end
 
   @doc """
-  update_template_solutions/1 passes the data map object to the DrilldownCache to
+  upsert_template_solutions/1 passes the data map object to the DrilldownCache to
   have its state updated with the new data
   """
-  def update_template_solutions(data) do
+  def upsert_template_solutions(data) do
     # DrilldownCache.put(data)
-    DrilldownContext.update_template_solutions(data)
+    #IO.inspect(data, label: "DATA")
+    DrilldownContext.upsert_template_solutions(data)
   end
 end
