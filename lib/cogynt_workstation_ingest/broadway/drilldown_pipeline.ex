@@ -100,6 +100,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   def handle_message(_processor, %Message{data: data} = message, _context) do
     data
     |> DrilldownProcessor.process_template_data()
+    |> IO.inspect()
     |> DrilldownProcessor.update_template_solutions()
 
     message

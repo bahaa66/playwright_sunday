@@ -37,7 +37,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   def update_template_solutions(%{sol_id: id, sol: _sol, evnt: _evnt} = data) do
     case get_template_solution(id) do
       nil ->
-        get_attrs(nil, data) |> create_template_solution()
+        get_attrs(nil, data) |> create_template_solution() |> atomize_map()
         data
 
       template_solution ->
@@ -49,8 +49,9 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   def update_template_solutions(%{sol_id: id, sol: sol} = data) do
     case get_template_solution(id) do
       nil ->
-        %{events: %{}, outcomes: []}
+        %{"events" => %{}, "outcomes" => []}
         |> Map.merge(sol)
+        |> atomize_map()
         |> create_template_solution
 
         data
@@ -109,7 +110,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
         sol
         |> Map.put("outcomes", [evnt | sol["outcomes"]])
 
-      Map.has_key?(evnt, "published_by") and sol.id == evnt["published_by"] ->
+      Map.has_key?(evnt, "published_by") and sol["id"] == evnt["published_by"] ->
         # event is input and published by same instance
         temp_sol
 
@@ -133,6 +134,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
       template_solution
       |> Map.from_struct()
       |> Map.drop([:__meta__])
+      |> stringify_map()
       |> get_attrs(data)
 
     temp_sol = TemplateSolutions.changeset(template_solution, new_data)
@@ -151,6 +153,10 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
 
   defp stringify_map(atom_map) do
     for {key, val} <- atom_map, into: %{}, do: {Atom.to_string(key), val}
+  end
+
+  defp atomize_map(string_map) do
+    for {key, val} <- string_map, into: %{}, do: {String.to_atom(key), val}
   end
 
   defp process_template_solution(data) do
