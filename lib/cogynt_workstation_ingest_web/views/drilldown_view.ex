@@ -2,8 +2,8 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   use CogyntWorkstationIngestWeb, :view
   use JaSerializer.PhoenixView
   alias CogyntWorkstationIngestWeb.JA_Keys
-  alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
-  # alias CogyntWorkstationIngest.Drilldown.DrilldownContext
+  # alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
+  alias CogyntWorkstationIngest.Drilldown.DrilldownContext
   alias CogyntWorkstationIngestWeb.EventView
 
   def render("401.json-api", _) do
@@ -39,7 +39,8 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
       id = occ["published_by"]
 
       if id do
-        {:ok, inst} = DrilldownCache.get(id)
+        # {:ok, inst} = DrilldownCache.get(id)
+        inst = DrilldownContext.get_template_solution(id)
         # inst
         if info["id"] == inst["id"] or Enum.member?(info["#visited"], inst["id"]) do
           # IO.inspect(occ, label: "@@@@ Event published by self?")

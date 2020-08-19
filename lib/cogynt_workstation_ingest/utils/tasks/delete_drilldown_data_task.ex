@@ -130,7 +130,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
     Redis.key_delete("drilldown_message_info")
     Redis.hash_increment_by("drilldown_message_info", "tmp", 0)
     # DrilldownContext.hard_delete_template_solutions_data()
-    DrilldownCache.reset_state()
+    #DrilldownCache.reset_state()
   end
 
   defp finished_processing?() do

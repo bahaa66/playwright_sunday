@@ -4,6 +4,25 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
 
   import Ecto.Query
 
+  # -------------------------------- #
+  # --- Drilldown Schema Methods --- #
+  # -------------------------------- #
+
+  @doc """
+
+  """
+  def list_template_solutions() do
+    Repo.all(TemplateSolutions)
+  end
+
+  @doc """
+
+  """
+  def get_template_solution(id), do: Repo.get(TemplateSolutions, id)
+
+  @doc """
+
+  """
   def update_template_solutions(%{sol_id: id, sol: _sol, evnt: _evnt} = data) do
     case get_template_solution(id) do
       nil ->
@@ -31,8 +50,6 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     end
   end
 
-  def get_template_solution(id), do: Repo.get(TemplateSolutions, id)
-
   defp create_template_solution(attrs) do
     changeset =
       %TemplateSolutions{}
@@ -57,25 +74,6 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
 
       data ->
         {:ok, process_template_solution(data)}
-    end
-  end
-
-  def list_template_solutions() do
-    query = from(t in TemplateSolutions)
-
-    try do
-      case Repo.all(query) do
-        [] -> {:ok, nil}
-        list -> {:ok, list}
-      end
-    rescue
-      e in Ecto.QueryError ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "get_template_solutions failed with reason: #{inspect(e)}"
-        )
-
-        {:ok, nil}
     end
   end
 

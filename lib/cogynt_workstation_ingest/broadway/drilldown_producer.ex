@@ -13,7 +13,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   @impl true
   def init(_args) do
     # Trap exit
-    Process.flag(:trap_exit, true)
+    # Process.flag(:trap_exit, true)
 
     {:producer, %{demand: 0}}
   end
@@ -67,8 +67,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   @impl true
   def handle_demand(incoming_demand, %{demand: demand} = state) when incoming_demand > 0 do
     total_demand = incoming_demand + demand
-    # IO.inspect(incoming_demand, label: "*** INCOMING DEMAND")
-    # IO.inspect(demand, label: "*** CURRENT DEMAND")
     new_state = Map.put(state, :demand, total_demand)
     {messages, new_state} = fetch_demand_from_redis_stream("drilldown_event_stream", new_state)
     {:noreply, messages, new_state}
@@ -85,36 +83,36 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
     {:noreply, messages, new_state}
   end
 
-  @impl true
-  def handle_info({:EXIT, _pid, :normal}, state) do
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "GenStage DrilldownProducer being shutdown... Redis state being flushed"
-    )
+  # @impl true
+  # def handle_info({:EXIT, _pid, :normal}, state) do
+  #   CogyntLogger.info(
+  #     "#{__MODULE__}",
+  #     "GenStage DrilldownProducer being shutdown... Redis state being flushed"
+  #   )
 
-    Redis.key_delete("drilldown_event_stream")
-    Redis.key_delete("drilldown_failed_event_stream")
-    Redis.key_delete("drilldown_message_info")
+  #   Redis.key_delete("drilldown_event_stream")
+  #   Redis.key_delete("drilldown_failed_event_stream")
+  #   Redis.key_delete("drilldown_message_info")
 
-    {:noreply, state}
-  end
+  #   {:noreply, state}
+  # end
 
   # Callback that will persist data to the filesystem before the server shuts down
-  @impl true
-  def terminate(reason, state) do
-    CogyntLogger.warn(
-      "#{__MODULE__}",
-      "GenStage DrilldownProducer crashed for the following reason: #{
-        inspect(reason, pretty: true)
-      }... Redis state being flushed"
-    )
+  # @impl true
+  # def terminate(reason, state) do
+  #   CogyntLogger.warn(
+  #     "#{__MODULE__}",
+  #     "GenStage DrilldownProducer crashed for the following reason: #{
+  #       inspect(reason, pretty: true)
+  #     }... Redis state being flushed"
+  #   )
 
-    Redis.key_delete("drilldown_event_stream")
-    Redis.key_delete("drilldown_failed_event_stream")
-    Redis.key_delete("drilldown_message_info")
+  #   Redis.key_delete("drilldown_event_stream")
+  #   Redis.key_delete("drilldown_failed_event_stream")
+  #   Redis.key_delete("drilldown_message_info")
 
-    {:stop, reason, state}
-  end
+  #   {:stop, reason, state}
+  # end
 
   # ----------------------- #
   # --- private methods --- #
