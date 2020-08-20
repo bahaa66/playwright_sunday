@@ -48,6 +48,7 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
 
   @impl true
   def handle_message_set(message_set, %{drilldown: true} = state) do
+    # IO.inspect(Enum.count(message_set), label: "*** Messages Pulled From Drilldown Topic")
     DrilldownProducer.enqueue(message_set)
     # Small buffer from keeping the Broadway producer from getting overwhelmed with
     # kafka messagees

@@ -5,6 +5,8 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
   """
   use GenServer
 
+  # TODO needs to have state moved to PSQL or Redis
+
   # -------------------- #
   # --- client calls --- #
   # -------------------- #
@@ -48,32 +50,39 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
 
   @impl true
   def handle_cast({:put_data, %{sol_id: id, sol: sol, evnt: evnt} = data}, state) do
+    # IO.inspect(data, label: "@@@@ Received event")
+
     sol =
-      (state[id] || %{events: %{}, outcomes: []})
+      (state[id] || %{"events" => %{}, "outcomes" => []})
       |> Map.merge(sol)
 
     state =
       cond do
-        Map.has_key?(data, :event) and not Map.has_key?(data.event, :aid) ->
+        Map.has_key?(data, :event) and not Map.has_key?(data.event, "aid") ->
           sol =
             sol
-            |> Map.put(:outcomes, [evnt | sol.outcomes])
+            |> Map.put("outcomes", [evnt | sol["outcomes"]])
 
-          Map.put(state, sol.id, sol)
+          Map.put(state, sol["id"], sol)
 
-        sol.id == Map.get(evnt, :published_by, nil) ->
+        sol["id"] == evnt["published_by"] ->
           # event is input and published by same instance
           state
 
-        Map.has_key?(data, :event) and Map.has_key?(data.event, :aid) ->
-          key = evnt.id <> "!" <> evnt.assertion_id
-          _replace = sol.events[key]
+        Map.has_key?(data, :event) and Map.has_key?(data.event, "aid") ->
+          key = evnt["id"] <> "!" <> evnt["assertion_id"]
+          replace = sol["events"][key]
+
+          if replace != nil do
+            # IO.inspect(evnt, label: "@@@@ Received event")
+            # IO.inspect(replace, label: "@@@@ Replacing")
+          end
 
           sol =
             sol
-            |> Map.put(:events, Map.put(sol.events, key, evnt))
+            |> Map.put("events", Map.put(sol["events"], key, evnt))
 
-          Map.put(state, sol.id, sol)
+          Map.put(state, sol["id"], sol)
 
         true ->
           # should not reach here
@@ -85,7 +94,12 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
 
   @impl true
   def handle_cast({:put_data, %{sol_id: id, sol: sol}}, state) do
-    sol = (state[id] || %{events: %{}, outcomes: []}) |> Map.merge(sol)
+    # IO.inspect("@@@@ Received solution #{id}")
+
+    sol =
+      (state[id] || %{"events" => %{}, "outcomes" => []})
+      |> Map.merge(sol)
+
     state = Map.put(state, id, sol)
     {:noreply, state}
   end

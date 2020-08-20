@@ -2,48 +2,46 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
   @moduledoc """
   Module that acts as the Broadway Processor for the DrilldownPipeline.
   """
-  #alias CogyntWorkstationIngest.Drilldown.DrilldownContext
-  alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
+  # alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
+  alias CogyntWorkstationIngest.Drilldown.DrilldownContext
 
   @doc """
   process_template_data/1
   """
   def process_template_data(%{event: event} = data) do
-    case Map.has_key?(event, :event) do
-      false ->
-        sol = event
-
-        Map.put(data, :sol_id, sol.id)
-        |> Map.put(:sol, sol)
-
-      true ->
-        event_new = Map.get(event, :event, nil)
-
-        aid = Map.get(event, :aid, nil)
-
-        evnt =
-          if aid != nil do
-            event_new
-            |> Map.put(:assertion_id, event.aid)
-          else
-            event_new
-          end
-
+    case event["event"] do
+      nil ->
         sol = %{
-          id: event.id
+          "retracted" => event["retracted"],
+          "template_type_name" => event["template_type_name"],
+          "template_type_id" => event["template_type_id"],
+          "id" => event["id"]
         }
 
-        Map.put(data, :sol_id, sol.id)
+        Map.put(data, :sol_id, sol["id"])
+        |> Map.put(:sol, sol)
+
+      val ->
+        evnt =
+          val
+          |> Map.put("assertion_id", event["aid"])
+
+        sol = %{
+          "id" => event["id"]
+        }
+
+        Map.put(data, :sol_id, sol["id"])
         |> Map.put(:sol, sol)
         |> Map.put(:evnt, evnt)
     end
   end
 
   @doc """
-  update_template_solutions/1 passes the data map object to the DrilldownContext to update pg
+  upsert_template_solutions/1 passes the data map object to the DrilldownCache to
+  have its state updated with the new data
   """
-  def update_template_solutions(data) do
-    DrilldownCache.put(data)
-    # DrilldownContext.update_template_solutions(data)
+  def upsert_template_solutions(data) do
+    # DrilldownCache.put(data)
+    DrilldownContext.upsert_template_solutions(data)
   end
 end
