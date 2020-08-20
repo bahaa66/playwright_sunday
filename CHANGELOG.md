@@ -1,3 +1,10 @@
+### [1.8.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.8.0...v1.8.1) (2020-08-20)
+
+
+### :bug: Bugfix
+
+* **major fix drilldown:** Merge pull request [#116](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/116) from Cogility/hotfix/CDST-693-drilldown-with-risk-fix ([b7e893a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/b7e893a5dba73b48e83ebb964e87e8a6a38b6724))
+
 ## [1.8.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.7.0...v1.8.0) (2020-08-19)
 
 ### :sparkles: Feature
