@@ -8,60 +8,95 @@
 ## [1.6.0-develop.12](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.11...v1.6.0-develop.12) (2020-08-18)
 
 
+### :bug: Bugfix
+
+* **drilldown debug:** Merge pull request [#114](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/114) from Cogility/hotfix/drilldown-consumer-groups-restart ([26b7751](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/26b7751f3f1eb381d5f70ba324c18c1d50faf85f))
+
+### [1.6.9](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.8...v1.6.9) (2020-08-17)
+
+
+### :bug: Bugfix
+
+* **drilldown trap exit:** Merge pull request [#113](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/113) from Cogility/hotfix/drilldown-consumer-groups-restart ([577a696](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/577a69694e8685ddaad1833a1377c50e4012528a))
+
+### [1.6.8](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.7...v1.6.8) (2020-08-17)
+
+
+### :bug: Bugfix
+
+* **drilldown debug:** Merge pull request [#111](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/111) from Cogility/hotfix/drilldown-dev-delete-debugging ([20dc84c](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/20dc84cab49281feb5cba66b0dfdda4dab73f9aa))
+
+### [1.6.7](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.6...v1.6.7) (2020-08-16)
+
+
+### :bug: Bugfix
+
+* **debug:** Merge pull request [#110](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/110) from Cogility/hotfix/drilldown-processor-demand ([2afbba6](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/2afbba6f3433522b4a8cc6186cb5d6a0b8dce7ac))
+
+### [1.6.6](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.5...v1.6.6) (2020-08-16)
+
+
+### :bug: Bugfix
+
+* **drilldown:** Merge pull request [#109](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/109) from Cogility/hotfix/drilldown-cache-bug-fixes ([7200fd2](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/7200fd23cf3a8db3a2b762eb7a1d9ca47b40c967))
+
+### [1.6.5](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.4...v1.6.5) (2020-08-15)
+
+
+### :bug: Bugfix
+
+* **elastic link event changes:** Merge pull request [#108](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/108) from Cogility/hotfix/update-link-event-processor ([5375c43](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/5375c43c76eb9ec1d769524405271ce5cbe2ac17))
+
+### [1.6.4](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.3...v1.6.4) (2020-08-14)
+
+
+### :bug: Bugfix
+
+* **ingest app restart:** Merge pull request [#107](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/107) from Cogility/hotfix/producer-keys-to-redis ([aeb769c](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/aeb769c3548398dd8371fd10e517afaaebf4ead0))
+
+### [1.6.3](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.2...v1.6.3) (2020-08-13)
+
+
+### :bug: Bugfix
+
+* **rate limiting:** Merge pull request [#106](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/106) from Cogility/hotfix/remove-broadway-rate-limiting ([de57121](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/de571210cf4676c3f99d39b83d5c9cefd5cba157))
+
+### [1.6.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.1...v1.6.2) (2020-08-13)
+
+
+### :bug: Bugfix
+
+* Merge pull request [#105](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/105) from Cogility/hotfix/cherrypick-merge ([d339ab7](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/d339ab7804c073ee7b3553845f3034f492d54c85))
+
+### [1.6.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0...v1.6.1) (2020-08-11)
+
+
+### :bug: Bugfix
+
+* **CDST-682:** Merge pull request [#102](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/102) from Cogility/hotfix/CDST-682-elastic-bulk-upsert ([69feeec](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/69feeece757b7d6642d32ab333cddb8711d24b7a))
+
+## [1.6.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.4...v1.6.0) (2020-08-11)
+
+
 ### :sparkles: Feature
 
-* **redis streams:** Merge pull request [#115](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/115) from Cogility/feature/redis-streams-drilldown ([a196503](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/a1965037e726712d5e1ecf6ec2aafb79aff25674))
+* **CDST-682:** cherry-pick changes ([1b3165e](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/1b3165e1fa962019a1b5a1fee01fac0a46c92491))
 
-## [1.6.0-develop.11](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.10...v1.6.0-develop.11) (2020-08-17)
-
-
-### :bug: Bugfix
-
-* **drilldown debug:** Merge pull request [#114](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/114) from Cogility/hotfix/drilldown-consumer-groups-restart ([13ae005](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/13ae0054d5e3d17309ae020201ee7e8db155551a))
-
-## [1.6.0-develop.10](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.9...v1.6.0-develop.10) (2020-08-17)
+### [1.5.4](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.3...v1.5.4) (2020-08-06)
 
 
 ### :bug: Bugfix
 
-* **drilldown trap exit:** Merge pull request [#113](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/113) from Cogility/hotfix/drilldown-consumer-groups-restart ([ac55972](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/ac55972c22f78b10079acd777e12c2cc55d56d05))
+* **update_notification:** trigger build ([e3b012a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/e3b012aa7c47743cc1bf3c544f9849764a8a224f))
 
-## [1.6.0-develop.9](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.8...v1.6.0-develop.9) (2020-08-17)
-
-
-### :bug: Bugfix
-
-* **drilldown debug:** Merge pull request [#111](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/111) from Cogility/hotfix/drilldown-dev-delete-debugging ([7f28fa7](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/7f28fa71e38b354043a2485308028e10270b3756))
-
-## [1.6.0-develop.8](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.7...v1.6.0-develop.8) (2020-08-16)
+### [1.5.3](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.2...v1.5.3) (2020-08-05)
 
 
 ### :bug: Bugfix
 
-* **debug:** Merge pull request [#110](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/110) from Cogility/hotfix/drilldown-processor-demand ([04448e7](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/04448e79fbed63cf80c19a755b748f35d207aa11))
+* **manual-actions:** trigger build ([0129465](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/01294653529dc004838ad4cd180477ccb0df9d02))
 
-## [1.6.0-develop.7](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.6...v1.6.0-develop.7) (2020-08-16)
-
-
-### :bug: Bugfix
-
-* **drilldown:** Merge pull request [#109](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/109) from Cogility/hotfix/drilldown-cache-bug-fixes ([86382a0](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/86382a04603664c4013ce68109bbc33fa679acee))
-
-## [1.6.0-develop.6](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.5...v1.6.0-develop.6) (2020-08-15)
-
-
-### :bug: Bugfix
-
-* **elastic link event changes:** Merge pull request [#108](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/108) from Cogility/hotfix/update-link-event-processor ([a1d5da9](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/a1d5da9e959819bb78ae50a6b6517ffe93fbaac0))
-
-## [1.6.0-develop.5](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.4...v1.6.0-develop.5) (2020-08-14)
-
-
-### :bug: Bugfix
-
-* **ingest app restart:** Merge pull request [#107](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/107) from Cogility/hotfix/producer-keys-to-redis ([7ee7656](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/7ee765629269565c6d06ca916421cebd30ca5724))
-
-## [1.6.0-develop.4](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.3...v1.6.0-develop.4) (2020-08-13)
+### [1.5.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.5.1...v1.5.2) (2020-08-04)
 
 
 ### :bug: Bugfix

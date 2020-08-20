@@ -7,9 +7,9 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
   alias CogyntWorkstationIngest.Config
   alias Models.Deployments.Deployment
   alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, TaskSupervisor}
-  # alias CogyntWorkstationIngest.Drilldown.DrilldownContext
+  alias CogyntWorkstationIngest.Drilldown.DrilldownContext
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
-  alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
+  # alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
   alias CogyntWorkstationIngest.Broadway.DrilldownProducer
 
   def start_link(arg) do
@@ -127,10 +127,11 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
 
   defp reset_cached_data() do
     DrilldownProducer.flush_queue()
+    Redis.key_delete("dcgid")
     Redis.key_delete("dmi")
     Redis.hash_increment_by("dmi", "tmp", 0)
-    # DrilldownContext.hard_delete_template_solutions_data()
-    DrilldownCache.reset_state()
+    DrilldownContext.hard_delete_template_solutions_data()
+    # DrilldownCache.reset_state()
   end
 
   defp finished_processing?() do

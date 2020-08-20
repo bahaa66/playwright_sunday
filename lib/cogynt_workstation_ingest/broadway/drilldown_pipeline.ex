@@ -35,7 +35,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   end
 
   defp partition(msg) do
-    case msg.data.event.id do
+    case msg.data["event"]["id"] do
       nil ->
         :rand.uniform(100_000)
 
@@ -49,10 +49,10 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
   def transform(payload, _opts) do
-    case Jason.decode(payload, keys: :atoms) do
-      {:ok, event} ->
+    case Jason.decode(payload) do
+      {:ok, %{"event" => event, "retry_count" => retry_count}} ->
         %Message{
-          data: event,
+          data: %{event: event, retry_count: retry_count},
           acknowledger: {__MODULE__, :ack_id, :ack_data}
         }
 
@@ -100,7 +100,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   def handle_message(_processor, %Message{data: data} = message, _context) do
     data
     |> DrilldownProcessor.process_template_data()
-    |> DrilldownProcessor.update_template_solutions()
+    |> DrilldownProcessor.upsert_template_solutions()
 
     message
   end

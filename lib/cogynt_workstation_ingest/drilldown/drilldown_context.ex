@@ -2,138 +2,158 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   alias Models.Drilldown.TemplateSolutions
   alias CogyntWorkstationIngest.Repo
 
-  import Ecto.Query
+  # -------------------------------- #
+  # --- Drilldown Schema Methods --- #
+  # -------------------------------- #
 
-  def update_template_solutions(%{sol_id: id, sol: _sol, evnt: _evnt} = data) do
-    case get_template_solution(id) do
+  @doc """
+  Lists all the TemplateSolutions stored in the database
+  ## Examples
+      iex> list_template_solutions()
+      [%TemplateSolutions{}, ...]
+  """
+  def list_template_solutions() do
+    case Repo.all(TemplateSolutions) do
       nil ->
-        get_attrs(nil, data) |> create_template_solution()
-        data
+        []
 
-      template_solution ->
-        update_record(template_solution, data)
-        data
+      results ->
+        process_template_solutions(results)
     end
   end
 
-  def update_template_solutions(%{sol_id: id, sol: sol} = data) do
-    case get_template_solution(id) do
-      nil ->
-        %{events: %{}, outcomes: []}
-        |> Map.merge(sol)
-        |> create_template_solution
+  @doc """
 
-        data
-
-      template_solution ->
-        update_record(template_solution, sol)
-        data
-    end
-  end
-
+  """
   def get_template_solution(id), do: Repo.get(TemplateSolutions, id)
 
-  defp create_template_solution(attrs) do
-    changeset =
-      %TemplateSolutions{}
-      |> TemplateSolutions.changeset(attrs)
+  @doc """
 
-    case Repo.insert(changeset) do
-      {:ok, struct} ->
-        struct
-
-      {:error, reason} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "create_template_solution failed with reason: #{inspect(reason)}"
-        )
-    end
-  end
-
+  """
   def get_template_solution_data(id) do
     case get_template_solution(id) do
       nil ->
-        {:ok, nil}
+        nil
 
       data ->
-        {:ok, process_template_solution(data)}
+        process_template_solution(data)
     end
   end
 
-  def list_template_solutions() do
-    query = from(t in TemplateSolutions)
+  @doc """
+  Creates an TemplateSolutions.
+  ## Examples
+      iex> create_template_solution(%{field: value})
+      {:ok, %TemplateSolutions{}}
+      iex> create_template_solution(%{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+  """
+  def create_template_solution(attrs \\ %{}) do
+    %TemplateSolutions{}
+    |> TemplateSolutions.changeset(attrs)
+    |> Repo.insert()
+  end
 
+  @doc """
+
+  """
+  def update_template_solution(%TemplateSolutions{} = template_solution, attrs) do
+    template_solution
+    |> TemplateSolutions.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+
+  """
+  def upsert_template_solutions(%{sol_id: id, sol: _sol, evnt: _evnt} = attrs) do
+    case get_template_solution(id) do
+      nil ->
+        build_attrs(nil, attrs)
+        |> atomize_map()
+        |> create_template_solution()
+
+      template_solution ->
+        attrs =
+          template_solution
+          |> Map.from_struct()
+          |> Map.drop([:__meta__])
+          |> stringify_map()
+          |> build_attrs(attrs)
+          |> atomize_map()
+
+        update_template_solution(template_solution, attrs)
+    end
+  end
+
+  def upsert_template_solutions(%{sol_id: id, sol: sol} = attrs) do
+    case get_template_solution(id) do
+      nil ->
+        %{"events" => %{}, "outcomes" => []}
+        |> Map.merge(sol)
+        |> atomize_map()
+        |> create_template_solution
+
+      template_solution ->
+        attrs =
+          template_solution
+          |> Map.from_struct()
+          |> Map.drop([:__meta__])
+          |> stringify_map()
+          |> build_attrs(attrs)
+
+        update_template_solution(template_solution, attrs)
+    end
+  end
+
+  @doc """
+
+  """
+  def hard_delete_template_solutions_data() do
     try do
-      case Repo.all(query) do
-        [] -> {:ok, nil}
-        list -> {:ok, list}
-      end
+      result = Repo.query("TRUNCATE template_solutions", [])
+
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "hard_delete_template_solutions_data completed with result: #{result}"
+      )
     rescue
-      e in Ecto.QueryError ->
+      e ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "get_template_solutions failed with reason: #{inspect(e)}"
+          "hard_delete_template_solutions_data failed with reason: #{inspect(e)}"
         )
-
-        {:ok, nil}
     end
   end
 
-  def hard_delete_template_solutions_data() do
-    from(ts in TemplateSolutions)
-    |> Repo.delete_all()
-  end
-
-  defp get_attrs(temp_sol, %{sol_id: _id, sol: sol, evnt: evnt} = data) do
-    sol = (temp_sol || %{events: %{}, outcomes: []}) |> Map.merge(sol)
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp build_attrs(temp_sol, %{sol_id: _id, sol: sol, evnt: evnt} = data) do
+    sol = (temp_sol || %{"events" => %{}, "outcomes" => []}) |> Map.merge(sol)
 
     cond do
-      Map.has_key?(data, :event) and not Map.has_key?(data.event, :aid) ->
+      Map.has_key?(data, :event) and not Map.has_key?(data.event, "aid") ->
         sol
-        |> Map.put(:outcomes, [evnt | sol.outcomes])
+        |> Map.put("outcomes", [evnt | sol["outcomes"]])
 
-      Map.has_key?(evnt, :published_by) and sol.id == evnt.published_by ->
+      Map.has_key?(evnt, "published_by") and sol["id"] == evnt["published_by"] ->
         # event is input and published by same instance
         temp_sol
 
-      Map.has_key?(data, :event) and Map.has_key?(data.event, :aid) ->
-        key = evnt.id <> "!" <> evnt.assertion_id
+      Map.has_key?(data, :event) and Map.has_key?(data.event, "aid") ->
+        key = evnt["id"] <> "!" <> evnt["assertion_id"]
 
         sol
-        |> Map.put(:events, Map.put(sol.events, key, evnt))
+        |> Map.put("events", Map.put(sol["events"], key, evnt))
 
       true ->
         data
     end
   end
 
-  defp get_attrs(_temp_sol, data) do
+  defp build_attrs(_temp_sol, data) do
     data
-  end
-
-  defp update_record(template_solution, data) do
-    new_data =
-      template_solution
-      |> Map.from_struct()
-      |> Map.drop([:__meta__])
-      |> get_attrs(data)
-
-    temp_sol = TemplateSolutions.changeset(template_solution, new_data)
-
-    case Repo.update(temp_sol) do
-      {:ok, _struct} ->
-        :ok
-
-      {:error, reason} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "update_record failed with reason: #{inspect(reason)}"
-        )
-    end
-  end
-
-  defp stringify_map(atom_map) do
-    for {key, val} <- atom_map, into: %{}, do: {Atom.to_string(key), val}
   end
 
   defp process_template_solution(data) do
@@ -141,5 +161,19 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     |> Map.from_struct()
     |> Map.drop([:__meta__, :created_at, :updated_at])
     |> stringify_map()
+  end
+
+  defp process_template_solutions(data) when is_list(data) do
+    Enum.reduce(data, [], fn d, acc ->
+      acc ++ [process_template_solution(d)]
+    end)
+  end
+
+  defp stringify_map(atom_map) do
+    for {key, val} <- atom_map, into: %{}, do: {Atom.to_string(key), val}
+  end
+
+  defp atomize_map(string_map) do
+    for {key, val} <- string_map, into: %{}, do: {String.to_atom(key), val}
   end
 end
