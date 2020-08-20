@@ -1,4 +1,11 @@
-### [1.6.10](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.9...v1.6.10) (2020-08-17)
+## [1.6.0-develop.13](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.12...v1.6.0-develop.13) (2020-08-19)
+
+
+### :sparkles: Feature
+
+* **more redis streams:** Merge pull request [#117](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/117) from Cogility/feature/redis-streams-event-producer ([cf32cc3](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/cf32cc35b8e5da6bdaaff7e6aa379a05f05ac16a))
+
+## [1.6.0-develop.12](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.0-develop.11...v1.6.0-develop.12) (2020-08-18)
 
 
 ### :bug: Bugfix
