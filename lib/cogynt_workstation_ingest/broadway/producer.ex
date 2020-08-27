@@ -70,7 +70,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
       {:ok, true} ->
         {:ok, stream_length} = Redis.stream_length("a:#{event_definition_id}")
         Redis.key_delete("a:#{event_definition_id}")
-        # TODO: remove failed events ??f
+        # TODO: remove failed events for an event_definition_id
         Redis.hash_increment_by("b:#{event_definition_id}", "tmc", -stream_length)
     end
   end

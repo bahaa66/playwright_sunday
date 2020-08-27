@@ -73,7 +73,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
 
   defp reset_deployment_data() do
     DeploymentsContext.hard_delete_deployments()
-    Process.sleep(2000)
     CogyntLogger.info("#{__MODULE__}", "Starting the Deployment ConsumerGroup")
 
     case ConsumerGroupSupervisor.start_child(:deployment) do

@@ -99,7 +99,18 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
               end)
 
               # Start Drilldown Consumer for Deployment
-              ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+              case ConsumerGroupSupervisor.drilldown_consumer_running?(deployment) do
+                true ->
+                  nil
+
+                false ->
+                  CogyntLogger.info(
+                    "#{__MODULE__}",
+                    "Starting Drilldown ConsumerGroup for deplpoyment_id: #{deployment.id}"
+                  )
+
+                  ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+              end
 
             _ ->
               nil

@@ -49,49 +49,48 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:plug_cowboy, "~> 2.0"},
       {:health_checkup, "~> 0.1.0"},
       {:ecto_enum, "~> 1.4"},
-      {:broadway, "~> 0.6.0"},
+      {:broadway_kafka, "~> 0.1.0", override: true},
+      {:brod, "~> 3.14.0", override: true},
+      {:kafka_protocol, "~> 2.4.1", override: true},
       {:kafka_ex, "~> 0.10.0"},
-      {:httpoison, "~> 1.5"},
+      {:httpoison, "~> 1.7"},
       {:junit_formatter, "~> 3.0"},
-      {:timber, "~> 3.1.1"},
-      {:timber_phoenix, "~> 1.0"},
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
       {:scrivener_ecto, "~> 2.0"},
       {:quiet_logger, "~> 0.2.0"},
       {:telemetry, "~> 0.4.0"},
       {:telemetry_poller, "~> 0.4"},
-      {:recase, "~> 0.5"},
       {
         :models,
-        tag: "v1.7.0",
+        tag: "v1.7.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.7.0",
+        tag: "v1.7.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
       },
       {
         :utils,
+        tag: "v1.7.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "utils",
-        tag: "v1.6.3-beta",
         override: true
       },
       {
         :elasticsearch,
-        tag: "v1.7.3",
+        tag: "v1.7.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
         override: true
       },
       {
         :redis,
-        tag: "v1.7.6",
+        tag: "v1.7.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true

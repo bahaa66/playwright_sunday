@@ -40,7 +40,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteTopicDataTask do
             :deployment_id
           ]
         },
-        set: [active: false, started_at: nil]
+        set: [active: false]
       )
 
     Enum.each(event_definition_data, fn %EventDefinition{

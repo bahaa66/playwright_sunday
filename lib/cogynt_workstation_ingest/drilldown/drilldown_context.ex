@@ -10,33 +10,39 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   Lists all the TemplateSolutions stored in the database
   ## Examples
       iex> list_template_solutions()
-      [%TemplateSolutions{}, ...]
+      [%{"id" => 1234}, ...]
   """
   def list_template_solutions() do
     case Repo.all(TemplateSolutions) do
       nil ->
         []
 
-      results ->
-        process_template_solutions(results)
+      template_solutions ->
+        process_template_solutions(template_solutions)
     end
   end
 
   @doc """
-
+  Returns the TemplateSolution for id
+  ## Examples
+      iex> get_template_solution(id)
+      %TemplateSolutions{}
+      iex> get_template_solution(invalid_id)
+      nil
   """
   def get_template_solution(id), do: Repo.get(TemplateSolutions, id)
 
   @doc """
-
+  Fetches the TemplateSolution and returns the data as a map with
+  string keys
   """
   def get_template_solution_data(id) do
     case get_template_solution(id) do
       nil ->
         nil
 
-      data ->
-        process_template_solution(data)
+      template_solution ->
+        process_template_solution(template_solution)
     end
   end
 
@@ -55,7 +61,12 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   end
 
   @doc """
-
+  Updates an TemplateSolutions.
+  ## Examples
+      iex> update_template_solution(template_solution, %{field: new_value})
+      {:ok, %TemplateSolutions{}}
+      iex> update_template_solution(template_solution, %{field: bad_value})
+      {:error, ...}
   """
   def update_template_solution(%TemplateSolutions{} = template_solution, attrs) do
     template_solution
@@ -64,10 +75,18 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   end
 
   @doc """
-
+  Will create the TemplateSolution if no record is found for the solution_id.
+  If a record is found it updates the record with the new attrs.
+  ## Examples
+      iex> upsert_template_solutions(%{field: value})
+      {:ok, %TemplateSolutions{}}
+      iex> upsert_template_solutions(%{field: bad_value})
+      {:error, %Ecto.Changeset{}}
   """
-  def upsert_template_solutions(%{sol_id: id, sol: _sol, evnt: _evnt} = attrs) do
-    case get_template_solution(id) do
+  def upsert_template_solutions(
+        %{solution_id: solution_id, solution: _solution, solution_event: _solution_event} = attrs
+      ) do
+    case get_template_solution(solution_id) do
       nil ->
         build_attrs(nil, attrs)
         |> atomize_map()
@@ -86,11 +105,11 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     end
   end
 
-  def upsert_template_solutions(%{sol_id: id, sol: sol} = attrs) do
-    case get_template_solution(id) do
+  def upsert_template_solutions(%{solution_id: solution_id, solution: solution} = attrs) do
+    case get_template_solution(solution_id) do
       nil ->
         %{"events" => %{}, "outcomes" => []}
-        |> Map.merge(sol)
+        |> Map.merge(solution)
         |> atomize_map()
         |> create_template_solution
 
@@ -107,18 +126,20 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   end
 
   @doc """
-
+  Truncates the template_solutions table.
+    ## Examples
+      iex> hard_delete_template_solutions_data()
   """
   def hard_delete_template_solutions_data() do
     try do
-      result = Repo.query("TRUNCATE template_solutions", [])
+      {:ok, result = %Postgrex.Result{}} = Repo.query("TRUNCATE template_solutions", [])
 
       CogyntLogger.info(
         "#{__MODULE__}",
-        "hard_delete_template_solutions_data completed with result: #{result}"
+        "hard_delete_template_solutions_data completed with result: #{result.connection_id}"
       )
     rescue
-      e ->
+      e in Postgrex.Error ->
         CogyntLogger.error(
           "#{__MODULE__}",
           "hard_delete_template_solutions_data failed with reason: #{inspect(e)}"
@@ -129,30 +150,34 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp build_attrs(temp_sol, %{sol_id: _id, sol: sol, evnt: evnt} = data) do
-    sol = (temp_sol || %{"events" => %{}, "outcomes" => []}) |> Map.merge(sol)
+  defp build_attrs(
+         template_solution,
+         %{solution_id: _solution_id, solution: solution, solution_event: solution_event} = data
+       ) do
+    solution = (template_solution || %{"events" => %{}, "outcomes" => []}) |> Map.merge(solution)
 
     cond do
       Map.has_key?(data, :event) and not Map.has_key?(data.event, "aid") ->
-        sol
-        |> Map.put("outcomes", [evnt | sol["outcomes"]])
+        solution
+        |> Map.put("outcomes", [solution_event | solution["outcomes"]])
 
-      Map.has_key?(evnt, "published_by") and sol["id"] == evnt["published_by"] ->
+      Map.has_key?(solution_event, "published_by") and
+          solution["id"] == solution_event["published_by"] ->
         # event is input and published by same instance
-        temp_sol
+        template_solution
 
       Map.has_key?(data, :event) and Map.has_key?(data.event, "aid") ->
-        key = evnt["id"] <> "!" <> evnt["assertion_id"]
+        key = solution_event["id"] <> "!" <> solution_event["assertion_id"]
 
-        sol
-        |> Map.put("events", Map.put(sol["events"], key, evnt))
+        solution
+        |> Map.put("events", Map.put(solution["events"], key, solution_event))
 
       true ->
         data
     end
   end
 
-  defp build_attrs(_temp_sol, data) do
+  defp build_attrs(_template_solution, data) do
     data
   end
 
