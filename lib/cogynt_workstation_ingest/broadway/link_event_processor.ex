@@ -26,7 +26,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         Map.put(data, :validated, false)
 
       entities ->
-        if Enum.empty?(entities) or Enum.count(entities) == 1 do
+        if Enum.empty?(entities) do
           CogyntLogger.warn(
             "#{__MODULE__}",
             "entity field is empty or only has 1 link obect. Entity: #{
