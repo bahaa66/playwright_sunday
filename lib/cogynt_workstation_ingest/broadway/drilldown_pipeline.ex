@@ -7,65 +7,66 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   use Broadway
   alias Broadway.Message
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Broadway.{DrilldownProducer, DrilldownProcessor}
+  alias CogyntWorkstationIngest.Broadway.DrilldownProcessor
 
-  @pipeline_name :BroadwayDrilldown
-
-  def start_link(_args) do
+  def start_link(%{group_id: group_id, topics: topics, hosts: hosts}) do
     Broadway.start_link(__MODULE__,
-      name: @pipeline_name,
+      name: String.to_atom(group_id <> "Pipeline"),
       producer: [
-        module: {DrilldownProducer, []},
-        concurrency: 1,
-        transformer: {__MODULE__, :transform, []}
-        # rate_limiting: [
-        #   allowed_messages: Config.drilldown_producer_allowed_messages(),
-        #   interval: Config.drilldown_producer_rate_limit_interval()
-        # ]
+        module:
+          {BroadwayKafka.Producer,
+           [
+             hosts: hosts,
+             group_id: group_id,
+             topics: topics,
+             offset_commit_on_ack: true,
+             offset_reset_policy: :earliest,
+             group_config: [
+               session_timeout_seconds: 15
+             ],
+             fetch_config: [
+               # 3 MB
+               max_bytes: 3_145_728
+             ],
+             client_config: [
+               # 15 seconds
+               connect_timeout: 15000
+             ]
+           ]},
+        concurrency: 10,
+        transformer: {__MODULE__, :transform, [group_id: group_id]}
       ],
       processors: [
         default: [
-          concurrency: Config.drilldown_processor_stages(),
-          max_demand: Config.drilldown_processor_max_demand(),
-          min_demand: Config.drilldown_processor_min_demand()
+          concurrency: Config.drilldown_processor_stages()
         ]
-      ],
-      partition_by: &partition/1
+      ]
     )
-  end
-
-  defp partition(msg) do
-    case msg.data.event.id do
-      nil ->
-        :rand.uniform(100_000)
-
-      id ->
-        :erlang.phash2(id)
-    end
   end
 
   @doc """
   Transformation callback. Will transform the message that is returned
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
-  def transform(payload, _opts) do
-    case Jason.decode(payload, keys: :atoms) do
-      {:ok, event} ->
-        %Message{
-          data: event,
-          acknowledger: {__MODULE__, :ack_id, :ack_data}
-        }
+  def transform(%Message{data: encoded_data} = message, opts) do
+    group_id = Keyword.get(opts, :group_id, 1)
+
+    case Jason.decode(encoded_data) do
+      {:ok, decoded_data} ->
+        # Incr the total message count that has been consumed from kafka
+        Redis.hash_increment_by("dmi:#{group_id}", "tmc", 1)
+
+        Map.put(message, :data, %{event: decoded_data})
+        |> Map.put(:acknowledger, {__MODULE__, group_id, :ack_data})
 
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Failed to decode payload. Error: #{inspect(error)}"
+          "Failed to decode Kafka message. Error: #{inspect(error)}"
         )
 
-        %Message{
-          data: nil,
-          acknowledger: {__MODULE__, :ack_id, :ack_data}
-        }
+        Map.put(message, :data, nil)
+        |> Map.put(:acknowledger, {__MODULE__, group_id, :ack_data})
     end
   end
 
@@ -73,10 +74,9 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   Acknowledge callback. Will get all success or failed messages from
   the pipeline.
   """
-  def ack(:ack_id, successful, _failed) do
+  def ack(group_id, successful, _failed) do
     Enum.each(successful, fn _ ->
-      # {:ok, tmc} = Redis.hash_get("drilldown_message_info", "tmc")
-      {:ok, _tmp} = Redis.hash_increment_by("drilldown_message_info", "tmp", 1)
+      {:ok, _tmp} = Redis.hash_increment_by("dmi:#{group_id}", "tmp", 1)
     end)
   end
 
@@ -88,7 +88,8 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   @impl true
   def handle_failed(messages, _opts) do
     CogyntLogger.error("#{__MODULE__}", "Messages failed. #{inspect(messages)}")
-    DrilldownProducer.enqueue_failed_messages(messages)
+    # TODO: handle failed messages
+    # DrilldownProducer.enqueue_failed_messages(messages)
     messages
   end
 
@@ -98,10 +99,10 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   a process_template_data/1 and update_cache/1
   """
   @impl true
-  def handle_message(_processor, %Message{data: data} = message, _context) do
-    data
+  def handle_message(_processor, message, _context) do
+    message
     |> DrilldownProcessor.process_template_data()
-    |> DrilldownProcessor.update_template_solutions()
+    |> DrilldownProcessor.upsert_template_solutions()
 
     message
   end

@@ -3,6 +3,10 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   alias CogyntWorkstationIngest.Config
   alias KafkaEx.Protocol.Fetch
 
+  # TODO: For now the DrilldownProducer is unused. It has been replaced with
+  # the BroadwayKafka Producer. There should be no references to it in this
+  # solution
+
   # -------------------- #
   # --- client calls --- #
   # -------------------- #
@@ -12,9 +16,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
 
   @impl true
   def init(_args) do
-    # Trap exit
-    Process.flag(:trap_exit, true)
-
     {:producer, %{demand: 0}}
   end
 
@@ -29,15 +30,14 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   end
 
   def flush_queue() do
-    case Redis.key_exists?("drilldown_event_stream") do
+    case Redis.key_exists?("des") do
       {:ok, false} ->
-        Redis.hash_set("drilldown_message_info", "tmc", 0)
+        Redis.hash_set("dmi", "tmc", 0)
 
       {:ok, true} ->
-        {:ok, stream_length} = Redis.stream_length("drilldown_event_stream")
-        Redis.key_delete("drilldown_event_stream")
-        Redis.key_delete("drilldown_failed_event_stream")
-        Redis.hash_increment_by("drilldown_message_info", "tmc", -stream_length)
+        {:ok, stream_length} = Redis.stream_length("des")
+        Redis.stream_trim("des", 0)
+        Redis.hash_increment_by("dmi", "tmc", -stream_length)
     end
   end
 
@@ -53,7 +53,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   @impl true
   def handle_cast({:enqueue, message_set}, state) do
     parse_kafka_message_set(message_set)
-    {messages, new_state} = fetch_demand_from_redis_stream("drilldown_event_stream", state)
+    {messages, new_state} = fetch_demand_from_redis_stream("des", state)
     {:noreply, messages, new_state}
   end
 
@@ -68,7 +68,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   def handle_demand(incoming_demand, %{demand: demand} = state) when incoming_demand > 0 do
     total_demand = incoming_demand + demand
     new_state = Map.put(state, :demand, total_demand)
-    {messages, new_state} = fetch_demand_from_redis_stream("drilldown_event_stream", new_state)
+    {messages, new_state} = fetch_demand_from_redis_stream("des", new_state)
     {:noreply, messages, new_state}
   end
 
@@ -79,39 +79,8 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
 
   @impl true
   def handle_info(:retry_failed_messages, state) do
-    {messages, new_state} = fetch_demand_from_redis_stream("drilldown_failed_event_stream", state)
+    {messages, new_state} = fetch_demand_from_redis_stream("dfes", state)
     {:noreply, messages, new_state}
-  end
-
-  @impl true
-  def handle_info({:EXIT, _pid, :normal}, state) do
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "GenStage DrilldownProducer being shutdown... Redis state being flushed"
-    )
-
-    Redis.key_delete("drilldown_event_stream")
-    Redis.key_delete("drilldown_failed_event_stream")
-    Redis.key_delete("drilldown_message_info")
-
-    {:noreply, state}
-  end
-
-  # Callback that will persist data to the filesystem before the server shuts down
-  @impl true
-  def terminate(reason, state) do
-    CogyntLogger.warn(
-      "#{__MODULE__}",
-      "GenStage DrilldownProducer crashed for the following reason: #{
-        inspect(reason, pretty: true)
-      }... Redis state being flushed"
-    )
-
-    Redis.key_delete("drilldown_event_stream")
-    Redis.key_delete("drilldown_failed_event_stream")
-    Redis.key_delete("drilldown_message_info")
-
-    {:stop, reason, state}
   end
 
   # ----------------------- #
@@ -120,18 +89,23 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   defp parse_kafka_message_set(message_set) do
     # Incr the total message count that has been consumed for this event_definition
     message_count = Enum.count(message_set)
-    Redis.hash_increment_by("drilldown_message_info", "tmc", message_count)
+    Redis.hash_increment_by("dmi", "tmc", message_count)
 
     Enum.each(message_set, fn %Fetch.Message{value: json_message} ->
       case Jason.decode(json_message) do
         {:ok, message} ->
-          Redis.stream_add("drilldown_event_stream", "evt", %{
-            event: message,
-            retry_count: 0
-          })
+          Redis.stream_add(
+            "des",
+            "evt",
+            %{
+              event: message,
+              retry_count: 0
+            },
+            compress: true
+          )
 
         {:error, error} ->
-          Redis.hash_increment_by("drilldown_message_info", "tmc", -1)
+          Redis.hash_increment_by("dmi", "tmc", -1)
 
           CogyntLogger.error(
             "#{__MODULE__}",
@@ -157,10 +131,15 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
           "Failed messages retry. Attempt: #{retry_count + 1}"
         )
 
-        Redis.stream_add("drilldown_failed_event_stream", "fld", %{
-          event: message,
-          retry_count: retry_count + 1
-        })
+        Redis.stream_add(
+          "dfes",
+          "fld",
+          %{
+            event: message,
+            retry_count: retry_count + 1
+          },
+          compress: true
+        )
       end
     end)
   end
@@ -175,35 +154,28 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
         case stream_length >= demand do
           true ->
             # Read Stream by demand
-            {:ok, stream_result} = Redis.stream_read(demand, stream_name)
+            {:ok, stream_result} = Redis.stream_read(stream_name, demand)
 
             stream_events =
               Enum.flat_map(stream_result, fn [_, level_1] ->
-                Enum.flat_map(level_1, fn [_, [_, value_2]] -> [value_2] end)
+                Enum.flat_map(level_1, fn [_, [_, value_2]] -> [:zlib.uncompress(value_2)] end)
               end)
 
             # Trim Stream by demand read
             Redis.stream_trim(stream_name, stream_length - demand)
-
-            # # Read Stream by demand{
-            # {:ok, tmp_stream_length} = Redis.stream_length(stream_name)
-
-            # IO.inspect(tmp_stream_length, label: "NEW STREAM LENGTH")
 
             stream_events
 
           false ->
             if stream_length > 0 do
               # Read Stream by demand
-              {:ok, stream_result} = Redis.stream_read(stream_length, stream_name)
+              {:ok, stream_result} = Redis.stream_read(stream_name, stream_length)
 
               stream_events =
                 Enum.flat_map(stream_result, fn [_, level_1] ->
-                  Enum.flat_map(level_1, fn [_, [_, value_2]] -> [value_2] end)
+                  Enum.flat_map(level_1, fn [_, [_, value_2]] -> [:zlib.uncompress(value_2)] end)
                 end)
 
-              # Trim Stream by length read
-              # TODO:  can have length of 0 ?
               Redis.stream_trim(stream_name, 0)
 
               stream_events

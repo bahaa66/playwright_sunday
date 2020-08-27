@@ -4,7 +4,7 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
   Queues the messages to the appropriate Broadway Pipelines
   """
   use KafkaEx.GenConsumer
-  alias CogyntWorkstationIngest.Broadway.{Producer, DrilldownProducer}
+  alias CogyntWorkstationIngest.Broadway.Producer
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
 
   # TODO eventually do a POC on using another external Kafka consumer service
@@ -23,14 +23,6 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
   end
 
   @impl true
-  def init(_topic, _partition, _args) do
-    Redis.hash_increment_by("drilldown_message_info", "tmc", 0)
-    Redis.hash_increment_by("drilldown_message_info", "tmp", 0)
-
-    {:ok, %{drilldown: true}}
-  end
-
-  @impl true
   def handle_message_set(message_set, %{event_definition: event_definition} = state) do
     type = event_definition.event_type
     Producer.enqueue(message_set, event_definition.id, type)
@@ -43,15 +35,6 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
   @impl true
   def handle_message_set(message_set, %{deployment: true} = state) do
     DeploymentsContext.handle_deployment_messages(message_set)
-    {:sync_commit, state}
-  end
-
-  @impl true
-  def handle_message_set(message_set, %{drilldown: true} = state) do
-    DrilldownProducer.enqueue(message_set)
-    # Small buffer from keeping the Broadway producer from getting overwhelmed with
-    # kafka messagees
-    Process.sleep(500)
     {:sync_commit, state}
   end
 end

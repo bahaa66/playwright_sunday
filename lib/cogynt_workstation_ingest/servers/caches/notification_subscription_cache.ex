@@ -7,6 +7,9 @@ defmodule CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache d
 
   @notifications_key "_notifications"
 
+  # TODO: This module will be able to be depricated with the implementation of Redis lists for subscriptions
+  # on cogynt-otp
+
   # -------------------- #
   # --- client calls --- #
   # -------------------- #

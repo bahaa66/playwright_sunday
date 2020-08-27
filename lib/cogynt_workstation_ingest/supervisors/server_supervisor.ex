@@ -8,7 +8,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
     ConsumerRetryCache,
     DeploymentConsumerRetryCache,
     NotificationSubscriptionCache,
-    DrilldownCache,
     DeleteEventDefinitionDataCache
   }
 
@@ -35,7 +34,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
       child_spec(ConsumerRetryCache),
       child_spec(NotificationSubscriptionCache),
       child_spec(DeploymentConsumerRetryCache),
-      child_spec(DrilldownCache),
       child_spec(DeleteEventDefinitionDataCache),
       child_spec(Startup),
       child_spec(ConsumerMonitor, restart: :permanent),
