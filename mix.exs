@@ -62,40 +62,35 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:telemetry_poller, "~> 0.4"},
       {
         :models,
-        # tag: "v1.6.7-beta",
-        branch: "feature/drilldown-ingestion-performance-updates",
+        tag: "v1.7.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        # tag: "v1.6.7-beta",
-        branch: "feature/drilldown-ingestion-performance-updates",
+        tag: "v1.7.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
       },
       {
         :utils,
-        # tag: "v1.6.3-beta",
-        branch: "feature/drilldown-ingestion-performance-updates",
+        tag: "v1.7.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "utils",
         override: true
       },
       {
         :elasticsearch,
-        # tag: "v1.7.3",
-        branch: "feature/drilldown-ingestion-performance-updates",
+        tag: "v1.7.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
         override: true
       },
       {
         :redis,
-        # tag: "v1.7.6",
-        branch: "feature/drilldown-ingestion-performance-updates",
+        tag: "v1.7.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true

@@ -132,14 +132,14 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   """
   def hard_delete_template_solutions_data() do
     try do
-      result = Repo.query("TRUNCATE template_solutions", [])
+      {:ok, result = %Postgrex.Result{}} = Repo.query("TRUNCATE template_solutions", [])
 
       CogyntLogger.info(
         "#{__MODULE__}",
-        "hard_delete_template_solutions_data completed with result: #{result}"
+        "hard_delete_template_solutions_data completed with result: #{result.connection_id}"
       )
     rescue
-      e ->
+      e in Postgrex.Error ->
         CogyntLogger.error(
           "#{__MODULE__}",
           "hard_delete_template_solutions_data failed with reason: #{inspect(e)}"
