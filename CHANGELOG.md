@@ -1,3 +1,10 @@
+## [1.9.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.8.1...v1.9.0) (2020-08-27)
+
+
+### :sparkles: Feature
+
+* **BroadwayKafka Producer:** dev -> master ([e7c48f4](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/e7c48f45395200ae72ab658aa4bd6b8890e4caf6))
+
 ### [1.8.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.8.0...v1.8.1) (2020-08-20)
 
 
