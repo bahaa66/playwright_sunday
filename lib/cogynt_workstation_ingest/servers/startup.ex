@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
   """
   use GenServer
   alias CogyntWorkstationIngest.Events.EventsContext
+  alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Servers.Caches.DeploymentConsumerRetryCache
 
@@ -52,6 +53,21 @@ defmodule CogyntWorkstationIngest.Servers.Startup do
           "#{__MODULE__}",
           "CogyntWorkstationIngest Application not started. #{inspect(error, pretty: true)}"
         )
+    end
+
+    case DeploymentsContext.list_deployments() do
+      nil ->
+        nil
+
+      deployments ->
+        Enum.each(deployments, fn deployment ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "Starting DrilldownConsumer for Deplpoyment_ID: #{deployment.id}"
+          )
+
+          ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+        end)
     end
   end
 end

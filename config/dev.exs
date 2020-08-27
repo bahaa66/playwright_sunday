@@ -51,7 +51,7 @@ config :kafka_ex,
   template_solution_topic: System.get_env("TEMPLATE_SOLUTION_TOPIC") || "template_solutions",
   template_solution_event_topic:
     System.get_env("TEMPLATE_SOLUTION_EVENT_TOPIC") || "template_solution_events",
-  topic_partitions: System.get_env("TOPIC_PARTITIONS") || 1,
+  topic_partitions: System.get_env("TOPIC_PARTITIONS") || 10,
   topic_replication: System.get_env("TOPIC_REPLICATION") || 1,
   topic_config: System.get_env("TOPIC_CONFIG") || []
 
@@ -98,7 +98,7 @@ config :cogynt_workstation_ingest, :link_event_pipeline,
     (System.get_env("LINKEVENTPIPELINE_PROCESSOR_MIN_DEMAND") || "80") |> String.to_integer()
 
 config :cogynt_workstation_ingest, :drilldown_pipeline,
-  processor_stages: (System.get_env("DRILLDOWN_PROCESSOR_STAGES") || "10") |> String.to_integer(),
+  processor_stages: (System.get_env("DRILLDOWN_PROCESSOR_STAGES") || "20") |> String.to_integer(),
   processor_max_demand:
     (System.get_env("DRILLDOWN_PROCESSOR_MAX_DEMAND") || "100") |> String.to_integer(),
   processor_min_demand:
