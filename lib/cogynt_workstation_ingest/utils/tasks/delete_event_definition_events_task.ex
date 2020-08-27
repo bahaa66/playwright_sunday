@@ -47,8 +47,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
           })
       end
 
-      EventsContext.update_event_definition(event_definition, %{started_at: nil})
-
       page =
         EventsContext.get_page_of_events(
           %{filter: %{event_definition_id: event_definition.id}},

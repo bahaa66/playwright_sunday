@@ -10,6 +10,10 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
   alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
 
+  # TODO: To be able to have High availablity pods this modules state needs to be populated
+  # based on the value of the consumer status in the Startup task. Also need to check against
+  # the consumer status before starting a consumer
+
   # -------------------- #
   # --- client calls --- #
   # -------------------- #
@@ -84,6 +88,9 @@ defmodule CogyntWorkstationIngest.Servers.Caches.ConsumerRetryCache do
            true <- new_ed.active do
         ConsumerStateManager.manage_request(%{start_consumer: event_definition})
         true = :ets.delete(table_name, event_definition)
+      else
+        false ->
+          true = :ets.delete(table_name, event_definition)
       end
     end)
 

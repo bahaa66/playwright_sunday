@@ -3,6 +3,10 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   alias CogyntWorkstationIngest.Config
   alias KafkaEx.Protocol.Fetch
 
+  # TODO: For now the DrilldownProducer is unused. It has been replaced with
+  # the BroadwayKafka Producer. There should be no references to it in this
+  # solution
+
   # -------------------- #
   # --- client calls --- #
   # -------------------- #
@@ -12,9 +16,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
 
   @impl true
   def init(_args) do
-    # Trap exit
-    # Process.flag(:trap_exit, true)
-
     {:producer, %{demand: 0}}
   end
 
@@ -81,37 +82,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
     {messages, new_state} = fetch_demand_from_redis_stream("dfes", state)
     {:noreply, messages, new_state}
   end
-
-  # @impl true
-  # def handle_info({:EXIT, _pid, :normal}, state) do
-  #   CogyntLogger.info(
-  #     "#{__MODULE__}",
-  #     "GenStage DrilldownProducer being shutdown... Redis state being flushed"
-  #   )
-
-  # Redis.key_delete("des")
-  # Redis.key_delete("dfes")
-  # Redis.key_delete("dmi")
-
-  #   {:noreply, state}
-  # end
-
-  # Callback that will persist data to the filesystem before the server shuts down
-  # @impl true
-  # def terminate(reason, state) do
-  #   CogyntLogger.warn(
-  #     "#{__MODULE__}",
-  #     "GenStage DrilldownProducer crashed for the following reason: #{
-  #       inspect(reason, pretty: true)
-  #     }... Redis state being flushed"
-  #   )
-
-  # Redis.key_delete("des")
-  # Redis.key_delete("dfes")
-  # Redis.key_delete("dmi")
-
-  #   {:stop, reason, state}
-  # end
 
   # ----------------------- #
   # --- private methods --- #

@@ -5,7 +5,8 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DrilldownCache do
   """
   use GenServer
 
-  # TODO needs to have state moved to PSQL or Redis
+  # TODO: This module has been replaced by the DrilldownContext and Psql
+  # there should be no references to it in the solution
 
   # -------------------- #
   # --- client calls --- #
