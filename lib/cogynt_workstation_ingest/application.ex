@@ -14,7 +14,7 @@ defmodule CogyntWorkstationIngest.Application do
   }
 
   alias CogyntWorkstationIngest.Servers.Startup
-  alias CogyntWorkstationIngest.Broadway.{EventPipeline, LinkEventPipeline, DrilldownPipeline}
+  alias CogyntWorkstationIngest.Broadway.{EventPipeline, LinkEventPipeline}
 
   def start(_type, _args) do
     # List all child processes to be supervised
@@ -36,8 +36,6 @@ defmodule CogyntWorkstationIngest.Application do
       EventPipeline,
       # Start the Supervisor for the Broadway LinkEventPipeline
       LinkEventPipeline,
-      # Start the Supervisor for the Broadway DrilldownPipeline
-      DrilldownPipeline,
       # The supervisor for all Task workers
       TaskSupervisor
     ]

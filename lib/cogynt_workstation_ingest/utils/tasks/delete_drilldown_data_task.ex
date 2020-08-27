@@ -6,11 +6,9 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
   use Task
   alias CogyntWorkstationIngest.Config
   alias Models.Deployments.Deployment
-  alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, TaskSupervisor}
+  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Drilldown.DrilldownContext
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
-  # alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
-  alias CogyntWorkstationIngest.Broadway.DrilldownProducer
 
   def start_link(arg) do
     Task.start_link(__MODULE__, :run, [arg])
@@ -24,25 +22,25 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
       }"
     )
 
-    delete_drilldown_data(deleting_deployments, delete_topics)
+    delete_drilldown_data(delete_topics)
   end
 
   # ----------------------- #
   # --- Private Methods --- #
   # ----------------------- #
-  defp delete_drilldown_data(deleting_deployments, delete_topics) do
+  defp delete_drilldown_data(delete_topics) do
     deployments = DeploymentsContext.list_deployments()
 
     Enum.each(deployments, fn %Deployment{id: id} = deployment ->
       CogyntLogger.info("#{__MODULE__}", "Stoping the Drilldown ConsumerGroup's")
       ConsumerGroupSupervisor.stop_child(:drilldown, deployment)
 
+      {:ok, uris} = DeploymentsContext.get_kafka_brokers(id)
+
+      hashed_brokers = Integer.to_string(:erlang.phash2(uris))
+      worker_name = String.to_atom("drilldown" <> hashed_brokers)
+
       if delete_topics do
-        {:ok, uris} = DeploymentsContext.get_kafka_brokers(id)
-
-        hash_string = Integer.to_string(:erlang.phash2(uris))
-        worker_name = String.to_atom("drilldown" <> hash_string)
-
         CogyntLogger.info(
           "#{__MODULE__}",
           "Deleting the Drilldown Topics. #{Config.topic_sols()}, #{Config.topic_sol_events()}. For KafkaWorker: #{
@@ -61,89 +59,78 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
           "Deleted Drilldown Topics result: #{inspect(delete_topic_result, pretty: true)}"
         )
       end
+
+      CogyntLogger.info("#{__MODULE__}", "Starting resetting of drilldown data")
+
+      reset_drilldown(deployment, hashed_brokers)
     end)
-
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "Sleeping for 10 seconds to let any last min messages from consumer be added to the queue...."
-    )
-
-    Process.sleep(10_000)
-
-    CogyntLogger.info("#{__MODULE__}", "Starting resetting of drilldown data")
-
-    if deleting_deployments do
-      # Do not start the DrilldownConsumers since their deployments are going
-      # to be removed. They will be created when new deployments are created
-      reset_drilldown([])
-      # trigger delete deployment task
-      TaskSupervisor.start_child(%{delete_deployment_data: delete_topics})
-    else
-      reset_drilldown(deployments)
-    end
   end
 
-  defp reset_drilldown(deployments, counter \\ 0) do
+  defp reset_drilldown(deployment, hashed_brokers, counter \\ 0) do
     if counter >= 6 do
       reset_cached_data()
-      Process.sleep(2000)
 
-      Enum.each(deployments, fn deployment ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Starting Drilldown ConsumerGroup for DeploymentID: #{deployment.id}"
-        )
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "Starting Drilldown ConsumerGroup for DeploymentID: #{deployment.id}"
+      )
 
-        ConsumerGroupSupervisor.start_child(:drilldown, deployment)
-      end)
+      ConsumerGroupSupervisor.start_child(:drilldown, deployment)
     else
-      DrilldownProducer.flush_queue()
-
-      case finished_processing?() do
+      case finished_processing?(hashed_brokers) do
         {:ok, true} ->
           reset_cached_data()
-          Process.sleep(2000)
 
-          Enum.each(deployments, fn deployment ->
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Starting Drilldown ConsumerGroup for DeploymentID: #{deployment.id}"
-            )
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "Starting Drilldown ConsumerGroup for DeploymentID: #{deployment.id}"
+          )
 
-            ConsumerGroupSupervisor.start_child(:drilldown, deployment)
-          end)
+          ConsumerGroupSupervisor.start_child(:drilldown, deployment)
 
         _ ->
           CogyntLogger.warn(
             "#{__MODULE__}",
-            "DrilldownData still in pipeline, flushing and trying again in 10 seconds..."
+            "DrilldownData still in pipeline, flushing and trying again in 5 seconds..."
           )
 
-          Process.sleep(10_000)
-          reset_drilldown(deployments, counter + 1)
+          Process.sleep(5_000)
+          reset_drilldown(deployment, hashed_brokers, counter + 1)
       end
     end
   end
 
   defp reset_cached_data() do
-    DrilldownProducer.flush_queue()
     Redis.key_delete("dcgid")
-    Redis.key_delete("dmi")
-    Redis.hash_increment_by("dmi", "tmp", 0)
+    {:ok, keys} = Redis.keys_by_pattern("dmi:*")
+    Redis.key_delete_pipeline(keys)
+    #Redis.hash_increment_by_pipeline(keys, "tmp", 0)
     DrilldownContext.hard_delete_template_solutions_data()
-    # DrilldownCache.reset_state()
   end
 
-  defp finished_processing?() do
-    case Redis.key_exists?("dmi") do
-      {:ok, false} ->
-        {:error, :key_does_not_exist}
+  defp finished_processing?(hashed_brokers) do
+    consumer_group_id =
+      case Redis.hash_get("dcgid", "Drilldown-#{hashed_brokers}") do
+        {:ok, nil} ->
+          nil
 
-      {:ok, true} ->
-        {:ok, tmc} = Redis.hash_get("dmi", "tmc")
-        {:ok, tmp} = Redis.hash_get("dmi", "tmp")
+        {:ok, consumer_group_id} ->
+          "Drilldown-#{hashed_brokers}" <> "-" <> consumer_group_id
+      end
 
-        {:ok, String.to_integer(tmp) >= String.to_integer(tmc)}
+    if consumer_group_id == false do
+      {:ok, false}
+    else
+      case Redis.key_exists?("dmi:#{consumer_group_id}") do
+        {:ok, false} ->
+          {:ok, false}
+
+        {:ok, true} ->
+          {:ok, tmc} = Redis.hash_get("dmi:#{consumer_group_id}", "tmc")
+          {:ok, tmp} = Redis.hash_get("dmi:#{consumer_group_id}", "tmp")
+
+          {:ok, String.to_integer(tmp) >= String.to_integer(tmc)}
+      end
     end
   end
 end
