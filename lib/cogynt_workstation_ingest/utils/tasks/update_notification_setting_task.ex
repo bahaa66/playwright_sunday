@@ -4,11 +4,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationSettingTask do
   async task.
   """
   use Task
-  alias Models.Notifications.NotificationSetting
+  alias Models.Notifications.{Notification, NotificationSetting}
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
 
   @page_size 2000
 
@@ -67,22 +66,14 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationSettingTask do
       NotificationsContext.update_notifcations(
         %{
           filter: %{notification_ids: notification_ids},
-          select: [
-            :event_id,
-            :user_id,
-            :tag_id,
-            :id,
-            :title,
-            :notification_setting_id,
-            :created_at,
-            :updated_at
-          ]
+          select: Notification.__schema__(:fields)
         },
         set: [tag_id: tag_id, deleted_at: deleted_at, title: ns_title]
       )
 
-    NotificationSubscriptionCache.add_notifications(
-      NotificationsContext.notification_struct_to_map(updated_notifications)
+    Redis.list_append_pipeline(
+      "notification_queue",
+      NotificationsContext.remove_notification_virtual_fields(updated_notifications)
     )
 
     if page_number >= total_pages do

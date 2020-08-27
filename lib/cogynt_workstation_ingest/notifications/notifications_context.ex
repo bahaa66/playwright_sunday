@@ -159,6 +159,15 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     end)
   end
 
+  def remove_notification_virtual_fields([]), do: []
+
+  def remove_notification_virtual_fields([%Notification{} = notification | tail]) do
+    [
+      Map.take(notification, Notification.__schema__(:fields))
+      | remove_notification_virtual_fields(tail)
+    ]
+  end
+
   # ------------------------------- #
   # --- Event Processor Methods --- #
   # ------------------------------- #

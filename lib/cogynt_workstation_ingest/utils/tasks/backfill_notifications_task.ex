@@ -7,10 +7,9 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
   require Ecto.Query
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias Models.Notifications.NotificationSetting
+  alias Models.Notifications.{Notification, NotificationSetting}
   alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.System.SystemNotificationContext
-  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
 
   @page_size 500
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -64,21 +63,12 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
     {_count, updated_notifications} =
       build_notifications(entries, event_definition_details, notification_setting)
       |> NotificationsContext.bulk_insert_notifications(
-        returning: [
-          :event_id,
-          :user_id,
-          :tag_id,
-          :id,
-          :title,
-          :notification_setting_id,
-          :created_at,
-          :updated_at,
-          :assigned_to
-        ]
+        returning: Notification.__schema__(:fields)
       )
 
-    NotificationSubscriptionCache.add_notifications(
-      NotificationsContext.notification_struct_to_map(updated_notifications)
+    Redis.list_append_pipeline(
+      "notification_queue",
+      NotificationsContext.remove_notification_virtual_fields(updated_notifications)
     )
 
     SystemNotificationContext.bulk_insert_system_notifications(updated_notifications)

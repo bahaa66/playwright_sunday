@@ -7,7 +7,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
-  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -339,17 +338,17 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
          update_notifications: {_count_deleted, updated_notifications}
        }} ->
         total_notifications =
-          NotificationsContext.notification_struct_to_map(created_notifications) ++
+          NotificationsContext.remove_notification_virtual_fields(created_notifications) ++
             updated_notifications
 
-        NotificationSubscriptionCache.add_notifications(total_notifications)
-
+        Redis.list_append_pipeline("notification_queue", total_notifications)
         SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
         SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
-        NotificationSubscriptionCache.add_notifications(
-          NotificationsContext.notification_struct_to_map(created_notifications)
+        Redis.list_append_pipeline(
+          "notification_queue",
+          NotificationsContext.remove_notification_virtual_fields(created_notifications)
         )
 
         SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
@@ -397,7 +396,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     case transaction_result do
       {:ok, %{update_notifications: {_count, updated_notifications}}} ->
-        NotificationSubscriptionCache.add_notifications(updated_notifications)
+        Redis.list_append_pipeline("notification_queue", updated_notifications)
         SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, _} ->
