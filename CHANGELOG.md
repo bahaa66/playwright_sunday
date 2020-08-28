@@ -1,3 +1,10 @@
+### [1.9.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.9.0...v1.9.1) (2020-08-28)
+
+
+### :bug: Bugfix
+
+* **downgrade versions:** Merge pull request [#123](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/123) from Cogility/hotfix/downgrade-models-and-migrations ([b8fbe21](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/b8fbe219fcfae2a2bf2bc8d8b6372cb3ebfab961))
+
 ## [1.9.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.8.1...v1.9.0) (2020-08-27)
 
 
