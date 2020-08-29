@@ -125,23 +125,37 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   defp finished_processing(event_definition_id) do
-    {:ok, %{status: status, topic: topic, nsid: nsid}} =
-      ConsumerStateManager.get_consumer_state(event_definition_id)
+    {:ok,
+     %{
+       status: status,
+       topic: topic,
+       backfill_notifications: backfill_notifications,
+       update_notifications: update_notifications,
+       delete_notifications: delete_notifications
+     }} = ConsumerStateManager.get_consumer_state(event_definition_id)
 
     cond do
       status ==
           ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-        Enum.each(nsid, fn id ->
+        Enum.each(backfill_notifications, fn notification_setting_id ->
           ConsumerStateManager.manage_request(%{
-            backfill_notifications: id
+            backfill_notifications: notification_setting_id
           })
         end)
 
       status ==
           ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-        Enum.each(nsid, fn id ->
+        Enum.each(update_notifications, fn notification_setting_id ->
           ConsumerStateManager.manage_request(%{
-            update_notification_setting: id
+            update_notifications: notification_setting_id
+          })
+        end)
+
+      status ==
+          ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
+        Enum.each(delete_notifications, fn notification_setting_id ->
+          ConsumerStateManager.manage_request(%{
+            delete_notifications: notification_setting_id
           })
         end)
 
@@ -155,7 +169,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         nil
     end
 
-    Redis.publish_async("event_definitions_subscription", %{count: event_definition_id})
+    Redis.publish_async("event_definitions_subscription", %{updated: event_definition_id})
 
     CogyntLogger.info(
       "#{__MODULE__}",

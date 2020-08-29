@@ -37,12 +37,13 @@ defmodule CogyntWorkstationIngest.Servers.EventDefinitionTaskMonitor do
     new_state = Map.put(state, pid, event_definition_ids)
 
     Enum.each(event_definition_ids, fn event_definition_id ->
-      Redis.hash_set("event_definition_task", event_definition_id, true)
+      Redis.hash_set("task_statuses", event_definition_id, true)
     end)
 
-    Redis.key_pexpire("event_definition_task", 30000)
+    Redis.key_pexpire("task_statuses", 30000)
 
-    Redis.publish("event_definitions_subscription", %{
+    # TODO: implement handler for this on cogynt-otp
+    Redis.publish_async("event_definitions_subscription", %{
       event_definition_ids: event_definition_ids,
       deleting: true
     })
@@ -56,10 +57,11 @@ defmodule CogyntWorkstationIngest.Servers.EventDefinitionTaskMonitor do
 
     new_state = Map.put(state, pid, event_definition_id)
 
-    Redis.hash_set("event_definition_task", event_definition_id, true)
-    Redis.key_pexpire("event_definition_task", 30000)
+    Redis.hash_set("task_statuses", event_definition_id, true)
+    Redis.key_pexpire("task_statuses", 30000)
 
-    Redis.publish("event_definitions_subscription", %{
+    # TODO: implement handler for this on cogynt-otp
+    Redis.publish_async("event_definitions_subscription", %{
       event_definition_ids: [event_definition_id],
       deleting: true
     })
@@ -75,19 +77,21 @@ defmodule CogyntWorkstationIngest.Servers.EventDefinitionTaskMonitor do
 
     if is_list(val) do
       Enum.each(val, fn event_definition_id ->
-        Redis.hash_delete("event_definition_task", event_definition_id)
+        Redis.hash_delete("task_statuses", event_definition_id)
       end)
 
-      Redis.publish("event_definitions_subscription", %{
+      # TODO: implement handler for this on cogynt-otp
+      Redis.publish_async("event_definitions_subscription", %{
         event_definition_ids: val,
         deleting: false
       })
 
       {:noreply, Map.delete(state, pid)}
     else
-      Redis.hash_delete("event_definition_task", val)
+      Redis.hash_delete("task_statuses", val)
 
-      Redis.publish("event_definitions_subscription", %{
+      # TODO: implement handler for this on cogynt-otp
+      Redis.publish_async("event_definitions_subscription", %{
         event_definition_ids: [val],
         deleting: false
       })

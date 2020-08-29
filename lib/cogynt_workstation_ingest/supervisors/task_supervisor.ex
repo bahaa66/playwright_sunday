@@ -13,7 +13,8 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
 
   alias CogyntWorkstationIngest.Utils.Tasks.{
     BackfillNotificationsTask,
-    UpdateNotificationSettingTask,
+    UpdateNotificationsTask,
+    DeleteNotificationsTask,
     DeleteEventDefinitionEventsTask,
     DeleteDrilldownDataTask,
     DeleteEventDefinitionsAndTopicsTask,
@@ -42,17 +43,27 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
             {BackfillNotificationsTask, notification_setting_id}
           )
 
-        NotificationsTaskMonitor.monitor(pid, notification_setting_id)
+        NotificationsTaskMonitor.monitor(pid, :backfill, notification_setting_id)
         {:ok, pid}
 
-      {:update_notification_setting, notification_setting_id} ->
+      {:update_notifications, notification_setting_id} ->
         {:ok, pid} =
           DynamicSupervisor.start_child(
             __MODULE__,
-            {UpdateNotificationSettingTask, notification_setting_id}
+            {UpdateNotificationsTask, notification_setting_id}
           )
 
-        NotificationsTaskMonitor.monitor(pid, notification_setting_id)
+        NotificationsTaskMonitor.monitor(pid, :update, notification_setting_id)
+        {:ok, pid}
+
+      {:delete_notifications, notification_setting_id} ->
+        {:ok, pid} =
+          DynamicSupervisor.start_child(
+            __MODULE__,
+            {DeleteNotificationsTask, notification_setting_id}
+          )
+
+        NotificationsTaskMonitor.monitor(pid, :delete, notification_setting_id)
         {:ok, pid}
 
       {:delete_event_definition_events, event_definition_id} ->

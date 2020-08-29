@@ -1,7 +1,8 @@
 defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
   @moduledoc """
   Task module that can be called to paginate through the events of an event_definition and updates the
-  deleted_at using the new deleted_at value of the event_definition.
+  deleted_at using the new deleted_at value of the event_definition. This is used to soft_delete the event_definition
+  and all data associated with it.
   """
   use Task
   alias CogyntWorkstationIngest.Config
@@ -28,9 +29,13 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
         "Running delete event definition events task for ID: #{event_definition_id}"
       )
 
-      EventsContext.delete_event_definition_data(event_definition)
+      # First stop the consumer
       ConsumerStateManager.manage_request(%{stop_consumer: event_definition_id})
 
+      # Second soft delete_event_definition_event_detail_templates_data˝
+      EventsContext.delete_event_definition_event_detail_templates_data(event_definition)
+
+      # Third remove all documents from elasticsearch
       Elasticsearch.delete_by_query(Config.event_index_alias(), %{
         field: "event_definition_id",
         value: event_definition_id
@@ -47,6 +52,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
           })
       end
 
+      # Fourth paginate through all the events linked to the event_definition_id and
+      # delete them
       page =
         EventsContext.get_page_of_events(
           %{filter: %{event_definition_id: event_definition.id}},
@@ -74,20 +81,24 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
 
     event_ids = Enum.map(entries, fn e -> e.id end)
 
+    # Update all events to be deleted
     EventsContext.update_events(
       %{filter: %{event_ids: event_ids}},
       set: [deleted_at: deleted_at]
     )
 
+    # Update all event_links to be deleted
     EventsContext.update_event_links(
       %{filter: %{linkage_event_ids: event_ids}},
       set: [deleted_at: deleted_at]
     )
 
     if page_number >= total_pages do
-      EventsContext.update_event_definition(event_definition, %{active: false, started_at: nil})
+      # Update event_definition to be inactive
+      EventsContext.update_event_definition(event_definition, %{active: false, deleted_at: nil})
+      # remove all state in Redis that is linked to event_definition_id
       ConsumerStateManager.remove_consumer_state(event_definition_id)
-      Redis.publish_async("event_definitions_subscription", %{count: event_definition_id})
+      Redis.publish_async("event_definitions_subscription", %{updated: event_definition_id})
 
       CogyntLogger.info(
         "#{__MODULE__}",
@@ -103,7 +114,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
           include_deleted: true
         )
 
-      Redis.publish_async("event_definitions_subscription", %{count: event_definition_id})
+      Redis.publish_async("event_definitions_subscription", %{updated: event_definition_id})
 
       process_page(next_page, event_definition)
     end

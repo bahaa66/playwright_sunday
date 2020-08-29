@@ -17,13 +17,22 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
   alias Models.Enums.ConsumerStatusTypeEnum
 
-  @default_state %{topic: nil, nsid: [], status: nil, prev_status: nil}
+  @default_state %{
+    topic: nil,
+    backfill_notifications: [],
+    update_notifications: [],
+    delete_notifications: [],
+    status: ConsumerStatusTypeEnum.status()[:unknown],
+    prev_status: nil
+  }
 
   def upsert_consumer_state(event_definition_id, opts) do
     status = Keyword.get(opts, :status, nil)
     topic = Keyword.get(opts, :topic, nil)
     prev_status = Keyword.get(opts, :prev_status, nil)
-    nsid = Keyword.get(opts, :nsid, nil)
+    backfill_notifications = Keyword.get(opts, :backfill_notifications, nil)
+    update_notifications = Keyword.get(opts, :update_notifications, nil)
+    delete_notifications = Keyword.get(opts, :delete_notifications, nil)
 
     case Redis.key_exists?("c:#{event_definition_id}") do
       {:ok, false} ->
@@ -32,7 +41,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           status: status,
           topic: topic,
           prev_status: prev_status,
-          nsid: nsid
+          backfill_notifications: backfill_notifications,
+          update_notifications: update_notifications,
+          delete_notifications: delete_notifications
         }
 
         Redis.hash_set_async("c:#{event_definition_id}", "consumer_state", consumer_state)
@@ -50,7 +61,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           status: status
         })
 
-        check_if_event_definition_is_waiting_deletion(event_definition_id, status)
+        update_delete_event_definition_data_cache(event_definition_id, status)
 
         {:ok, :success}
 
@@ -91,8 +102,22 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           end
 
         consumer_state =
-          if !is_nil(nsid) do
-            Map.put(consumer_state, :nsid, nsid)
+          if !is_nil(backfill_notifications) do
+            Map.put(consumer_state, :backfill_notifications, backfill_notifications)
+          else
+            consumer_state
+          end
+
+        consumer_state =
+          if !is_nil(update_notifications) do
+            Map.put(consumer_state, :update_notifications, update_notifications)
+          else
+            consumer_state
+          end
+
+        consumer_state =
+          if !is_nil(delete_notifications) do
+            Map.put(consumer_state, :delete_notifications, delete_notifications)
           else
             consumer_state
           end
@@ -112,7 +137,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           status: consumer_state.status
         })
 
-        check_if_event_definition_is_waiting_deletion(event_definition_id, consumer_state.status)
+        update_delete_event_definition_data_cache(event_definition_id, consumer_state.status)
 
         {:ok, :success}
     end
@@ -133,6 +158,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
   def remove_consumer_state(event_definition_id) do
     for x <- ["a", "b", "c"], do: Redis.key_delete("#{x}:#{event_definition_id}")
+
+    Redis.hash_delete("ecgid", "EventDefinition-#{event_definition_id}")
   end
 
   def finished_processing?(event_definition_id) do
@@ -160,11 +187,20 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         {:backfill_notifications, notification_setting_id}, _acc ->
           backfill_notifications(notification_setting_id)
 
-        {:update_notification_setting, notification_setting_id}, _acc ->
-          update_notification_setting(notification_setting_id)
+        {:update_notifications, notification_setting_id}, _acc ->
+          update_notifications(notification_setting_id)
+
+        {:delete_notifications, notification_setting_id}, _acc ->
+          delete_notifications(notification_setting_id)
 
         {:delete_event_definition_events, event_definition_id}, _acc ->
           delete_events(event_definition_id)
+
+        _, _ ->
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "Invalid arguments passed to manage_request/1. #{inspect(args, pretty: true)}"
+          )
       end)
   end
 
@@ -174,15 +210,113 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
   defp start_consumer(event_definition) do
     try do
-      {:ok, consumer_state} = get_consumer_state(event_definition.id)
+      case is_event_definition_being_deleted?(event_definition.id) do
+        false ->
+          {:ok, consumer_state} = get_consumer_state(event_definition.id)
 
-      cond do
-        consumer_state.status == ConsumerStatusTypeEnum.status()[:running] ->
-          case ConsumerGroupSupervisor.consumer_running?(event_definition.id) do
-            true ->
+          cond do
+            consumer_state.status == ConsumerStatusTypeEnum.status()[:running] ->
+              case ConsumerGroupSupervisor.consumer_running?(event_definition.id) do
+                true ->
+                  %{response: {:ok, consumer_state.status}}
+
+                false ->
+                  case ConsumerGroupSupervisor.start_child(event_definition) do
+                    {:error, nil} ->
+                      ConsumerRetryCache.retry_consumer(event_definition)
+
+                      upsert_consumer_state(
+                        event_definition.id,
+                        topic: event_definition.topic,
+                        status: ConsumerStatusTypeEnum.status()[:topic_does_not_exist],
+                        prev_status: consumer_state.status,
+                        backfill_notifications: consumer_state.backfill_notifications,
+                        update_notifications: consumer_state.update_notifications,
+                        delete_notifications: consumer_state.delete_notifications
+                      )
+
+                      %{response: {:ok, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}}
+
+                    {:error, {:already_started, _pid}} ->
+                      upsert_consumer_state(
+                        event_definition.id,
+                        topic: event_definition.topic,
+                        status: ConsumerStatusTypeEnum.status()[:running],
+                        prev_status: consumer_state.status,
+                        backfill_notifications: consumer_state.backfill_notifications,
+                        update_notifications: consumer_state.update_notifications,
+                        delete_notifications: consumer_state.delete_notifications
+                      )
+
+                      %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
+
+                    {:ok, pid} ->
+                      ConsumerMonitor.monitor(
+                        pid,
+                        event_definition.id,
+                        event_definition.topic
+                      )
+
+                      upsert_consumer_state(
+                        event_definition.id,
+                        topic: event_definition.topic,
+                        status: ConsumerStatusTypeEnum.status()[:running],
+                        prev_status: consumer_state.status,
+                        backfill_notifications: consumer_state.backfill_notifications,
+                        update_notifications: consumer_state.update_notifications,
+                        delete_notifications: consumer_state.delete_notifications
+                      )
+
+                      %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
+                  end
+              end
+
+            consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+              upsert_consumer_state(
+                event_definition.id,
+                topic: event_definition.topic,
+                status: consumer_state.status,
+                prev_status: ConsumerStatusTypeEnum.status()[:running],
+                backfill_notifications: consumer_state.backfill_notifications,
+                update_notifications: consumer_state.update_notifications,
+                delete_notifications: consumer_state.delete_notifications
+              )
+
+              %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
+
+            consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+              upsert_consumer_state(
+                event_definition.id,
+                topic: event_definition.topic,
+                status: consumer_state.status,
+                prev_status: ConsumerStatusTypeEnum.status()[:running],
+                backfill_notifications: consumer_state.backfill_notifications,
+                update_notifications: consumer_state.update_notifications,
+                delete_notifications: consumer_state.delete_notifications
+              )
+
+              %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
+
+            consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
+              upsert_consumer_state(
+                event_definition.id,
+                topic: event_definition.topic,
+                status: consumer_state.status,
+                prev_status: ConsumerStatusTypeEnum.status()[:running],
+                backfill_notifications: consumer_state.backfill_notifications,
+                update_notifications: consumer_state.update_notifications,
+                delete_notifications: consumer_state.delete_notifications
+              )
+
+              %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
+
+            consumer_state.status == ConsumerStatusTypeEnum.status()[:topic_does_not_exist] ->
               %{response: {:ok, consumer_state.status}}
 
-            false ->
+            true ->
               case ConsumerGroupSupervisor.start_child(event_definition) do
                 {:error, nil} ->
                   ConsumerRetryCache.retry_consumer(event_definition)
@@ -192,7 +326,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     topic: event_definition.topic,
                     status: ConsumerStatusTypeEnum.status()[:topic_does_not_exist],
                     prev_status: consumer_state.status,
-                    nsid: consumer_state.nsid
+                    backfill_notifications: consumer_state.backfill_notifications,
+                    update_notifications: consumer_state.update_notifications,
+                    delete_notifications: consumer_state.delete_notifications
                   )
 
                   %{response: {:ok, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}}
@@ -203,7 +339,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     topic: event_definition.topic,
                     status: ConsumerStatusTypeEnum.status()[:running],
                     prev_status: consumer_state.status,
-                    nsid: consumer_state.nsid
+                    backfill_notifications: consumer_state.backfill_notifications,
+                    update_notifications: consumer_state.update_notifications,
+                    delete_notifications: consumer_state.delete_notifications
                   )
 
                   %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
@@ -220,83 +358,22 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     topic: event_definition.topic,
                     status: ConsumerStatusTypeEnum.status()[:running],
                     prev_status: consumer_state.status,
-                    nsid: consumer_state.nsid
+                    backfill_notifications: consumer_state.backfill_notifications,
+                    update_notifications: consumer_state.update_notifications,
+                    delete_notifications: consumer_state.delete_notifications
                   )
 
                   %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
               end
           end
 
-        consumer_state.status ==
-            ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-          upsert_consumer_state(
-            event_definition.id,
-            topic: event_definition.topic,
-            status: consumer_state.status,
-            prev_status: ConsumerStatusTypeEnum.status()[:running],
-            nsid: consumer_state.nsid
-          )
-
-          %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
-
-        consumer_state.status ==
-            ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-          upsert_consumer_state(
-            event_definition.id,
-            topic: event_definition.topic,
-            status: consumer_state.status,
-            prev_status: ConsumerStatusTypeEnum.status()[:running],
-            nsid: consumer_state.nsid
-          )
-
-          %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
-
-        consumer_state.status == ConsumerStatusTypeEnum.status()[:topic_does_not_exist] ->
-          %{response: {:ok, consumer_state.status}}
-
         true ->
-          case ConsumerGroupSupervisor.start_child(event_definition) do
-            {:error, nil} ->
-              ConsumerRetryCache.retry_consumer(event_definition)
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "Failed to run start_consumer/1. DevDelete task pending or running. Must to wait until it is finished"
+          )
 
-              upsert_consumer_state(
-                event_definition.id,
-                topic: event_definition.topic,
-                status: ConsumerStatusTypeEnum.status()[:topic_does_not_exist],
-                prev_status: consumer_state.status,
-                nsid: consumer_state.nsid
-              )
-
-              %{response: {:ok, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}}
-
-            {:error, {:already_started, _pid}} ->
-              upsert_consumer_state(
-                event_definition.id,
-                topic: event_definition.topic,
-                status: ConsumerStatusTypeEnum.status()[:running],
-                prev_status: consumer_state.status,
-                nsid: consumer_state.nsid
-              )
-
-              %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
-
-            {:ok, pid} ->
-              ConsumerMonitor.monitor(
-                pid,
-                event_definition.id,
-                event_definition.topic
-              )
-
-              upsert_consumer_state(
-                event_definition.id,
-                topic: event_definition.topic,
-                status: ConsumerStatusTypeEnum.status()[:running],
-                prev_status: consumer_state.status,
-                nsid: consumer_state.nsid
-              )
-
-              %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
-          end
+          %{response: {:error, :internal_server_error}}
       end
     rescue
       error ->
@@ -338,7 +415,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
             topic: event_definition.topic,
             status: consumer_state.status,
             prev_status: consumer_status,
-            nsid: consumer_state.nsid
+            backfill_notifications: consumer_state.backfill_notifications,
+            update_notifications: consumer_state.update_notifications,
+            delete_notifications: consumer_state.delete_notifications
           )
 
           %{response: {:ok, consumer_state.status}}
@@ -359,7 +438,32 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
             topic: event_definition.topic,
             status: consumer_state.status,
             prev_status: consumer_status,
-            nsid: consumer_state.nsid
+            backfill_notifications: consumer_state.backfill_notifications,
+            update_notifications: consumer_state.update_notifications,
+            delete_notifications: consumer_state.delete_notifications
+          )
+
+          %{response: {:ok, consumer_state.status}}
+
+        consumer_state.status ==
+            ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
+          consumer_status =
+            case finished_processing?(event_definition_id) do
+              {:ok, true} ->
+                ConsumerStatusTypeEnum.status()[:paused_and_finished]
+
+              {:ok, false} ->
+                ConsumerStatusTypeEnum.status()[:paused_and_processing]
+            end
+
+          upsert_consumer_state(
+            event_definition_id,
+            topic: event_definition.topic,
+            status: consumer_state.status,
+            prev_status: consumer_status,
+            backfill_notifications: consumer_state.backfill_notifications,
+            update_notifications: consumer_state.update_notifications,
+            delete_notifications: consumer_state.delete_notifications
           )
 
           %{response: {:ok, consumer_state.status}}
@@ -381,7 +485,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
             topic: event_definition.topic,
             status: consumer_status,
             prev_status: consumer_state.status,
-            nsid: consumer_state.nsid
+            backfill_notifications: consumer_state.backfill_notifications,
+            update_notifications: consumer_state.update_notifications,
+            delete_notifications: consumer_state.delete_notifications
           )
 
           %{response: {:ok, consumer_status}}
@@ -403,106 +509,130 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     event_definition_id = notification_setting.event_definition_id
 
     try do
-      {:ok, consumer_state} = get_consumer_state(event_definition_id)
+      case is_event_definition_being_deleted?(event_definition_id) do
+        false ->
+          {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
-      cond do
-        consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
-          if is_nil(DeleteEventDefinitionDataCache.get_status(event_definition_id)) do
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Triggering backfill notifications task: #{inspect(notification_setting_id)}"
-            )
+          cond do
+            consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
+              CogyntLogger.info(
+                "#{__MODULE__}",
+                "Triggering backfill notifications task: #{inspect(notification_setting_id)}"
+              )
 
-            TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
-          end
+              TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
 
-          upsert_consumer_state(
-            event_definition_id,
-            topic: consumer_state.topic,
-            status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
-            prev_status: consumer_state.status,
-            nsid: consumer_state.nsid ++ [notification_setting_id]
-          )
+              upsert_consumer_state(
+                event_definition_id,
+                topic: consumer_state.topic,
+                status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
+                prev_status: consumer_state.status,
+                backfill_notifications:
+                  consumer_state.backfill_notifications ++ [notification_setting_id],
+                update_notifications: consumer_state.update_notifications,
+                delete_notifications: consumer_state.delete_notifications
+              )
 
-          %{
-            response: {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
-          }
+              %{
+                response:
+                  {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
+              }
 
-        consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
-          upsert_consumer_state(
-            event_definition_id,
-            topic: consumer_state.topic,
-            status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
-            prev_status: consumer_state.status,
-            nsid: consumer_state.nsid ++ [notification_setting_id]
-          )
+            consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
+              upsert_consumer_state(
+                event_definition_id,
+                topic: consumer_state.topic,
+                status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
+                prev_status: consumer_state.status,
+                backfill_notifications:
+                  consumer_state.backfill_notifications ++ [notification_setting_id],
+                update_notifications: consumer_state.update_notifications,
+                delete_notifications: consumer_state.delete_notifications
+              )
 
-          %{
-            response: {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
-          }
+              %{
+                response:
+                  {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
+              }
 
-        consumer_state.status ==
-            ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-          if Enum.member?(consumer_state.nsid, notification_setting_id) and
-               is_nil(DeleteEventDefinitionDataCache.get_status(event_definition_id)) do
+            consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+              if Enum.member?(consumer_state.backfill_notifications, notification_setting_id) do
                 CogyntLogger.info(
                   "#{__MODULE__}",
                   "Triggering backfill notifications task: #{inspect(notification_setting_id)}"
                 )
 
-            TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
-          end
-
-          upsert_consumer_state(
-            event_definition_id,
-            topic: consumer_state.topic,
-            status: consumer_state.status,
-            prev_status: consumer_state.prev_status,
-            nsid: Enum.uniq(consumer_state.nsid ++ [notification_setting_id])
-          )
-
-          %{response: {:ok, consumer_state.status}}
-
-        true ->
-          ConsumerGroupSupervisor.stop_child(event_definition_id)
-
-          case finished_processing?(event_definition_id) do
-            {:ok, true} ->
-              if is_nil(DeleteEventDefinitionDataCache.get_status(event_definition_id)) do
-                CogyntLogger.info(
-                  "#{__MODULE__}",
-                  "Triggering backfill notifications task: #{inspect(notification_setting_id)}"
-                )
                 TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
               end
 
               upsert_consumer_state(
                 event_definition_id,
                 topic: consumer_state.topic,
-                status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
-                prev_status: consumer_state.status,
-                nsid: consumer_state.nsid ++ [notification_setting_id]
+                status: consumer_state.status,
+                prev_status: consumer_state.prev_status,
+                backfill_notifications:
+                  Enum.uniq(consumer_state.backfill_notifications ++ [notification_setting_id]),
+                update_notifications: consumer_state.update_notifications,
+                delete_notifications: consumer_state.delete_notifications
               )
 
-              %{
-                response:
-                  {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
-              }
+              %{response: {:ok, consumer_state.status}}
 
-            {:ok, false} ->
-              upsert_consumer_state(
-                event_definition_id,
-                topic: consumer_state.topic,
-                status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
-                prev_status: consumer_state.status,
-                nsid: consumer_state.nsid ++ [notification_setting_id]
-              )
+            true ->
+              ConsumerGroupSupervisor.stop_child(event_definition_id)
 
-              %{
-                response:
-                  {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
-              }
+              case finished_processing?(event_definition_id) do
+                {:ok, true} ->
+                  CogyntLogger.info(
+                    "#{__MODULE__}",
+                    "Triggering backfill notifications task: #{inspect(notification_setting_id)}"
+                  )
+
+                  TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+
+                  upsert_consumer_state(
+                    event_definition_id,
+                    topic: consumer_state.topic,
+                    status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
+                    prev_status: consumer_state.status,
+                    backfill_notifications:
+                      consumer_state.backfill_notifications ++ [notification_setting_id],
+                    update_notifications: consumer_state.update_notifications,
+                    delete_notifications: consumer_state.delete_notification
+                  )
+
+                  %{
+                    response:
+                      {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
+                  }
+
+                {:ok, false} ->
+                  upsert_consumer_state(
+                    event_definition_id,
+                    topic: consumer_state.topic,
+                    status: ConsumerStatusTypeEnum.status()[:backfill_notification_task_running],
+                    prev_status: consumer_state.status,
+                    backfill_notifications:
+                      consumer_state.backfill_notifications ++ [notification_setting_id],
+                    update_notifications: consumer_state.update_notifications,
+                    delete_notifications: consumer_state.delete_notification
+                  )
+
+                  %{
+                    response:
+                      {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
+                  }
+              end
           end
+
+        true ->
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "Failed to run backfill_notifications/1. DevDelete task pending or running. Must to wait until it is finished"
+          )
+
+          %{response: {:error, :internal_server_error}}
       end
     rescue
       error ->
@@ -515,112 +645,138 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
-  defp update_notification_setting(notification_setting_id) do
+  defp update_notifications(notification_setting_id) do
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
     event_definition_id = notification_setting.event_definition_id
 
     try do
-      {:ok, consumer_state} = get_consumer_state(event_definition_id)
+      case is_event_definition_being_deleted?(event_definition_id) do
+        false ->
+          {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
-      cond do
-        consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
-          if is_nil(DeleteEventDefinitionDataCache.get_status(event_definition_id)) do
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Triggering update notifications task: #{inspect(notification_setting_id)}"
-            )
-            TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
-          end
+          cond do
+            consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
+              CogyntLogger.info(
+                "#{__MODULE__}",
+                "Triggering update notifications task: #{inspect(notification_setting_id)}"
+              )
 
-          upsert_consumer_state(
-            event_definition_id,
-            topic: consumer_state.topic,
-            status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
-            prev_status: consumer_state.status,
-            nsid: consumer_state.nsid ++ [notification_setting_id]
-          )
+              TaskSupervisor.start_child(%{update_notifications: notification_setting_id})
 
-          %{
-            response: {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
-          }
+              upsert_consumer_state(
+                event_definition_id,
+                topic: consumer_state.topic,
+                status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
+                prev_status: consumer_state.status,
+                backfill_notifications: consumer_state.backfill_notifications,
+                update_notifications:
+                  consumer_state.update_notifications ++ [notification_setting_id],
+                delete_notifications: consumer_state.delete_notification
+              )
 
-        consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
-          upsert_consumer_state(
-            event_definition_id,
-            topic: consumer_state.topic,
-            status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
-            prev_status: consumer_state.status,
-            nsid: consumer_state.nsid ++ [notification_setting_id]
-          )
+              %{
+                response:
+                  {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
+              }
 
-          %{
-            response: {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
-          }
+            consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
+              upsert_consumer_state(
+                event_definition_id,
+                topic: consumer_state.topic,
+                status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
+                prev_status: consumer_state.status,
+                backfill_notifications: consumer_state.backfill_notifications,
+                update_notifications:
+                  consumer_state.update_notifications ++ [notification_setting_id],
+                delete_notifications: consumer_state.delete_notification
+              )
 
-        consumer_state.status ==
-            ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-          if Enum.member?(consumer_state.nsid, notification_setting_id) and
-               is_nil(DeleteEventDefinitionDataCache.get_status(event_definition_id)) do
+              %{
+                response:
+                  {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
+              }
+
+            consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+              if Enum.member?(consumer_state.update_notifications, notification_setting_id) do
                 CogyntLogger.info(
                   "#{__MODULE__}",
                   "Triggering update notifications task: #{inspect(notification_setting_id)}"
                 )
 
-            TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
-          end
-
-          upsert_consumer_state(
-            event_definition_id,
-            topic: consumer_state.topic,
-            status: consumer_state.status,
-            prev_status: consumer_state.prev_status,
-            nsid: Enum.uniq(consumer_state.nsid ++ [notification_setting_id])
-          )
-
-          %{response: {:ok, consumer_state.status}}
-
-        true ->
-          ConsumerGroupSupervisor.stop_child(event_definition_id)
-
-          case finished_processing?(event_definition_id) do
-            {:ok, true} ->
-              if is_nil(DeleteEventDefinitionDataCache.get_status(event_definition_id)) do
-                CogyntLogger.info(
-                  "#{__MODULE__}",
-                  "Triggering update notifications task: #{inspect(notification_setting_id)}"
-                )
-
-                TaskSupervisor.start_child(%{update_notification_setting: notification_setting_id})
+                TaskSupervisor.start_child(%{update_notifications: notification_setting_id})
               end
 
               upsert_consumer_state(
                 event_definition_id,
                 topic: consumer_state.topic,
-                status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
-                prev_status: consumer_state.status,
-                nsid: consumer_state.nsid ++ [notification_setting_id]
+                status: consumer_state.status,
+                prev_status: consumer_state.prev_status,
+                backfill_notifications: consumer_state.backfill_notifications,
+                update_notifications:
+                  Enum.uniq(consumer_state.update_notifications ++ [notification_setting_id]),
+                delete_notifications: consumer_state.delete_notification
               )
 
-              %{
-                response:
-                  {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
-              }
+              %{response: {:ok, consumer_state.status}}
 
-            {:ok, false} ->
-              upsert_consumer_state(
-                event_definition_id,
-                topic: consumer_state.topic,
-                status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
-                prev_status: consumer_state.status,
-                nsid: consumer_state.nsid ++ [notification_setting_id]
-              )
+            true ->
+              ConsumerGroupSupervisor.stop_child(event_definition_id)
 
-              %{
-                response:
-                  {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
-              }
+              case finished_processing?(event_definition_id) do
+                {:ok, true} ->
+                  CogyntLogger.info(
+                    "#{__MODULE__}",
+                    "Triggering update notifications task: #{inspect(notification_setting_id)}"
+                  )
+
+                  TaskSupervisor.start_child(%{
+                    update_notifications: notification_setting_id
+                  })
+
+                  upsert_consumer_state(
+                    event_definition_id,
+                    topic: consumer_state.topic,
+                    status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
+                    prev_status: consumer_state.status,
+                    backfill_notifications: consumer_state.backfill_notifications,
+                    update_notifications:
+                      consumer_state.update_notifications ++ [notification_setting_id],
+                    delete_notifications: consumer_state.delete_notification
+                  )
+
+                  %{
+                    response:
+                      {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
+                  }
+
+                {:ok, false} ->
+                  upsert_consumer_state(
+                    event_definition_id,
+                    topic: consumer_state.topic,
+                    status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
+                    prev_status: consumer_state.status,
+                    backfill_notifications: consumer_state.backfill_notifications,
+                    update_notifications:
+                      consumer_state.update_notifications ++ [notification_setting_id],
+                    delete_notifications: consumer_state.delete_notification
+                  )
+
+                  %{
+                    response:
+                      {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
+                  }
+              end
           end
+
+        true ->
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "Failed to run update_notification_setting/1. DevDelete task pending or running. Must to wait until it is finished"
+          )
+
+          %{response: {:error, :internal_server_error}}
       end
     rescue
       error ->
@@ -633,28 +789,183 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
+  defp delete_notifications(notification_setting_id) do
+    notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
+
+    event_definition_id = notification_setting.event_definition_id
+
+    try do
+      case is_event_definition_being_deleted?(event_definition_id) do
+        false ->
+          {:ok, consumer_state} = get_consumer_state(event_definition_id)
+
+          cond do
+            consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
+              CogyntLogger.info(
+                "#{__MODULE__}",
+                "Triggering delete notifications task: #{inspect(notification_setting_id)}"
+              )
+
+              TaskSupervisor.start_child(%{delete_notifications: notification_setting_id})
+
+              upsert_consumer_state(
+                event_definition_id,
+                topic: consumer_state.topic,
+                status: ConsumerStatusTypeEnum.status()[:delete_notification_task_running],
+                prev_status: consumer_state.status,
+                backfill_notifications: consumer_state.backfill_notifications,
+                update_notifications: consumer_state.update_notifications,
+                delete_notifications:
+                  consumer_state.delete_notification ++ [notification_setting_id]
+              )
+
+              %{
+                response:
+                  {:ok, ConsumerStatusTypeEnum.status()[:delete_notification_task_running]}
+              }
+
+            consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
+              upsert_consumer_state(
+                event_definition_id,
+                topic: consumer_state.topic,
+                status: ConsumerStatusTypeEnum.status()[:delete_notification_task_running],
+                prev_status: consumer_state.status,
+                backfill_notifications: consumer_state.backfill_notifications,
+                update_notifications: consumer_state.update_notifications,
+                delete_notifications:
+                  consumer_state.delete_notification ++ [notification_setting_id]
+              )
+
+              %{
+                response:
+                  {:ok, ConsumerStatusTypeEnum.status()[:delete_notification_task_running]}
+              }
+
+            consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
+              if Enum.member?(consumer_state.delete_notifications, notification_setting_id) do
+                CogyntLogger.info(
+                  "#{__MODULE__}",
+                  "Triggering delete notifications task: #{inspect(notification_setting_id)}"
+                )
+
+                TaskSupervisor.start_child(%{delete_notifications: notification_setting_id})
+              end
+
+              upsert_consumer_state(
+                event_definition_id,
+                topic: consumer_state.topic,
+                status: consumer_state.status,
+                prev_status: consumer_state.prev_status,
+                backfill_notifications: consumer_state.backfill_notifications,
+                update_notifications: consumer_state.update_notifications,
+                delete_notifications:
+                  Enum.uniq(consumer_state.delete_notifications ++ [notification_setting_id])
+              )
+
+              %{response: {:ok, consumer_state.status}}
+
+            true ->
+              ConsumerGroupSupervisor.stop_child(event_definition_id)
+
+              case finished_processing?(event_definition_id) do
+                {:ok, true} ->
+                  CogyntLogger.info(
+                    "#{__MODULE__}",
+                    "Triggering delete notifications task: #{inspect(notification_setting_id)}"
+                  )
+
+                  TaskSupervisor.start_child(%{
+                    delete_notifications: notification_setting_id
+                  })
+
+                  upsert_consumer_state(
+                    event_definition_id,
+                    topic: consumer_state.topic,
+                    status: ConsumerStatusTypeEnum.status()[:delete_notification_task_running],
+                    prev_status: consumer_state.status,
+                    backfill_notifications: consumer_state.backfill_notifications,
+                    update_notifications: consumer_state.update_notifications,
+                    delete_notifications:
+                      consumer_state.delete_notification ++ [notification_setting_id]
+                  )
+
+                  %{
+                    response:
+                      {:ok, ConsumerStatusTypeEnum.status()[:delete_notification_task_running]}
+                  }
+
+                {:ok, false} ->
+                  upsert_consumer_state(
+                    event_definition_id,
+                    topic: consumer_state.topic,
+                    status: ConsumerStatusTypeEnum.status()[:delete_notification_task_running],
+                    prev_status: consumer_state.status,
+                    backfill_notifications: consumer_state.backfill_notifications,
+                    update_notifications: consumer_state.update_notifications,
+                    delete_notifications:
+                      consumer_state.delete_notification ++ [notification_setting_id]
+                  )
+
+                  %{
+                    response:
+                      {:ok, ConsumerStatusTypeEnum.status()[:delete_notification_task_running]}
+                  }
+              end
+          end
+
+        true ->
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "Failed to run delete_notifications/1. DevDelete task pending or running. Must to wait until it is finished"
+          )
+
+          %{response: {:error, :internal_server_error}}
+      end
+    rescue
+      error ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "delete_notifications failed with error: #{inspect(error, pretty: true)}"
+        )
+
+        internal_error_state(event_definition_id)
+    end
+  end
+
   defp delete_events(event_definition_id) do
-    {:ok, consumer_state} = get_consumer_state(event_definition_id)
+    case is_event_definition_being_deleted?(event_definition_id) do
+      false ->
+        {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
-    cond do
-      consumer_state.status == ConsumerStatusTypeEnum.status()[:running] ->
-        %{response: {:error, consumer_state.status}}
+        cond do
+          consumer_state.status == ConsumerStatusTypeEnum.status()[:running] ->
+            %{response: {:error, consumer_state.status}}
 
-      consumer_state.status ==
-          ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-        %{response: {:error, consumer_state.status}}
+          consumer_state.status ==
+              ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+            %{response: {:error, consumer_state.status}}
 
-      consumer_state.status ==
-          ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-        %{response: {:error, consumer_state.status}}
+          consumer_state.status ==
+              ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+            %{response: {:error, consumer_state.status}}
 
-      consumer_state.status ==
-          ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
-        %{response: {:error, consumer_state.status}}
+          consumer_state.status ==
+              ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
+            %{response: {:error, consumer_state.status}}
+
+          true ->
+            TaskSupervisor.start_child(%{delete_event_definition_events: event_definition_id})
+            %{response: {:ok, :success}}
+        end
 
       true ->
-        TaskSupervisor.start_child(%{delete_event_definition_events: event_definition_id})
-        %{response: {:ok, :success}}
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "Failed to run delete_events/1. DevDelete task pending or running. Must to wait until it is finished"
+        )
+
+        %{response: {:error, :internal_server_error}}
     end
   end
 
@@ -677,7 +988,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           topic: consumer_state.topic,
           status: consumer_status,
           prev_status: consumer_state.prev_status,
-          nsid: []
+          backfill_notifications: [],
+          update_notifications: [],
+          delete_notifications: []
         )
 
         %{response: {:error, :internal_server_error}}
@@ -688,14 +1001,59 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           topic: consumer_state.topic,
           status: consumer_state.status,
           prev_status: consumer_state.prev_status,
-          nsid: []
+          backfill_notifications: [],
+          update_notifications: [],
+          delete_notifications: []
         )
 
         %{response: {:error, :internal_server_error}}
     end
   end
 
-  defp check_if_event_definition_is_waiting_deletion(event_definition_id, new_status) do
+  defp is_event_definition_being_deleted?(event_definition_id) do
+    {:ok, deletion_pending} =
+      case DeleteEventDefinitionDataCache.get_status(event_definition_id) do
+        nil ->
+          {:ok, false}
+
+        %{status: :waiting} ->
+          {:ok, true}
+
+        _ ->
+          {:ok, false}
+      end
+
+    {:ok, drilldown_status} =
+      case Redis.hash_get("task_statuses", "drilldown") do
+        {:ok, nil} ->
+          {:ok, false}
+
+        {:ok, status} ->
+          {:ok, status}
+      end
+
+    {:ok, deployment_status} =
+      case Redis.hash_get("task_statuses", "deployment") do
+        {:ok, nil} ->
+          {:ok, false}
+
+        {:ok, status} ->
+          {:ok, status}
+      end
+
+    {:ok, event_definition_status} =
+      case Redis.hash_get("task_statuses", event_definition_id) do
+        {:ok, nil} ->
+          {:ok, false}
+
+        {:ok, status} ->
+          {:ok, status}
+      end
+
+    drilldown_status or deployment_status or event_definition_status or deletion_pending
+  end
+
+  defp update_delete_event_definition_data_cache(event_definition_id, new_status) do
     case DeleteEventDefinitionDataCache.get_status(event_definition_id) do
       nil ->
         IO.inspect(new_status, label: "Changing Status && Delete Cache Empty")

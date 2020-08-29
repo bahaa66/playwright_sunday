@@ -132,7 +132,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
          update_notifications: {_count_deleted, updated_notifications}
        }} ->
         total_notifications =
-          NotificationsContext.notification_struct_to_map(created_notifications) ++
+          NotificationsContext.remove_notification_virtual_fields(created_notifications) ++
             updated_notifications
 
         NotificationSubscriptionCache.add_notifications(total_notifications)
@@ -141,7 +141,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
       {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
         NotificationSubscriptionCache.add_notifications(
-          NotificationsContext.notification_struct_to_map(created_notifications)
+          NotificationsContext.remove_notification_virtual_fields(created_notifications)
         )
 
         SystemNotificationContext.bulk_insert_system_notifications(created_notifications)

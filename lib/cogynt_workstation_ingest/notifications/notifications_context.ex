@@ -110,13 +110,22 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       }
   """
   def get_page_of_notifications(args, opts \\ []) do
+    include_deleted = Keyword.get(opts, :include_deleted, false)
     page = Keyword.get(opts, :page_number, 1)
     page_size = Keyword.get(opts, :page_size, 10)
 
-    Enum.reduce(args, from(n in Notification), fn
-      {:filter, filter}, q ->
-        filter_notifications(filter, q)
-    end)
+    query =
+      Enum.reduce(args, from(n in Notification), fn
+        {:filter, filter}, q ->
+          filter_notifications(filter, q)
+      end)
+
+    if include_deleted do
+      query
+    else
+      query
+      |> where([n], is_nil(n.deleted_at))
+    end
     |> order_by([n], desc: n.created_at, asc: n.id)
     |> Repo.paginate(page: page, page_size: page_size)
   end
@@ -182,22 +191,17 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     |> Repo.delete_all()
   end
 
-  def notification_struct_to_map(notifications) do
-    Enum.reduce(notifications, [], fn %Notification{} = notification, acc ->
-      acc ++
-        [
-          %{
-            event_id: notification.event_id,
-            user_id: notification.user_id,
-            tag_id: notification.tag_id,
-            id: notification.id,
-            title: notification.title,
-            notification_setting_id: notification.notification_setting_id,
-            created_at: notification.created_at,
-            updated_at: notification.updated_at
-          }
-        ]
-    end)
+  @doc """
+  Takes a list of Notification Structs and returns a list of maps with
+  the Metadata and Timestamp fields dropped
+  """
+  def remove_notification_virtual_fields([]), do: []
+
+  def remove_notification_virtual_fields([%Notification{} = notification | tail]) do
+    [
+      Map.take(notification, Notification.__schema__(:fields))
+      | remove_notification_virtual_fields(tail)
+    ]
   end
 
   # ------------------------------- #

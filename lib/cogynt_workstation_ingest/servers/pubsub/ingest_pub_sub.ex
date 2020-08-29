@@ -92,14 +92,24 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
         ConsumerStateManager.manage_request(%{backfill_notifications: notification_setting_id})
 
-      {:ok, %{update_notification_setting: notification_setting_id} = request} ->
+      {:ok, %{update_notifications: notification_setting_id} = request} ->
         CogyntLogger.info(
           "#{__MODULE__}",
           "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
         )
 
         ConsumerStateManager.manage_request(%{
-          update_notification_setting: notification_setting_id
+          update_notifications: notification_setting_id
+        })
+
+      {:ok, %{delete_notifications: notification_setting_id} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
+        ConsumerStateManager.manage_request(%{
+          delete_notifications: notification_setting_id
         })
 
       {:ok, %{delete_event_definition_events: event_definition_id} = request} ->

@@ -431,10 +431,28 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   @doc """
+  Converts an EventDefinition struct into a dropping the metadata and timestamp related fields
+  """
+  def remove_event_definition_virtual_fields(%EventDefinition{} = event_definition),
+    do: Map.take(event_definition, EventDefinition.__schema__(:fields))
+
+  def remove_event_definition_virtual_fields([]), do: []
+
+  def remove_event_definition_virtual_fields([%EventDefinition{} = event_definition | tail]) do
+    [
+      Map.take(event_definition, EventDefinition.__schema__(:fields))
+      | remove_event_definition_virtual_fields(tail)
+    ]
+  end
+
+  # ------------------------------------------ #
+  # --- EventDetailTemplate Schema Methods --- #
+  # ------------------------------------------ #
+  @doc """
   Updates the deleted_at values for all EventDetailTemplate
   data associated with the EventDefinition
   """
-  def delete_event_definition_data(%EventDefinition{} = event_definition) do
+  def delete_event_definition_event_detail_templates_data(%EventDefinition{} = event_definition) do
     now = DateTime.truncate(DateTime.utc_now(), :second)
 
     {_count, event_detail_templates} =
@@ -446,52 +464,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     delete_event_definition_event_detail_template_group_items(event_detail_templates_groups)
   end
 
-  @doc """
-  Converts EventDefinition struct to a map
-  """
-  def event_definition_struct_to_map(%EventDefinition{} = event_definition) do
-    event_definition_details =
-      case event_definition do
-        %{event_definition_details: %Ecto.Association.NotLoaded{}} ->
-          []
-
-        %{event_definition_details: details} ->
-          details
-
-        _ ->
-          []
-      end
-
-    %{
-      id: event_definition.id,
-      title: event_definition.title,
-      topic: event_definition.topic,
-      event_type: event_definition.event_type,
-      deleted_at: event_definition.deleted_at,
-      started_at: event_definition.started_at,
-      authoring_event_definition_id: event_definition.authoring_event_definition_id,
-      active: event_definition.active,
-      deployment_status: event_definition.deployment_status,
-      deployment_id: event_definition.deployment_id,
-      manual_actions: event_definition.manual_actions,
-      created_at: event_definition.created_at,
-      updated_at: event_definition.updated_at,
-      primary_title_attribute: event_definition.primary_title_attribute,
-      color: event_definition.color,
-      fields:
-        Enum.reduce(event_definition_details, %{}, fn
-          %{field_name: n, field_type: t}, acc ->
-            Map.put_new(acc, n, t)
-
-          _, acc ->
-            acc
-        end)
-    }
-  end
-
-  # ------------------------------------------ #
-  # --- EventDetailTemplate Schema Methods --- #
-  # ------------------------------------------ #
   @doc """
   Given an %EventDefinition{} struct and a deleted_at timestamp it will update all
   %EventDetailTemplate{} for the event_definition_id to be deleted
@@ -677,14 +649,15 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         preload_detail: true
       )
 
-    Enum.each(event_definitions, fn ed ->
-      ed_map = event_definition_struct_to_map(ed)
-      ConsumerStateManager.manage_request(%{start_consumer: ed_map})
+    Enum.each(event_definitions, fn event_definition ->
+      ConsumerStateManager.manage_request(%{
+        start_consumer: remove_event_definition_virtual_fields(event_definition)
+      })
     end)
 
     # Fetch all EventDefinitions and check if they were in the middle of
     # any tasks when application was restarted. If so trigger the tasks
-    # again
+    # that were running
     event_definitions =
       query_event_definitions(
         %{
@@ -695,30 +668,41 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         preload_detail: true
       )
 
-    Enum.each(event_definitions, fn ed ->
-      {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(ed.id)
+    Enum.each(event_definitions, fn event_definition ->
+      {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
 
       cond do
         consumer_state.status ==
             ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-          Enum.each(consumer_state.nsid, fn nsid ->
+          Enum.each(consumer_state.backfill_notifications, fn notification_setting_id ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Initalizing backfill notifications task: #{inspect(nsid, pretty: true)}"
+              "Initalizing backfill notifications task: #{inspect(notification_setting_id)}"
             )
 
-            TaskSupervisor.start_child(%{backfill_notifications: nsid})
+            TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
           end)
 
         consumer_state.status ==
             ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-          Enum.each(consumer_state.nsid, fn nsid ->
+          Enum.each(consumer_state.update_notifications, fn notification_setting_id ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Initalizing update notifications task: #{inspect(nsid, pretty: true)}"
+              "Initalizing update notifications task: #{inspect(notification_setting_id)}"
             )
 
-            TaskSupervisor.start_child(%{update_notification_setting: nsid})
+            TaskSupervisor.start_child(%{update_notifications: notification_setting_id})
+          end)
+
+        consumer_state.status ==
+            ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
+          Enum.each(consumer_state.delete_notifications, fn notification_setting_id ->
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Initalizing delete notifications task: #{inspect(notification_setting_id)}"
+            )
+
+            TaskSupervisor.start_child(%{delete_notification_setting: notification_setting_id})
           end)
 
         true ->

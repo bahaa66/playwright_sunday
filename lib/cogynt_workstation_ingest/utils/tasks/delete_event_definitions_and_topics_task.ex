@@ -16,6 +16,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
   alias Models.Enums.ConsumerStatusTypeEnum
   alias Models.Notifications.NotificationSetting
 
+  @page_size 2000
+
   def start_link(arg) do
     Task.start_link(__MODULE__, :run, [arg])
   end
@@ -77,8 +79,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
         cond do
           consumer_state.status ==
             ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
+            consumer_state.status ==
+              ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
               consumer_state.status ==
-                ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+                ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
             cond do
               consumer_state.prev_status ==
                   ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
@@ -163,7 +167,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
           filter: %{event_definition_id: event_definition.id}
         },
         page_number: 1,
-        page_size: 100,
+        page_size: @page_size,
         preload_details: false,
         include_deleted: true
       )
@@ -190,21 +194,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
       ConsumerStateManager.remove_consumer_state(event_definition.id)
       DeleteEventDefinitionDataCache.remove_status(event_definition.id)
 
-      # TODO: Do i need to set the active and deleted values ? and can this be
-      # a map or does it have to be a struct ?
-      # Redis.publish_async(
-      #   "event_definition_subscription",
-      #   %{
-      #     deleted:
-      #       Map.merge(
-      #         deleted_event_definition,
-      #         %{
-      #           is_being_deleted: false,
-      #           active: false
-      #         }
-      #       )
-      #   }
-      # )
+      Redis.publish_async(
+        "event_definitions_subscription",
+        %{deleted: deleted_event_definition.id}
+      )
     else
       case EventsContext.update_event_definition(event_definition, %{
              active: false,
@@ -214,31 +207,17 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
           ConsumerStateManager.remove_consumer_state(event_definition.id)
           DeleteEventDefinitionDataCache.remove_status(event_definition.id)
 
-          # TODO: Do i need to set the active and deleted values ? and can this be
-          # a map or does it have to be a struct ?
-          # Redis.publish_async(
-          #   "event_definitions_subscription",
-          #   %{
-          #     deleted:
-          #       Map.merge(
-          #         updated_event_definition,
-          #         %{
-          #           is_being_deleted: false,
-          #           active: false
-          #         }
-          #       )
-          #   }
-          # )
+          Redis.publish_async(
+            "event_definitions_subscription",
+            %{updated: updated_event_definition.id}
+          )
 
-          # TODO: Can this be a map or does it have to be a struct ?
-          # Enum.each(notification_settings, fn ns ->
-          #   Redis.publish_async(
-          #     "notification_settings_subscription",
-          #     %{
-          #       deleted: ns
-          #     }
-          #   )
-          # end)
+          Enum.each(notification_settings, fn notification_setting ->
+            Redis.publish_async(
+              "notification_settings_subscription",
+              %{deleted: notification_setting.id}
+            )
+          end)
 
           CogyntLogger.info(
             "#{__MODULE__}",
@@ -311,7 +290,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
             filter: %{event_definition_id: event_definition_id}
           },
           page_number: page_number + 1,
-          page_size: 100,
+          page_size: @page_size,
           preload_details: false,
           include_deleted: true
         )

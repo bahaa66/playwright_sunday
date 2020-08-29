@@ -30,11 +30,12 @@ defmodule CogyntWorkstationIngest.Servers.DeploymentTaskMonitor do
   def handle_cast({:monitor, pid}, state) do
     Process.monitor(pid)
 
-    Redis.hash_set("deployment_task", "task_status", true)
-    Redis.hash_set("deployment_task", "pid", pid)
+    Redis.hash_set("task_statuses", "deployment", true)
+    Redis.hash_set("task_statuses", "deployment_pid", pid)
     Redis.key_pexpire("deployment_task", 30000)
 
-    Redis.publish("deployment_task_status_subscription", %{deleting: true})
+    # TODO: implement handler for this on cogynt-otp
+    Redis.publish_async("deployment_task_status_subscription", %{deleting: true})
 
     {:noreply, state}
   end
@@ -43,8 +44,10 @@ defmodule CogyntWorkstationIngest.Servers.DeploymentTaskMonitor do
   def handle_info({:DOWN, _ref, :process, _pid, _reason}, state) do
     # TODO implement retry for backfill/update task if reason anything other than :normal or :shutdown
 
-    Redis.key_delete("deployment_task")
+    Redis.hash_delete("task_statuses", "deployment")
+    Redis.hash_delete("task_statuses", "deployment_pid")
 
+    # TODO: implement handler for this on cogynt-otp
     Redis.publish_async("deployment_task_status_subscription", %{deleting: false})
 
     {:noreply, state}

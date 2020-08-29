@@ -71,17 +71,21 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
           :id,
           :title,
           :notification_setting_id,
+          :deleted_at,
           :created_at,
           :updated_at,
           :assigned_to
         ]
       )
 
-    NotificationSubscriptionCache.add_notifications(
-      NotificationsContext.notification_struct_to_map(updated_notifications)
-    )
+    # only want to publish the notifications that are not deleted
+    %{true: publish_notifications, false: _} =
+      NotificationsContext.remove_notification_virtual_fields(updated_notifications)
+      |> Enum.group_by(fn n -> is_nil(n.deleted_at) end)
 
-    SystemNotificationContext.bulk_insert_system_notifications(updated_notifications)
+    NotificationSubscriptionCache.add_notifications(publish_notifications)
+
+    SystemNotificationContext.bulk_insert_system_notifications(publish_notifications)
 
     case page_number >= total_pages do
       true ->

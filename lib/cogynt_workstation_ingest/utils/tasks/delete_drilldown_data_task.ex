@@ -40,7 +40,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
       hashed_brokers = Integer.to_string(:erlang.phash2(uris))
       worker_name = String.to_atom("drilldown" <> hashed_brokers)
 
-      if delete_topics do
+      if delete_drilldown_topics do
         CogyntLogger.info(
           "#{__MODULE__}",
           "Deleting the Drilldown Topics. #{Config.topic_sols()}, #{Config.topic_sol_events()}. For KafkaWorker: #{
@@ -104,7 +104,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
     Redis.key_delete("dcgid")
     {:ok, keys} = Redis.keys_by_pattern("dmi:*")
     Redis.key_delete_pipeline(keys)
-    # Redis.hash_increment_by_pipeline(keys, "tmp", 0)
     DrilldownContext.hard_delete_template_solutions_data()
   end
 
