@@ -68,11 +68,14 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteNotificationsTask do
         set: [deleted_at: deleted_at]
       )
 
-    # %{true: publish_notifications, false: _} =
-    #   NotificationsContext.remove_notification_virtual_fields(updated_notifications)
-    #   |> Enum.group_by(fn n -> is_nil(n.deleted_at) end)
+    %{true: _, false: publish_notifications} =
+      NotificationsContext.remove_notification_virtual_fields(updated_notifications)
+      |> Enum.group_by(fn n -> is_nil(n.deleted_at) end)
 
-    # NotificationSubscriptionCache.add_notifications(publish_notifications)
+    Redis.list_append_pipeline(
+      "notification_queue",
+      publish_notifications
+    )
 
     if page_number >= total_pages do
       CogyntLogger.info(
