@@ -1,3 +1,17 @@
+## [1.7.0-develop.3](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.7.0-develop.2...v1.7.0-develop.3) (2020-08-31)
+
+
+### :sparkles: Feature
+
+* **CDST-444:** Merge pull request [#122](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/122) from Cogility/feature/CDST-444-rework-subscriptions ([4705028](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/47050285978ea4e5f41560bbb690025237e02c17))
+
+## [1.7.0-develop.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.7.0-develop.1...v1.7.0-develop.2) (2020-08-27)
+
+
+### :sparkles: Feature
+
+* **broadwayKafka producer:** Merge pull request [#120](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/120) from Cogility/feature/drilldown-ingestion-performance-updates ([62c5e55](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/62c5e5517da2c01aae139a703646155b3758b687))
+
 ## [1.7.0-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.6.10...v1.7.0-develop.1) (2020-08-20)
 
 
