@@ -64,6 +64,21 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     |> Repo.delete_all()
   end
 
+  @doc """
+  Takes a list of NotificationSetting Structs and returns a list of maps with
+  the Metadata and Timestamp fields dropped
+  """
+  def remove_notification_setting_virtual_fields([]), do: []
+
+  def remove_notification_setting_virtual_fields([
+        %NotificationSetting{} = notification_setting | tail
+      ]) do
+    [
+      Map.take(notification_setting, NotificationSetting.__schema__(:fields))
+      | remove_notification_setting_virtual_fields(tail)
+    ]
+  end
+
   # ---------------------------- #
   # --- Notification Methods --- #
   # ---------------------------- #

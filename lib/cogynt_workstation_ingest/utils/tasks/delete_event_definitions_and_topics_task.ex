@@ -196,7 +196,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
 
       Redis.publish_async(
         "event_definitions_subscription",
-        %{deleted: deleted_event_definition.id}
+        %{deleted: EventsContext.remove_event_definition_virtual_fields(deleted_event_definition)}
       )
     else
       case EventsContext.update_event_definition(event_definition, %{
@@ -215,7 +215,12 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
           Enum.each(notification_settings, fn notification_setting ->
             Redis.publish_async(
               "notification_settings_subscription",
-              %{deleted: notification_setting.id}
+              %{
+                deleted:
+                  NotificationsContext.remove_notification_setting_virtual_fields(
+                    notification_setting
+                  )
+              }
             )
           end)
 
