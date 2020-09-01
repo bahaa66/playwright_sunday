@@ -15,17 +15,14 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DeleteEventDefinitionDataCache 
   end
 
   def get_status(event_definition_id) do
-    IO.puts("GET STATUS")
     GenServer.call(__MODULE__, {:get_status, event_definition_id})
   end
 
   def upsert_status(event_definition_id, args) do
-    IO.inspect(args, label: "UPDATING STATUS")
     GenServer.cast(__MODULE__, {:upsert_status, event_definition_id, args})
   end
 
   def remove_status(event_definition_id) do
-    IO.puts("REMOVING STATUS")
     GenServer.cast(__MODULE__, {:remove_status, event_definition_id})
   end
 

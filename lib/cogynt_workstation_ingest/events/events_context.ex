@@ -452,8 +452,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       event_definition =
         Map.put(event_definition, :event_definition_details, event_definition_details)
 
-      IO.inspect(event_definition, label: "ED")
-
       [
         Map.take(event_definition, [
           :event_definition_details | EventDefinition.__schema__(:fields)

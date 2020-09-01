@@ -1056,7 +1056,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   defp update_delete_event_definition_data_cache(event_definition_id, new_status) do
     case DeleteEventDefinitionDataCache.get_status(event_definition_id) do
       nil ->
-        IO.inspect(new_status, label: "Changing Status && Delete Cache Empty")
         nil
 
       _ ->
