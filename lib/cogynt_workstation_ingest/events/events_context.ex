@@ -433,16 +433,57 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   @doc """
   Converts an EventDefinition struct into a dropping the metadata and timestamp related fields
   """
-  def remove_event_definition_virtual_fields(%EventDefinition{} = event_definition),
-    do: Map.take(event_definition, EventDefinition.__schema__(:fields))
+  def remove_event_definition_virtual_fields(a, b \\ [])
 
-  def remove_event_definition_virtual_fields([]), do: []
+  def remove_event_definition_virtual_fields([], _opts), do: []
 
-  def remove_event_definition_virtual_fields([%EventDefinition{} = event_definition | tail]) do
-    [
+  def remove_event_definition_virtual_fields(
+        [%EventDefinition{} = event_definition | tail],
+        opts
+      ) do
+    include_event_definition_details = Keyword.get(opts, :include_event_definition_details, false)
+
+    if include_event_definition_details do
+      event_definition_details = Map.get(event_definition, :event_definition_details, %{})
+
+      event_definition_details =
+        remove_event_definition_detail_virtual_fields(event_definition_details)
+
+      event_definition =
+        Map.put(event_definition, :event_definition_details, event_definition_details)
+
+      IO.inspect(event_definition, label: "ED")
+
+      [
+        Map.take(event_definition, [
+          :event_definition_details | EventDefinition.__schema__(:fields)
+        ])
+        | remove_event_definition_virtual_fields(tail, opts)
+      ]
+    else
+      [
+        Map.take(event_definition, EventDefinition.__schema__(:fields))
+        | remove_event_definition_virtual_fields(tail, opts)
+      ]
+    end
+  end
+
+  def remove_event_definition_virtual_fields(%EventDefinition{} = event_definition, opts) do
+    include_event_definition_details = Keyword.get(opts, :include_event_definition_details, false)
+
+    if include_event_definition_details do
+      event_definition_details = Map.get(event_definition, :event_definition_details, %{})
+
+      event_definition_details =
+        remove_event_definition_detail_virtual_fields(event_definition_details)
+
+      event_definition =
+        Map.put(event_definition, :event_definition_details, event_definition_details)
+
+      Map.take(event_definition, [:event_definition_details | EventDefinition.__schema__(:fields)])
+    else
       Map.take(event_definition, EventDefinition.__schema__(:fields))
-      | remove_event_definition_virtual_fields(tail)
-    ]
+    end
   end
 
   # ------------------------------------------ #
@@ -559,6 +600,20 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
   def hard_delete_event_definition_details() do
     Repo.delete_all(EventDefinitionDetail)
+  end
+
+  @doc """
+  Converts an EventDefinitionDetail struct into a dropping the metadata and timestamp related fields
+  """
+  def remove_event_definition_detail_virtual_fields([]), do: []
+
+  def remove_event_definition_detail_virtual_fields([
+        %EventDefinitionDetail{} = event_definition_detail | tail
+      ]) do
+    [
+      Map.take(event_definition_detail, EventDefinitionDetail.__schema__(:fields))
+      | remove_event_definition_detail_virtual_fields(tail)
+    ]
   end
 
   # -------------------------------- #

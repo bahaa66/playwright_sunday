@@ -23,7 +23,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   def fetch_event_definition(%{event_definition_id: event_definition_id} = data) do
     event_definition_map =
       EventsContext.get_event_definition(event_definition_id)
-      |> EventsContext.remove_event_definition_virtual_fields()
+      |> EventsContext.remove_event_definition_virtual_fields(
+        include_event_definition_details: true
+      )
 
     Map.put(data, :event_definition, event_definition_map)
   end
@@ -166,7 +168,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     results =
       Enum.reduce(event, Map.new(), fn {field_name, field_value}, acc ->
-        field_type = event_definition.fields[field_name]
+        %{field_type: field_type} =
+          Enum.find(event_definition.event_definition_details, %{field_type: nil}, fn %{
+                                                                                        field_name:
+                                                                                          name
+                                                                                      } ->
+            name == field_name
+          end)
 
         case is_null_or_empty?(field_value) do
           false ->
