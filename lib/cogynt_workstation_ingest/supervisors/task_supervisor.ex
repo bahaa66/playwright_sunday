@@ -86,11 +86,11 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
         DrilldownTaskMonitor.monitor(pid)
         {:ok, pid}
 
-      {:delete_deployment_data, nil} ->
+      {:delete_deployment_data, true} ->
         {:ok, pid} =
           DynamicSupervisor.start_child(
             __MODULE__,
-            {DeleteDeploymentDataTask}
+            DeleteDeploymentDataTask
           )
 
         DeploymentTaskMonitor.monitor(pid)

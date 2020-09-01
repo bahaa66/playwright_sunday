@@ -20,7 +20,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
     Task.start_link(__MODULE__, :run, [arg])
   end
 
-  def run() do
+  def run(_arg) do
     CogyntLogger.info(
       "#{__MODULE__}",
       "Running delete_deployment_data_task"
@@ -46,15 +46,22 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
     )
 
     # Third delete all data for the delployment topic
-    delete_topic_result =
-      KafkaEx.delete_topics(["deployment"],
-        worker_name: @deployment_worker_name
-      )
+    if Process.whereis(@deployment_worker_name) != nil do
+      delete_topic_result =
+        KafkaEx.delete_topics(["deployment"],
+          worker_name: @deployment_worker_name
+        )
 
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "Deleted Deployment Topics result: #{inspect(delete_topic_result, pretty: true)}"
-    )
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "Deleted Deployment Topics result: #{inspect(delete_topic_result, pretty: true)}"
+      )
+    else
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "Deleted Deployment Topics result: No PID associated to #{@deployment_worker_name}"
+      )
+    end
 
     # Fourth fetch all event_definitions, stop the consumers and delete the topic data
     event_definitions = EventsContext.list_event_definitions()
@@ -79,7 +86,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
       # Delete topic data
       CogyntLogger.info("#{__MODULE__}", "Deleting Kakfa topic: #{topic}")
       worker_name = String.to_atom("deployment#{deployment_id}")
-      KafkaEx.delete_topics([topic], worker_name: worker_name)
+
+      if Process.whereis(worker_name) != nil do
+        KafkaEx.delete_topics([topic], worker_name: worker_name)
+      end
     end)
 
     CogyntLogger.info("#{__MODULE__}", "Resetting Deployment Data")

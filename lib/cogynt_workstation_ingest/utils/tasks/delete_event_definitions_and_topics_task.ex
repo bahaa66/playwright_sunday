@@ -67,7 +67,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
           )
 
           worker_name = String.to_atom("deployment#{event_definition.deployment_id}")
-          KafkaEx.delete_topics([event_definition.topic], worker_name: worker_name)
+
+          if Process.whereis(worker_name) != nil do
+            KafkaEx.delete_topics([event_definition.topic], worker_name: worker_name)
+          end
         end
 
         # Third flush any data that might be stored waiting to process

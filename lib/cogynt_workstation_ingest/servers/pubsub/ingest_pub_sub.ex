@@ -141,7 +141,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
         try do
           if reset_deployment do
-            TaskSupervisor.start_child(%{delete_deployment_data: nil})
+            TaskSupervisor.start_child(%{delete_deployment_data: true})
           else
             if reset_drilldown do
               TaskSupervisor.start_child(%{
