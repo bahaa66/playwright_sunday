@@ -136,7 +136,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
     else
       case Redis.key_exists?("dmi:#{consumer_group_id}") do
         {:ok, false} ->
-          {:ok, false}
+          {:ok, true}
 
         {:ok, true} ->
           {:ok, tmc} = Redis.hash_get("dmi:#{consumer_group_id}", "tmc")

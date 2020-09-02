@@ -599,7 +599,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     backfill_notifications:
                       consumer_state.backfill_notifications ++ [notification_setting_id],
                     update_notifications: consumer_state.update_notifications,
-                    delete_notifications: consumer_state.delete_notification
+                    delete_notifications: consumer_state.delete_notifications
                   )
 
                   %{
@@ -616,7 +616,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     backfill_notifications:
                       consumer_state.backfill_notifications ++ [notification_setting_id],
                     update_notifications: consumer_state.update_notifications,
-                    delete_notifications: consumer_state.delete_notification
+                    delete_notifications: consumer_state.delete_notifications
                   )
 
                   %{
@@ -672,7 +672,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 backfill_notifications: consumer_state.backfill_notifications,
                 update_notifications:
                   consumer_state.update_notifications ++ [notification_setting_id],
-                delete_notifications: consumer_state.delete_notification
+                delete_notifications: consumer_state.delete_notifications
               )
 
               %{
@@ -689,7 +689,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 backfill_notifications: consumer_state.backfill_notifications,
                 update_notifications:
                   consumer_state.update_notifications ++ [notification_setting_id],
-                delete_notifications: consumer_state.delete_notification
+                delete_notifications: consumer_state.delete_notifications
               )
 
               %{
@@ -716,7 +716,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 backfill_notifications: consumer_state.backfill_notifications,
                 update_notifications:
                   Enum.uniq(consumer_state.update_notifications ++ [notification_setting_id]),
-                delete_notifications: consumer_state.delete_notification
+                delete_notifications: consumer_state.delete_notifications
               )
 
               %{response: {:ok, consumer_state.status}}
@@ -743,7 +743,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     backfill_notifications: consumer_state.backfill_notifications,
                     update_notifications:
                       consumer_state.update_notifications ++ [notification_setting_id],
-                    delete_notifications: consumer_state.delete_notification
+                    delete_notifications: consumer_state.delete_notifications
                   )
 
                   %{
@@ -760,7 +760,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     backfill_notifications: consumer_state.backfill_notifications,
                     update_notifications:
                       consumer_state.update_notifications ++ [notification_setting_id],
-                    delete_notifications: consumer_state.delete_notification
+                    delete_notifications: consumer_state.delete_notifications
                   )
 
                   %{
@@ -816,7 +816,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 backfill_notifications: consumer_state.backfill_notifications,
                 update_notifications: consumer_state.update_notifications,
                 delete_notifications:
-                  consumer_state.delete_notification ++ [notification_setting_id]
+                  consumer_state.delete_notifications ++ [notification_setting_id]
               )
 
               %{
@@ -833,7 +833,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 backfill_notifications: consumer_state.backfill_notifications,
                 update_notifications: consumer_state.update_notifications,
                 delete_notifications:
-                  consumer_state.delete_notification ++ [notification_setting_id]
+                  consumer_state.delete_notifications ++ [notification_setting_id]
               )
 
               %{
@@ -887,7 +887,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     backfill_notifications: consumer_state.backfill_notifications,
                     update_notifications: consumer_state.update_notifications,
                     delete_notifications:
-                      consumer_state.delete_notification ++ [notification_setting_id]
+                      consumer_state.delete_notifications ++ [notification_setting_id]
                   )
 
                   %{
@@ -904,7 +904,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     backfill_notifications: consumer_state.backfill_notifications,
                     update_notifications: consumer_state.update_notifications,
                     delete_notifications:
-                      consumer_state.delete_notification ++ [notification_setting_id]
+                      consumer_state.delete_notifications ++ [notification_setting_id]
                   )
 
                   %{

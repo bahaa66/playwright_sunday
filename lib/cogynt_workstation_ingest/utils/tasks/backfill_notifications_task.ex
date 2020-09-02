@@ -60,23 +60,26 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
            event_definition,
          notification_setting
        ) do
-    {_count, updated_notifications} =
-      build_notifications(entries, event_definition_details, notification_setting)
-      |> NotificationsContext.bulk_insert_notifications(
-        returning: Notification.__schema__(:fields)
-      )
+    case build_notifications(entries, event_definition_details, notification_setting)
+         |> NotificationsContext.bulk_insert_notifications(
+           returning: Notification.__schema__(:fields)
+         ) do
+      {_count, []} ->
+        nil
 
-    # only want to publish the notifications that are not deleted
-    %{true: publish_notifications, false: _} =
-      NotificationsContext.remove_notification_virtual_fields(updated_notifications)
-      |> Enum.group_by(fn n -> is_nil(n.deleted_at) end)
+      {_count, updated_notifications} ->
+        # only want to publish the notifications that are not deleted
+        %{true: publish_notifications} =
+          NotificationsContext.remove_notification_virtual_fields(updated_notifications)
+          |> Enum.group_by(fn n -> is_nil(n.deleted_at) end)
 
-    Redis.list_append_pipeline(
-      "notification_queue",
-      publish_notifications
-    )
+        Redis.list_append_pipeline(
+          "notification_queue",
+          publish_notifications
+        )
 
-    SystemNotificationContext.bulk_insert_system_notifications(publish_notifications)
+        SystemNotificationContext.bulk_insert_system_notifications(publish_notifications)
+    end
 
     case page_number >= total_pages do
       true ->

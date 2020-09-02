@@ -54,27 +54,31 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationsTask do
 
   defp process_page(
          %{entries: entries, page_number: page_number, total_pages: total_pages},
-         %{tag_id: tag_id, id: id, title: ns_title} = notification_setting
+         %{tag_id: tag_id, id: id, title: ns_title, assigned_to: assigned_to} =
+           notification_setting
        ) do
     notification_ids = Enum.map(entries, fn e -> e.id end)
 
-    {_count, updated_notifications} =
-      NotificationsContext.update_notifcations(
-        %{
-          filter: %{notification_ids: notification_ids},
-          select: Notification.__schema__(:fields)
-        },
-        set: [tag_id: tag_id, title: ns_title]
-      )
+    case NotificationsContext.update_notifcations(
+           %{
+             filter: %{notification_ids: notification_ids},
+             select: Notification.__schema__(:fields)
+           },
+           set: [tag_id: tag_id, title: ns_title, assigned_to: assigned_to]
+         ) do
+      {_count, []} ->
+        nil
 
-    %{true: publish_notifications, false: _} =
-      NotificationsContext.remove_notification_virtual_fields(updated_notifications)
-      |> Enum.group_by(fn n -> is_nil(n.deleted_at) end)
+      {_count, updated_notifications} ->
+        %{true: publish_notifications} =
+          NotificationsContext.remove_notification_virtual_fields(updated_notifications)
+          |> Enum.group_by(fn n -> is_nil(n.deleted_at) end)
 
-    Redis.list_append_pipeline(
-      "notification_queue",
-      publish_notifications
-    )
+        Redis.list_append_pipeline(
+          "notification_queue",
+          publish_notifications
+        )
+    end
 
     if page_number >= total_pages do
       CogyntLogger.info(

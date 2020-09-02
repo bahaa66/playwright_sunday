@@ -59,23 +59,26 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteNotificationsTask do
        ) do
     notification_ids = Enum.map(entries, fn e -> e.id end)
 
-    {_count, deleted_notifications} =
-      NotificationsContext.update_notifcations(
-        %{
-          filter: %{notification_ids: notification_ids},
-          select: Notification.__schema__(:fields)
-        },
-        set: [deleted_at: deleted_at]
-      )
+    case NotificationsContext.update_notifcations(
+           %{
+             filter: %{notification_ids: notification_ids},
+             select: Notification.__schema__(:fields)
+           },
+           set: [deleted_at: deleted_at]
+         ) do
+      {_count, []} ->
+        nil
 
-    %{true: _, false: publish_notifications} =
-      NotificationsContext.remove_notification_virtual_fields(deleted_notifications)
-      |> Enum.group_by(fn n -> is_nil(n.deleted_at) end)
+      {_count, deleted_notifications} ->
+        %{false: publish_notifications} =
+          NotificationsContext.remove_notification_virtual_fields(deleted_notifications)
+          |> Enum.group_by(fn n -> is_nil(n.deleted_at) end)
 
-    Redis.list_append_pipeline(
-      "notification_queue",
-      publish_notifications
-    )
+        Redis.list_append_pipeline(
+          "notification_queue",
+          publish_notifications
+        )
+    end
 
     if page_number >= total_pages do
       CogyntLogger.info(
