@@ -773,7 +773,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         true ->
           CogyntLogger.warn(
             "#{__MODULE__}",
-            "Failed to run update_notification_setting/1. DevDelete task pending or running. Must to wait until it is finished"
+            "Failed to run update_notifications/1. DevDelete task pending or running. Must to wait until it is finished"
           )
 
           %{response: {:error, :internal_server_error}}
@@ -782,7 +782,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
       error ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "update_notification_setting failed with error: #{inspect(error, pretty: true)}"
+          "update_notifications failed with error: #{inspect(error, pretty: true)}"
         )
 
         internal_error_state(event_definition_id)
