@@ -64,7 +64,7 @@ config :elasticsearch, :config,
   password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
   event_index_alias: System.get_env("EVENT_INDEX_ALIAS") || "event",
   risk_history_index_alias: System.get_env("RISK_HISTORY_INDEX_ALIAS") || "risk_history",
-  retry_on_conflict: 3,
+  retry_on_conflict: 5,
   utc_offset: 0
 
 # Redis configurations

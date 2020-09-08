@@ -165,6 +165,41 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.update_all(set: set)
   end
 
+  @doc """
+  Deletes Event and removes their rows from the database.
+  ## Examples
+      iex> hard_delete_events(%{
+        filter: %{ids: "73c3c043-73ff-4d09-b206-029641880cf5"}
+      })
+      {3, nil}
+  """
+  def hard_delete_events(args) do
+    Enum.reduce(args, from(e in Event), fn
+      {:filter, filter}, q ->
+        filter_events(filter, q)
+    end)
+    |> Repo.delete_all(timeout: 60_000)
+  end
+
+  # ---------------------------------- #
+  # --- EventDetail Schema Methods --- #
+  # ---------------------------------- #
+  @doc """
+  Deletes EventDetails and removes their rows from the database.
+  ## Examples
+      ex> hard_delete_event_details(%{
+        filter: %{event_ids: "73c3c043-73ff-4d09-b206-029641880cf5"}
+      })
+      {3, nil}
+  """
+  def hard_delete_event_details(args) do
+    Enum.reduce(args, from(e in EventDetail), fn
+      {:filter, filter}, q ->
+        filter_event_details(filter, q)
+    end)
+    |> Repo.delete_all(timeout: 60_000)
+  end
+
   # -------------------------------------- #
   # --- EventDefinition Schema Methods --- #
   # -------------------------------------- #
@@ -372,6 +407,16 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   @doc """
+  Hard deletes an event definition by removing it's from the database.
+  ## Examples
+      iex> hard_delete_event_definition(event_definition)
+      {:ok, %EventDefinition{}}
+  """
+  def hard_delete_event_definition(%EventDefinition{} = event_definition) do
+    Repo.delete(event_definition)
+  end
+
+  @doc """
   Removes all the records in the EventDefinitions table.
   It returns a tuple containing the number of entries
   and any returned result as second element. The second
@@ -386,10 +431,67 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   @doc """
+  Converts an EventDefinition struct into a dropping the metadata and timestamp related fields
+  """
+  def remove_event_definition_virtual_fields(a, b \\ [])
+
+  def remove_event_definition_virtual_fields([], _opts), do: []
+
+  def remove_event_definition_virtual_fields(
+        [%EventDefinition{} = event_definition | tail],
+        opts
+      ) do
+    include_event_definition_details = Keyword.get(opts, :include_event_definition_details, false)
+
+    if include_event_definition_details do
+      event_definition_details = Map.get(event_definition, :event_definition_details, %{})
+
+      event_definition_details =
+        remove_event_definition_detail_virtual_fields(event_definition_details)
+
+      event_definition =
+        Map.put(event_definition, :event_definition_details, event_definition_details)
+
+      [
+        Map.take(event_definition, [
+          :event_definition_details | EventDefinition.__schema__(:fields)
+        ])
+        | remove_event_definition_virtual_fields(tail, opts)
+      ]
+    else
+      [
+        Map.take(event_definition, EventDefinition.__schema__(:fields))
+        | remove_event_definition_virtual_fields(tail, opts)
+      ]
+    end
+  end
+
+  def remove_event_definition_virtual_fields(%EventDefinition{} = event_definition, opts) do
+    include_event_definition_details = Keyword.get(opts, :include_event_definition_details, false)
+
+    if include_event_definition_details do
+      event_definition_details = Map.get(event_definition, :event_definition_details, %{})
+
+      event_definition_details =
+        remove_event_definition_detail_virtual_fields(event_definition_details)
+
+      event_definition =
+        Map.put(event_definition, :event_definition_details, event_definition_details)
+
+      Map.take(event_definition, [:event_definition_details | EventDefinition.__schema__(:fields)])
+    else
+      Map.take(event_definition, EventDefinition.__schema__(:fields))
+    end
+  end
+
+  # ------------------------------------------ #
+  # --- EventDetailTemplate Schema Methods --- #
+  # ------------------------------------------ #
+  @doc """
   Updates the deleted_at values for all EventDetailTemplate
   data associated with the EventDefinition
   """
-  def delete_event_definition_data(%EventDefinition{} = event_definition) do
+  def delete_event_definition_event_detail_templates_data(%EventDefinition{} = event_definition) do
     now = DateTime.truncate(DateTime.utc_now(), :second)
 
     {_count, event_detail_templates} =
@@ -401,52 +503,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     delete_event_definition_event_detail_template_group_items(event_detail_templates_groups)
   end
 
-  @doc """
-  Converts EventDefinition struct to a map
-  """
-  def event_definition_struct_to_map(%EventDefinition{} = event_definition) do
-    event_definition_details =
-      case event_definition do
-        %{event_definition_details: %Ecto.Association.NotLoaded{}} ->
-          []
-
-        %{event_definition_details: details} ->
-          details
-
-        _ ->
-          []
-      end
-
-    %{
-      id: event_definition.id,
-      title: event_definition.title,
-      topic: event_definition.topic,
-      event_type: event_definition.event_type,
-      deleted_at: event_definition.deleted_at,
-      started_at: event_definition.started_at,
-      authoring_event_definition_id: event_definition.authoring_event_definition_id,
-      active: event_definition.active,
-      deployment_status: event_definition.deployment_status,
-      deployment_id: event_definition.deployment_id,
-      manual_actions: event_definition.manual_actions,
-      created_at: event_definition.created_at,
-      updated_at: event_definition.updated_at,
-      primary_title_attribute: event_definition.primary_title_attribute,
-      color: event_definition.color,
-      fields:
-        Enum.reduce(event_definition_details, %{}, fn
-          %{field_name: n, field_type: t}, acc ->
-            Map.put_new(acc, n, t)
-
-          _, acc ->
-            acc
-        end)
-    }
-  end
-
-  # ------------------------------------------ #
-  # --- EventDetailTemplate Schema Methods --- #
-  # ------------------------------------------ #
   @doc """
   Given an %EventDefinition{} struct and a deleted_at timestamp it will update all
   %EventDetailTemplate{} for the event_definition_id to be deleted
@@ -544,6 +600,20 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     Repo.delete_all(EventDefinitionDetail)
   end
 
+  @doc """
+  Converts an EventDefinitionDetail struct into a dropping the metadata and timestamp related fields
+  """
+  def remove_event_definition_detail_virtual_fields([]), do: []
+
+  def remove_event_definition_detail_virtual_fields([
+        %EventDefinitionDetail{} = event_definition_detail | tail
+      ]) do
+    [
+      Map.take(event_definition_detail, EventDefinitionDetail.__schema__(:fields))
+      | remove_event_definition_detail_virtual_fields(tail)
+    ]
+  end
+
   # -------------------------------- #
   # --- EventLink Schema Methods --- #
   # -------------------------------- #
@@ -632,14 +702,15 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         preload_detail: true
       )
 
-    Enum.each(event_definitions, fn ed ->
-      ed_map = event_definition_struct_to_map(ed)
-      ConsumerStateManager.manage_request(%{start_consumer: ed_map})
+    Enum.each(event_definitions, fn event_definition ->
+      ConsumerStateManager.manage_request(%{
+        start_consumer: remove_event_definition_virtual_fields(event_definition)
+      })
     end)
 
     # Fetch all EventDefinitions and check if they were in the middle of
     # any tasks when application was restarted. If so trigger the tasks
-    # again
+    # that were running
     event_definitions =
       query_event_definitions(
         %{
@@ -650,30 +721,41 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         preload_detail: true
       )
 
-    Enum.each(event_definitions, fn ed ->
-      {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(ed.id)
+    Enum.each(event_definitions, fn event_definition ->
+      {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
 
       cond do
         consumer_state.status ==
             ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-          Enum.each(consumer_state.nsid, fn nsid ->
+          Enum.each(consumer_state.backfill_notifications, fn notification_setting_id ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Initalizing backfill notifications task: #{inspect(nsid, pretty: true)}"
+              "Initalizing backfill notifications task: #{inspect(notification_setting_id)}"
             )
 
-            TaskSupervisor.start_child(%{backfill_notifications: nsid})
+            TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
           end)
 
         consumer_state.status ==
             ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-          Enum.each(consumer_state.nsid, fn nsid ->
+          Enum.each(consumer_state.update_notifications, fn notification_setting_id ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Initalizing update notifications task: #{inspect(nsid, pretty: true)}"
+              "Initalizing update notifications task: #{inspect(notification_setting_id)}"
             )
 
-            TaskSupervisor.start_child(%{update_notification_setting: nsid})
+            TaskSupervisor.start_child(%{update_notifications: notification_setting_id})
+          end)
+
+        consumer_state.status ==
+            ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
+          Enum.each(consumer_state.delete_notifications, fn notification_setting_id ->
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Initalizing delete notifications task: #{inspect(notification_setting_id)}"
+            )
+
+            TaskSupervisor.start_child(%{delete_notification_setting: notification_setting_id})
           end)
 
         true ->
@@ -716,6 +798,13 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       {:event_ids, event_ids}, q ->
         where(q, [e], e.id in ^event_ids)
+    end)
+  end
+
+  defp filter_event_details(filter, query) do
+    Enum.reduce(filter, query, fn
+      {:event_ids, event_ids}, q ->
+        where(q, [e], e.event_id in ^event_ids)
     end)
   end
 

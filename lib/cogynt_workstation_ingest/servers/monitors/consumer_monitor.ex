@@ -83,7 +83,8 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
     cond do
       status == new_status or
         status == ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
-          status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+        status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
+          status == ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
         Redis.publish_async("consumer_state_subscription", %{
           id: id,
           topic: topic,

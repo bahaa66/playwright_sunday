@@ -18,8 +18,8 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
-  def monitor(pid, notification_setting_id) do
-    GenServer.cast(__MODULE__, {:monitor, pid, notification_setting_id})
+  def monitor(pid, type, notification_setting_id) do
+    GenServer.cast(__MODULE__, {:monitor, pid, type, notification_setting_id})
   end
 
   # ------------------------ #
@@ -31,16 +31,94 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
   end
 
   @impl true
-  def handle_cast({:monitor, pid, notification_setting_id}, state) do
+  def handle_cast({:monitor, pid, :backfill, notification_setting_id}, state) do
     Process.monitor(pid)
 
-    new_state =
-      Map.put(state, pid, notification_setting_id)
-      |> Map.put(notification_setting_id, pid)
+    new_state = Map.put(state, pid, %{id: notification_setting_id, type: :backfill})
 
-    Redis.hash_set("c:#{notification_setting_id}", "notification_task_status", 1)
+    case Redis.hash_get("task_statuses", "backfill_notifications", decode: true) do
+      {:ok, nil} ->
+        Redis.hash_set(
+          "task_statuses",
+          "backfill_notifications",
+          [notification_setting_id]
+        )
 
-    Redis.publish("notification_status_subscription", %{
+      {:ok, notification_setting_ids} ->
+        Redis.hash_set(
+          "task_statuses",
+          "backfill_notifications",
+          Enum.uniq(notification_setting_ids ++ [notification_setting_id])
+        )
+    end
+
+    Redis.key_pexpire("task_statuses", 30000)
+
+    Redis.publish_async("notification_settings_subscription", %{
+      id: notification_setting_id,
+      status: "running"
+    })
+
+    {:noreply, new_state}
+  end
+
+  @impl true
+  def handle_cast({:monitor, pid, :update, notification_setting_id}, state) do
+    Process.monitor(pid)
+
+    new_state = Map.put(state, pid, %{id: notification_setting_id, type: :update})
+
+    case Redis.hash_get("task_statuses", "update_notifications", decode: true) do
+      {:ok, nil} ->
+        Redis.hash_set(
+          "task_statuses",
+          "update_notifications",
+          [notification_setting_id]
+        )
+
+      {:ok, notification_setting_ids} ->
+        Redis.hash_set(
+          "task_statuses",
+          "update_notifications",
+          Enum.uniq(notification_setting_ids ++ [notification_setting_id])
+        )
+    end
+
+    Redis.key_pexpire("task_statuses", 30000)
+
+    Redis.publish_async("notification_settings_subscription", %{
+      id: notification_setting_id,
+      status: "running"
+    })
+
+    {:noreply, new_state}
+  end
+
+  @impl true
+  def handle_cast({:monitor, pid, :delete, notification_setting_id}, state) do
+    Process.monitor(pid)
+
+    new_state = Map.put(state, pid, %{id: notification_setting_id, type: :delete})
+
+    case Redis.hash_get("task_statuses", "delete_notifications", decode: true) do
+      {:ok, nil} ->
+        Redis.hash_set(
+          "task_statuses",
+          "delete_notifications",
+          [notification_setting_id]
+        )
+
+      {:ok, notification_setting_ids} ->
+        Redis.hash_set(
+          "task_statuses",
+          "delete_notifications",
+          Enum.uniq(notification_setting_ids ++ [notification_setting_id])
+        )
+    end
+
+    Redis.key_pexpire("task_statuses", 30000)
+
+    Redis.publish_async("notification_settings_subscription", %{
       id: notification_setting_id,
       status: "running"
     })
@@ -52,80 +130,203 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
   def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
     # TODO implement retry for backfill/update task if reason anything other than :normal or :shutdown
 
-    notification_setting_id = Map.get(state, pid)
+    %{id: notification_setting_id, type: type} = Map.get(state, pid)
 
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
-    {:ok, consumer_state} =
-      ConsumerStateManager.get_consumer_state(notification_setting.event_definition_id)
+    {:ok,
+     %{
+       backfill_notifications: backfill_notifications,
+       update_notifications: update_notifications,
+       delete_notifications: delete_notifications,
+       prev_status: prev_status,
+       topic: topic
+     }} = ConsumerStateManager.get_consumer_state(notification_setting.event_definition_id)
 
-    nsid = List.delete(consumer_state.nsid, notification_setting_id)
+    case type do
+      :backfill ->
+        backfill_notifications = List.delete(backfill_notifications, notification_setting_id)
 
-    if Enum.empty?(nsid) do
-      cond do
-        consumer_state.prev_status == ConsumerStatusTypeEnum.status()[:running] ->
+        if Enum.empty?(backfill_notifications) do
+          cond do
+            prev_status == ConsumerStatusTypeEnum.status()[:running] ->
+              ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
+                topic: topic,
+                backfill_notifications: backfill_notifications,
+                status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+              )
+
+              event_definition_map =
+                EventsContext.get_event_definition(notification_setting.event_definition_id)
+                |> EventsContext.remove_event_definition_virtual_fields()
+
+              ConsumerStateManager.manage_request(%{start_consumer: event_definition_map})
+
+            true ->
+              ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
+                topic: topic,
+                backfill_notifications: backfill_notifications,
+                prev_status: ConsumerStatusTypeEnum.status()[:paused_and_processing],
+                status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+              )
+          end
+        else
           ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
-            topic: consumer_state.topic,
-            nsid: nsid,
-            status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+            backfill_notifications: backfill_notifications
           )
 
-          ed_map =
-            EventsContext.get_event_definition(notification_setting.event_definition_id)
-            |> EventsContext.event_definition_struct_to_map()
+          Enum.each(backfill_notifications, fn notification_setting_id ->
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Triggering backfill notifications task: #{inspect(notification_setting_id)}"
+            )
 
-          ConsumerStateManager.manage_request(%{start_consumer: ed_map})
-
-        true ->
-          ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
-            topic: consumer_state.topic,
-            nsid: nsid,
-            prev_status: ConsumerStatusTypeEnum.status()[:paused_and_processing],
-            status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
-          )
-      end
-    else
-      ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
-        nsid: nsid
-      )
-
-      cond do
-        consumer_state.status ==
-            ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "Triggering backfill notifications task: #{inspect(nsid, pretty: true)}"
-          )
-
-          Enum.each(nsid, fn id ->
             ConsumerStateManager.manage_request(%{
-              backfill_notifications: id
+              backfill_notifications: notification_setting_id
             })
           end)
+        end
 
-        consumer_state.status ==
-            ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "Triggering update notifications task: #{inspect(nsid, pretty: true)}"
+        case Redis.hash_get("task_statuses", "backfill_notifications", decode: true) do
+          {:ok, nil} ->
+            nil
+
+          {:ok, notification_setting_ids} ->
+            notification_setting_ids =
+              List.delete(notification_setting_ids, notification_setting_id)
+
+            Redis.hash_set(
+              "task_statuses",
+              "backfill_notifications",
+              notification_setting_ids
+            )
+        end
+
+      :update ->
+        update_notifications = List.delete(update_notifications, notification_setting_id)
+
+        if Enum.empty?(update_notifications) do
+          cond do
+            prev_status == ConsumerStatusTypeEnum.status()[:running] ->
+              ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
+                topic: topic,
+                update_notifications: update_notifications,
+                status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+              )
+
+              event_definition_map =
+                EventsContext.get_event_definition(notification_setting.event_definition_id)
+                |> EventsContext.remove_event_definition_virtual_fields()
+
+              ConsumerStateManager.manage_request(%{start_consumer: event_definition_map})
+
+            true ->
+              ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
+                topic: topic,
+                update_notifications: update_notifications,
+                prev_status: ConsumerStatusTypeEnum.status()[:paused_and_processing],
+                status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+              )
+          end
+        else
+          ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
+            update_notifications: update_notifications
           )
 
-          Enum.each(nsid, fn id ->
+          Enum.each(update_notifications, fn notification_setting_id ->
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Triggering update notifications task: #{inspect(notification_setting_id)}"
+            )
+
             ConsumerStateManager.manage_request(%{
-              update_notification_setting: id
+              update_notifications: notification_setting_id
             })
           end)
-      end
+        end
+
+        case Redis.hash_get("task_statuses", "update_notifications", decode: true) do
+          {:ok, nil} ->
+            nil
+
+          {:ok, notification_setting_ids} ->
+            notification_setting_ids =
+              List.delete(notification_setting_ids, notification_setting_id)
+
+            Redis.hash_set(
+              "task_statuses",
+              "update_notifications",
+              notification_setting_ids
+            )
+        end
+
+      :delete ->
+        delete_notifications = List.delete(delete_notifications, notification_setting_id)
+
+        if Enum.empty?(delete_notifications) do
+          cond do
+            prev_status == ConsumerStatusTypeEnum.status()[:running] ->
+              ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
+                topic: topic,
+                delete_notifications: delete_notifications,
+                status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+              )
+
+              event_definition_map =
+                EventsContext.get_event_definition(notification_setting.event_definition_id)
+                |> EventsContext.remove_event_definition_virtual_fields()
+
+              ConsumerStateManager.manage_request(%{start_consumer: event_definition_map})
+
+            true ->
+              ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
+                topic: topic,
+                delete_notifications: delete_notifications,
+                prev_status: ConsumerStatusTypeEnum.status()[:paused_and_processing],
+                status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+              )
+          end
+        else
+          ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
+            delete_notifications: delete_notifications
+          )
+
+          Enum.each(delete_notifications, fn notification_setting_id ->
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Triggering delete notifications task: #{inspect(notification_setting_id)}"
+            )
+
+            ConsumerStateManager.manage_request(%{
+              delete_notifications: notification_setting_id
+            })
+          end)
+        end
+
+        case Redis.hash_get("task_statuses", "delete_notifications", decode: true) do
+          {:ok, nil} ->
+            nil
+
+          {:ok, notification_setting_ids} ->
+            notification_setting_ids =
+              List.delete(notification_setting_ids, notification_setting_id)
+
+            Redis.hash_set(
+              "task_statuses",
+              "delete_notifications",
+              notification_setting_ids
+            )
+        end
     end
 
-    Redis.key_delete("c:#{notification_setting_id}")
+    Redis.key_pexpire("task_statuses", 30000)
 
-    Redis.publish("notification_status_subscription", %{
+    Redis.publish_async("notification_settings_subscription", %{
       id: notification_setting_id,
       status: "finished"
     })
 
-    new_state = Map.drop(state, [pid, notification_setting_id])
+    new_state = Map.delete(state, pid)
     {:noreply, new_state}
   end
 end

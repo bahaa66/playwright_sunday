@@ -44,6 +44,41 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   def get_notification_setting_by(clauses),
     do: Repo.get_by(from(ns in NotificationSetting, where: is_nil(ns.deleted_at)), clauses)
 
+  @doc """
+  Hard deletes many notification settings and removes them from the database.
+
+  ## Examples
+      iex> hard_delete_notification_settings(%{
+        filter: %{event_ids: ["9a9055f1-98b6-42a9-8145-7a4ca09cab23"]}
+      })
+      {1, nil | [%Notification{}]}
+  """
+  def hard_delete_notification_settings(args) do
+    Enum.reduce(args, from(ns in NotificationSetting), fn
+      {:filter, filter}, q ->
+        filter_notification_settings(filter, q)
+
+      {:select, select}, q ->
+        select(q, ^select)
+    end)
+    |> Repo.delete_all()
+  end
+
+  @doc """
+  Takes a list of NotificationSetting Structs and returns a list of maps with
+  the Metadata and Timestamp fields dropped
+  """
+  def remove_notification_setting_virtual_fields([]), do: []
+
+  def remove_notification_setting_virtual_fields([
+        %NotificationSetting{} = notification_setting | tail
+      ]) do
+    [
+      Map.take(notification_setting, NotificationSetting.__schema__(:fields))
+      | remove_notification_setting_virtual_fields(tail)
+    ]
+  end
+
   # ---------------------------- #
   # --- Notification Methods --- #
   # ---------------------------- #
@@ -90,13 +125,22 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       }
   """
   def get_page_of_notifications(args, opts \\ []) do
+    include_deleted = Keyword.get(opts, :include_deleted, false)
     page = Keyword.get(opts, :page_number, 1)
     page_size = Keyword.get(opts, :page_size, 10)
 
-    Enum.reduce(args, from(n in Notification), fn
-      {:filter, filter}, q ->
-        filter_notifications(filter, q)
-    end)
+    query =
+      Enum.reduce(args, from(n in Notification), fn
+        {:filter, filter}, q ->
+          filter_notifications(filter, q)
+      end)
+
+    if include_deleted do
+      query
+    else
+      query
+      |> where([n], is_nil(n.deleted_at))
+    end
     |> order_by([n], desc: n.created_at, asc: n.id)
     |> Repo.paginate(page: page, page_size: page_size)
   end
@@ -141,24 +185,31 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     |> Repo.update()
   end
 
-  def notification_struct_to_map(notifications) do
-    Enum.reduce(notifications, [], fn %Notification{} = notification, acc ->
-      acc ++
-        [
-          %{
-            event_id: notification.event_id,
-            user_id: notification.user_id,
-            tag_id: notification.tag_id,
-            id: notification.id,
-            title: notification.title,
-            notification_setting_id: notification.notification_setting_id,
-            created_at: notification.created_at,
-            updated_at: notification.updated_at
+  @doc """
+  Hard deletes many notifications and removes them from the database.
+  ## Examples
+      iex> hard_delete_notifications(%{
+          filter: %{
+            event_ids: ["9a9055f1-98b6-42a9-8145-7a4ca09cab23"]
           }
-        ]
+        })
+      {1, nil | [%Notification{}]}
+  """
+  def hard_delete_notifications(args) do
+    Enum.reduce(args, from(n in Notification), fn
+      {:filter, filter}, q ->
+        filter_notifications(filter, q)
+
+      {:select, select}, q ->
+        select(q, ^select)
     end)
+    |> Repo.delete_all()
   end
 
+  @doc """
+  Takes a list of Notification Structs and returns a list of maps with
+  the Metadata and Timestamp fields dropped
+  """
   def remove_notification_virtual_fields([]), do: []
 
   def remove_notification_virtual_fields([%Notification{} = notification | tail]) do
@@ -316,6 +367,16 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
 
       {:notification_setting_id, notification_setting_id}, q ->
         where(q, [n], n.notification_setting_id == ^notification_setting_id)
+
+      {:event_ids, event_ids}, q ->
+        where(q, [n], n.event_id in ^event_ids)
+    end)
+  end
+
+  defp filter_notification_settings(filter, query) do
+    Enum.reduce(filter, query, fn
+      {:event_definition_id, event_definition_id}, q ->
+        where(q, [ns], ns.event_definition_id == ^event_definition_id)
     end)
   end
 end
