@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Broadway.EventProcessor
   alias CogyntWorkstationIngest.System.SystemNotificationContext
-  alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
   alias CogyntWorkstationIngest.Config
 
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
@@ -26,12 +25,10 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         Map.put(data, :validated, false)
 
       entities ->
-        if Enum.empty?(entities) or Enum.count(entities) == 1 do
+        if Enum.empty?(entities) do
           CogyntLogger.warn(
             "#{__MODULE__}",
-            "entity field is empty or only has 1 link obect. Entity: #{
-              inspect(entities, pretty: true)
-            }"
+            "entity field is empty. Entity: #{inspect(entities, pretty: true)}"
           )
 
           Map.put(data, :validated, false)
@@ -132,16 +129,17 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
          update_notifications: {_count_deleted, updated_notifications}
        }} ->
         total_notifications =
-          NotificationsContext.notification_struct_to_map(created_notifications) ++
+          NotificationsContext.remove_notification_virtual_fields(created_notifications) ++
             updated_notifications
 
-        NotificationSubscriptionCache.add_notifications(total_notifications)
+        Redis.list_append_pipeline("notification_queue", total_notifications)
         SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
         SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
-        NotificationSubscriptionCache.add_notifications(
-          NotificationsContext.notification_struct_to_map(created_notifications)
+        Redis.list_append_pipeline(
+          "notification_queue",
+          NotificationsContext.remove_notification_virtual_fields(created_notifications)
         )
 
         SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
@@ -191,7 +189,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
     case transaction_result do
       {:ok, %{update_notifications: {_count, updated_notifications}}} ->
-        NotificationSubscriptionCache.add_notifications(updated_notifications)
+        Redis.list_append_pipeline("notification_queue", updated_notifications)
         SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, _} ->
