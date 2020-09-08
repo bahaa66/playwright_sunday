@@ -62,15 +62,14 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:telemetry_poller, "~> 0.4"},
       {
         :models,
-        # tag: "v1.6.7-beta",
-        branch: "feature/CDST-647-redis-expire-methods",
+        tag: "v1.7.10-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.7.7-beta",
+        tag: "v1.7.10-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
@@ -84,18 +83,16 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :elasticsearch,
-        # tag: "v1.7.3",
-        branch: "feature/CDST-647-redis-expire-methods",
+        tag: "v1.7.10-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
         override: true
       },
       {
         :redis,
-        # tag: "v1.6.2-beta",
+        tag: "v1.7.10-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
-        branch: "feature/CDST-647-redis-expire-methods",
         override: true
       }
     ]

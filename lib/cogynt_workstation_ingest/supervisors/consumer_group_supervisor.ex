@@ -356,6 +356,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     name = Keyword.get(opts, :name, :standard)
 
     KafkaEx.create_worker(name,
+      uris: uris,
       consumer_group: "kafka_ex",
       consumer_group_update_interval: 100
     )
