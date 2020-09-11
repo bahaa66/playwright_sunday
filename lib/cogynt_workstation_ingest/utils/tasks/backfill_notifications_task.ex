@@ -73,10 +73,9 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
           NotificationsContext.remove_notification_virtual_fields(updated_notifications)
           |> Enum.group_by(fn n -> is_nil(n.deleted_at) end)
 
-        Redis.list_append_pipeline(
-          "notification_queue",
-          publish_notifications
-        )
+        Redis.publish_async("notification_settings_subscription", %{
+          updated: notification_setting.id
+        })
 
         SystemNotificationContext.bulk_insert_system_notifications(publish_notifications)
     end
