@@ -3,6 +3,10 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   alias KafkaEx.Protocol.Fetch
   alias CogyntWorkstationIngest.Config
 
+  # TODO: For now the Producer is unused. It has been replaced with
+  # the BroadwayKafka Producer. There should be no references to it in this
+  # solution
+
   @defaults %{
     event_id: nil,
     retry_count: 0

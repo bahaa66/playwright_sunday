@@ -9,65 +9,83 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
-  alias CogyntWorkstationIngest.Broadway.{Producer, EventProcessor}
+  alias CogyntWorkstationIngest.Broadway.EventProcessor
 
-  @pipeline_name :BroadwayEventPipeline
+  @defaults %{
+    event_id: nil,
+    retry_count: 0
+  }
 
-  def start_link(_args) do
+  def start_link(%{
+        group_id: group_id,
+        topics: topics,
+        hosts: hosts,
+        event_definition_id: event_definition_id
+      }) do
     Broadway.start_link(__MODULE__,
-      name: @pipeline_name,
+      name: String.to_atom(group_id <> "Pipeline"),
       producer: [
-        module: {Producer, []},
-        concurrency: 1,
-        transformer: {__MODULE__, :transform, []}
-        # rate_limiting: [
-        #   allowed_messages: Config.producer_allowed_messages(),
-        #   interval: Config.producer_rate_limit_interval()
-        # ]
+        module:
+          {BroadwayKafka.Producer,
+           [
+             hosts: hosts,
+             group_id: group_id,
+             topics: topics,
+             offset_commit_on_ack: true,
+             offset_reset_policy: :earliest,
+             group_config: [
+               session_timeout_seconds: 15
+             ],
+             fetch_config: [
+               # 3 MB
+               max_bytes: 3_145_728
+             ],
+             client_config: [
+               # 15 seconds
+               connect_timeout: 15000
+             ]
+           ]},
+        concurrency: 10,
+        transformer:
+          {__MODULE__, :transform, [group_id: group_id, event_definition_id: event_definition_id]}
       ],
       processors: [
         default: [
-          concurrency: Config.event_processor_stages(),
-          max_demand: Config.event_processor_max_demand(),
-          min_demand: Config.event_processor_min_demand()
+          concurrency: Config.event_processor_stages()
         ]
-      ],
-      partition_by: &partition/1
+      ]
     )
-  end
-
-  defp partition(msg) do
-    case msg.data.event["id"] do
-      nil ->
-        :rand.uniform(100_000)
-
-      id ->
-        :erlang.phash2(id)
-    end
   end
 
   @doc """
   Transformation callback. Will transform the message that is returned
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
-  def transform(payload, _opts) do
-    case Jason.decode(payload) do
-      {:ok, event} ->
-        %Message{
-          data: keys_to_atoms(event),
-          acknowledger: {__MODULE__, :ack_id, :ack_data}
-        }
+  def transform(%Message{data: encoded_data} = message, opts) do
+    IO.inspect(message, label: "Event Message data")
+    group_id = Keyword.get(opts, :group_id, 1)
+    event_definition_id = Keyword.get(opts, :event_definition_id, nil)
+
+    case Jason.decode(encoded_data) do
+      {:ok, decoded_data} ->
+        # Incr the total message count that has been consumed from kafka
+        Redis.hash_increment_by("emi:#{group_id}", "tmc", 1)
+
+        Map.put(message, :data, %{
+          event: keys_to_atoms(decoded_data),
+          event_definition_id: event_definition_id,
+          event_id: @defaults.event_id
+        })
+        |> Map.put(:acknowledger, {__MODULE__, group_id, :ack_data})
 
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Failed to decode payload. Error: #{inspect(error, pretty: true)}"
+          "Failed to decode Kafka message. Error: #{inspect(error)}"
         )
 
-        %Message{
-          data: nil,
-          acknowledger: {__MODULE__, :ack_id, :ack_data}
-        }
+        Map.put(message, :data, nil)
+        |> Map.put(:acknowledger, {__MODULE__, group_id, :ack_data})
     end
   end
 
@@ -75,10 +93,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   Acknowledge callback. Will get all success or failed messages from
   the pipeline.
   """
-  def ack(:ack_id, successful, _failed) do
+  def ack(group_id, successful, _failed) do
     Enum.each(successful, fn %Broadway.Message{data: %{event_definition_id: event_definition_id}} ->
-      {:ok, tmc} = Redis.hash_get("b:#{event_definition_id}", "tmc")
-      {:ok, tmp} = Redis.hash_increment_by("b:#{event_definition_id}", "tmp", 1)
+      {:ok, tmc} = Redis.hash_get("emi:#{group_id}", "tmc")
+      {:ok, tmp} = Redis.hash_increment_by("emi:#{group_id}", "tmp", 1)
 
       if tmp >= String.to_integer(tmc) do
         finished_processing(event_definition_id)
@@ -93,7 +111,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   @impl true
   def handle_failed(messages, _args) do
-    Producer.enqueue_failed_messages(messages, @pipeline_name)
+    CogyntLogger.error("#{__MODULE__}", "Messages failed. #{inspect(messages)}")
+    # TODO: handle failed messages
+    # Producer.enqueue_failed_messages(messages, @pipeline_name)
     messages
   end
 
@@ -104,8 +124,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   process_notifications/1 and execute_transaction/1.
   """
   @impl true
-  def handle_message(_processor, %Message{data: data} = message, _context) do
-    data
+  def handle_message(_processor, message, _context) do
+    message
     |> EventProcessor.fetch_event_definition()
     |> EventProcessor.process_event()
     |> EventProcessor.process_event_details_and_elasticsearch_docs()

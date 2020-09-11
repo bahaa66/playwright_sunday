@@ -125,7 +125,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
     consumer_group_id =
       case Redis.hash_get("dcgid", "Drilldown-#{hashed_brokers}") do
         {:ok, nil} ->
-          nil
+          ""
 
         {:ok, consumer_group_id} ->
           "Drilldown-#{hashed_brokers}" <> "-" <> consumer_group_id

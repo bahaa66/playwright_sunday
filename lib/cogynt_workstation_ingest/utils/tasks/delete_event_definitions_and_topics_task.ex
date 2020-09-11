@@ -9,7 +9,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Collections.CollectionsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
-  alias CogyntWorkstationIngest.Broadway.Producer
   alias CogyntWorkstationIngest.Servers.Caches.DeleteEventDefinitionDataCache
 
   alias Models.Events.EventDefinition
@@ -72,9 +71,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
             KafkaEx.delete_topics([event_definition.topic], worker_name: worker_name)
           end
         end
-
-        # Third flush any data that might be stored waiting to process
-        Producer.flush_queue(event_definition.id)
 
         # Fourth check the consumer_state to make sure if it has any data left in the pipeline
         {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
