@@ -104,6 +104,10 @@ config :cogynt_workstation_ingest, :drilldown_pipeline,
   processor_min_demand:
     (System.get_env("DRILLDOWN_PROCESSOR_MIN_DEMAND") || "80") |> String.to_integer()
 
+config :cogynt_workstation_ingest, :deployment_pipeline,
+  processor_stages: (System.get_env("DEPLOYMENT_PROCESSOR_STAGES") || "10") |> String.to_integer()
+
+# TODO: Depricated
 config :cogynt_workstation_ingest, :drilldown_producer,
   max_retry: System.get_env("DRILLDOWN_MAX_RETRY") || 1_400,
   time_delay: System.get_env("DRILLDOWN_TIME_DELAY") || 60_000,
@@ -111,6 +115,7 @@ config :cogynt_workstation_ingest, :drilldown_producer,
   rate_limit_interval:
     System.get_env("PRODUCER_RATE_LIMIT_INTERVAL") || "30000" |> String.to_integer()
 
+# TODO: Depricated
 config :cogynt_workstation_ingest, :producer,
   max_retry: System.get_env("PRODUCER_MAX_RETRY") || 1_400,
   time_delay: System.get_env("PRODUCER_TIME_DELAY") || 60_000,
@@ -125,14 +130,6 @@ config :cogynt_workstation_ingest, :consumer_retry_cache,
 config :cogynt_workstation_ingest, :deployment_retry_cache,
   time_delay: System.get_env("DEPLOYMENT_RETRY_CACHE_TIME_DELAY") || 30_000,
   max_retry: System.get_env("DEPLOYMENT_RETRY_CACHE_MAX_RETRY") || 2880
-
-config :cogynt_workstation_ingest, :notification_subscription_cache,
-  notification_subscription_timer: System.get_env("NOTIFICATION_SUBSCRIPTION_TIMER") || 5000
-
-# rpc server/client configurations
-config :cogynt_workstation_ingest, :rpc,
-  cogynt_otp_service_name: System.get_env("COGYNT_OTP_SERVICE_NAME") || "http://localhost",
-  cogynt_otp_service_port: System.get_env("COGYNT_OTP_SERVICE_PORT") || 4010
 
 # startup utils configurations
 config :cogynt_workstation_ingest, :startup, init_delay: System.get_env("INIT_DELAY") || 1000

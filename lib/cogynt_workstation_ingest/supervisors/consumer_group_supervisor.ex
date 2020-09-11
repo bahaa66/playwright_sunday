@@ -6,9 +6,15 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   """
   use DynamicSupervisor
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
-  alias CogyntWorkstationIngest.Broadway.{EventPipeline, LinkEventPipeline, DrilldownPipeline}
+
+  alias CogyntWorkstationIngest.Broadway.{
+    EventPipeline,
+    LinkEventPipeline,
+    DeploymentPipeline,
+    DrilldownPipeline
+  }
+
   alias Models.Deployments.Deployment
 
   @linkage Application.get_env(:cogynt_workstation_ingest, :core_keys)[:link_data_type]
@@ -104,13 +110,15 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       child_spec = %{
         id: :Deployment,
         start: {
-          KafkaEx.ConsumerGroup,
+          DeploymentPipeline,
           :start_link,
-          consumer_group_options(
-            name: consumer_group_id,
-            topics: [Config.deployment_topic()],
-            consumer_group_name: consumer_group_name("Deployment")
-          )
+          [
+            %{
+              group_id: consumer_group_id,
+              topics: [Config.deployment_topic()],
+              hosts: Config.kafka_brokers()
+            }
+          ]
         },
         restart: :transient,
         shutdown: 5000,
@@ -224,7 +232,16 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def stop_child(:deployment) do
-    child_pid = Process.whereis(consumer_group_name("Deployment"))
+    consumer_group_id =
+      case Redis.hash_get("dpcgid", "Deployment") do
+        {:ok, nil} ->
+          ""
+
+        {:ok, consumer_group_id} ->
+          "Deployment" <> "-" <> consumer_group_id
+      end
+
+    child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)
@@ -348,8 +365,17 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def deployment_consumer_running?(name) do
-    child_pid = Process.whereis(consumer_group_name(name))
+  def deployment_consumer_running?() do
+    consumer_group_id =
+      case Redis.hash_get("dpcgid", "Deployment") do
+        {:ok, nil} ->
+          ""
+
+        {:ok, consumer_group_id} ->
+          "Deployment" <> "-" <> consumer_group_id
+      end
+
+    child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
 
     case is_nil(child_pid) do
       true ->
@@ -363,28 +389,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp consumer_group_options(opts) do
-    name = Keyword.get(opts, :name)
-    consumer_group_name = Keyword.get(opts, :consumer_group_name)
-    topics = Keyword.get(opts, :topics)
-    extra_consumer_args = Keyword.get(opts, :extra_consumer_args, %{})
-
-    [
-      KafkaConsumer,
-      name,
-      topics,
-      [
-        name: consumer_group_name,
-        commit_interval: Config.commit_interval(),
-        commit_threshold: Config.commit_threshold(),
-        heartbeat_interval: Config.heartbeat_interval(),
-        max_restarts: Config.max_restarts(),
-        max_seconds: Config.max_seconds(),
-        extra_consumer_args: extra_consumer_args
-      ]
-    ]
-  end
-
   defp create_kafka_worker(opts) do
     uris = Keyword.get(opts, :uris, Config.kafka_brokers())
     name = Keyword.get(opts, :name, :standard)
@@ -418,7 +422,4 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       timeout: 10_000
     )
   end
-
-  defp consumer_group_name(name),
-    do: String.to_atom(name <> "Group")
 end

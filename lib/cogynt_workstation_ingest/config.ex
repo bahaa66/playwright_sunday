@@ -3,6 +3,8 @@ defmodule CogyntWorkstationIngest.Config do
   def drilldown_processor_max_demand(), do: drilldown_pipeline()[:processor_max_demand]
   def drilldown_processor_min_demand(), do: drilldown_pipeline()[:processor_min_demand]
 
+  def deployment_processor_stages(), do: deployment_pipeline()[:processor_stages]
+
   def drilldown_time_delay(), do: drilldown_producer()[:time_delay]
   def drilldown_max_retry(), do: drilldown_producer()[:max_retry]
   def drilldown_producer_allowed_messages(), do: drilldown_producer()[:allowed_messages]
@@ -27,11 +29,6 @@ defmodule CogyntWorkstationIngest.Config do
   def deployment_consumer_retry_time_delay(), do: deployment_retry_cache()[:time_delay]
   def deployment_consumer_retry_max_retry(), do: deployment_retry_cache()[:max_retry]
 
-  def notification_subscription_timer(),
-    do: notification_subscription_cache()[:notification_subscription_timer]
-
-  def drilldown_cache_time_delay(), do: drilldown_cache()[:time_delay]
-
   def heartbeat_interval(), do: Application.get_env(:kafka_ex, :heartbeat_interval)
   def commit_interval(), do: Application.get_env(:kafka_ex, :commit_interval)
   def commit_threshold(), do: Application.get_env(:kafka_ex, :commit_threshold)
@@ -45,9 +42,6 @@ defmodule CogyntWorkstationIngest.Config do
   def kafka_client(), do: Application.get_env(:kafka_ex, :kafka_client)
   def kafka_brokers(), do: Application.get_env(:kafka_ex, :brokers)
   def deployment_topic(), do: Application.get_env(:kafka_ex, :deployment_topic)
-
-  def cogynt_otp_service_name(), do: rpc()[:cogynt_otp_service_name]
-  def cogynt_otp_service_port(), do: rpc()[:cogynt_otp_service_port]
 
   def session_key(), do: Application.get_env(:cogynt_workstation_ingest, :session_key)
   def session_domain(), do: Application.get_env(:cogynt_workstation_ingest, :session_domain)
@@ -68,6 +62,9 @@ defmodule CogyntWorkstationIngest.Config do
   defp drilldown_pipeline(),
     do: Application.get_env(:cogynt_workstation_ingest, :drilldown_pipeline)
 
+  defp deployment_pipeline(),
+    do: Application.get_env(:cogynt_workstation_ingest, :deployment_pipeline)
+
   defp drilldown_producer(),
     do: Application.get_env(:cogynt_workstation_ingest, :drilldown_producer)
 
@@ -83,13 +80,6 @@ defmodule CogyntWorkstationIngest.Config do
 
   defp deployment_retry_cache(),
     do: Application.get_env(:cogynt_workstation_ingest, :deployment_retry_cache)
-
-  defp notification_subscription_cache(),
-    do: Application.get_env(:cogynt_workstation_ingest, :notification_subscription_cache)
-
-  defp drilldown_cache(), do: Application.get_env(:cogynt_workstation_ingest, :drilldown_cache)
-
-  defp rpc(), do: Application.get_env(:cogynt_workstation_ingest, :rpc)
 
   defp startup(), do: Application.get_env(:cogynt_workstation_ingest, :startup)
 
