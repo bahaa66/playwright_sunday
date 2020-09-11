@@ -215,15 +215,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
             %{updated: updated_event_definition.id}
           )
 
-          Enum.each(notification_settings, fn notification_setting ->
+          Enum.each(notification_settings, fn %{id: id} ->
             Redis.publish_async(
               "notification_settings_subscription",
-              %{
-                deleted:
-                  NotificationsContext.remove_notification_setting_virtual_fields(
-                    notification_setting
-                  )
-              }
+              %{deleted: id}
             )
           end)
 
