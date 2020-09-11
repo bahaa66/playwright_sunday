@@ -246,7 +246,11 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
         Repo.stream(ns_query)
         |> Stream.map(fn ns ->
           case in_risk_range?(risk_score, ns.risk_range) and
-                 Map.has_key?(event_definition.fields, ns.title) do
+                 Enum.find(event_definition.event_definition_details, false, fn %{
+                                                                                  field_name: name
+                                                                                } ->
+                   name == ns.title
+                 end) do
             true ->
               %{
                 event_id: event_id,
