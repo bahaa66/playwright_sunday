@@ -10,14 +10,11 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
   alias CogyntWorkstationIngest.Broadway.{
     EventPipeline,
-    LinkEventPipeline,
     DeploymentPipeline,
     DrilldownPipeline
   }
 
   alias Models.Deployments.Deployment
-
-  @linkage Application.get_env(:cogynt_workstation_ingest, :core_keys)[:link_data_type]
 
   def start_link(arg) do
     DynamicSupervisor.start_link(__MODULE__, arg, name: __MODULE__)
@@ -41,15 +38,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
     topic = event_definition.topic
 
-    pipeline =
-      case event_definition.event_type do
-        @linkage ->
-          LinkEventPipeline
-
-        _ ->
-          EventPipeline
-      end
-
     existing_topics =
       KafkaEx.metadata(worker_name: worker_name).topic_metadatas |> Enum.map(& &1.topic)
 
@@ -68,22 +56,26 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       child_spec = %{
         id: topic,
         start: {
-          pipeline,
+          EventPipeline,
           :start_link,
           [
             %{
               group_id: consumer_group_id,
               topics: [topic],
-              hosts: uris
+              hosts: uris,
+              event_definition_id: event_definition.id,
+              event_type: event_definition.event_type
             }
           ]
         },
         restart: :transient,
         shutdown: 5000,
-        type: :supervisor
+        type: :worker
       }
 
-      DynamicSupervisor.start_child(__MODULE__, child_spec)
+      result = DynamicSupervisor.start_child(__MODULE__, child_spec)
+      IO.inspect(result, label: "Producer PID")
+      result
     else
       {:error, nil}
     end
@@ -206,7 +198,9 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
           type: :supervisor
         }
 
-        DynamicSupervisor.start_child(__MODULE__, child_spec)
+        result = DynamicSupervisor.start_child(__MODULE__, child_spec)
+        IO.inspect(result, label: "Producer PID")
+        result
     end
   end
 
@@ -221,9 +215,11 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       end
 
     child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
+    IO.inspect(child_pid, label: "Producer PID")
 
     if child_pid != nil do
-      DynamicSupervisor.terminate_child(__MODULE__, child_pid)
+      result = DynamicSupervisor.terminate_child(__MODULE__, child_pid)
+      IO.inspect(result, label: "Termination Result")
       Process.sleep(1500)
       {:ok, :success}
     else
@@ -421,5 +417,27 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       worker_name: worker_name,
       timeout: 10_000
     )
+  end
+
+  defp get_producer(broadway, index \\ 0) do
+    {_, name} = Process.info(broadway, :registered_name)
+    :"#{name}.Broadway.Producer_#{index}"
+  end
+
+  defp flush_messages_received() do
+    receive do
+      {:messages_fetched, 0} -> flush_messages_received()
+    after
+      0 -> :ok
+    end
+  end
+
+  defp stop_broadway(pid) do
+    ref = Process.monitor(pid)
+    Process.exit(pid, :normal)
+
+    receive do
+      {:DOWN, ^ref, _, _, _} -> :ok
+    end
   end
 end

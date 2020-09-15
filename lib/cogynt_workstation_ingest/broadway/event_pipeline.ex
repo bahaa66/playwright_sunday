@@ -16,12 +16,17 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     retry_count: 0
   }
 
-  def start_link(%{
-        group_id: group_id,
-        topics: topics,
-        hosts: hosts,
-        event_definition_id: event_definition_id
-      }) do
+  def start_link(
+        %{
+          group_id: group_id,
+          topics: topics,
+          hosts: hosts,
+          event_definition_id: event_definition_id,
+          event_type: event_type
+        } = args
+      ) do
+    IO.inspect(args, label: "PIPELINE ARGS")
+
     Broadway.start_link(__MODULE__,
       name: String.to_atom(group_id <> "Pipeline"),
       producer: [
@@ -32,7 +37,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              group_id: group_id,
              topics: topics,
              offset_commit_on_ack: true,
-             offset_reset_policy: :earliest,
+             offset_reset_policy: :latest,
              group_config: [
                session_timeout_seconds: 15
              ],
@@ -53,7 +58,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         default: [
           concurrency: Config.event_processor_stages()
         ]
-      ]
+      ],
+      context: [event_type: event_type]
     )
   end
 
@@ -62,7 +68,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
   def transform(%Message{data: encoded_data} = message, opts) do
-    IO.inspect(message, label: "Event Message data")
+    # IO.inspect(message, label: "Event Message data")
     group_id = Keyword.get(opts, :group_id, 1)
     event_definition_id = Keyword.get(opts, :event_definition_id, nil)
 
@@ -72,7 +78,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         Redis.hash_increment_by("emi:#{group_id}", "tmc", 1)
 
         Map.put(message, :data, %{
-          event: keys_to_atoms(decoded_data),
+          event: decoded_data,
           event_definition_id: event_definition_id,
           event_id: @defaults.event_id
         })
@@ -111,7 +117,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   @impl true
   def handle_failed(messages, _args) do
-    CogyntLogger.error("#{__MODULE__}", "Messages failed. #{inspect(messages)}")
+    CogyntLogger.error("#{__MODULE__}", "Messages failed.")
     # TODO: handle failed messages
     # Producer.enqueue_failed_messages(messages, @pipeline_name)
     messages
@@ -124,7 +130,29 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   process_notifications/1 and execute_transaction/1.
   """
   @impl true
-  def handle_message(_processor, message, _context) do
+  def handle_message(_processor, message, context) do
+    event_type = Keyword.get(context, :event_type, :unknown)
+
+    # case event_type do
+    #   "linkage" ->
+    #     message
+    #     |> EventProcessor.fetch_event_definition()
+    #     |> EventProcessor.process_event()
+    #     |> EventProcessor.process_event_details_and_elasticsearch_docs()
+    #     |> EventProcessor.process_notifications()
+    #     |> LinkEventProcessor.validate_link_event()
+    #     |> LinkEventProcessor.process_entities()
+    #     |> LinkEventProcessor.execute_transaction()
+
+    #   _ ->
+    #     message
+    #     |> EventProcessor.fetch_event_definition()
+    #     |> EventProcessor.process_event()
+    #     |> EventProcessor.process_event_details_and_elasticsearch_docs()
+    #     |> EventProcessor.process_notifications()
+    #     |> EventProcessor.execute_transaction()
+    # end
+
     message
     |> EventProcessor.fetch_event_definition()
     |> EventProcessor.process_event()

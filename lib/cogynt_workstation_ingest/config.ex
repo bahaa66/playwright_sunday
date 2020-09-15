@@ -1,7 +1,5 @@
 defmodule CogyntWorkstationIngest.Config do
   def drilldown_processor_stages(), do: drilldown_pipeline()[:processor_stages]
-  def drilldown_processor_max_demand(), do: drilldown_pipeline()[:processor_max_demand]
-  def drilldown_processor_min_demand(), do: drilldown_pipeline()[:processor_min_demand]
 
   def deployment_processor_stages(), do: deployment_pipeline()[:processor_stages]
 
@@ -11,12 +9,6 @@ defmodule CogyntWorkstationIngest.Config do
   def drilldown_producer_rate_limit_interval(), do: drilldown_producer()[:rate_limit_interval]
 
   def event_processor_stages(), do: event_pipeline()[:processor_stages]
-  def event_processor_max_demand(), do: event_pipeline()[:processor_max_demand]
-  def event_processor_min_demand(), do: event_pipeline()[:processor_min_demand]
-
-  def link_event_processor_stages(), do: link_event_pipeline()[:processor_stages]
-  def link_event_processor_max_demand(), do: link_event_pipeline()[:processor_max_demand]
-  def link_event_processor_min_demand(), do: link_event_pipeline()[:processor_min_demand]
 
   def producer_time_delay(), do: producer()[:time_delay]
   def producer_max_retry(), do: producer()[:max_retry]
@@ -69,9 +61,6 @@ defmodule CogyntWorkstationIngest.Config do
     do: Application.get_env(:cogynt_workstation_ingest, :drilldown_producer)
 
   defp event_pipeline(), do: Application.get_env(:cogynt_workstation_ingest, :event_pipeline)
-
-  defp link_event_pipeline(),
-    do: Application.get_env(:cogynt_workstation_ingest, :link_event_pipeline)
 
   defp producer(), do: Application.get_env(:cogynt_workstation_ingest, :producer)
 

@@ -24,16 +24,12 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
              group_config: [
                session_timeout_seconds: 15
              ],
-             fetch_config: [
-               # 3 MB
-               max_bytes: 3_145_728
-             ],
              client_config: [
                # 15 seconds
                connect_timeout: 15000
              ]
            ]},
-        concurrency: 10,
+        concurrency: 2,
         transformer: {__MODULE__, :transform, [group_id: group_id]}
       ],
       processors: [

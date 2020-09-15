@@ -376,8 +376,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         } = message
       ) do
     # elasticsearch updates
-    update_event_docs(event_doc_data, doc_ids)
-    update_risk_history_doc(risk_history_doc)
+    # update_event_docs(event_doc_data, doc_ids)
+    # update_risk_history_doc(risk_history_doc)
 
     transaction_result =
       EventsContext.insert_all_event_details_multi(event_details)
@@ -409,20 +409,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
          insert_notifications: {_count_created, created_notifications},
          update_notifications: {_count_deleted, updated_notifications}
        }} ->
-        total_notifications =
-          NotificationsContext.remove_notification_virtual_fields(created_notifications) ++
-            updated_notifications
-
-        Redis.list_append_pipeline("notification_queue", total_notifications)
         SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
         SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
-        Redis.list_append_pipeline(
-          "notification_queue",
-          NotificationsContext.remove_notification_virtual_fields(created_notifications)
-        )
-
         SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
 
       {:ok, _} ->
@@ -454,8 +444,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         } = message
       ) do
     # elasticsearch updates
-    update_event_docs(event_doc_data, doc_ids)
-    update_risk_history_doc(risk_history_doc)
+    # update_event_docs(event_doc_data, doc_ids)
+    # update_risk_history_doc(risk_history_doc)
 
     transaction_result =
       EventsContext.insert_all_event_details_multi(event_details)
@@ -470,7 +460,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     case transaction_result do
       {:ok, %{update_notifications: {_count, updated_notifications}}} ->
-        Redis.list_append_pipeline("notification_queue", updated_notifications)
         SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, _} ->
