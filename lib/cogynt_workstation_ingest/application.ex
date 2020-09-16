@@ -13,6 +13,8 @@ defmodule CogyntWorkstationIngest.Application do
     TelemetrySupervisor
   }
 
+  alias CogyntWorkstationIngest.Broadway.DrilldownPipeline
+
   alias CogyntWorkstationIngest.Servers.Startup
 
   def start(_type, _args) do
@@ -31,6 +33,7 @@ defmodule CogyntWorkstationIngest.Application do
       child_spec_supervisor(ServerSupervisor, ServerSupervisor),
       # Start the DynamicSupervisor for KafkaEx ConsumerGroups
       ConsumerGroupSupervisor,
+      DrilldownPipeline,
       # The supervisor for all Task workers
       TaskSupervisor
     ]

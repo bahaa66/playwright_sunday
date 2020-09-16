@@ -9,16 +9,19 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Broadway.DrilldownProcessor
 
-  def start_link(%{group_id: group_id, topics: topics, hosts: hosts}) do
+  def start_link(_) do
+    group_id = "Drilldown-consumer-temp-id-1"
+
     Broadway.start_link(__MODULE__,
-      name: String.to_atom(group_id <> "Pipeline"),
+      # String.to_atom(group_id <> "Pipeline"),
+      name: :DrilldownPipeline,
       producer: [
         module:
           {BroadwayKafka.Producer,
            [
-             hosts: hosts,
+             hosts: Config.kafka_brokers(),
              group_id: group_id,
-             topics: topics,
+             topics: [Config.topic_sols(), Config.topic_sol_events()],
              offset_commit_on_ack: true,
              offset_reset_policy: :earliest,
              group_config: [

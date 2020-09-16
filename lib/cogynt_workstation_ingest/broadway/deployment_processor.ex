@@ -107,19 +107,19 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           end
         end)
 
-        # Start Drilldown Consumer for Deployment
-        case ConsumerGroupSupervisor.drilldown_consumer_running?(deployment) do
-          true ->
-            nil
+        # # Start Drilldown Consumer for Deployment
+        # case ConsumerGroupSupervisor.drilldown_consumer_running?(deployment) do
+        #   true ->
+        #     nil
 
-          false ->
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Starting Drilldown ConsumerGroup for deplpoyment_id: #{deployment.id}"
-            )
+        #   false ->
+        #     CogyntLogger.info(
+        #       "#{__MODULE__}",
+        #       "Starting Drilldown ConsumerGroup for deplpoyment_id: #{deployment.id}"
+        #     )
 
-            ConsumerGroupSupervisor.start_child(:drilldown, deployment)
-        end
+        #     ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+        # end
 
         message
 

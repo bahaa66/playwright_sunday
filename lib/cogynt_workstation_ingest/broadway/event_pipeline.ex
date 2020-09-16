@@ -37,7 +37,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              group_id: group_id,
              topics: topics,
              offset_commit_on_ack: true,
-             offset_reset_policy: :latest,
+             offset_reset_policy: :earliest,
              group_config: [
                session_timeout_seconds: 15
              ],
