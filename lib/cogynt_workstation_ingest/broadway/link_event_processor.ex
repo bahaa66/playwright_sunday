@@ -132,15 +132,21 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           NotificationsContext.remove_notification_virtual_fields(created_notifications) ++
             updated_notifications
 
-        Redis.list_append_pipeline("notification_queue", total_notifications)
+        if Enum.empty?(total_notifications) do
+          Redis.list_append_pipeline("notification_queue", total_notifications)
+        end
+
         SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
         SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
-      {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
-        Redis.list_append_pipeline(
-          "notification_queue",
-          NotificationsContext.remove_notification_virtual_fields(created_notifications)
-        )
+      {:ok, %{insert_notifications: {_count_created, created_notifications}}}
+      when is_list(created_notifications) ->
+        if not Enum.empty?(created_notifications) do
+          Redis.list_append_pipeline(
+            "notification_queue",
+            NotificationsContext.remove_notification_virtual_fields(created_notifications)
+          )
+        end
 
         SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
 
@@ -188,8 +194,12 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
       |> EventsContext.run_multi_transaction()
 
     case transaction_result do
-      {:ok, %{update_notifications: {_count, updated_notifications}}} ->
-        Redis.list_append_pipeline("notification_queue", updated_notifications)
+      {:ok, %{update_notifications: {_count, updated_notifications}}}
+      when is_list(updated_notifications) ->
+        if not Enum.empty?(updated_notifications) do
+          Redis.list_append_pipeline("notification_queue", updated_notifications)
+        end
+
         SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, _} ->

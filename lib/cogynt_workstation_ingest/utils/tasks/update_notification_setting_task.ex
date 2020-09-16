@@ -71,10 +71,12 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationSettingTask do
         set: [tag_id: tag_id, deleted_at: deleted_at, title: ns_title]
       )
 
-    Redis.list_append_pipeline(
-      "notification_queue",
-      NotificationsContext.remove_notification_virtual_fields(updated_notifications)
-    )
+    if not Enum.empty?(updated_notifications) do
+      Redis.list_append_pipeline(
+        "notification_queue",
+        NotificationsContext.remove_notification_virtual_fields(updated_notifications)
+      )
+    end
 
     if page_number >= total_pages do
       CogyntLogger.info(
