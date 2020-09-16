@@ -215,13 +215,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
             %{updated: updated_event_definition.id}
           )
 
-          Enum.each(notification_settings, fn %{id: id} ->
-            Redis.publish_async(
-              "notification_settings_subscription",
-              %{deleted: id}
-            )
-          end)
-
           CogyntLogger.info(
             "#{__MODULE__}",
             "Finished deleting data for event definition: #{updated_event_definition.id}"

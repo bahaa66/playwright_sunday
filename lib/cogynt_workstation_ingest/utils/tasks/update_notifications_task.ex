@@ -70,10 +70,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationsTask do
         nil
 
       {_count, updated_notifications} ->
-        %{true: publish_notifications} =
-          NotificationsContext.remove_notification_virtual_fields(updated_notifications)
-          |> Enum.group_by(fn n -> is_nil(n.deleted_at) end)
-
         Redis.publish_async("notification_settings_subscription", %{
           updated: notification_setting.id
         })
