@@ -132,7 +132,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           NotificationsContext.remove_notification_virtual_fields(created_notifications) ++
             updated_notifications
 
-        if Enum.empty?(total_notifications) do
+        if not Enum.empty?(total_notifications) do
           Redis.list_append_pipeline("notification_queue", total_notifications)
         end
 
