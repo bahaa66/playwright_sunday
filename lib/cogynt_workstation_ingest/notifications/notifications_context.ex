@@ -249,25 +249,26 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       Repo.transaction(fn ->
         Repo.stream(ns_query)
         |> Stream.map(fn ns ->
-          case in_risk_range?(risk_score, ns.risk_range) and
+          with true <- in_risk_range?(risk_score, ns.risk_range),
+               found_result <-
                  Enum.find(event_definition.event_definition_details, false, fn %{
                                                                                   field_name: name
                                                                                 } ->
                    name == ns.title
-                 end) do
-            true ->
-              %{
-                event_id: event_id,
-                user_id: ns.user_id,
-                assigned_to: ns.assigned_to,
-                tag_id: ns.tag_id,
-                title: ns.title,
-                notification_setting_id: ns.id,
-                created_at: DateTime.truncate(DateTime.utc_now(), :second),
-                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-              }
-
-            false ->
+                 end),
+               true <- is_boolean(found_result) and found_result == false do
+            %{
+              event_id: event_id,
+              user_id: ns.user_id,
+              assigned_to: ns.assigned_to,
+              tag_id: ns.tag_id,
+              title: ns.title,
+              notification_setting_id: ns.id,
+              created_at: DateTime.truncate(DateTime.utc_now(), :second),
+              updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+            }
+          else
+            _ ->
               nil
           end
         end)
