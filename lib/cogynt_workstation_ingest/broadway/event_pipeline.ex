@@ -9,7 +9,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
-  alias CogyntWorkstationIngest.Broadway.{Producer, EventProcessor}
+  alias CogyntWorkstationIngest.Broadway.{Producer, EventProcessor, LinkEventProcessor}
 
   @pipeline_name :BroadwayEventPipeline
 
@@ -20,10 +20,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         module: {Producer, []},
         concurrency: 1,
         transformer: {__MODULE__, :transform, []}
-        # rate_limiting: [
-        #   allowed_messages: Config.producer_allowed_messages(),
-        #   interval: Config.producer_rate_limit_interval()
-        # ]
       ],
       processors: [
         default: [
@@ -93,7 +89,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   @impl true
   def handle_failed(messages, _args) do
-    Producer.enqueue_failed_messages(messages, @pipeline_name)
+    Producer.enqueue_failed_messages(messages)
     messages
   end
 
@@ -105,12 +101,25 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   @impl true
   def handle_message(_processor, %Message{data: data} = message, _context) do
-    data
-    |> EventProcessor.fetch_event_definition()
-    |> EventProcessor.process_event()
-    |> EventProcessor.process_event_details_and_elasticsearch_docs()
-    |> EventProcessor.process_notifications()
-    |> EventProcessor.execute_transaction()
+    data = EventProcessor.fetch_event_definition(data)
+
+    case data do
+      %{event_definition: %{event_type: :linkage}} ->
+        data
+        |> EventProcessor.process_event()
+        |> EventProcessor.process_event_details_and_elasticsearch_docs()
+        |> EventProcessor.process_notifications()
+        |> LinkEventProcessor.validate_link_event()
+        |> LinkEventProcessor.process_entities()
+        |> LinkEventProcessor.execute_transaction()
+
+      _ ->
+        data
+        |> EventProcessor.process_event()
+        |> EventProcessor.process_event_details_and_elasticsearch_docs()
+        |> EventProcessor.process_notifications()
+        |> EventProcessor.execute_transaction()
+    end
 
     message
   end

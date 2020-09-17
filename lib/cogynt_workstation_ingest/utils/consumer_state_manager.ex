@@ -14,6 +14,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
+  alias CogyntWorkstationIngest.Broadway.Producer
 
   alias Models.Enums.ConsumerStatusTypeEnum
 
@@ -195,6 +196,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
         {:delete_event_definition_events, event_definition_id}, _acc ->
           delete_events(event_definition_id)
+
+        {:handle_unknown_status, event_definition_id}, _acc ->
+          handle_unknown_status(event_definition_id)
 
         _, _ ->
           CogyntLogger.warn(
@@ -393,6 +397,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
       {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
       cond do
+        consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] ->
+          handle_unknown_status(event_definition.id)
+
         consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
           %{response: {:ok, consumer_state.status}}
 
@@ -514,6 +521,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
           cond do
+            consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] ->
+              handle_unknown_status(event_definition_id)
+
             consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
               CogyntLogger.info(
                 "#{__MODULE__}",
@@ -656,6 +666,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
           cond do
+            consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] ->
+              handle_unknown_status(event_definition_id)
+
             consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
               CogyntLogger.info(
                 "#{__MODULE__}",
@@ -800,6 +813,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
           cond do
+            consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] ->
+              handle_unknown_status(event_definition_id)
+
             consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
               CogyntLogger.info(
                 "#{__MODULE__}",
@@ -939,6 +955,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
         cond do
+          consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] ->
+            handle_unknown_status(event_definition_id)
+
           consumer_state.status == ConsumerStatusTypeEnum.status()[:running] ->
             %{response: {:error, consumer_state.status}}
 
@@ -969,33 +988,46 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
+  defp handle_unknown_status(event_definition_id) do
+    event_definition = EventsContext.get_event_definition(event_definition_id)
+
+    if event_definition.active == true do
+      # update event_definition to be active false
+      EventsContext.update_event_definition(event_definition, %{active: false, deleted_at: nil})
+    end
+
+    # check if there is a consumer running
+    if ConsumerGroupSupervisor.consumer_running?(event_definition_id) do
+      # Stop Consumer
+      ConsumerGroupSupervisor.stop_child(event_definition_id)
+    end
+
+    # remove any redis data
+    Producer.flush_queue(event_definition_id)
+    for x <- ["a", "b", "c"], do: Redis.key_delete("#{x}:#{event_definition_id}")
+
+    # set the consumer status
+    upsert_consumer_state(event_definition_id,
+      status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
+      prev_status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
+      topic: event_definition.topic,
+      backfill_notifications: [],
+      update_notifications: [],
+      delete_notifications: []
+    )
+
+    %{response: {:ok, ConsumerStatusTypeEnum.status()[:paused_and_finished]}}
+  end
+
   defp internal_error_state(event_definition_id) do
     {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
-    case consumer_state.status do
-      nil ->
-        consumer_status =
-          case finished_processing?(event_definition_id) do
-            {:ok, true} ->
-              ConsumerStatusTypeEnum.status()[:paused_and_finished]
-
-            {:ok, false} ->
-              ConsumerStatusTypeEnum.status()[:paused_and_processing]
-          end
-
-        upsert_consumer_state(
-          event_definition_id,
-          topic: consumer_state.topic,
-          status: consumer_status,
-          prev_status: consumer_state.prev_status,
-          backfill_notifications: [],
-          update_notifications: [],
-          delete_notifications: []
-        )
-
+    cond do
+      consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] ->
+        handle_unknown_status(event_definition_id)
         %{response: {:error, :internal_server_error}}
 
-      _ ->
+      true ->
         upsert_consumer_state(
           event_definition_id,
           topic: consumer_state.topic,
@@ -1023,15 +1055,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           {:ok, false}
       end
 
-    {:ok, drilldown_status} =
-      case Redis.hash_get("task_statuses", "drilldown") do
-        {:ok, nil} ->
-          {:ok, false}
-
-        {:ok, status} ->
-          {:ok, status}
-      end
-
     {:ok, deployment_status} =
       case Redis.hash_get("task_statuses", "deployment") do
         {:ok, nil} ->
@@ -1050,7 +1073,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           {:ok, status}
       end
 
-    drilldown_status or deployment_status or event_definition_status or deletion_pending
+    deployment_status or event_definition_status or deletion_pending
   end
 
   defp update_delete_event_definition_data_cache(event_definition_id, new_status) do
