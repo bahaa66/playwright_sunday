@@ -1,3 +1,40 @@
+### [1.10.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.10.0...v1.10.1) (2020-09-17)
+
+
+### :bug: Bugfix
+
+* **redis empty list bug:** forgot not ([f491e7d](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/f491e7dc9694f9db9cb184165ffe03029b98efa7))
+* **redis empty list bug:** Merge pull request [#125](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/125) from Cogility/hotfix/redix-empty-list-bug ([8ce502e](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/8ce502eea6395f3ca0b3001f6030da991bcfd0b1))
+
+## [1.10.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.9.1...v1.10.0) (2020-09-08)
+
+
+### :sparkles: Feature
+
+* **1.7.2:** Release, dev to master ([f51187e](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/f51187ec7f674ae82b2dddd765242daa7b2be33b))
+* **broadwayKafka producer:** Merge pull request [#120](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/120) from Cogility/feature/drilldown-ingestion-performance-updates ([62c5e55](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/62c5e5517da2c01aae139a703646155b3758b687))
+* **CDST-444:** Merge pull request [#122](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/122) from Cogility/feature/CDST-444-rework-subscriptions ([4705028](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/47050285978ea4e5f41560bbb690025237e02c17))
+* **CDST-682:** Merge pull request [#101](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/101) from Cogility/hotfix/resolve-consumer-notification-status ([42cd25a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/42cd25a04694d394306c2093f4372614781c7b8f))
+* **more redis streams:** Merge pull request [#117](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/117) from Cogility/feature/redis-streams-event-producer ([cf32cc3](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/cf32cc35b8e5da6bdaaff7e6aa379a05f05ac16a))
+* **redis streams:** Merge pull request [#115](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/115) from Cogility/feature/redis-streams-drilldown ([a196503](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/a1965037e726712d5e1ecf6ec2aafb79aff25674))
+
+
+### :bug: Bugfix
+
+* Merge pull request [#104](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/104) from Cogility/hotfix/switch-drilldown-back-to-cache ([aa5d084](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/aa5d084f135fae1bb7238d88f20a2eb7738520bf))
+* **elastic link event changes:** Merge pull request [#108](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/108) from Cogility/hotfix/update-link-event-processor ([a1d5da9](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/a1d5da9e959819bb78ae50a6b6517ffe93fbaac0))
+* put changes back into master ([045e07a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/045e07afdf9d21d41843f2a11782dfb43b1d2170))
+* **CDST-682:** Merge pull request [#102](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/102) from Cogility/hotfix/CDST-682-elastic-bulk-upsert ([2eb1d1a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/2eb1d1a6d4451cd3743bff48c28a82163837f37c))
+* **debug:** Merge pull request [#110](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/110) from Cogility/hotfix/drilldown-processor-demand ([04448e7](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/04448e79fbed63cf80c19a755b748f35d207aa11))
+* **drilldown:** Merge pull request [#100](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/100) from Cogility/hotfix/increase-drilldown-processors ([3625f1e](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/3625f1e4ede6438ddbe6b5356a4be31a94cd1c3d))
+* **drilldown:** Merge pull request [#109](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/109) from Cogility/hotfix/drilldown-cache-bug-fixes ([86382a0](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/86382a04603664c4013ce68109bbc33fa679acee))
+* **drilldown debug:** Merge pull request [#111](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/111) from Cogility/hotfix/drilldown-dev-delete-debugging ([7f28fa7](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/7f28fa71e38b354043a2485308028e10270b3756))
+* **drilldown debug:** Merge pull request [#114](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/114) from Cogility/hotfix/drilldown-consumer-groups-restart ([13ae005](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/13ae0054d5e3d17309ae020201ee7e8db155551a))
+* **drilldown trap exit:** Merge pull request [#113](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/113) from Cogility/hotfix/drilldown-consumer-groups-restart ([ac55972](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/ac55972c22f78b10079acd777e12c2cc55d56d05))
+* **ingest app restart:** Merge pull request [#107](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/107) from Cogility/hotfix/producer-keys-to-redis ([7ee7656](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/7ee765629269565c6d06ca916421cebd30ca5724))
+* **major fix drilldown:** Merge pull request [#116](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/116) from Cogility/hotfix/CDST-693-drilldown-with-risk-fix ([b43afee](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/b43afee900e71b53a6424ed13cd701fb6f515fa5))
+* **rate limiting:** Merge pull request [#106](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/106) from Cogility/hotfix/remove-broadway-rate-limiting ([aa871ee](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/aa871eed9d771d3c2819669588403d5cb21e65c5))
+
 ## [1.10.0-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.9.1...v1.10.0-develop.1) (2020-09-08)
 
 
