@@ -128,10 +128,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
          insert_notifications: {_count_created, created_notifications},
          update_notifications: {_count_deleted, updated_notifications}
        }} ->
-        total_notifications =
-          NotificationsContext.remove_notification_virtual_fields(created_notifications) ++
-            updated_notifications
-
         SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
         SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
