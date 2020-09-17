@@ -74,10 +74,12 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationsTask do
           NotificationsContext.remove_notification_virtual_fields(updated_notifications)
           |> Enum.group_by(fn n -> is_nil(n.deleted_at) end)
 
-        Redis.list_append_pipeline(
-          "notification_queue",
-          publish_notifications
-        )
+        if not Enum.empty?(publish_notifications) do
+          Redis.list_append_pipeline(
+            "notification_queue",
+            publish_notifications
+          )
+        end
     end
 
     if page_number >= total_pages do
