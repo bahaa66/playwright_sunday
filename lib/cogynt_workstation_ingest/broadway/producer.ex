@@ -7,9 +7,6 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     event_id: nil,
     retry_count: 0
   }
-  @linkage Application.get_env(:cogynt_workstation_ingest, :core_keys)[:link_data_type]
-  @link_pipeline_name :BroadwayLinkEventPipeline
-  @event_pipeline_name :BroadwayEventPipeline
 
   # -------------------- #
   # --- client calls --- #
@@ -19,47 +16,27 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   end
 
   @impl true
-  def init(args) do
-    broadway = Keyword.get(args, :broadway)
-    name = Keyword.get(broadway, :name)
-
+  def init(_args) do
     # Trap exit
     Process.flag(:trap_exit, true)
 
-    case name do
-      @link_pipeline_name ->
-        case Redis.hash_get("lepk", "edid", decode: true) do
-          {:ok, nil} ->
-            {:producer, %{event_definition_ids: [], name: "lep", demand: 0}}
+    case Redis.hash_get("epk", "edid", decode: true) do
+      {:ok, nil} ->
+        {:producer, %{event_definition_ids: [], demand: 0}}
 
-          {:ok, event_definition_ids} ->
-            {:producer,
-             %{
-               event_definition_ids: event_definition_ids,
-               name: "lep",
-               demand: 0
-             }}
-        end
-
-      @event_pipeline_name ->
-        case Redis.hash_get("epk", "edid", decode: true) do
-          {:ok, nil} ->
-            {:producer, %{event_definition_ids: [], name: "ep", demand: 0}}
-
-          {:ok, event_definition_ids} ->
-            {:producer, %{event_definition_ids: event_definition_ids, name: "ep", demand: 0}}
-        end
+      {:ok, event_definition_ids} ->
+        {:producer, %{event_definition_ids: event_definition_ids, demand: 0}}
     end
   end
 
-  def enqueue(message_set, event_definition_id, type) when is_list(message_set) do
-    producer_name = event_type_to_name(type)
-    GenServer.cast(producer_name, {:enqueue, message_set, event_definition_id})
+  def enqueue(message_set, event_definition_id) when is_list(message_set) do
+    process_names = Broadway.producer_names(:BroadwayEventPipeline)
+    GenServer.cast(List.first(process_names), {:enqueue, message_set, event_definition_id})
   end
 
-  def enqueue_failed_messages(broadway_messages, type) when is_list(broadway_messages) do
-    producer_name = broadway_type_to_name(type)
-    GenServer.cast(producer_name, {:enqueue_failed_messages, broadway_messages})
+  def enqueue_failed_messages(broadway_messages) when is_list(broadway_messages) do
+    process_names = Broadway.producer_names(:BroadwayEventPipeline)
+    GenServer.cast(List.first(process_names), {:enqueue_failed_messages, broadway_messages})
   end
 
   def flush_queue(event_definition_id) do
@@ -81,12 +58,12 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   @impl true
   def handle_cast(
         {:enqueue, message_set, event_definition_id},
-        %{event_definition_ids: event_definition_ids, name: name, demand: 0} = state
+        %{event_definition_ids: event_definition_ids, demand: 0} = state
       ) do
     parse_kafka_message_set(message_set, event_definition_id)
 
     updated_event_definition_ids = Enum.uniq(event_definition_ids ++ [event_definition_id])
-    Redis.hash_set(name <> "k", "edid", updated_event_definition_ids)
+    Redis.hash_set("epk", "edid", updated_event_definition_ids)
     new_state = Map.put(state, :event_definition_ids, updated_event_definition_ids)
 
     {:noreply, [], new_state}
@@ -95,21 +72,21 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   @impl true
   def handle_cast(
         {:enqueue, message_set, event_definition_id},
-        %{event_definition_ids: event_definition_ids, name: name} = state
+        %{event_definition_ids: event_definition_ids} = state
       ) do
     parse_kafka_message_set(message_set, event_definition_id)
 
     updated_event_definition_ids = Enum.uniq(event_definition_ids ++ [event_definition_id])
     new_state = Map.put(state, :event_definition_ids, updated_event_definition_ids)
-    Redis.hash_set(name <> "k", "edid", updated_event_definition_ids)
+    Redis.hash_set("epk", "edid", updated_event_definition_ids)
 
     {messages, new_state} = fetch_and_release_demand(new_state)
     {:noreply, messages, new_state}
   end
 
   @impl true
-  def handle_cast({:enqueue_failed_messages, broadway_messages}, %{name: name} = state) do
-    parse_failed_broadway_messages(broadway_messages, name)
+  def handle_cast({:enqueue_failed_messages, broadway_messages}, state) do
+    parse_failed_broadway_messages(broadway_messages)
     Process.send_after(self(), :retry_failed_messages, Config.producer_time_delay())
     {:noreply, [], state}
   end
@@ -138,7 +115,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   @impl true
   def handle_info(
         {:EXIT, _pid, :normal},
-        %{event_definition_ids: event_definition_ids, name: name} = state
+        %{event_definition_ids: event_definition_ids} = state
       ) do
     CogyntLogger.info(
       "#{__MODULE__}",
@@ -146,20 +123,20 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     )
 
     # persist state to redis
-    Redis.hash_set(name <> "k", "event_definition_ids", event_definition_ids)
+    Redis.hash_set("epk", "event_definition_ids", event_definition_ids)
     {:noreply, state}
   end
 
   # Callback that will persist data to the filesystem before the server shuts down
   @impl true
-  def terminate(reason, %{event_definition_ids: event_definition_ids, name: name} = state) do
+  def terminate(reason, %{event_definition_ids: event_definition_ids} = state) do
     CogyntLogger.warn(
       "#{__MODULE__}",
       "GenStage Producer crashed for the following reason: #{inspect(reason, pretty: true)}... persiting state to Redis"
     )
 
     # persist state to redis
-    Redis.hash_set(name <> "k", "edid", event_definition_ids)
+    Redis.hash_set("epk", "edid", event_definition_ids)
     {:stop, reason, state}
   end
 
@@ -202,7 +179,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
   # Parse the %Broadway.Message{} struct returned from Broadway
   # pipeline and encode the failed_messages and append it to the List
   # in Redis
-  defp parse_failed_broadway_messages(broadway_messages, name) do
+  defp parse_failed_broadway_messages(broadway_messages) do
     Enum.each(broadway_messages, fn %Broadway.Message{
                                       data: %{
                                         event: message,
@@ -224,7 +201,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
         )
 
         Redis.stream_add(
-          name <> "fes",
+          "fes",
           "fld",
           %{
             event: message,
@@ -275,7 +252,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
          fetch_count,
          event_definition_id,
          messages,
-         %{event_definition_ids: event_definition_ids, name: name, demand: demand} = state
+         %{event_definition_ids: event_definition_ids, demand: demand} = state
        ) do
     {:ok, stream_length} = Redis.stream_length(stream_name)
 
@@ -299,7 +276,7 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
           # There is no more data left to process. Remove from the list
           updated_event_definition_ids = List.delete(event_definition_ids, event_definition_id)
 
-          Redis.hash_set(name <> "k", "edid", updated_event_definition_ids)
+          Redis.hash_set("epk", "edid", updated_event_definition_ids)
 
           if stream_length > 0 do
             # Read Stream by demand
@@ -343,8 +320,8 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
 
   # Will fetch the failed_messages from Redis list based on the demand
   # or the size of the Redis Stream
-  defp fetch_and_release_failed_messages(%{demand: demand, name: name} = state) do
-    stream_name = name <> "fes"
+  defp fetch_and_release_failed_messages(%{demand: demand} = state) do
+    stream_name = "fes"
 
     if demand <= 0 do
       {[], state}
@@ -404,24 +381,5 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
           {new_messages, new_state}
       end
     end
-  end
-
-  defp event_type_to_name(event_type) do
-    default_name =
-      case event_type do
-        @linkage ->
-          @link_pipeline_name
-
-        _ ->
-          @event_pipeline_name
-      end
-
-    producer_names = Broadway.producer_names(default_name)
-    List.first(producer_names)
-  end
-
-  defp broadway_type_to_name(broadway_type) do
-    producer_names = Broadway.producer_names(broadway_type)
-    List.first(producer_names)
   end
 end
