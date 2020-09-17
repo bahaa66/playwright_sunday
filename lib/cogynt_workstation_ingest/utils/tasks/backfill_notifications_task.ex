@@ -66,10 +66,12 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
         returning: Notification.__schema__(:fields)
       )
 
-    Redis.list_append_pipeline(
-      "notification_queue",
-      NotificationsContext.remove_notification_virtual_fields(updated_notifications)
-    )
+    if not Enum.empty?(updated_notifications) do
+      Redis.list_append_pipeline(
+        "notification_queue",
+        NotificationsContext.remove_notification_virtual_fields(updated_notifications)
+      )
+    end
 
     SystemNotificationContext.bulk_insert_system_notifications(updated_notifications)
 
