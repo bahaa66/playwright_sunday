@@ -180,7 +180,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
     end
 
     # Delete notifications
-    {_notification_settings_count, notification_settings} =
+    {_notification_settings_count, _notification_settings} =
       NotificationsContext.hard_delete_notification_settings(%{
         filter: %{
           event_definition_id: event_definition.id

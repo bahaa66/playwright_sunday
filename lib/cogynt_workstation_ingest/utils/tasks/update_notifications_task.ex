@@ -69,7 +69,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationsTask do
       {_count, []} ->
         nil
 
-      {_count, updated_notifications} ->
+      {_count, _updated_notifications} ->
         Redis.publish_async("notification_settings_subscription", %{
           updated: notification_setting.id
         })

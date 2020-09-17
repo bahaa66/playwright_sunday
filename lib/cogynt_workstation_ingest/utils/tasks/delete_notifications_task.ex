@@ -5,6 +5,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteNotificationsTask do
   """
   use Task
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
+
   # alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
 
   alias Models.Notifications.{Notification, NotificationSetting}
@@ -69,7 +70,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteNotificationsTask do
       {_count, []} ->
         nil
 
-      {_count, deleted_notifications} ->
+      {_count, _deleted_notifications} ->
         Redis.publish_async("notification_settings_subscription", %{
           updated: notification_setting.id
         })
