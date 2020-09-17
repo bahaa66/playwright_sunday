@@ -249,14 +249,13 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       Repo.transaction(fn ->
         Repo.stream(ns_query)
         |> Stream.map(fn ns ->
-          with true <- in_risk_range?(risk_score, ns.risk_range),
-               found_result <-
-                 Enum.find(event_definition.event_definition_details, false, fn %{
-                                                                                  field_name: name
-                                                                                } ->
-                   name == ns.title
-                 end),
-               true <- is_boolean(found_result) and found_result == false do
+          has_event_definition_detail =
+            Enum.find(event_definition.event_definition_details, fn
+              %{field_name: name} ->
+                name == ns.title
+            end) != nil
+
+          if in_risk_range?(risk_score, ns.risk_range) and has_event_definition_detail do
             %{
               event_id: event_id,
               user_id: ns.user_id,
@@ -268,8 +267,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
               updated_at: DateTime.truncate(DateTime.utc_now(), :second)
             }
           else
-            _ ->
-              nil
+            nil
           end
         end)
         |> Enum.to_list()
