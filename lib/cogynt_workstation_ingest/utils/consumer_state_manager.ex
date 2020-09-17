@@ -1004,7 +1004,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
     # remove any redis data
     Producer.flush_queue(event_definition_id)
-    remove_consumer_state(event_definition_id)
+    for x <- ["a", "b", "c"], do: Redis.key_delete("#{x}:#{event_definition_id}")
 
     # set the consumer status
     upsert_consumer_state(event_definition_id,
@@ -1016,7 +1016,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
       delete_notifications: []
     )
 
-    %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
+    %{response: {:ok, ConsumerStatusTypeEnum.status()[:paused_and_finished]}}
   end
 
   defp internal_error_state(event_definition_id) do
