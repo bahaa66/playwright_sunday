@@ -1,3 +1,11 @@
+### [1.10.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.10.0...v1.10.1) (2020-09-17)
+
+
+### :bug: Bugfix
+
+* **redis empty list bug:** forgot not ([f491e7d](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/f491e7dc9694f9db9cb184165ffe03029b98efa7))
+* **redis empty list bug:** Merge pull request [#125](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/125) from Cogility/hotfix/redix-empty-list-bug ([8ce502e](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/8ce502eea6395f3ca0b3001f6030da991bcfd0b1))
+
 ## [1.10.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.9.1...v1.10.0) (2020-09-08)
 
 
