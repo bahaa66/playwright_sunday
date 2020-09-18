@@ -75,7 +75,6 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
         inst
       end
       |> Map.put("#visited", visited)
-      |> IO.inspect(label: "@@@@ child")
     end)
     |> Enum.sort_by(& &1["id"])
   end

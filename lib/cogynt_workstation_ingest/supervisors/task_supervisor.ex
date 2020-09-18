@@ -3,14 +3,21 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
   Dynamic Supervisor for all CogyntWorkstationIngest modules that implement Task.
   """
   use DynamicSupervisor
-  alias CogyntWorkstationIngest.Servers.NotificationsTaskMonitor
+
+  alias CogyntWorkstationIngest.Servers.{
+    NotificationsTaskMonitor,
+    EventDefinitionTaskMonitor,
+    DrilldownTaskMonitor,
+    DeploymentTaskMonitor
+  }
 
   alias CogyntWorkstationIngest.Utils.Tasks.{
     BackfillNotificationsTask,
-    UpdateNotificationSettingTask,
+    UpdateNotificationsTask,
+    DeleteNotificationsTask,
     DeleteEventDefinitionEventsTask,
     DeleteDrilldownDataTask,
-    DeleteTopicDataTask,
+    DeleteEventDefinitionsAndTopicsTask,
     DeleteDeploymentDataTask
   }
 
@@ -36,44 +43,69 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
             {BackfillNotificationsTask, notification_setting_id}
           )
 
-        NotificationsTaskMonitor.monitor(pid, notification_setting_id)
+        NotificationsTaskMonitor.monitor(pid, :backfill, notification_setting_id)
         {:ok, pid}
 
-      {:update_notification_setting, notification_setting_id} ->
+      {:update_notifications, notification_setting_id} ->
         {:ok, pid} =
           DynamicSupervisor.start_child(
             __MODULE__,
-            {UpdateNotificationSettingTask, notification_setting_id}
+            {UpdateNotificationsTask, notification_setting_id}
           )
 
-        NotificationsTaskMonitor.monitor(pid, notification_setting_id)
+        NotificationsTaskMonitor.monitor(pid, :update, notification_setting_id)
+        {:ok, pid}
+
+      {:delete_notifications, notification_setting_id} ->
+        {:ok, pid} =
+          DynamicSupervisor.start_child(
+            __MODULE__,
+            {DeleteNotificationsTask, notification_setting_id}
+          )
+
+        NotificationsTaskMonitor.monitor(pid, :delete, notification_setting_id)
         {:ok, pid}
 
       {:delete_event_definition_events, event_definition_id} ->
-        DynamicSupervisor.start_child(
-          __MODULE__,
-          {DeleteEventDefinitionEventsTask, event_definition_id}
-        )
+        {:ok, pid} =
+          DynamicSupervisor.start_child(
+            __MODULE__,
+            {DeleteEventDefinitionEventsTask, event_definition_id}
+          )
 
-      {:delete_drilldown_data,
-       %{delete_topics: _delete_topics, deleting_deployments: _deleting_deployments} = args} ->
-        DynamicSupervisor.start_child(
-          __MODULE__,
-          {DeleteDrilldownDataTask, args}
-        )
+        EventDefinitionTaskMonitor.monitor(pid, event_definition_id)
+        {:ok, pid}
 
-      {:delete_deployment_data, delete_topics} ->
-        DynamicSupervisor.start_child(
-          __MODULE__,
-          {DeleteDeploymentDataTask, delete_topics}
-        )
+      {:delete_drilldown_data, delete_drilldown_topics} ->
+        {:ok, pid} =
+          DynamicSupervisor.start_child(
+            __MODULE__,
+            {DeleteDrilldownDataTask, delete_drilldown_topics}
+          )
 
-      {:delete_topic_data,
-       %{event_definition_ids: _event_definition_ids, delete_topics: _delete_topics} = args} ->
-        DynamicSupervisor.start_child(
-          __MODULE__,
-          {DeleteTopicDataTask, args}
-        )
+        DrilldownTaskMonitor.monitor(pid)
+        {:ok, pid}
+
+      {:delete_deployment_data, true} ->
+        {:ok, pid} =
+          DynamicSupervisor.start_child(
+            __MODULE__,
+            DeleteDeploymentDataTask
+          )
+
+        DeploymentTaskMonitor.monitor(pid)
+        {:ok, pid}
+
+      {:delete_event_definitions_and_topics,
+       %{event_definition_ids: event_definition_ids, delete_topics: _delete_topics} = args} ->
+        {:ok, pid} =
+          DynamicSupervisor.start_child(
+            __MODULE__,
+            {DeleteEventDefinitionsAndTopicsTask, args}
+          )
+
+        EventDefinitionTaskMonitor.monitor(pid, event_definition_ids)
+        {:ok, pid}
 
       _ ->
         CogyntLogger.warn(

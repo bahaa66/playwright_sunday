@@ -92,14 +92,24 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
         ConsumerStateManager.manage_request(%{backfill_notifications: notification_setting_id})
 
-      {:ok, %{update_notification_setting: notification_setting_id} = request} ->
+      {:ok, %{update_notifications: notification_setting_id} = request} ->
         CogyntLogger.info(
           "#{__MODULE__}",
           "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
         )
 
         ConsumerStateManager.manage_request(%{
-          update_notification_setting: notification_setting_id
+          update_notifications: notification_setting_id
+        })
+
+      {:ok, %{delete_notifications: notification_setting_id} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
+        ConsumerStateManager.manage_request(%{
+          delete_notifications: notification_setting_id
         })
 
       {:ok, %{delete_event_definition_events: event_definition_id} = request} ->
@@ -113,38 +123,41 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
       {:ok,
        %{
          dev_delete: %{
-           drilldown: reset_drilldown,
+           drilldown: %{
+             reset_drilldown: reset_drilldown,
+             delete_drilldown_topics: delete_drilldown_topics
+           },
            deployment: reset_deployment,
-           event_definition_ids: event_definition_ids,
-           topics: delete_topics
+           event_definitions: %{
+             event_definition_ids: event_definition_ids,
+             delete_topics: delete_topics
+           }
          }
        } = request} ->
-        CogyntLogger.info(
+        CogyntLogger.warn(
           "#{__MODULE__}",
           "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
         )
 
         try do
-          if reset_drilldown do
-            TaskSupervisor.start_child(%{
-              delete_drilldown_data: %{
-                delete_topics: delete_topics,
-                deleting_deployments: reset_deployment
-              }
-            })
-          end
+          if reset_deployment do
+            TaskSupervisor.start_child(%{delete_deployment_data: true})
+          else
+            if reset_drilldown do
+              TaskSupervisor.start_child(%{
+                delete_drilldown_data: delete_drilldown_topics
+              })
+            end
 
-          if !reset_drilldown and reset_deployment do
-            TaskSupervisor.start_child(%{delete_deployment_data: delete_topics})
-          end
-
-          if length(event_definition_ids) > 0 do
-            TaskSupervisor.start_child(%{
-              delete_topic_data: %{
-                event_definition_ids: event_definition_ids,
-                delete_topics: delete_topics
-              }
-            })
+            if length(event_definition_ids) > 0 do
+              TaskSupervisor.start_child(%{
+                delete_event_definitions_and_topics: %{
+                  event_definition_ids: event_definition_ids,
+                  hard_delete: false,
+                  delete_topics: delete_topics
+                }
+              })
+            end
           end
         rescue
           error ->

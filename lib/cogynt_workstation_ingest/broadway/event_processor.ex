@@ -23,7 +23,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   def fetch_event_definition(%{event_definition_id: event_definition_id} = data) do
     event_definition_map =
       EventsContext.get_event_definition(event_definition_id)
-      |> EventsContext.event_definition_struct_to_map()
+      |> EventsContext.remove_event_definition_virtual_fields(
+        include_event_definition_details: true
+      )
 
     Map.put(data, :event_definition, event_definition_map)
   end
@@ -155,16 +157,26 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   def process_event_details_and_elasticsearch_docs(%{event_id: nil} = data), do: data
 
   def process_event_details_and_elasticsearch_docs(
-        %{event: event, event_definition: event_definition, event_id: event_id} = data
+        %{
+          event: event,
+          event_definition: event_definition,
+          event_id: event_id,
+          crud_action: action
+        } = data
       ) do
-    action = Map.get(event, @crud)
     event = format_lexicon_data(event)
 
     results =
       Enum.reduce(event, Map.new(), fn {field_name, field_value}, acc ->
-        field_type = event_definition.fields[field_name]
+        %{field_type: field_type} =
+          Enum.find(event_definition.event_definition_details, %{field_type: nil}, fn %{
+                                                                                        field_name:
+                                                                                          name
+                                                                                      } ->
+            name == field_name
+          end)
 
-        case is_nil(field_value) or field_value == "" do
+        case is_null_or_empty?(field_value) do
           false ->
             field_value = encode_json(field_value)
 
@@ -206,6 +218,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             |> Map.put(:elasticsearch_docs, acc_elasticsearch_docs)
 
           true ->
+            # Remove documents for field_names that no longer have values
             acc_remove_docs = Map.get(acc, :remove_docs, [])
 
             case event["id"] do
@@ -296,7 +309,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           notifications: notifications,
           event_details: event_details,
           delete_event_ids: delete_event_ids,
-          event_docs: event_docs,
+          event_docs: event_doc_data,
           risk_history_doc: risk_history_doc,
           delete_docs: doc_ids,
           crud_action: action,
@@ -304,7 +317,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         } = data
       ) do
     # elasticsearch updates
-    update_event_docs(event_docs, doc_ids)
+    update_event_docs(event_doc_data, doc_ids)
     update_risk_history_doc(risk_history_doc)
 
     transaction_result =
@@ -337,26 +350,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
          insert_notifications: {_count_created, created_notifications},
          update_notifications: {_count_deleted, updated_notifications}
        }} ->
-        total_notifications =
-          NotificationsContext.remove_notification_virtual_fields(created_notifications) ++
-            updated_notifications
-
-        if not Enum.empty?(total_notifications) do
-          Redis.list_append_pipeline("notification_queue", total_notifications)
-        end
-
         SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
         SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
-      {:ok, %{insert_notifications: {_count_created, created_notifications}}}
-      when is_list(created_notifications) ->
-        if not Enum.empty?(created_notifications) do
-          Redis.list_append_pipeline(
-            "notification_queue",
-            NotificationsContext.remove_notification_virtual_fields(created_notifications)
-          )
-        end
-
+      {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
         SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
 
       {:ok, _} ->
@@ -378,7 +375,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         %{
           event_details: event_details,
           delete_event_ids: delete_event_ids,
-          event_docs: event_docs,
+          event_docs: event_doc_data,
           risk_history_doc: risk_history_doc,
           delete_docs: doc_ids,
           crud_action: action,
@@ -386,7 +383,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         } = data
       ) do
     # elasticsearch updates
-    update_event_docs(event_docs, doc_ids)
+    update_event_docs(event_doc_data, doc_ids)
     update_risk_history_doc(risk_history_doc)
 
     transaction_result =
@@ -401,12 +398,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       |> EventsContext.run_multi_transaction()
 
     case transaction_result do
-      {:ok, %{update_notifications: {_count, updated_notifications}}}
-      when is_list(updated_notifications) ->
-        if not Enum.empty?(updated_notifications) do
-          Redis.list_append_pipeline("notification_queue", updated_notifications)
-        end
-
+      {:ok, %{update_notifications: {_count, updated_notifications}}} ->
         SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
 
       {:ok, _} ->
@@ -614,11 +606,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           )
 
       false ->
-        :ok
+        {:ok, :nothing_updated}
     end
   end
 
-  defp is_null_or_empty?(enumerable) do
+  defp is_null_or_empty?(enumerable) when is_list(enumerable) do
     is_nil(enumerable) or Enum.empty?(enumerable)
+  end
+
+  defp is_null_or_empty?(binary) do
+    is_nil(binary) or binary == ""
   end
 end
