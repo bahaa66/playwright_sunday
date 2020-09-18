@@ -24,8 +24,7 @@ defmodule CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer do
 
   @impl true
   def handle_message_set(message_set, %{event_definition: event_definition} = state) do
-    type = event_definition.event_type
-    Producer.enqueue(message_set, event_definition.id, type)
+    Producer.enqueue(message_set, event_definition.id)
     # Small buffer from keeping the Broadway producer from getting overwhelmed with
     # kafka messagees
     # Process.sleep(500)

@@ -11,7 +11,7 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
 
   alias Models.Deployments.Deployment
-  alias Models.Enums.{DeploymentStatusTypeEnum, ConsumerStatusTypeEnum}
+  alias Models.Enums.DeploymentStatusTypeEnum
   alias Models.Events.EventDefinition
 
   # ----------------------------- #
@@ -89,14 +89,9 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
                       deployment_status: DeploymentStatusTypeEnum.status()[:inactive]
                     })
 
-                    {:ok, %{status: status}} =
-                      ConsumerStateManager.get_consumer_state(event_definition_id)
-
-                    if status != ConsumerStatusTypeEnum.status()[:unknown] do
-                      ConsumerStateManager.manage_request(%{
-                        stop_consumer: event_definition_id
-                      })
-                    end
+                    ConsumerStateManager.manage_request(%{
+                      stop_consumer: event_definition_id
+                    })
                 end
               end)
 

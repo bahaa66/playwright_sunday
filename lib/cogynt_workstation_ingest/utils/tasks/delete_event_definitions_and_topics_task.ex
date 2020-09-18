@@ -203,8 +203,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
       )
     else
       case EventsContext.update_event_definition(event_definition, %{
-             active: false,
-             started_at: nil
+             active: false
            }) do
         {:ok, %EventDefinition{} = updated_event_definition} ->
           ConsumerStateManager.remove_consumer_state(event_definition.id)
