@@ -1,3 +1,10 @@
+## [1.11.0-develop.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.11.0-develop.1...v1.11.0-develop.2) (2020-09-18)
+
+
+### :sparkles: Feature
+
+* **CDST-715 postgres pub sub:** Merge pull request [#128](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/128) from Cogility/feature/CDST-715-postgres-pub-sub ([4a8da69](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/4a8da699fcb280bc33d48c736d5b32732410c489))
+
 ## [1.11.0-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.10.1...v1.11.0-develop.1) (2020-09-18)
 
 
