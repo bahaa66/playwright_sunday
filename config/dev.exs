@@ -42,7 +42,7 @@ config :cogynt_workstation_ingest, :kafka,
   template_solution_topic: System.get_env("TEMPLATE_SOLUTION_TOPIC") || "template_solutions",
   template_solution_event_topic:
     System.get_env("TEMPLATE_SOLUTION_EVENT_TOPIC") || "template_solution_events",
-    deployment_topic: System.get_env("DEPLOYMENT_TOPIC") || "deployment",
+  deployment_topic: System.get_env("DEPLOYMENT_TOPIC") || "deployment",
   topic_partitions: System.get_env("TOPIC_PARTITIONS") || 10,
   topic_replication: System.get_env("TOPIC_REPLICATION") || 1,
   topic_config: System.get_env("TOPIC_CONFIG") || []
