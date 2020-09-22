@@ -997,14 +997,14 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
 
     # check if there is a consumer running
-    if ConsumerGroupSupervisor.consumer_running?(event_definition_id) do
+    if ConsumerGroupSupervisor.event_consumer_running?(event_definition_id) do
       # Stop Consumer
       ConsumerGroupSupervisor.stop_child(event_definition_id)
     end
 
     # remove any redis data
     Producer.flush_queue(event_definition_id)
-    for x <- ["a", "b", "c"], do: Redis.key_delete("#{x}:#{event_definition_id}")
+    for x <- ["a", "emi", "c"], do: Redis.key_delete("#{x}:#{event_definition_id}")
 
     # set the consumer status
     upsert_consumer_state(event_definition_id,
