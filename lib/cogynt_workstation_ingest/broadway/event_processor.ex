@@ -376,8 +376,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         } = message
       ) do
     # elasticsearch updates
-    # update_event_docs(event_doc_data, doc_ids)
-    # update_risk_history_doc(risk_history_doc)
+    update_event_docs(event_doc_data, doc_ids)
+    update_risk_history_doc(risk_history_doc)
 
     transaction_result =
       EventsContext.insert_all_event_details_multi(event_details)
@@ -444,8 +444,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         } = message
       ) do
     # elasticsearch updates
-    # update_event_docs(event_doc_data, doc_ids)
-    # update_risk_history_doc(risk_history_doc)
+    update_event_docs(event_doc_data, doc_ids)
+    update_risk_history_doc(risk_history_doc)
 
     transaction_result =
       EventsContext.insert_all_event_details_multi(event_details)

@@ -1,7 +1,7 @@
 defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
   use GenStage
   alias CogyntWorkstationIngest.Config
-  alias KafkaEx.Protocol.Fetch
+  #alias KafkaEx.Protocol.Fetch
 
   # TODO: For now the DrilldownProducer is unused. It has been replaced with
   # the BroadwayKafka Producer. There should be no references to it in this
@@ -91,28 +91,28 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProducer do
     message_count = Enum.count(message_set)
     Redis.hash_increment_by("dmi", "tmc", message_count)
 
-    Enum.each(message_set, fn %Fetch.Message{value: json_message} ->
-      case Jason.decode(json_message) do
-        {:ok, message} ->
-          Redis.stream_add(
-            "des",
-            "evt",
-            %{
-              event: message,
-              retry_count: 0
-            },
-            compress: true
-          )
+    # Enum.each(message_set, fn %Fetch.Message{value: json_message} ->
+    #   case Jason.decode(json_message) do
+    #     {:ok, message} ->
+    #       Redis.stream_add(
+    #         "des",
+    #         "evt",
+    #         %{
+    #           event: message,
+    #           retry_count: 0
+    #         },
+    #         compress: true
+    #       )
 
-        {:error, error} ->
-          Redis.hash_increment_by("dmi", "tmc", -1)
+    #     {:error, error} ->
+    #       Redis.hash_increment_by("dmi", "tmc", -1)
 
-          CogyntLogger.error(
-            "#{__MODULE__}",
-            "Failed to decode json_message. Error: #{inspect(error)}"
-          )
-      end
-    end)
+    #       CogyntLogger.error(
+    #         "#{__MODULE__}",
+    #         "Failed to decode json_message. Error: #{inspect(error)}"
+    #       )
+    #   end
+    # end)
   end
 
   defp parse_failed_broadway_messages(broadway_messages) do

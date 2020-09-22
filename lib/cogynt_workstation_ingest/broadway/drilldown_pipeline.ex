@@ -9,19 +9,16 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Broadway.DrilldownProcessor
 
-  def start_link(_) do
-    group_id = "Drilldown-consumer-temp-id-1"
-
+  def start_link(%{group_id: group_id, topics: topics, hosts: hosts}) do
     Broadway.start_link(__MODULE__,
-      # String.to_atom(group_id <> "Pipeline"),
-      name: :DrilldownPipeline,
+      name: String.to_atom(group_id <> "Pipeline"),
       producer: [
         module:
           {BroadwayKafka.Producer,
            [
-             hosts: Config.kafka_brokers(),
+             hosts: hosts,
              group_id: group_id,
-             topics: [Config.topic_sols(), Config.topic_sol_events()],
+             topics: topics,
              offset_commit_on_ack: true,
              offset_reset_policy: :earliest,
              group_config: [
@@ -43,7 +40,8 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
         default: [
           concurrency: Config.drilldown_processor_stages()
         ]
-      ]
+      ],
+      context: [group_id: group_id]
     )
   end
 
@@ -60,7 +58,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
         Redis.hash_increment_by("dmi:#{group_id}", "tmc", 1)
 
         Map.put(message, :data, %{event: decoded_data})
-        |> Map.put(:acknowledger, {__MODULE__, group_id, :ack_data})
 
       {:error, error} ->
         CogyntLogger.error(
@@ -69,18 +66,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
         )
 
         Map.put(message, :data, nil)
-        |> Map.put(:acknowledger, {__MODULE__, group_id, :ack_data})
     end
-  end
-
-  @doc """
-  Acknowledge callback. Will get all success or failed messages from
-  the pipeline.
-  """
-  def ack(group_id, successful, _failed) do
-    Enum.each(successful, fn _ ->
-      {:ok, _tmp} = Redis.hash_increment_by("dmi:#{group_id}", "tmp", 1)
-    end)
   end
 
   @doc """
@@ -102,10 +88,14 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   a process_template_data/1 and update_cache/1
   """
   @impl true
-  def handle_message(_processor, message, _context) do
+  def handle_message(_processor, message, context) do
+    group_id = Keyword.get(context, :group_id, 1)
+
     message
     |> DrilldownProcessor.process_template_data()
     |> DrilldownProcessor.upsert_template_solutions()
+
+    {:ok, _tmp} = Redis.hash_increment_by("dmi:#{group_id}", "tmp", 1)
 
     message
   end

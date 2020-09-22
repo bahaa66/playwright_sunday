@@ -1,16 +1,16 @@
 defmodule CogyntWorkstationIngest.Broadway.Producer do
   use GenStage
-  alias KafkaEx.Protocol.Fetch
+  # alias KafkaEx.Protocol.Fetch
   alias CogyntWorkstationIngest.Config
 
   # TODO: For now the Producer is unused. It has been replaced with
   # the BroadwayKafka Producer. There should be no references to it in this
   # solution
 
-  @defaults %{
-    event_id: nil,
-    retry_count: 0
-  }
+  # @defaults %{
+  #   event_id: nil,
+  #   retry_count: 0
+  # }
   @linkage Application.get_env(:cogynt_workstation_ingest, :core_keys)[:link_data_type]
   @link_pipeline_name :BroadwayLinkEventPipeline
   @event_pipeline_name :BroadwayEventPipeline
@@ -177,30 +177,30 @@ defmodule CogyntWorkstationIngest.Broadway.Producer do
     message_count = Enum.count(message_set)
     Redis.hash_increment_by("b:#{event_definition_id}", "tmc", message_count)
 
-    Enum.each(message_set, fn %Fetch.Message{value: json_message} ->
-      case Jason.decode(json_message) do
-        {:ok, message} ->
-          Redis.stream_add(
-            "a:#{event_definition_id}",
-            "evt",
-            %{
-              event: message,
-              event_definition_id: event_definition_id,
-              event_id: @defaults.event_id,
-              retry_count: @defaults.retry_count
-            },
-            compress: true
-          )
+    # Enum.each(message_set, fn %Fetch.Message{value: json_message} ->
+    #   case Jason.decode(json_message) do
+    #     {:ok, message} ->
+    #       Redis.stream_add(
+    #         "a:#{event_definition_id}",
+    #         "evt",
+    #         %{
+    #           event: message,
+    #           event_definition_id: event_definition_id,
+    #           event_id: @defaults.event_id,
+    #           retry_count: @defaults.retry_count
+    #         },
+    #         compress: true
+    #       )
 
-        {:error, error} ->
-          Redis.hash_increment_by("b:#{event_definition_id}", "tmc", -1)
+    #     {:error, error} ->
+    #       Redis.hash_increment_by("b:#{event_definition_id}", "tmc", -1)
 
-          CogyntLogger.error(
-            "#{__MODULE__}",
-            "Failed to decode json_message. Error: #{inspect(error, pretty: true)}"
-          )
-      end
-    end)
+    #       CogyntLogger.error(
+    #         "#{__MODULE__}",
+    #         "Failed to decode json_message. Error: #{inspect(error, pretty: true)}"
+    #       )
+    #   end
+    # end)
   end
 
   # Parse the %Broadway.Message{} struct returned from Broadway

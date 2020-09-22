@@ -163,22 +163,13 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   end
 
   def finished_processing?(event_definition_id) do
-    consumer_group_id =
-      case Redis.hash_get("ecgid", "EventDefinition-#{event_definition_id}") do
-        {:ok, nil} ->
-          ""
-
-        {:ok, consumer_group_id} ->
-          "EventDefinition-#{event_definition_id}" <> "-" <> consumer_group_id
-      end
-
-    case Redis.key_exists?("emi:#{consumer_group_id}") do
+    case Redis.key_exists?("emi:#{event_definition_id}") do
       {:ok, false} ->
         {:ok, true}
 
       {:ok, true} ->
-        {:ok, tmc} = Redis.hash_get("emi:#{consumer_group_id}", "tmc")
-        {:ok, tmp} = Redis.hash_get("emi:#{consumer_group_id}", "tmp")
+        {:ok, tmc} = Redis.hash_get("emi:#{event_definition_id}", "tmc")
+        {:ok, tmp} = Redis.hash_get("emi:#{event_definition_id}", "tmp")
 
         {:ok, String.to_integer(tmp) >= String.to_integer(tmc)}
     end

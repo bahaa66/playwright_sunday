@@ -21,19 +21,13 @@ defmodule CogyntWorkstationIngest.Config do
   def deployment_consumer_retry_time_delay(), do: deployment_retry_cache()[:time_delay]
   def deployment_consumer_retry_max_retry(), do: deployment_retry_cache()[:max_retry]
 
-  def heartbeat_interval(), do: Application.get_env(:kafka_ex, :heartbeat_interval)
-  def commit_interval(), do: Application.get_env(:kafka_ex, :commit_interval)
-  def commit_threshold(), do: Application.get_env(:kafka_ex, :commit_threshold)
-  def max_restarts(), do: Application.get_env(:kafka_ex, :max_restarts)
-  def max_seconds(), do: Application.get_env(:kafka_ex, :max_seconds)
-  def partitions(), do: Application.get_env(:kafka_ex, :topic_partitions)
-  def replication(), do: Application.get_env(:kafka_ex, :topic_replication)
-  def topic_config(), do: Application.get_env(:kafka_ex, :topic_config)
-  def topic_sols(), do: Application.get_env(:kafka_ex, :template_solution_topic)
-  def topic_sol_events(), do: Application.get_env(:kafka_ex, :template_solution_event_topic)
-  def kafka_client(), do: Application.get_env(:kafka_ex, :kafka_client)
-  def kafka_brokers(), do: Application.get_env(:kafka_ex, :brokers)
-  def deployment_topic(), do: Application.get_env(:kafka_ex, :deployment_topic)
+  def partitions(), do: kafka()[:topic_partitions]
+  def replication(), do: kafka()[:topic_replication]
+  def topic_config(), do: kafka()[:topic_config]
+  def topic_sols(), do: kafka()[:template_solution_topic]
+  def topic_sol_events(), do: kafka()[:template_solution_event_topic]
+  def kafka_brokers(), do: kafka()[:brokers]
+  def deployment_topic(), do: kafka()[:deployment_topic]
 
   def session_key(), do: Application.get_env(:cogynt_workstation_ingest, :session_key)
   def session_domain(), do: Application.get_env(:cogynt_workstation_ingest, :session_domain)
@@ -51,6 +45,8 @@ defmodule CogyntWorkstationIngest.Config do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
+  defp kafka(), do: Application.get_env(:cogynt_workstation_ingest, :kafka)
+
   defp drilldown_pipeline(),
     do: Application.get_env(:cogynt_workstation_ingest, :drilldown_pipeline)
 

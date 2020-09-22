@@ -36,7 +36,8 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
         default: [
           concurrency: Config.deployment_processor_stages()
         ]
-      ]
+      ],
+      context: [group_id: group_id]
     )
   end
 
@@ -53,7 +54,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
         Redis.hash_increment_by("dpmi:#{group_id}", "tmc", 1)
 
         Map.put(message, :data, %{deployment_message: decoded_data})
-        |> Map.put(:acknowledger, {__MODULE__, group_id, :ack_data})
 
       {:error, error} ->
         CogyntLogger.error(
@@ -62,18 +62,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
         )
 
         Map.put(message, :data, nil)
-        |> Map.put(:acknowledger, {__MODULE__, group_id, :ack_data})
     end
-  end
-
-  @doc """
-  Acknowledge callback. Will get all success or failed messages from
-  the pipeline.
-  """
-  def ack(group_id, successful, _failed) do
-    Enum.each(successful, fn _ ->
-      {:ok, _tmp} = Redis.hash_increment_by("dpmi:#{group_id}", "tmp", 1)
-    end)
   end
 
   @doc """
@@ -95,9 +84,13 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
   a process_template_data/1 and update_cache/1
   """
   @impl true
-  def handle_message(_processor, message, _context) do
+  def handle_message(_processor, message, context) do
+    group_id = Keyword.get(context, :group_id, 1)
+
     message
     |> DeploymentProcessor.process_deployment_message()
+
+    {:ok, _tmp} = Redis.hash_increment_by("dpmi:#{group_id}", "tmp", 1)
 
     message
   end

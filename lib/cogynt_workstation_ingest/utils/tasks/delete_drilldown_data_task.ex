@@ -38,33 +38,25 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
       {:ok, uris} = DeploymentsContext.get_kafka_brokers(id)
 
       hashed_brokers = Integer.to_string(:erlang.phash2(uris))
-      worker_name = String.to_atom("drilldown" <> hashed_brokers)
 
       if delete_drilldown_topics do
         CogyntLogger.info(
           "#{__MODULE__}",
-          "Deleting the Drilldown Topics. #{Config.topic_sols()}, #{Config.topic_sol_events()}. For KafkaWorker: #{
-            worker_name
-          }, Brokers: #{inspect(uris)}"
+          "Deleting the Drilldown Topics. #{Config.topic_sols()}, #{Config.topic_sol_events()}. Brokers: #{
+            inspect(uris)
+          }"
         )
 
         # Delete topics for worker
-        if Process.whereis(worker_name) != nil do
-          delete_topic_result =
-            KafkaEx.delete_topics([Config.topic_sols(), Config.topic_sol_events()],
-              worker_name: worker_name
-            )
+        delete_topic_result =
+          :brod.delete_topics(uris, [Config.topic_sols(), Config.topic_sol_events()],
+            timeout: 10_000
+          )
 
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "Deleted Drilldown Topics result: #{inspect(delete_topic_result, pretty: true)}"
-          )
-        else
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "Deleted Drilldown Topics result: No PID associated to #{worker_name}"
-          )
-        end
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Deleted Drilldown Topics result: #{inspect(delete_topic_result, pretty: true)}"
+        )
       end
 
       CogyntLogger.info("#{__MODULE__}", "Starting resetting of drilldown data")

@@ -29,7 +29,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   live_view: [signing_salt: System.get_env("COGYNT_AUTH_SALT") || "I45Kpw9a"]
 
 # Kafka Configurations
-config :kafka_ex,
+config :cogynt_workstation_ingest, :kafka,
   # Dev Kafka
   # brokers: [
   #   {
@@ -38,19 +38,11 @@ config :kafka_ex,
   #   }
   # ],
   brokers: [{"127.0.0.1", 9092}],
-  disable_default_worker: true,
-  auto_offset_reset: :earliest,
-  kafka_version: "2.0",
-  commit_interval: System.get_env("KAFKA_COMMIT_INTERVAL") || 10000,
-  commit_threshold: System.get_env("KAFKA_COMMIT_THRESHOLD") || 10000,
-  heartbeat_interval: System.get_env("KAFKA_HEARTBEAT_INTERVAL") || 3000,
-  sync_timeout: System.get_env("KAKFA_SYNC_TIMEOUT") || 15000,
-  max_restarts: System.get_env("KAFKA_MAX_RESTARTS") || 10,
-  max_seconds: System.get_env("KAFKA_MAX_SECONDS") || 60,
   audit_topic: System.get_env("AUDIT_LOG_TOPIC") || "_cogynt_audit_log",
   template_solution_topic: System.get_env("TEMPLATE_SOLUTION_TOPIC") || "template_solutions",
   template_solution_event_topic:
     System.get_env("TEMPLATE_SOLUTION_EVENT_TOPIC") || "template_solution_events",
+    deployment_topic: System.get_env("DEPLOYMENT_TOPIC") || "deployment",
   topic_partitions: System.get_env("TOPIC_PARTITIONS") || 10,
   topic_replication: System.get_env("TOPIC_REPLICATION") || 1,
   topic_config: System.get_env("TOPIC_CONFIG") || []
@@ -83,7 +75,7 @@ config :redis, :application,
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, :event_pipeline,
   processor_stages:
-    (System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || "30") |> String.to_integer()
+    (System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || "10") |> String.to_integer()
 
 config :cogynt_workstation_ingest, :drilldown_pipeline,
   processor_stages: (System.get_env("DRILLDOWN_PROCESSOR_STAGES") || "20") |> String.to_integer()
