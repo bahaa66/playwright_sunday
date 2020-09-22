@@ -175,7 +175,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
     end
 
     # Delete notifications
-    {_notification_settings_count, notification_settings} =
+    {_notification_settings_count, _notification_settings} =
       NotificationsContext.hard_delete_notification_settings(%{
         filter: %{
           event_definition_id: event_definition.id
@@ -198,8 +198,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
       )
     else
       case EventsContext.update_event_definition(event_definition, %{
-             active: false,
-             started_at: nil
+             active: false
            }) do
         {:ok, %EventDefinition{} = updated_event_definition} ->
           ConsumerStateManager.remove_consumer_state(event_definition.id)
@@ -209,18 +208,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
             "event_definitions_subscription",
             %{updated: updated_event_definition.id}
           )
-
-          Enum.each(notification_settings, fn notification_setting ->
-            Redis.publish_async(
-              "notification_settings_subscription",
-              %{
-                deleted:
-                  NotificationsContext.remove_notification_setting_virtual_fields(
-                    notification_setting
-                  )
-              }
-            )
-          end)
 
           CogyntLogger.info(
             "#{__MODULE__}",

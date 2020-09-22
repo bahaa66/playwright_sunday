@@ -5,6 +5,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteNotificationsTask do
   """
   use Task
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
+
   # alias CogyntWorkstationIngest.Servers.Caches.NotificationSubscriptionCache
 
   alias Models.Notifications.{Notification, NotificationSetting}
@@ -69,15 +70,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteNotificationsTask do
       {_count, []} ->
         nil
 
-      {_count, deleted_notifications} ->
-        %{false: publish_notifications} =
-          NotificationsContext.remove_notification_virtual_fields(deleted_notifications)
-          |> Enum.group_by(fn n -> is_nil(n.deleted_at) end)
-
-        Redis.list_append_pipeline(
-          "notification_queue",
-          publish_notifications
-        )
+      {_count, _deleted_notifications} ->
+        Redis.publish_async("notification_settings_subscription", %{
+          updated: notification_setting.id
+        })
     end
 
     if page_number >= total_pages do

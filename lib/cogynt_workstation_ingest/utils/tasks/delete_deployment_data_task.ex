@@ -12,7 +12,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
   alias CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask
 
   alias Models.Events.EventDefinition
-  alias Models.Enums.ConsumerStatusTypeEnum
 
   alias CogyntWorkstationIngest.Config
 
@@ -67,12 +66,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
         "Stoping ConsumerGroup for #{topic}, Deployment_id: #{deployment_id}"
       )
 
-      # Check to make sure a consumer was ever created before attempting to shutdown
-      {:ok, %{status: status}} = ConsumerStateManager.get_consumer_state(event_definition_id)
-
-      if status != ConsumerStatusTypeEnum.status()[:unknown] do
-        ConsumerStateManager.manage_request(%{stop_consumer: event_definition_id})
-      end
+      ConsumerStateManager.manage_request(%{stop_consumer: event_definition_id})
 
       # Delete topic data
       CogyntLogger.info(
