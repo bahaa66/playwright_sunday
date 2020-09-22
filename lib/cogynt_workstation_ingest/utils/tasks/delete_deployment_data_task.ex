@@ -46,7 +46,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
 
     # Third delete all data for the delployment topic
     delete_topic_result =
-      :brod.delete_topics(Config.kafka_brokers(), ["deployment"], timeout: 10_000)
+      :brod.delete_topics(Config.kafka_brokers(), ["deployment"], %{timeout: 10_000})
 
     CogyntLogger.info(
       "#{__MODULE__}",
@@ -76,7 +76,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
 
       {:ok, uris} = DeploymentsContext.get_kafka_brokers(deployment_id)
 
-      :brod.delete_topics(uris, [topic], timeout: 10_000)
+      :brod.delete_topics(uris, [topic], %{timeout: 10_000})
     end)
 
     CogyntLogger.info("#{__MODULE__}", "Resetting Deployment Data")

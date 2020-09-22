@@ -68,7 +68,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
 
           {:ok, uris} = DeploymentsContext.get_kafka_brokers(event_definition.deployment_id)
 
-          :brod.delete_topics(uris, [event_definition.topic], timeout: 10_000)
+          :brod.delete_topics(uris, [event_definition.topic], %{timeout: 10_000})
         end
 
         # Fourth check the consumer_state to make sure if it has any data left in the pipeline

@@ -52,7 +52,6 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:broadway_kafka, "~> 0.1.0", override: true},
       {:brod, tag: "3.10.0", git: "git@github.com:klarna/brod.git", override: true},
       {:kafka_protocol, "~> 2.4.1", override: true},
-      {:kafka_ex, "~> 0.10.0"},
       {:httpoison, "~> 1.7"},
       {:junit_formatter, "~> 3.0"},
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false},

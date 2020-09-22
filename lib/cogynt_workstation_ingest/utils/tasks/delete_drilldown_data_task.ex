@@ -50,7 +50,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
         # Delete topics for worker
         delete_topic_result =
           :brod.delete_topics(uris, [Config.topic_sols(), Config.topic_sol_events()],
-            timeout: 10_000
+          %{timeout: 10_000}
           )
 
         CogyntLogger.info(

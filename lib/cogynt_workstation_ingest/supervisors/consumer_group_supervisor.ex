@@ -32,7 +32,9 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
     {:ok, metadata} = :brod.get_metadata(uris, :all)
 
-    if Enum.member?(metadata.topic_metadata, topic) do
+    existing_topics = metadata.topic_metadata |> Enum.map(& &1.topic)
+
+    if Enum.member?(existing_topics, topic) do
       consumer_group_id =
         case Redis.hash_get("ecgid", "EventDefinition-#{event_definition.id}") do
           {:ok, nil} ->
@@ -73,7 +75,9 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   def start_child(:deployment) do
     {:ok, metadata} = :brod.get_metadata(Config.kafka_brokers(), :all)
 
-    if Enum.member?(metadata.topic_metadata, "deployment") do
+    existing_topics = metadata.topic_metadata |> Enum.map(& &1.topic)
+
+    if Enum.member?(existing_topics, "deployment") do
       consumer_group_id =
         case Redis.hash_get("dpcgid", "Deployment") do
           {:ok, nil} ->
@@ -365,7 +369,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
           config_entries: Config.topic_config()
         }
       ],
-      timeout: 10_000
+      %{timeout: 10_000}
     )
   end
 end

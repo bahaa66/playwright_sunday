@@ -31,12 +31,6 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
 # Kafka Configurations
 config :cogynt_workstation_ingest, :kafka,
   # Dev Kafka
-  # brokers: [
-  #   {
-  #     System.get_env("KAFKA_BROKER") || "kafka-dst.cogilitycloud.com",
-  #     (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
-  #   }
-  # ],
   brokers: [{"127.0.0.1", 9092}],
   audit_topic: System.get_env("AUDIT_LOG_TOPIC") || "_cogynt_audit_log",
   template_solution_topic: System.get_env("TEMPLATE_SOLUTION_TOPIC") || "template_solutions",
