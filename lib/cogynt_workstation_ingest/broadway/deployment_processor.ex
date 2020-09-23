@@ -9,7 +9,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
 
   alias Models.Deployments.Deployment
-  alias Models.Enums.{DeploymentStatusTypeEnum, ConsumerStatusTypeEnum}
+  alias Models.Enums.DeploymentStatusTypeEnum
   alias Models.Events.EventDefinition
   alias Broadway.Message
 
@@ -96,29 +96,20 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
                 deployment_status: DeploymentStatusTypeEnum.status()[:inactive]
               })
 
-              {:ok, %{status: status}} =
-                ConsumerStateManager.get_consumer_state(event_definition_id)
-
-              if status != ConsumerStatusTypeEnum.status()[:unknown] do
-                ConsumerStateManager.manage_request(%{
-                  stop_consumer: event_definition_id
-                })
-              end
+              ConsumerStateManager.manage_request(%{
+                stop_consumer: event_definition_id
+              })
           end
         end)
 
         # Start Drilldown Consumer for Deployment
-        case ConsumerGroupSupervisor.drilldown_consumer_running?(deployment) do
-          true ->
-            nil
+        if not ConsumerGroupSupervisor.drilldown_consumer_running?(deployment) do
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "Starting Drilldown ConsumerGroup for deplpoyment_id: #{deployment.id}"
+          )
 
-          false ->
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Starting Drilldown ConsumerGroup for deplpoyment_id: #{deployment.id}"
-            )
-
-            ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+          ConsumerGroupSupervisor.start_child(:drilldown, deployment)
         end
 
         message

@@ -29,25 +29,21 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              offset_commit_on_ack: true,
              offset_reset_policy: :earliest,
              group_config: [
-               session_timeout_seconds: 15
-             ],
-             fetch_config: [
-               # 3 MB
-               max_bytes: 3_145_728
+               session_timeout_seconds: 10
              ],
              client_config: [
-               # 15 seconds
-               connect_timeout: 15000
+               connect_timeout: 10000
              ]
            ]},
-        concurrency: 10,
+        concurrency: Config.event_producer_stages(),
         transformer: {__MODULE__, :transform, [event_definition_id: event_definition_id]}
       ],
       processors: [
         default: [
           concurrency: Config.event_processor_stages()
         ]
-      ]
+      ],
+      context: [event_definition_id: event_definition_id]
     )
   end
 
@@ -58,24 +54,34 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   def transform(%Message{data: encoded_data} = message, opts) do
     event_definition_id = Keyword.get(opts, :event_definition_id, nil)
 
-    case Jason.decode(encoded_data) do
-      {:ok, decoded_data} ->
-        # Incr the total message count that has been consumed from kafka
-        Redis.hash_increment_by("emi:#{event_definition_id}", "tmc", 1)
+    if is_nil(event_definition_id) do
+      CogyntLogger.error(
+        "#{__MODULE__}",
+        "event_definition_id not passed to EventPipeline."
+      )
 
-        Map.put(message, :data, %{
-          event: decoded_data,
-          event_definition_id: event_definition_id,
-          event_id: nil
-        })
+      Map.put(message, :data, nil)
+    else
+      case Jason.decode(encoded_data) do
+        {:ok, decoded_data} ->
+          # Incr the total message count that has been consumed from kafka
+          Redis.hash_increment_by("emi:#{event_definition_id}", "tmc", 1)
 
-      {:error, error} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Failed to decode Kafka message. Error: #{inspect(error)}"
-        )
+          Map.put(message, :data, %{
+            event: decoded_data,
+            event_definition_id: event_definition_id,
+            event_id: nil,
+            retry_count: 0
+          })
 
-        Map.put(message, :data, nil)
+        {:error, error} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "Failed to decode Event Kafka message. Error: #{inspect(error)}"
+          )
+
+          Map.put(message, :data, nil)
+      end
     end
   end
 
@@ -85,10 +91,43 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   again.
   """
   @impl true
-  def handle_failed(messages, _args) do
-    CogyntLogger.error("#{__MODULE__}", "Messages failed.")
-    # TODO: handle failed messages
-    # Producer.enqueue_failed_messages(messages, @pipeline_name)
+  def handle_failed(messages, context) do
+    event_definition_id = Keyword.get(context, :event_definition_id, nil)
+
+    failed_messages =
+      Enum.reduce(messages, [], fn %Broadway.Message{
+                                     data:
+                                       %{
+                                         event_definition_id: event_definition_id,
+                                         retry_count: retry_count
+                                       } = data
+                                   } = message,
+                                   acc ->
+        if retry_count < Config.failed_messages_max_retry() do
+          new_retry_count = retry_count + 1
+
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "Retrying Failed EventPipeline Message. EventDefinitionId: #{event_definition_id}. Attempt: #{
+              new_retry_count
+            }"
+          )
+
+          data = Map.put(data, :retry_count, new_retry_count)
+          message = Map.put(message, :data, data)
+
+          acc ++ [message]
+        else
+          acc
+        end
+      end)
+
+    if is_nil(event_definition_id) do
+      Redis.list_append_pipeline("fem:", failed_messages)
+    else
+      Redis.list_append_pipeline("fem:#{event_definition_id}", failed_messages)
+    end
+
     messages
   end
 

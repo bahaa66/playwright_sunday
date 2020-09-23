@@ -35,23 +35,23 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
       CogyntLogger.info("#{__MODULE__}", "Stoping the Drilldown ConsumerGroup's")
       ConsumerGroupSupervisor.stop_child(:drilldown, deployment)
 
-      {:ok, uris} = DeploymentsContext.get_kafka_brokers(id)
+      {:ok, brokers} = DeploymentsContext.get_kafka_brokers(id)
 
-      hashed_brokers = Integer.to_string(:erlang.phash2(uris))
+      hashed_brokers = Integer.to_string(:erlang.phash2(brokers))
 
       if delete_drilldown_topics do
         CogyntLogger.info(
           "#{__MODULE__}",
           "Deleting the Drilldown Topics. #{Config.topic_sols()}, #{Config.topic_sol_events()}. Brokers: #{
-            inspect(uris)
+            inspect(brokers)
           }"
         )
 
         # Delete topics for worker
         delete_topic_result =
-          :brod.delete_topics(uris, [Config.topic_sols(), Config.topic_sol_events()],
-          %{timeout: 10_000}
-          )
+          :brod.delete_topics(brokers, [Config.topic_sols(), Config.topic_sol_events()], %{
+            timeout: 10_000
+          })
 
         CogyntLogger.info(
           "#{__MODULE__}",
@@ -102,12 +102,20 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
   defp reset_cached_data() do
     Redis.key_delete("dcgid")
 
+    case Redis.keys_by_pattern("fdm:*") do
+      {:ok, []} ->
+        nil
+
+      {:ok, failed_message_keys} ->
+        Redis.key_delete_pipeline(failed_message_keys)
+    end
+
     case Redis.keys_by_pattern("dmi:*") do
       {:ok, []} ->
         nil
 
-      {:ok, keys} ->
-        Redis.key_delete_pipeline(keys)
+      {:ok, message_info_keys} ->
+        Redis.key_delete_pipeline(message_info_keys)
     end
 
     DrilldownContext.hard_delete_template_solutions_data()

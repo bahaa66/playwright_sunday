@@ -17,6 +17,21 @@ config :cogynt_workstation_ingest, :clients,
   http_client: HTTPoison,
   elasticsearch_client: Elasticsearch
 
+# Kafka Configurations
+config :cogynt_workstation_ingest, :kafka,
+  audit_topic: "_cogynt_audit_log",
+  template_solution_topic: "template_solutions",
+  template_solution_event_topic: "template_solution_events",
+  deployment_topic: "deployment"
+
+# Elasticsearch Configurations
+config :elasticsearch, :config,
+  basic_authentication_enabled: true,
+  event_index_alias: "event",
+  risk_history_index_alias: "risk_history",
+  retry_on_conflict: 5,
+  utc_offset: 0
+
 # Configurations for keys in Cogynt Core events
 config :cogynt_workstation_ingest, :core_keys,
   crud: "$crud",

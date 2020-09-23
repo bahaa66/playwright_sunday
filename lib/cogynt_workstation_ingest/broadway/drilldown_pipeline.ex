@@ -22,18 +22,17 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
              offset_commit_on_ack: true,
              offset_reset_policy: :earliest,
              group_config: [
-               session_timeout_seconds: 15
+               session_timeout_seconds: 10
              ],
              fetch_config: [
                # 3 MB
                max_bytes: 3_145_728
              ],
              client_config: [
-               # 15 seconds
-               connect_timeout: 15000
+               connect_timeout: 10000
              ]
            ]},
-        concurrency: 10,
+        concurrency: Config.drilldown_producer_stages(),
         transformer: {__MODULE__, :transform, [group_id: group_id]}
       ],
       processors: [
@@ -57,12 +56,12 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
         # Incr the total message count that has been consumed from kafka
         Redis.hash_increment_by("dmi:#{group_id}", "tmc", 1)
 
-        Map.put(message, :data, %{event: decoded_data})
+        Map.put(message, :data, %{event: decoded_data, retry_count: 0})
 
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Failed to decode Kafka message. Error: #{inspect(error)}"
+          "Failed to decode DrilldownPipeline Kafka message. Error: #{inspect(error)}"
         )
 
         Map.put(message, :data, nil)
@@ -75,10 +74,31 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   again.
   """
   @impl true
-  def handle_failed(messages, _opts) do
-    CogyntLogger.error("#{__MODULE__}", "Messages failed. #{inspect(messages)}")
-    # TODO: handle failed messages
-    # DrilldownProducer.enqueue_failed_messages(messages)
+  def handle_failed(messages, context) do
+    group_id = Keyword.get(context, :group_id, 1)
+
+    failed_messages =
+      Enum.reduce(messages, [], fn %Broadway.Message{data: %{retry_count: retry_count} = data} =
+                                     message,
+                                   acc ->
+        if retry_count < Config.failed_messages_max_retry() do
+          new_retry_count = retry_count + 1
+
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "Retrying Failed DrilldownPipeline Message. Attempt: #{new_retry_count}"
+          )
+
+          data = Map.put(data, :retry_count, new_retry_count)
+          message = Map.put(message, :data, data)
+
+          acc ++ [message]
+        else
+          acc
+        end
+      end)
+
+    Redis.list_append_pipeline("fdm:#{group_id}", failed_messages)
     messages
   end
 

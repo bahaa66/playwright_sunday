@@ -74,9 +74,9 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
         "Deleting Kakfa topic: #{topic}, deplpoyment_id: #{deployment_id}"
       )
 
-      {:ok, uris} = DeploymentsContext.get_kafka_brokers(deployment_id)
+      {:ok, brokers} = DeploymentsContext.get_kafka_brokers(deployment_id)
 
-      :brod.delete_topics(uris, [topic], %{timeout: 10_000})
+      :brod.delete_topics(brokers, [topic], %{timeout: 10_000})
     end)
 
     CogyntLogger.info("#{__MODULE__}", "Resetting Deployment Data")
@@ -97,6 +97,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
 
     DeploymentsContext.hard_delete_deployments()
     Redis.key_delete("dpcgid")
+    Redis.key_delete("fdpm")
+
     CogyntLogger.info("#{__MODULE__}", "Starting the Deployment ConsumerGroup")
 
     case ConsumerGroupSupervisor.start_child(:deployment) do

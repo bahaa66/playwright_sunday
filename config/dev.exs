@@ -32,26 +32,15 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
 config :cogynt_workstation_ingest, :kafka,
   # Dev Kafka
   brokers: [{"127.0.0.1", 9092}],
-  audit_topic: System.get_env("AUDIT_LOG_TOPIC") || "_cogynt_audit_log",
-  template_solution_topic: System.get_env("TEMPLATE_SOLUTION_TOPIC") || "template_solutions",
-  template_solution_event_topic:
-    System.get_env("TEMPLATE_SOLUTION_EVENT_TOPIC") || "template_solution_events",
-  deployment_topic: System.get_env("DEPLOYMENT_TOPIC") || "deployment",
   topic_partitions: System.get_env("TOPIC_PARTITIONS") || 10,
   topic_replication: System.get_env("TOPIC_REPLICATION") || 1,
   topic_config: System.get_env("TOPIC_CONFIG") || []
 
 # Elasticsearch configurations
 config :elasticsearch, :config,
-  enabled: System.get_env("ELASTICSEARCH_ENABLED") || true,
-  basic_authentication_enabled: true,
   host: System.get_env("ELASTIC_URL") || "http://localhost:9200",
   username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",
-  password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
-  event_index_alias: System.get_env("EVENT_INDEX_ALIAS") || "event",
-  risk_history_index_alias: System.get_env("RISK_HISTORY_INDEX_ALIAS") || "risk_history",
-  retry_on_conflict: 5,
-  utc_offset: 0
+  password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch"
 
 # Redis configurations
 config :redis, :application,
@@ -69,30 +58,23 @@ config :redis, :application,
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, :event_pipeline,
   processor_stages:
-    (System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || "10") |> String.to_integer()
+    (System.get_env("EVENTPIPELINE_PROCESSOR_STAGES") || "10") |> String.to_integer(),
+  producer_stages:
+    (System.get_env("EVENTPIPELINE_PRODUCER_STAGES") || "10") |> String.to_integer()
 
 config :cogynt_workstation_ingest, :drilldown_pipeline,
-  processor_stages: (System.get_env("DRILLDOWN_PROCESSOR_STAGES") || "20") |> String.to_integer()
+  processor_stages: (System.get_env("DRILLDOWN_PROCESSOR_STAGES") || "20") |> String.to_integer(),
+  producer_stages: (System.get_env("DRILLDOWN_PRODUCER_STAGES") || "10") |> String.to_integer()
 
 config :cogynt_workstation_ingest, :deployment_pipeline,
-  processor_stages: (System.get_env("DEPLOYMENT_PROCESSOR_STAGES") || "2") |> String.to_integer()
+  processor_stages: (System.get_env("DEPLOYMENT_PROCESSOR_STAGES") || "2") |> String.to_integer(),
+  producer_stages: (System.get_env("DEPLOYMENT_PRODUCER_STAGES") || "2") |> String.to_integer()
 
-# TODO: Depricated
-config :cogynt_workstation_ingest, :drilldown_producer,
-  max_retry: System.get_env("DRILLDOWN_MAX_RETRY") || 1_400,
-  time_delay: System.get_env("DRILLDOWN_TIME_DELAY") || 60_000,
-  allowed_messages: System.get_env("PRODUCER_ALLOWED_MESSAGES") || "30000" |> String.to_integer(),
-  rate_limit_interval:
-    System.get_env("PRODUCER_RATE_LIMIT_INTERVAL") || "30000" |> String.to_integer()
+config :cogynt_workstation_ingest, :failed_messages,
+  retry_timer: System.get_env("FAILED_MESSAGES_RETRY_TIMER") || 600_000,
+  max_retry: System.get_env("FAILED_MESSAGES_MAX_RETRY") || 144
 
-# TODO: Depricated
-config :cogynt_workstation_ingest, :producer,
-  max_retry: System.get_env("PRODUCER_MAX_RETRY") || 1_400,
-  time_delay: System.get_env("PRODUCER_TIME_DELAY") || 60_000,
-  allowed_messages: System.get_env("PRODUCER_ALLOWED_MESSAGES") || "30000" |> String.to_integer(),
-  rate_limit_interval:
-    System.get_env("PRODUCER_RATE_LIMIT_INTERVAL") || "30000" |> String.to_integer()
-
+# Cache Configurations
 config :cogynt_workstation_ingest, :consumer_retry_cache,
   time_delay: System.get_env("CONSUMER_RETRY_CACHE_TIME_DELAY") || 600_000,
   max_retry: System.get_env("CONSUMER_RETRY_CACHE_MAX_RETRY") || 144

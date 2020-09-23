@@ -11,7 +11,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
 
   def start_link(%{group_id: group_id, topics: topics, hosts: hosts}) do
     Broadway.start_link(__MODULE__,
-      name: String.to_atom(group_id <> "Pipeline"),
+      name: :DeploymentPipeline,
       producer: [
         module:
           {BroadwayKafka.Producer,
@@ -22,22 +22,20 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
              offset_commit_on_ack: true,
              offset_reset_policy: :earliest,
              group_config: [
-               session_timeout_seconds: 15
+               session_timeout_seconds: 10
              ],
              client_config: [
-               # 15 seconds
-               connect_timeout: 15000
+               connect_timeout: 10000
              ]
            ]},
-        concurrency: 2,
-        transformer: {__MODULE__, :transform, [group_id: group_id]}
+        concurrency: Config.deployment_producer_stages(),
+        transformer: {__MODULE__, :transform, []}
       ],
       processors: [
         default: [
           concurrency: Config.deployment_processor_stages()
         ]
-      ],
-      context: [group_id: group_id]
+      ]
     )
   end
 
@@ -45,20 +43,19 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
   Transformation callback. Will transform the message that is returned
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
-  def transform(%Message{data: encoded_data} = message, opts) do
-    group_id = Keyword.get(opts, :group_id, 1)
-
+  def transform(%Message{data: encoded_data} = message, _opts) do
     case Jason.decode(encoded_data, keys: :atoms) do
       {:ok, decoded_data} ->
         # Incr the total message count that has been consumed from kafka
-        Redis.hash_increment_by("dpmi:#{group_id}", "tmc", 1)
+        Redis.hash_increment_by("dpmi", "tmc", 1)
 
-        Map.put(message, :data, %{deployment_message: decoded_data})
+        # Store the deployment message and an initial retry count in the :data field of the message
+        Map.put(message, :data, %{deployment_message: decoded_data, retry_count: 0})
 
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Failed to decode Kafka message. Error: #{inspect(error)}"
+          "Failed to decode DeploymentPipeline Kafka message. Error: #{inspect(error)}"
         )
 
         Map.put(message, :data, nil)
@@ -72,9 +69,26 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
   """
   @impl true
   def handle_failed(messages, _opts) do
-    CogyntLogger.error("#{__MODULE__}", "Messages failed. #{inspect(messages)}")
-    # TODO: handle failed messages
-    # DrilldownProducer.enqueue_failed_messages(messages)
+    failed_messages =
+      Enum.reduce(messages, [], fn %Broadway.Message{data: %{retry_count: retry_count} = data} =
+                                     message,
+                                   acc ->
+        if retry_count < Config.failed_messages_max_retry() do
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "Retrying Failed DeploymentPipeline Message. Attempt: #{retry_count + 1}"
+          )
+
+          data = Map.put(data, :retry_count, retry_count + 1)
+          message = Map.put(message, :data, data)
+
+          acc ++ [message]
+        else
+          acc
+        end
+      end)
+
+    Redis.list_append_pipeline("fdpm", failed_messages)
     messages
   end
 
@@ -84,13 +98,11 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
   a process_template_data/1 and update_cache/1
   """
   @impl true
-  def handle_message(_processor, message, context) do
-    group_id = Keyword.get(context, :group_id, 1)
-
+  def handle_message(_processor, message, _context) do
     message
     |> DeploymentProcessor.process_deployment_message()
 
-    {:ok, _tmp} = Redis.hash_increment_by("dpmi:#{group_id}", "tmp", 1)
+    {:ok, _tmp} = Redis.hash_increment_by("dpmi", "tmp", 1)
 
     message
   end
