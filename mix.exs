@@ -52,7 +52,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:broadway_kafka, "~> 0.1.0", override: true},
       {:brod, "~> 3.14.0", override: true},
       {:kafka_protocol, "~> 2.4.1", override: true},
-      {:kafka_ex, "~> 0.10.0"},
+      {:kafka_ex, "~> 0.11.0"},
       {:httpoison, "~> 1.7"},
       {:junit_formatter, "~> 3.0"},
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
@@ -62,35 +62,35 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:telemetry_poller, "~> 0.4"},
       {
         :models,
-        tag: "v1.7.10-beta",
+        tag: "v1.8.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.7.10-beta",
+        tag: "v1.8.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
       },
       {
         :utils,
-        tag: "v1.7.7-beta",
+        tag: "v1.8.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "utils",
         override: true
       },
       {
         :elasticsearch,
-        tag: "v1.8.0-hotfix",
+        tag: "v1.8.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
         override: true
       },
       {
         :redis,
-        tag: "v1.7.10-beta",
+        tag: "v1.8.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true
