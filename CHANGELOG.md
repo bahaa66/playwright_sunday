@@ -1,3 +1,15 @@
+## [1.12.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.11.1...v1.12.0) (2020-09-24)
+
+
+### :sparkles: Feature
+
+* **baseline release:** Merge pull request [#133](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/133) from Cogility/develop ([e9104ab](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/e9104ab42cef25e4cfe79f31742a6064a8bf5603))
+
+
+### :bug: Bugfix
+
+* **drilldown pipeline:** Merge pull request [#132](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/132) from Cogility/hotfix/CDST-742-broadway-kafka-producer-fixes ([9ed4174](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/9ed41741a23cf81796678a4a6e33241c5275b134))
+
 ### [1.11.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.11.0...v1.11.1) (2020-09-24)
 
 
