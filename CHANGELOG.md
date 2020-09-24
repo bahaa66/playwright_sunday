@@ -1,3 +1,23 @@
+### [1.11.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.11.0...v1.11.1) (2020-09-24)
+
+
+### :bug: Bugfix
+
+* **CDST-740:** Update elasticsearch lib with hotfix version ([8f47c6d](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/8f47c6d4c256f4589a96852a6ed76e6de0bbbc9b))
+
+## [1.11.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.10.1...v1.11.0) (2020-09-18)
+
+
+### :bug: Bugfix
+
+* **Release 1.7.3:** Merge pull request [#129](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/129) from Cogility/release/1.7.3 ([a71b661](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/a71b661c11108c2e2fd754511fe5c354d4177e3f))
+
+
+### :sparkles: Feature
+
+* **CDST-715 postgres pub sub:** Merge pull request [#128](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/128) from Cogility/feature/CDST-715-postgres-pub-sub ([4a8da69](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/4a8da699fcb280bc33d48c736d5b32732410c489))
+* **handle_unknown_status:** Merge pull request [#126](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/126) from Cogility/fix/risk-doc-dups ([e57af6e](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/e57af6ecc3cedc179c4f0756661b5df2a0afe4eb))
+
 ## [1.11.0-develop.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.11.0-develop.1...v1.11.0-develop.2) (2020-09-18)
 
 
