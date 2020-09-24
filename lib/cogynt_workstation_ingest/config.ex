@@ -6,7 +6,7 @@ defmodule CogyntWorkstationIngest.Config do
   def deployment_producer_stages(), do: deployment_pipeline()[:producer_stages]
 
   def event_processor_stages(), do: event_pipeline()[:processor_stages]
-  def event_producer_stages(), do: event_pipeline()[:event_producer_stages]
+  def event_producer_stages(), do: event_pipeline()[:producer_stages]
 
   def consumer_retry_time_delay(), do: consumer_retry_cache()[:time_delay]
   def consumer_retry_max_retry(), do: consumer_retry_cache()[:max_retry]

@@ -86,6 +86,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   @doc """
+  Acknowledgment callback only triggered for when failed messages are republished
+  through the pipeline
+  """
+  def ack(:ack_id, _successful, _failed) do
+    :ok
+  end
+
+  @doc """
   Callback for handling any failed messages in the EventPipeline. It will
   take the failed messages and queue them back on the producer to get tried
   again.
