@@ -1,3 +1,10 @@
+### [1.11.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.11.0...v1.11.1) (2020-09-24)
+
+
+### :bug: Bugfix
+
+* **CDST-740:** Update elasticsearch lib with hotfix version ([8f47c6d](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/8f47c6d4c256f4589a96852a6ed76e6de0bbbc9b))
+
 ## [1.11.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.10.1...v1.11.0) (2020-09-18)
 
 
