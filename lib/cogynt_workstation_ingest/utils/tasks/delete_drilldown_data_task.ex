@@ -110,12 +110,20 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
   defp reset_cached_data() do
     Redis.key_delete("dcgid")
 
+    case Redis.keys_by_pattern("fdm:*") do
+      {:ok, []} ->
+        nil
+
+      {:ok, failed_message_keys} ->
+        Redis.key_delete_pipeline(failed_message_keys)
+    end
+
     case Redis.keys_by_pattern("dmi:*") do
       {:ok, []} ->
         nil
 
-      {:ok, keys} ->
-        Redis.key_delete_pipeline(keys)
+      {:ok, message_info_keys} ->
+        Redis.key_delete_pipeline(message_info_keys)
     end
 
     DrilldownContext.hard_delete_template_solutions_data()
