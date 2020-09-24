@@ -1,5 +1,6 @@
 defmodule CogyntWorkstationIngest.Config do
   def drilldown_processor_stages(), do: drilldown_pipeline()[:processor_stages]
+  def drilldown_producer_stages(), do: drilldown_pipeline()[:producer_stages]
   def drilldown_processor_max_demand(), do: drilldown_pipeline()[:processor_max_demand]
   def drilldown_processor_min_demand(), do: drilldown_pipeline()[:processor_min_demand]
 
@@ -15,6 +16,9 @@ defmodule CogyntWorkstationIngest.Config do
   def link_event_processor_stages(), do: link_event_pipeline()[:processor_stages]
   def link_event_processor_max_demand(), do: link_event_pipeline()[:processor_max_demand]
   def link_event_processor_min_demand(), do: link_event_pipeline()[:processor_min_demand]
+
+  def failed_messages_max_retry(), do: failed_messages()[:max_retry]
+  def failed_messages_retry_timer(), do: failed_messages()[:retry_timer]
 
   def producer_time_delay(), do: producer()[:time_delay]
   def producer_max_retry(), do: producer()[:max_retry]
@@ -77,6 +81,8 @@ defmodule CogyntWorkstationIngest.Config do
     do: Application.get_env(:cogynt_workstation_ingest, :link_event_pipeline)
 
   defp producer(), do: Application.get_env(:cogynt_workstation_ingest, :producer)
+
+  defp failed_messages(), do: Application.get_env(:cogynt_workstation_ingest, :failed_messages)
 
   defp consumer_retry_cache(),
     do: Application.get_env(:cogynt_workstation_ingest, :consumer_retry_cache)

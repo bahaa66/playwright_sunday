@@ -73,12 +73,13 @@ config :redis, :application,
   port: 6379,
   password: System.get_env("COGYNT_REDIS_PASSWORD") || nil,
   name: System.get_env("COGYNT_REDIS_NAME") || "",
-  sentinel: System.get_env("COGYNT_REDIS_SENTINEL") || "",
+  sentinels: System.get_env("COGYNT_REDIS_SENTINELS") || [],
+  sentinel_group: System.get_env("COGYNT_REDIS_SENTINEL_GROUP") || "main",
   databse: System.get_env("COGYNT_REDIS_DATABASE") || "",
   pools: System.get_env("COGYNT_REDIS_POOLS") || 5,
   exit_on_disconnection: System.get_env("COGYNT_REDIS_EXIT_ON_DISCONNECTION") || true,
   sync_connect: System.get_env("COGYNT_REDIS_SYNC_CONNECT") || true,
-  instance: System.get_env("COGYNT_REDIS_INSTANCE") || :single
+  instance: (System.get_env("COGYNT_REDIS_INSTANCE") || "single") |> String.to_atom()
 
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, :event_pipeline,
@@ -99,6 +100,7 @@ config :cogynt_workstation_ingest, :link_event_pipeline,
 
 config :cogynt_workstation_ingest, :drilldown_pipeline,
   processor_stages: (System.get_env("DRILLDOWN_PROCESSOR_STAGES") || "20") |> String.to_integer(),
+  producer_stages: (System.get_env("DRILLDOWN_PRODUCER_STAGES") || "10") |> String.to_integer(),
   processor_max_demand:
     (System.get_env("DRILLDOWN_PROCESSOR_MAX_DEMAND") || "100") |> String.to_integer(),
   processor_min_demand:
@@ -118,6 +120,11 @@ config :cogynt_workstation_ingest, :producer,
   rate_limit_interval:
     System.get_env("PRODUCER_RATE_LIMIT_INTERVAL") || "30000" |> String.to_integer()
 
+config :cogynt_workstation_ingest, :failed_messages,
+  retry_timer: System.get_env("FAILED_MESSAGES_RETRY_TIMER") || 600_000,
+  max_retry: System.get_env("FAILED_MESSAGES_MAX_RETRY") || 144
+
+# Cache Configurations
 config :cogynt_workstation_ingest, :consumer_retry_cache,
   time_delay: System.get_env("CONSUMER_RETRY_CACHE_TIME_DELAY") || 600_000,
   max_retry: System.get_env("CONSUMER_RETRY_CACHE_MAX_RETRY") || 144
@@ -150,5 +157,5 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   password: System.get_env("POSTGRESQL_PASSWORD") || "postgres",
   database: System.get_env("POSTGRESQL_DATABASE") || "cogynt_dev",
   hostname: System.get_env("POSTGRESQL_HOST") || "localhost",
-  pool_size: (System.get_env("POSTGRESQL_POOL_SIZE") || "10") |> String.to_integer(),
+  pool_size: (System.get_env("POSTGRESQL_POOL_SIZE") || "50") |> String.to_integer(),
   telemetry_prefix: [:cogynt_workstation_ingest, :repo]
