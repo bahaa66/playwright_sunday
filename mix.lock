@@ -69,5 +69,5 @@
   "tzdata": {:hex, :tzdata, "0.5.22", "f2ba9105117ee0360eae2eca389783ef7db36d533899b2e84559404dbc77ebb8", [:mix], [{:hackney, "~> 1.0", [hex: :hackney, repo: "hexpm", optional: false]}], "hexpm"},
   "unicode_util_compat": {:hex, :unicode_util_compat, "0.5.0", "8516502659002cec19e244ebd90d312183064be95025a319a6c7e89f4bccd65b", [:rebar3], [], "hexpm"},
   "utils": {:git, "git@github.com:cogility/cogynt-common.git", "7d402c0d6d7cb68f4db5f997368041c51e03523b", [tag: "v1.7.7-beta", sparse: "utils"]},
-  "uuid": {:hex, :uuid, "1.1.8", "e22fc04499de0de3ed1116b770c7737779f226ceefa0badb3592e64d5cfb4eb9", [:mix], [], "hexpm"},
+  "uuid": {:hex, :uuid, "1.1.8", "e22fc04499de0de3ed1116b770c7737779f226ceefa0badb3592e64d5cfb4eb9", [:mix], [], "hexpm"}
 }

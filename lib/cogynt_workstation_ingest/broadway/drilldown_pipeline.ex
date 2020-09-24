@@ -68,7 +68,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
     end
   end
 
-    @doc """
+  @doc """
   Acknowledgment callback only triggered for when failed messages are republished
   through the pipeline
   """

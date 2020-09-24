@@ -52,12 +52,13 @@ config :redis, :application,
   port: 6379,
   password: System.get_env("COGYNT_REDIS_PASSWORD") || nil,
   name: System.get_env("COGYNT_REDIS_NAME") || "",
-  sentinel: System.get_env("COGYNT_REDIS_SENTINEL") || "",
+  sentinels: System.get_env("COGYNT_REDIS_SENTINELS") || [],
+  sentinel_group: System.get_env("COGYNT_REDIS_SENTINEL_GROUP") || "main",
   databse: System.get_env("COGYNT_REDIS_DATABASE") || "",
   pools: System.get_env("COGYNT_REDIS_POOLS") || 5,
   exit_on_disconnection: System.get_env("COGYNT_REDIS_EXIT_ON_DISCONNECTION") || true,
   sync_connect: System.get_env("COGYNT_REDIS_SYNC_CONNECT") || true,
-  instance: System.get_env("COGYNT_REDIS_INSTANCE") || :single
+  instance: (System.get_env("COGYNT_REDIS_INSTANCE") || "single") |> String.to_atom()
 
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, :event_pipeline,
