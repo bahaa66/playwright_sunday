@@ -1,29 +1,12 @@
 defmodule CogyntWorkstationIngest.Config do
   def drilldown_processor_stages(), do: drilldown_pipeline()[:processor_stages]
   def drilldown_producer_stages(), do: drilldown_pipeline()[:producer_stages]
-  def drilldown_processor_max_demand(), do: drilldown_pipeline()[:processor_max_demand]
-  def drilldown_processor_min_demand(), do: drilldown_pipeline()[:processor_min_demand]
 
-  def drilldown_time_delay(), do: drilldown_producer()[:time_delay]
-  def drilldown_max_retry(), do: drilldown_producer()[:max_retry]
-  def drilldown_producer_allowed_messages(), do: drilldown_producer()[:allowed_messages]
-  def drilldown_producer_rate_limit_interval(), do: drilldown_producer()[:rate_limit_interval]
+  def deployment_processor_stages(), do: deployment_pipeline()[:processor_stages]
+  def deployment_producer_stages(), do: deployment_pipeline()[:producer_stages]
 
   def event_processor_stages(), do: event_pipeline()[:processor_stages]
-  def event_processor_max_demand(), do: event_pipeline()[:processor_max_demand]
-  def event_processor_min_demand(), do: event_pipeline()[:processor_min_demand]
-
-  def link_event_processor_stages(), do: link_event_pipeline()[:processor_stages]
-  def link_event_processor_max_demand(), do: link_event_pipeline()[:processor_max_demand]
-  def link_event_processor_min_demand(), do: link_event_pipeline()[:processor_min_demand]
-
-  def failed_messages_max_retry(), do: failed_messages()[:max_retry]
-  def failed_messages_retry_timer(), do: failed_messages()[:retry_timer]
-
-  def producer_time_delay(), do: producer()[:time_delay]
-  def producer_max_retry(), do: producer()[:max_retry]
-  def producer_allowed_messages(), do: producer()[:allowed_messages]
-  def producer_rate_limit_interval(), do: producer()[:rate_limit_interval]
+  def event_producer_stages(), do: event_pipeline()[:producer_stages]
 
   def consumer_retry_time_delay(), do: consumer_retry_cache()[:time_delay]
   def consumer_retry_max_retry(), do: consumer_retry_cache()[:max_retry]
@@ -31,27 +14,16 @@ defmodule CogyntWorkstationIngest.Config do
   def deployment_consumer_retry_time_delay(), do: deployment_retry_cache()[:time_delay]
   def deployment_consumer_retry_max_retry(), do: deployment_retry_cache()[:max_retry]
 
-  def notification_subscription_timer(),
-    do: notification_subscription_cache()[:notification_subscription_timer]
+  def failed_messages_max_retry(), do: failed_messages()[:max_retry]
+  def failed_messages_retry_timer(), do: failed_messages()[:retry_timer]
 
-  def drilldown_cache_time_delay(), do: drilldown_cache()[:time_delay]
-
-  def heartbeat_interval(), do: Application.get_env(:kafka_ex, :heartbeat_interval)
-  def commit_interval(), do: Application.get_env(:kafka_ex, :commit_interval)
-  def commit_threshold(), do: Application.get_env(:kafka_ex, :commit_threshold)
-  def max_restarts(), do: Application.get_env(:kafka_ex, :max_restarts)
-  def max_seconds(), do: Application.get_env(:kafka_ex, :max_seconds)
-  def partitions(), do: Application.get_env(:kafka_ex, :topic_partitions)
-  def replication(), do: Application.get_env(:kafka_ex, :topic_replication)
-  def topic_config(), do: Application.get_env(:kafka_ex, :topic_config)
-  def topic_sols(), do: Application.get_env(:kafka_ex, :template_solution_topic)
-  def topic_sol_events(), do: Application.get_env(:kafka_ex, :template_solution_event_topic)
-  def kafka_client(), do: Application.get_env(:kafka_ex, :kafka_client)
-  def kafka_brokers(), do: Application.get_env(:kafka_ex, :brokers)
-  def deployment_topic(), do: Application.get_env(:kafka_ex, :deployment_topic)
-
-  def cogynt_otp_service_name(), do: rpc()[:cogynt_otp_service_name]
-  def cogynt_otp_service_port(), do: rpc()[:cogynt_otp_service_port]
+  def partitions(), do: kafka()[:topic_partitions]
+  def replication(), do: kafka()[:topic_replication]
+  def topic_config(), do: kafka()[:topic_config]
+  def topic_sols(), do: kafka()[:template_solution_topic]
+  def topic_sol_events(), do: kafka()[:template_solution_event_topic]
+  def kafka_brokers(), do: kafka()[:brokers]
+  def deployment_topic(), do: kafka()[:deployment_topic]
 
   def session_key(), do: Application.get_env(:cogynt_workstation_ingest, :session_key)
   def session_domain(), do: Application.get_env(:cogynt_workstation_ingest, :session_domain)
@@ -69,20 +41,15 @@ defmodule CogyntWorkstationIngest.Config do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
+  defp kafka(), do: Application.get_env(:cogynt_workstation_ingest, :kafka)
+
   defp drilldown_pipeline(),
     do: Application.get_env(:cogynt_workstation_ingest, :drilldown_pipeline)
 
-  defp drilldown_producer(),
-    do: Application.get_env(:cogynt_workstation_ingest, :drilldown_producer)
+  defp deployment_pipeline(),
+    do: Application.get_env(:cogynt_workstation_ingest, :deployment_pipeline)
 
   defp event_pipeline(), do: Application.get_env(:cogynt_workstation_ingest, :event_pipeline)
-
-  defp link_event_pipeline(),
-    do: Application.get_env(:cogynt_workstation_ingest, :link_event_pipeline)
-
-  defp producer(), do: Application.get_env(:cogynt_workstation_ingest, :producer)
-
-  defp failed_messages(), do: Application.get_env(:cogynt_workstation_ingest, :failed_messages)
 
   defp consumer_retry_cache(),
     do: Application.get_env(:cogynt_workstation_ingest, :consumer_retry_cache)
@@ -90,12 +57,7 @@ defmodule CogyntWorkstationIngest.Config do
   defp deployment_retry_cache(),
     do: Application.get_env(:cogynt_workstation_ingest, :deployment_retry_cache)
 
-  defp notification_subscription_cache(),
-    do: Application.get_env(:cogynt_workstation_ingest, :notification_subscription_cache)
-
-  defp drilldown_cache(), do: Application.get_env(:cogynt_workstation_ingest, :drilldown_cache)
-
-  defp rpc(), do: Application.get_env(:cogynt_workstation_ingest, :rpc)
+  defp failed_messages(), do: Application.get_env(:cogynt_workstation_ingest, :failed_messages)
 
   defp startup(), do: Application.get_env(:cogynt_workstation_ingest, :startup)
 

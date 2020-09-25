@@ -35,36 +35,28 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
       CogyntLogger.info("#{__MODULE__}", "Stoping the Drilldown ConsumerGroup's")
       ConsumerGroupSupervisor.stop_child(:drilldown, deployment)
 
-      {:ok, uris} = DeploymentsContext.get_kafka_brokers(id)
+      {:ok, brokers} = DeploymentsContext.get_kafka_brokers(id)
 
-      hashed_brokers = Integer.to_string(:erlang.phash2(uris))
-      worker_name = String.to_atom("drilldown" <> hashed_brokers)
+      hashed_brokers = Integer.to_string(:erlang.phash2(brokers))
 
       if delete_drilldown_topics do
         CogyntLogger.info(
           "#{__MODULE__}",
-          "Deleting the Drilldown Topics. #{Config.topic_sols()}, #{Config.topic_sol_events()}. For KafkaWorker: #{
-            worker_name
-          }, Brokers: #{inspect(uris)}"
+          "Deleting the Drilldown Topics. #{Config.topic_sols()}, #{Config.topic_sol_events()}. Brokers: #{
+            inspect(brokers)
+          }"
         )
 
         # Delete topics for worker
-        if Process.whereis(worker_name) != nil do
-          delete_topic_result =
-            KafkaEx.delete_topics([Config.topic_sols(), Config.topic_sol_events()],
-              worker_name: worker_name
-            )
+        delete_topic_result =
+          :brod.delete_topics(brokers, [Config.topic_sols(), Config.topic_sol_events()], %{
+            timeout: 10_000
+          })
 
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "Deleted Drilldown Topics result: #{inspect(delete_topic_result, pretty: true)}"
-          )
-        else
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "Deleted Drilldown Topics result: No PID associated to #{worker_name}"
-          )
-        end
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Deleted Drilldown Topics result: #{inspect(delete_topic_result, pretty: true)}"
+        )
       end
 
       CogyntLogger.info("#{__MODULE__}", "Starting resetting of drilldown data")
@@ -133,7 +125,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
     consumer_group_id =
       case Redis.hash_get("dcgid", "Drilldown-#{hashed_brokers}") do
         {:ok, nil} ->
-          nil
+          ""
 
         {:ok, consumer_group_id} ->
           "Drilldown-#{hashed_brokers}" <> "-" <> consumer_group_id

@@ -8,13 +8,19 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   alias CogyntWorkstationIngest.System.SystemNotificationContext
   alias CogyntWorkstationIngest.Config
 
+  alias Broadway.Message
+
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
 
   @doc """
   Checks to make sure if a valid link event was passed through authoring. If incomplete data
   then :validated is set to false. Otherwise it is set to true.
   """
-  def validate_link_event(%{event: event} = data) do
+  def validate_link_event(%Message{data: nil}) do
+    raise "validate_link_event/1 failed. No message data"
+  end
+
+  def validate_link_event(%Message{data: %{event: event} = data} = message) do
     case Map.get(event, @entities) do
       nil ->
         CogyntLogger.warn(
@@ -22,19 +28,23 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           "link event missing entities field. LinkEvent: #{inspect(event, pretty: true)}"
         )
 
-        Map.put(data, :validated, false)
+        data = Map.put(data, :validated, false)
+        Map.put(message, :data, data)
 
       entities ->
-        if Enum.empty?(entities) do
-          CogyntLogger.warn(
-            "#{__MODULE__}",
-            "entity field is empty. Entity: #{inspect(entities, pretty: true)}"
-          )
+        data =
+          if Enum.empty?(entities) do
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "entity field is empty. Entity: #{inspect(entities, pretty: true)}"
+            )
 
-          Map.put(data, :validated, false)
-        else
-          Map.put(data, :validated, true)
-        end
+            Map.put(data, :validated, false)
+          else
+            Map.put(data, :validated, true)
+          end
+
+        Map.put(message, :data, data)
     end
   end
 
@@ -43,10 +53,15 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   and pull out just the "id" fields. Ex: ${"locations" => [1, 2, 3], "accounts" => [5, 6]}. Will
   udpate the data map with a new :link_entities value storing the return value.
   """
-  def process_entities(%{validated: false} = data), do: data
-  def process_entities(%{event_id: nil} = data), do: data
+  def process_entities(%Message{data: nil}),
+    do: raise("process_entities/1 failed. No message data")
 
-  def process_entities(%{event: %{@entities => entities}, event_id: event_id} = data) do
+  def process_entities(%Message{data: %{validated: false}} = message), do: message
+  def process_entities(%Message{data: %{event_id: nil}} = message), do: message
+
+  def process_entities(
+        %Message{data: %{event: %{@entities => entities}, event_id: event_id} = data} = message
+      ) do
     entity_links =
       Enum.reduce(entities, [], fn {_key, link_object_list}, acc_0 ->
         objects_links =
@@ -68,30 +83,36 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         acc_0 ++ objects_links
       end)
 
-    Map.put(data, :link_events, entity_links)
+    data = Map.put(data, :link_events, entity_links)
+    Map.put(message, :data, data)
   end
 
   @doc """
   Requires :event_links fields in the data map. Takes all the fields and
   executes them in one databse transaction.
   """
-  def execute_transaction(%{event_id: nil} = data), do: data
+  def execute_transaction(%Message{data: nil}),
+    do: raise("execute_transaction/1 failed. No message data")
 
-  def execute_transaction(%{validated: false} = data),
-    do: EventProcessor.execute_transaction(data)
+  def execute_transaction(%Message{data: %{event_id: nil}} = message), do: message
+
+  def execute_transaction(%Message{data: %{validated: false}} = message),
+    do: EventProcessor.execute_transaction(message)
 
   def execute_transaction(
-        %{
-          notifications: notifications,
-          event_details: event_details,
-          link_events: link_events,
-          delete_event_ids: delete_event_ids,
-          event_docs: event_doc_data,
-          risk_history_doc: risk_history_doc,
-          delete_docs: doc_ids,
-          crud_action: action,
-          event_id: event_id
-        } = data
+        %Message{
+          data: %{
+            notifications: notifications,
+            event_details: event_details,
+            link_events: link_events,
+            delete_event_ids: delete_event_ids,
+            event_docs: event_doc_data,
+            risk_history_doc: risk_history_doc,
+            delete_docs: doc_ids,
+            crud_action: action,
+            event_id: event_id
+          }
+        } = message
       ) do
     # elasticsearch updates
     update_event_docs(event_doc_data, doc_ids)
@@ -146,20 +167,22 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         raise "execute_transaction/1 failed"
     end
 
-    data
+    message
   end
 
   def execute_transaction(
-        %{
-          event_details: event_details,
-          link_events: link_events,
-          delete_event_ids: delete_event_ids,
-          event_docs: event_doc_data,
-          risk_history_doc: risk_history_doc,
-          delete_docs: doc_ids,
-          crud_action: action,
-          event_id: event_id
-        } = data
+        %Message{
+          data: %{
+            event_details: event_details,
+            link_events: link_events,
+            delete_event_ids: delete_event_ids,
+            event_docs: event_doc_data,
+            risk_history_doc: risk_history_doc,
+            delete_docs: doc_ids,
+            crud_action: action,
+            event_id: event_id
+          }
+        } = message
       ) do
     # elasticsearch updates
     update_event_docs(event_doc_data, doc_ids)
@@ -193,7 +216,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         raise "execute_transaction/1 failed"
     end
 
-    data
+    message
   end
 
   # ----------------------- #

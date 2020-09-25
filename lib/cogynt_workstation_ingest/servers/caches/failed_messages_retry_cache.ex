@@ -42,10 +42,10 @@ defmodule CogyntWorkstationIngest.Servers.Caches.FailedMessagesRetryCache do
     )
 
     # poll for failed deployment messages
-    # failed_deployment_messages =
-    #   fetch_and_release_failed_messages(@demand, @deployment_pipeline_module, "fdpm")
+    failed_deployment_messages =
+      fetch_and_release_failed_messages(@demand, @deployment_pipeline_module, "fdpm")
 
-    # Broadway.push_messages(@deployment_pipeline_name, failed_deployment_messages)
+    Broadway.push_messages(@deployment_pipeline_name, failed_deployment_messages)
 
     # poll for failed drilldown messages
     {:ok, drilldown_failed_message_keys} = Redis.keys_by_pattern("fdm:*")
@@ -65,23 +65,23 @@ defmodule CogyntWorkstationIngest.Servers.Caches.FailedMessagesRetryCache do
     end)
 
     # poll for failed event messages
-    # {:ok, event_definition_failed_message_keys} = Redis.keys_by_pattern("fem:*")
+    {:ok, event_definition_failed_message_keys} = Redis.keys_by_pattern("fem:*")
 
-    # Enum.each(event_definition_failed_message_keys, fn key ->
-    #   event_definition_id =
-    #     String.split(key, ":")
-    #     |> List.last()
+    Enum.each(event_definition_failed_message_keys, fn key ->
+      event_definition_id =
+        String.split(key, ":")
+        |> List.last()
 
-    #   consumer_group_id = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
+      consumer_group_id = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
 
-    #   failed_event_definition_messages =
-    #     fetch_and_release_failed_messages(@demand, @event_pipeline_module, key)
+      failed_event_definition_messages =
+        fetch_and_release_failed_messages(@demand, @event_pipeline_module, key)
 
-    #   Broadway.push_messages(
-    #     String.to_atom(consumer_group_id <> "Pipeline"),
-    #     failed_event_definition_messages
-    #   )
-    # end)
+      Broadway.push_messages(
+        String.to_atom(consumer_group_id <> "Pipeline"),
+        failed_event_definition_messages
+      )
+    end)
 
     {:noreply, %{}}
   end

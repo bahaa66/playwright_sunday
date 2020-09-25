@@ -26,11 +26,6 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
         tags: [:route],
         unit: {:native, :millisecond}
       ),
-      # VM Metrics
-      # summary("vm.memory.total", unit: {:byte, :megabyte}),
-      # summary("vm.total_run_queue_lengths.total"),
-      # summary("vm.total_run_queue_lengths.cpu"),
-      # summary("vm.total_run_queue_lengths.io"),
 
       # Erlang VM Metrics - Formats `gauge` metric type
       last_value("vm.memory.total", unit: {:byte, :megabyte}),

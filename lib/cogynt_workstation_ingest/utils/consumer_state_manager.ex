@@ -14,7 +14,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
-  alias CogyntWorkstationIngest.Broadway.Producer
 
   alias Models.Enums.ConsumerStatusTypeEnum
 
@@ -35,7 +34,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     update_notifications = Keyword.get(opts, :update_notifications, nil)
     delete_notifications = Keyword.get(opts, :delete_notifications, nil)
 
-    case Redis.key_exists?("c:#{event_definition_id}") do
+    case Redis.key_exists?("cs:#{event_definition_id}") do
       {:ok, false} ->
         # create consumer state record
         consumer_state = %{
@@ -47,7 +46,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           delete_notifications: delete_notifications
         }
 
-        Redis.hash_set_async("c:#{event_definition_id}", "consumer_state", consumer_state)
+        Redis.hash_set_async("cs:#{event_definition_id}", "cs", consumer_state)
 
         CogyntLogger.info(
           "#{__MODULE__}",
@@ -123,7 +122,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
             consumer_state
           end
 
-        Redis.hash_set_async("c:#{event_definition_id}", "consumer_state", consumer_state)
+        Redis.hash_set_async("cs:#{event_definition_id}", "cs", consumer_state)
 
         CogyntLogger.info(
           "#{__MODULE__}",
@@ -145,7 +144,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   end
 
   def get_consumer_state(event_definition_id) do
-    case Redis.hash_get("c:#{event_definition_id}", "consumer_state", decode: true) do
+    case Redis.hash_get("cs:#{event_definition_id}", "cs", decode: true) do
       {:ok, nil} ->
         {:ok, @default_state}
 
@@ -158,19 +157,20 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   end
 
   def remove_consumer_state(event_definition_id) do
-    for x <- ["a", "b", "c"], do: Redis.key_delete("#{x}:#{event_definition_id}")
+    for x <- ["fem", "emi", "cs"], do: Redis.key_delete("#{x}:#{event_definition_id}")
 
     Redis.hash_delete("ecgid", "EventDefinition-#{event_definition_id}")
+    Redis.hash_delete("ts", event_definition_id)
   end
 
   def finished_processing?(event_definition_id) do
-    case Redis.key_exists?("b:#{event_definition_id}") do
+    case Redis.key_exists?("emi:#{event_definition_id}") do
       {:ok, false} ->
         {:ok, true}
 
       {:ok, true} ->
-        {:ok, tmc} = Redis.hash_get("b:#{event_definition_id}", "tmc")
-        {:ok, tmp} = Redis.hash_get("b:#{event_definition_id}", "tmp")
+        {:ok, tmc} = Redis.hash_get("emi:#{event_definition_id}", "tmc")
+        {:ok, tmp} = Redis.hash_get("emi:#{event_definition_id}", "tmp")
 
         {:ok, String.to_integer(tmp) >= String.to_integer(tmc)}
     end
@@ -220,7 +220,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
           cond do
             consumer_state.status == ConsumerStatusTypeEnum.status()[:running] ->
-              case ConsumerGroupSupervisor.consumer_running?(event_definition.id) do
+              case ConsumerGroupSupervisor.event_consumer_running?(event_definition.id) do
                 true ->
                   %{response: {:ok, consumer_state.status}}
 
@@ -997,14 +997,15 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
 
     # check if there is a consumer running
-    if ConsumerGroupSupervisor.consumer_running?(event_definition_id) do
+    if ConsumerGroupSupervisor.event_consumer_running?(event_definition_id) do
       # Stop Consumer
       ConsumerGroupSupervisor.stop_child(event_definition_id)
     end
 
     # remove any redis data
-    Producer.flush_queue(event_definition_id)
-    for x <- ["a", "b", "c"], do: Redis.key_delete("#{x}:#{event_definition_id}")
+    Redis.key_delete("cs:#{event_definition_id}")
+
+    # TODO: need to check if paused_and_processing ?
 
     # set the consumer status
     upsert_consumer_state(event_definition_id,
@@ -1056,7 +1057,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
       end
 
     {:ok, deployment_status} =
-      case Redis.hash_get("task_statuses", "deployment") do
+      case Redis.hash_get("ts", "dptr") do
         {:ok, nil} ->
           {:ok, false}
 
@@ -1065,7 +1066,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
       end
 
     {:ok, event_definition_status} =
-      case Redis.hash_get("task_statuses", event_definition_id) do
+      case Redis.hash_get("ts", event_definition_id) do
         {:ok, nil} ->
           {:ok, false}
 
