@@ -1,3 +1,10 @@
+## [1.12.0-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.11.2-develop.1...v1.12.0-develop.1) (2020-09-28)
+
+
+### :sparkles: Feature
+
+* **redis configs:** sentinels ([9ec9bb4](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/9ec9bb47b9434966c2dfcbfabd7db02696cd0f52))
+
 ### [1.11.2-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.11.1...v1.11.2-develop.1) (2020-09-24)
 
 
