@@ -42,9 +42,12 @@ config :cogynt_workstation_ingest, :kafka,
 
 # Elasticsearch configurations
 config :elasticsearch, :config,
+  certfile: System.get_env("ELASTIC_CERT_PATH") || "",
   host: System.get_env("ELASTIC_URL") || "http://localhost:9200",
   username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",
-  password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch"
+  password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
+  shards: System.get_env("ELASTIC_SHARDS") || 1,
+  replicas: System.get_env("ELASTIC_REPLICAS") || 0
 
 # Redis configurations
 config :redis, :application,

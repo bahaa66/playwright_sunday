@@ -26,7 +26,6 @@ config :cogynt_workstation_ingest, :kafka,
 
 # Elasticsearch Configurations
 config :elasticsearch, :config,
-  basic_authentication_enabled: true,
   event_index_alias: "event",
   risk_history_index_alias: "risk_history",
   retry_on_conflict: 5,
