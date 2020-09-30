@@ -1,3 +1,10 @@
+## [1.12.0-develop.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.12.0-develop.1...v1.12.0-develop.2) (2020-09-30)
+
+
+### :sparkles: Feature
+
+* **Elasticsearch certs:** v1.8.3-beta ([2a3455e](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/2a3455e89ce1bf10a02e33d7c6dd7dd9e20b1c32))
+
 ## [1.12.0-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.11.2-develop.1...v1.12.0-develop.1) (2020-09-28)
 
 
