@@ -29,16 +29,19 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   live_view: [signing_salt: System.get_env("COGYNT_AUTH_SALT") || "I45Kpw9a"]
 
 # Kafka Configurations
-config :cogynt_workstation_ingest, :kafka,
+config :kafka, :application,
   brokers: [
     {
       System.get_env("KAFKA_BROKER") || "127.0.0.1",
-      (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
+      System.get_env("KAFKA_PORT") || 9092
     }
   ],
-  topic_partitions: System.get_env("TOPIC_PARTITIONS") || 10,
-  topic_replication: System.get_env("TOPIC_REPLICATION") || 1,
-  topic_config: System.get_env("TOPIC_CONFIG") || []
+  partition_strategy: (System.get_env("PARTITION_STRATEGY") || "random") |> String.to_atom(),
+  partitions: (System.get_env("PARTITIONS") || "10") |> String.to_integer(),
+  replication_factor: (System.get_env("REPLICATION_FACTOR") || "1") |> String.to_integer(),
+  replica_assignment: System.get_env("REPLICA_ASSIGNMENT") || [],
+  config_entries: System.get_env("CONFIG_ENTRIES") || [],
+  session_timeout: (System.get_env("SESSION_TIMEOUT") || "10000") |> String.to_integer()
 
 # Elasticsearch configurations
 config :elasticsearch, :config,
@@ -52,7 +55,6 @@ config :elasticsearch, :config,
 # Redis configurations
 config :redis, :application,
   host: System.get_env("COGYNT_REDIS_HOST") || "127.0.0.1",
-  port: 6379,
   password: System.get_env("COGYNT_REDIS_PASSWORD") || nil,
   name: System.get_env("COGYNT_REDIS_NAME") || "",
   sentinels: System.get_env("COGYNT_REDIS_SENTINELS") || "",
@@ -77,22 +79,6 @@ config :cogynt_workstation_ingest, :drilldown_pipeline,
 config :cogynt_workstation_ingest, :deployment_pipeline,
   processor_stages: (System.get_env("DEPLOYMENT_PROCESSOR_STAGES") || "2") |> String.to_integer(),
   producer_stages: (System.get_env("DEPLOYMENT_PRODUCER_STAGES") || "2") |> String.to_integer()
-
-config :cogynt_workstation_ingest, :failed_messages,
-  retry_timer: System.get_env("FAILED_MESSAGES_RETRY_TIMER") || 600_000,
-  max_retry: System.get_env("FAILED_MESSAGES_MAX_RETRY") || 144
-
-# Cache Configurations
-config :cogynt_workstation_ingest, :consumer_retry_cache,
-  time_delay: System.get_env("CONSUMER_RETRY_CACHE_TIME_DELAY") || 600_000,
-  max_retry: System.get_env("CONSUMER_RETRY_CACHE_MAX_RETRY") || 144
-
-config :cogynt_workstation_ingest, :deployment_retry_cache,
-  time_delay: System.get_env("DEPLOYMENT_RETRY_CACHE_TIME_DELAY") || 30_000,
-  max_retry: System.get_env("DEPLOYMENT_RETRY_CACHE_MAX_RETRY") || 2880
-
-# startup utils configurations
-config :cogynt_workstation_ingest, :startup, init_delay: System.get_env("INIT_DELAY") || 1000
 
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.

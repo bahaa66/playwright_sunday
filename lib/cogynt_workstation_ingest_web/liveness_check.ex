@@ -68,7 +68,7 @@ defmodule LivenessCheck do
 
   defp kafka_health?() do
     try do
-      {:ok, _metadata} = :brod.get_metadata(Config.kafka_brokers(), :all)
+      _result = Kafka.Api.Topic.list_topics()
       true
     rescue
       _ ->

@@ -30,7 +30,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
     topic = event_definition.topic
 
-    existing_topics = fetch_brokers_topics(brokers)
+    existing_topics = Kafka.Api.Topic.list_topics(brokers)
 
     if Enum.member?(existing_topics, topic) do
       consumer_group_id =
@@ -71,7 +71,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def start_child(:deployment) do
-    existing_topics = fetch_brokers_topics(Config.kafka_brokers())
+    existing_topics = Kafka.Api.Topic.list_topics()
 
     if Enum.member?(existing_topics, "deployment") do
       consumer_group_id =
@@ -112,7 +112,10 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   def start_child(:drilldown, deployment \\ %Deployment{}) do
     case deployment do
       %Deployment{id: nil} ->
-        create_drilldown_topics(Config.kafka_brokers())
+        Kafka.Api.Topic.create_topics([
+          Config.template_solutions_topic(),
+          Config.template_solution_events_topic()
+        ])
 
         consumer_group_id =
           case Redis.hash_get("dcgid", "Drilldown") do
@@ -133,7 +136,10 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
             [
               %{
                 group_id: consumer_group_id,
-                topics: [Config.topic_sols(), Config.topic_sol_events()],
+                topics: [
+                  Config.template_solutions_topic(),
+                  Config.template_solution_events_topic()
+                ],
                 hosts: Config.kafka_brokers()
               }
             ]
@@ -161,7 +167,13 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
               "Drilldown-#{hash_string}" <> "-" <> consumer_group_id
           end
 
-        create_drilldown_topics(brokers)
+        Kafka.Api.Topic.create_topics(
+          [
+            Config.template_solutions_topic(),
+            Config.template_solution_events_topic()
+          ],
+          brokers: brokers
+        )
 
         child_spec = %{
           id: :DrillDown,
@@ -171,7 +183,10 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
             [
               %{
                 group_id: consumer_group_id,
-                topics: [Config.topic_sols(), Config.topic_sol_events()],
+                topics: [
+                  Config.template_solutions_topic(),
+                  Config.template_solution_events_topic()
+                ],
                 hosts: brokers
               }
             ]
@@ -338,37 +353,5 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       {:ok, consumer_group_id} ->
         "EventDefinition-#{event_definition_id}" <> "-" <> consumer_group_id
     end
-  end
-
-  # ----------------------- #
-  # --- private methods --- #
-  # ----------------------- #
-  defp fetch_brokers_topics(brokers) do
-    {:ok, metadata} = :brod.get_metadata(brokers, :all)
-
-    metadata.topic_metadata |> Enum.map(& &1.topic)
-  end
-
-  defp create_drilldown_topics(brokers) do
-    :brod.create_topics(
-      brokers,
-      [
-        %{
-          topic: Config.topic_sols(),
-          num_partitions: Config.partitions(),
-          replication_factor: Config.replication(),
-          replica_assignment: [],
-          config_entries: Config.topic_config()
-        },
-        %{
-          topic: Config.topic_sol_events(),
-          num_partitions: Config.partitions(),
-          replication_factor: Config.replication(),
-          replica_assignment: [],
-          config_entries: Config.topic_config()
-        }
-      ],
-      %{timeout: 10_000}
-    )
   end
 end

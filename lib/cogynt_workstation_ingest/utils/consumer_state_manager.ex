@@ -4,7 +4,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   allowed to be performed based on what state the consumer is in.
   """
 
-  alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, TaskSupervisor}
+  alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, DynamicTaskSupervisor}
   alias CogyntWorkstationIngest.Servers.ConsumerMonitor
 
   alias CogyntWorkstationIngest.Servers.Caches.{
@@ -530,7 +530,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 "Triggering backfill notifications task: #{inspect(notification_setting_id)}"
               )
 
-              TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+              DynamicTaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
 
               upsert_consumer_state(
                 event_definition_id,
@@ -573,7 +573,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                   "Triggering backfill notifications task: #{inspect(notification_setting_id)}"
                 )
 
-                TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+                DynamicTaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
               end
 
               upsert_consumer_state(
@@ -599,7 +599,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     "Triggering backfill notifications task: #{inspect(notification_setting_id)}"
                   )
 
-                  TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+                  DynamicTaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
 
                   upsert_consumer_state(
                     event_definition_id,
@@ -675,7 +675,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 "Triggering update notifications task: #{inspect(notification_setting_id)}"
               )
 
-              TaskSupervisor.start_child(%{update_notifications: notification_setting_id})
+              DynamicTaskSupervisor.start_child(%{update_notifications: notification_setting_id})
 
               upsert_consumer_state(
                 event_definition_id,
@@ -718,7 +718,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                   "Triggering update notifications task: #{inspect(notification_setting_id)}"
                 )
 
-                TaskSupervisor.start_child(%{update_notifications: notification_setting_id})
+                DynamicTaskSupervisor.start_child(%{update_notifications: notification_setting_id})
               end
 
               upsert_consumer_state(
@@ -744,7 +744,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     "Triggering update notifications task: #{inspect(notification_setting_id)}"
                   )
 
-                  TaskSupervisor.start_child(%{
+                  DynamicTaskSupervisor.start_child(%{
                     update_notifications: notification_setting_id
                   })
 
@@ -822,7 +822,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 "Triggering delete notifications task: #{inspect(notification_setting_id)}"
               )
 
-              TaskSupervisor.start_child(%{delete_notifications: notification_setting_id})
+              DynamicTaskSupervisor.start_child(%{delete_notifications: notification_setting_id})
 
               upsert_consumer_state(
                 event_definition_id,
@@ -865,7 +865,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                   "Triggering delete notifications task: #{inspect(notification_setting_id)}"
                 )
 
-                TaskSupervisor.start_child(%{delete_notifications: notification_setting_id})
+                DynamicTaskSupervisor.start_child(%{delete_notifications: notification_setting_id})
               end
 
               upsert_consumer_state(
@@ -891,7 +891,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     "Triggering delete notifications task: #{inspect(notification_setting_id)}"
                   )
 
-                  TaskSupervisor.start_child(%{
+                  DynamicTaskSupervisor.start_child(%{
                     delete_notifications: notification_setting_id
                   })
 
@@ -974,7 +974,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
             %{response: {:error, consumer_state.status}}
 
           true ->
-            TaskSupervisor.start_child(%{delete_event_definition_events: event_definition_id})
+            DynamicTaskSupervisor.start_child(%{delete_event_definition_events: event_definition_id})
             %{response: {:ok, :success}}
         end
 

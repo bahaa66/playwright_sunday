@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
   """
   use Task
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
-  alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, TaskSupervisor}
+  alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, DynamicTaskSupervisor}
   alias CogyntWorkstationIngest.Servers.Caches.DeploymentConsumerRetryCache
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
@@ -45,8 +45,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
     )
 
     # Third delete all data for the delployment topic
-    delete_topic_result =
-      :brod.delete_topics(Config.kafka_brokers(), ["deployment"], %{timeout: 10_000})
+    delete_topic_result = Kafka.Api.Topic.delete_topic(Config.deployment_topic())
 
     CogyntLogger.info(
       "#{__MODULE__}",
@@ -76,7 +75,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
 
       {:ok, brokers} = DeploymentsContext.get_kafka_brokers(deployment_id)
 
-      :brod.delete_topics(brokers, [topic], %{timeout: 10_000})
+      Kafka.Api.Topic.delete_topic(topic, brokers)
     end)
 
     CogyntLogger.info("#{__MODULE__}", "Resetting Deployment Data")
@@ -87,7 +86,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
     event_definition_ids = Enum.map(event_definitions, fn ed -> ed.id end)
 
     # Trigger the task to hard delete all event_definition_ids and its data
-    TaskSupervisor.start_child(%{
+    DynamicTaskSupervisor.start_child(%{
       delete_event_definitions_and_topics: %{
         event_definition_ids: event_definition_ids,
         hard_delete: true,
