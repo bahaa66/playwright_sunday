@@ -60,7 +60,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:kafka,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "kafka",
-       branch: "feature/rework-audit-library",
+       tag: "v1.8.4-beta",
        override: true},
       {
         :models,
