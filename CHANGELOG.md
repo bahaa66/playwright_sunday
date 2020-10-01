@@ -1,3 +1,10 @@
+## [1.12.0-develop.3](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.12.0-develop.2...v1.12.0-develop.3) (2020-10-01)
+
+
+### :sparkles: Feature
+
+* **kafka common:** Merge pull request [#134](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/134) from Cogility/feature/CDST-744-remove-kafkaEx ([102a78c](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/102a78c8b04c9821d51cb44b9c1e3c912c982bd7))
+
 ## [1.12.0-develop.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.12.0-develop.1...v1.12.0-develop.2) (2020-09-30)
 
 
