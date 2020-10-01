@@ -17,12 +17,16 @@ defmodule CogyntWorkstationIngest.Config do
   def failed_messages_max_retry(), do: failed_messages()[:max_retry]
   def failed_messages_retry_timer(), do: failed_messages()[:retry_timer]
 
-  def partitions(), do: kafka()[:topic_partitions]
-  def replication(), do: kafka()[:topic_replication]
-  def topic_config(), do: kafka()[:topic_config]
-  def topic_sols(), do: kafka()[:template_solution_topic]
-  def topic_sol_events(), do: kafka()[:template_solution_event_topic]
-  def kafka_brokers(), do: kafka()[:brokers]
+  def kafka_brokers, do: kafka()[:brokers]
+  def kafka_client, do: kafka()[:kafka_client]
+  def partition_strategy, do: kafka()[:partition_strategy]
+  def template_solutions_topic, do: kafka()[:template_solutions_topic]
+  def template_solution_events_topic, do: kafka()[:template_solution_events_topic]
+  def partitions, do: kafka()[:partitions]
+  def replication_factor, do: kafka()[:replication_factor]
+  def replica_assignment, do: kafka()[:replica_assignment]
+  def config_entries, do: kafka()[:config_entries]
+  def session_timeout, do: kafka()[:session_timeout]
   def deployment_topic(), do: kafka()[:deployment_topic]
 
   def session_key(), do: Application.get_env(:cogynt_workstation_ingest, :session_key)
@@ -41,7 +45,7 @@ defmodule CogyntWorkstationIngest.Config do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp kafka(), do: Application.get_env(:cogynt_workstation_ingest, :kafka)
+  defp kafka, do: Application.get_env(:kafka, :application)
 
   defp drilldown_pipeline(),
     do: Application.get_env(:cogynt_workstation_ingest, :drilldown_pipeline)

@@ -42,16 +42,17 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
       if delete_drilldown_topics do
         CogyntLogger.info(
           "#{__MODULE__}",
-          "Deleting the Drilldown Topics. #{Config.topic_sols()}, #{Config.topic_sol_events()}. Brokers: #{
-            inspect(brokers)
-          }"
+          "Deleting the Drilldown Topics. #{Config.template_solutions_topic()}, #{
+            Config.template_solution_events_topic()
+          }. Brokers: #{inspect(brokers)}"
         )
 
         # Delete topics for worker
         delete_topic_result =
-          :brod.delete_topics(brokers, [Config.topic_sols(), Config.topic_sol_events()], %{
-            timeout: 10_000
-          })
+          Kafka.Api.Topic.delete_topics(
+            [Config.template_solutions_topic(), Config.template_solution_events_topic()],
+            brokers
+          )
 
         CogyntLogger.info(
           "#{__MODULE__}",

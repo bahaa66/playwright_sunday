@@ -4,7 +4,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
   """
   use GenServer
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
-  alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
+  alias CogyntWorkstationIngest.Supervisors.DynamicTaskSupervisor
 
   # -------------------- #
   # --- client calls --- #
@@ -141,16 +141,16 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
         try do
           if reset_deployment do
-            TaskSupervisor.start_child(%{delete_deployment_data: true})
+            DynamicTaskSupervisor.start_child(%{delete_deployment_data: true})
           else
             if reset_drilldown do
-              TaskSupervisor.start_child(%{
+              DynamicTaskSupervisor.start_child(%{
                 delete_drilldown_data: delete_drilldown_topics
               })
             end
 
             if length(event_definition_ids) > 0 do
-              TaskSupervisor.start_child(%{
+              DynamicTaskSupervisor.start_child(%{
                 delete_event_definitions_and_topics: %{
                   event_definition_ids: event_definition_ids,
                   hard_delete: false,

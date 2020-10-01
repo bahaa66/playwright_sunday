@@ -6,7 +6,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   alias Ecto.Multi
   alias CogyntWorkstationIngest.Repo
   alias Models.Enums.ConsumerStatusTypeEnum
-  alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
+  alias CogyntWorkstationIngest.Supervisors.DynamicTaskSupervisor
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
 
   alias Models.Events.{
@@ -733,7 +733,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
               "Initalizing backfill notifications task: #{inspect(notification_setting_id)}"
             )
 
-            TaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+            DynamicTaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
           end)
 
         consumer_state.status ==
@@ -744,7 +744,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
               "Initalizing update notifications task: #{inspect(notification_setting_id)}"
             )
 
-            TaskSupervisor.start_child(%{update_notifications: notification_setting_id})
+            DynamicTaskSupervisor.start_child(%{update_notifications: notification_setting_id})
           end)
 
         consumer_state.status ==
@@ -755,7 +755,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
               "Initalizing delete notifications task: #{inspect(notification_setting_id)}"
             )
 
-            TaskSupervisor.start_child(%{delete_notification_setting: notification_setting_id})
+            DynamicTaskSupervisor.start_child(%{delete_notification_setting: notification_setting_id})
           end)
 
         true ->

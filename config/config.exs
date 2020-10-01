@@ -18,10 +18,10 @@ config :cogynt_workstation_ingest, :clients,
   elasticsearch_client: Elasticsearch
 
 # Kafka Configurations
-config :cogynt_workstation_ingest, :kafka,
-  audit_topic: "_cogynt_audit_log",
-  template_solution_topic: "template_solutions",
-  template_solution_event_topic: "template_solution_events",
+config :kafka, :application,
+  kafka_client: :brod,
+  template_solutions_topic: "template_solutions",
+  template_solution_events_topic: "template_solution_events",
   deployment_topic: "deployment"
 
 # Elasticsearch Configurations
@@ -30,6 +30,9 @@ config :elasticsearch, :config,
   risk_history_index_alias: "risk_history",
   retry_on_conflict: 5,
   utc_offset: 0
+
+# Redis Configurations
+config :redis, :application, port: 6379
 
 # Configurations for keys in Cogynt Core events
 config :cogynt_workstation_ingest, :core_keys,
@@ -44,6 +47,19 @@ config :cogynt_workstation_ingest, :core_keys,
   update: "update",
   delete: "delete",
   create: "create"
+
+# Cache Configurations
+config :cogynt_workstation_ingest, :failed_messages,
+  retry_timer: 600_000,
+  max_retry: 144
+
+config :cogynt_workstation_ingest, :consumer_retry_cache,
+  time_delay: 600_000,
+  max_retry: 144
+
+config :cogynt_workstation_ingest, :deployment_retry_cache,
+  time_delay: 30_000,
+  max_retry: 2880
 
 # Configures Elixir's Logger
 config :logger, :console,

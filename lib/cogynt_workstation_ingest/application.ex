@@ -17,16 +17,13 @@ defmodule CogyntWorkstationIngest.Application do
     ]
   )
 
-  alias CogyntWorkstationIngest.Config
-
   alias CogyntWorkstationIngest.Supervisors.{
     ConsumerGroupSupervisor,
     ServerSupervisor,
+    DynamicTaskSupervisor,
     TaskSupervisor,
     TelemetrySupervisor
   }
-
-  alias CogyntWorkstationIngest.Servers.Startup
 
   def start(_type, _args) do
     # List all child processes to be supervised
@@ -44,18 +41,16 @@ defmodule CogyntWorkstationIngest.Application do
       child_spec_supervisor(ServerSupervisor, ServerSupervisor),
       # Start the DynamicSupervisor for Kafka ConsumerGroups
       ConsumerGroupSupervisor,
+      # The dynamic supervisor for all Task workers
+      DynamicTaskSupervisor,
       # The supervisor for all Task workers
-      TaskSupervisor
+      child_spec_supervisor(TaskSupervisor, TaskSupervisor)
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: CogyntWorkstationIngest.Supervisor]
-    result = Supervisor.start_link(children, opts)
-
-    Process.send_after(Startup, :initialize_consumers, Config.startup_delay())
-
-    result
+    Supervisor.start_link(children, opts)
   end
 
   # Tell Phoenix to update the endpoint configuration
