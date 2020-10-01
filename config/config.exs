@@ -20,7 +20,6 @@ config :cogynt_workstation_ingest, :clients,
 # Kafka Configurations
 config :kafka, :application,
   kafka_client: :brod,
-  audit_topic: "_cogynt_audit_log",
   template_solutions_topic: "template_solutions",
   template_solution_events_topic: "template_solution_events",
   deployment_topic: "deployment"
