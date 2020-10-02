@@ -60,7 +60,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:kafka,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "kafka",
-       tag: "v1.8.4-beta",
+       tag: "v1.8.5-beta",
        override: true},
       {
         :models,
