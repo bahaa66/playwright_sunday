@@ -30,7 +30,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
     topic = event_definition.topic
 
-    existing_topics = Kafka.Api.Topic.list_topics(brokers)
+    {:ok, existing_topics} = Kafka.Api.Topic.list_topics(brokers)
 
     if Enum.member?(existing_topics, topic) do
       consumer_group_id =
@@ -71,7 +71,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def start_child(:deployment) do
-    existing_topics = Kafka.Api.Topic.list_topics()
+    {:ok, existing_topics} = Kafka.Api.Topic.list_topics()
 
     if Enum.member?(existing_topics, "deployment") do
       consumer_group_id =

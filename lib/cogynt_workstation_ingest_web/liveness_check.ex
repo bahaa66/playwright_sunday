@@ -68,8 +68,12 @@ defmodule LivenessCheck do
 
   defp kafka_health?() do
     try do
-      _result = Kafka.Api.Topic.list_topics()
-      true
+      case Kafka.Api.Topic.list_topics() do
+        {:ok, _result} ->
+          true
+        _ ->
+          false
+      end
     rescue
       _ ->
         false
