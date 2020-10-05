@@ -1,3 +1,13 @@
+## [1.13.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.12.0...v1.13.0) (2020-10-05)
+
+
+### :sparkles: Feature
+
+* **Elasticsearch certs:** v1.8.3-beta ([2a3455e](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/2a3455e89ce1bf10a02e33d7c6dd7dd9e20b1c32))
+* **kafka common:** Merge pull request [#134](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/134) from Cogility/feature/CDST-744-remove-kafkaEx ([102a78c](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/102a78c8b04c9821d51cb44b9c1e3c912c982bd7))
+* **redis configs:** sentinels ([9ec9bb4](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/9ec9bb47b9434966c2dfcbfabd7db02696cd0f52))
+* **Release 1.7.4:** Merge pull request [#136](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/136) from Cogility/release/1.7.4 ([b744d8d](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/b744d8d39a31a4d5f375e09e3dc9f442c8ebb7fc))
+
 ## [1.12.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.11.1...v1.12.0) (2020-09-24)
 
 
