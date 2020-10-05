@@ -9,8 +9,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Collections.CollectionsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
-  alias CogyntWorkstationIngest.Broadway.Producer
   alias CogyntWorkstationIngest.Servers.Caches.DeleteEventDefinitionDataCache
+  alias CogyntWorkstationIngest.Deployments.DeploymentsContext
 
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
@@ -66,15 +66,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
             "Deleting Kakfa topic: #{event_definition.topic}"
           )
 
-          worker_name = String.to_atom("deployment#{event_definition.deployment_id}")
+          {:ok, brokers} = DeploymentsContext.get_kafka_brokers(event_definition.deployment_id)
 
-          if Process.whereis(worker_name) != nil do
-            KafkaEx.delete_topics([event_definition.topic], worker_name: worker_name)
-          end
+          Kafka.Api.Topic.delete_topic(event_definition.topic, brokers)
         end
-
-        # Third flush any data that might be stored waiting to process
-        Producer.flush_queue(event_definition.id)
 
         # Fourth check the consumer_state to make sure if it has any data left in the pipeline
         {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)

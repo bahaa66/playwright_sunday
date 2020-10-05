@@ -50,9 +50,6 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:health_checkup, "~> 0.1.0"},
       {:ecto_enum, "~> 1.4"},
       {:broadway_kafka, "~> 0.1.0", override: true},
-      {:brod, "~> 3.14.0", override: true},
-      {:kafka_protocol, "~> 2.4.1", override: true},
-      {:kafka_ex, "~> 0.11.0"},
       {:httpoison, "~> 1.7"},
       {:junit_formatter, "~> 3.0"},
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
@@ -60,6 +57,11 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:quiet_logger, "~> 0.2.0"},
       {:telemetry, "~> 0.4.0"},
       {:telemetry_poller, "~> 0.4"},
+      {:kafka,
+       git: "git@github.com:cogility/cogynt-common.git",
+       sparse: "kafka",
+       tag: "v1.8.5-beta",
+       override: true},
       {
         :models,
         tag: "v1.8.0",
@@ -83,14 +85,14 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :elasticsearch,
-        tag: "v1.8.0",
+        tag: "v1.8.3-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
         override: true
       },
       {
         :redis,
-        tag: "v1.8.0",
+        tag: "v1.8.2-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true

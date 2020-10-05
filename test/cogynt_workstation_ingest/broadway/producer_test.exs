@@ -24,33 +24,6 @@ defmodule CogyntWorkstationIngest.Broadway.ProducerTest do
     updated_at: "2020-02-24T19:13:35Z"
   }
 
-  @kafka_messages [
-    %KafkaEx.Protocol.Fetch.Message{
-      attributes: 0,
-      crc: 1_816_133_476,
-      key: nil,
-      offset: 0,
-      value:
-        "{\"atm_name\":\"ID_247506870\",\"coordinate\":{\"geometry\":{\"coordinates\":[-122.26778600000002,37.8069224],\"type\":\"Point\"},\"type\":\"Feature\",\"properties\":{\"name\":\"Point\"}},\"city\":\"Oakland\",\"publishing_template_type\":\"516bccbe-f4ff-11e9-b63b-8c85900cbd75\",\"latency\":35,\"$crud\":\"create\",\"source\":\"3171f670-f4fc-11e9-a42c-8c85900cbd75\",\"zip_code\":94612,\"published_by\":\"3c742b8c-fd1f-384f-92d5-f2adcbbf197b\",\"publishing_template_type_name\":\"create_location_entities\",\"district\":\"Downtown\",\"data_type\":\"atm_locations_entity\",\"atm_id\":\"atm3\",\"state\":\"California\",\"id\":\"3c742b8c-fd1f-384f-92d5-f2adcbbf197b\",\"published_at\":\"2019-10-22T20:50:22.468Z\"}"
-    },
-    %KafkaEx.Protocol.Fetch.Message{
-      attributes: 0,
-      crc: 118_412_497,
-      key: nil,
-      offset: 1,
-      value:
-        "{\"atm_name\":\"ID_276234881\",\"coordinate\":{\"geometry\":{\"coordinates\":[-122.2707437,37.79998629999999],\"type\":\"Point\"},\"type\":\"Feature\",\"properties\":{\"name\":\"Point\"}},\"city\":\"Oakland\",\"publishing_template_type\":\"516bccbe-f4ff-11e9-b63b-8c85900cbd75\",\"latency\":437,\"$crud\":\"create\",\"source\":\"3171f670-f4fc-11e9-a42c-8c85900cbd75\",\"zip_code\":94607,\"published_by\":\"f6639268-44d7-31f8-86c4-25bc77e3ccc4\",\"publishing_template_type_name\":\"create_location_entities\",\"district\":\"Chinatown\",\"data_type\":\"atm_locations_entity\",\"atm_id\":\"atm9\",\"state\":\"California\",\"id\":\"f6639268-44d7-31f8-86c4-25bc77e3ccc4\",\"published_at\":\"2019-10-22T20:50:22.873Z\"}"
-    },
-    %KafkaEx.Protocol.Fetch.Message{
-      attributes: 0,
-      crc: 2_245_031_157,
-      key: nil,
-      offset: 2,
-      value:
-        "{\"atm_name\":\"Wells Fargo\",\"coordinate\":{\"geometry\":{\"coordinates\":[-122.26002120000001,37.8684876],\"type\":\"Point\"},\"type\":\"Feature\",\"properties\":{\"name\":\"Point\"}},\"city\":\"Berkeley\",\"publishing_template_type\":\"516bccbe-f4ff-11e9-b63b-8c85900cbd75\",\"latency\":437,\"$crud\":\"create\",\"source\":\"3171f670-f4fc-11e9-a42c-8c85900cbd75\",\"zip_code\":94704,\"published_by\":\"48f53a12-e7a5-3e63-93a8-391c7714ac38\",\"publishing_template_type_name\":\"create_location_entities\",\"district\":\"Telegraph Avenue\",\"data_type\":\"atm_locations_entity\",\"atm_id\":\"atm11\",\"state\":\"California\",\"id\":\"48f53a12-e7a5-3e63-93a8-391c7714ac38\",\"published_at\":\"2019-10-22T20:50:22.874Z\"}"
-    }
-  ]
-
   describe "handle_cast/2 enqueue" do
     test "enqueue kafka messages to Broadway Producer" do
       {:producer, state} = Producer.init(:ok)

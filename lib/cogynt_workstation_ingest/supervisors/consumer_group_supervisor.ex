@@ -1,14 +1,19 @@
 defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   @moduledoc """
-  DymanicSupervisor module for KafkaEx ConsumerGroups. Is started under the
+  DymanicSupervisor module for Kafka ConsumerGroups. Is started under the
   CogyntWorkstationIngest application Supervision tree. Allows application to dynamically
   start and stop children based on event_definition and topics.
   """
   use DynamicSupervisor
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Servers.Consumers.KafkaConsumer
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
-  alias CogyntWorkstationIngest.Broadway.DrilldownPipeline
+
+  alias CogyntWorkstationIngest.Broadway.{
+    EventPipeline,
+    DeploymentPipeline,
+    DrilldownPipeline
+  }
+
   alias Models.Deployments.Deployment
 
   def start_link(arg) do
@@ -21,20 +26,11 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def start_child(event_definition) when is_map(event_definition) do
-    {:ok, uris} = DeploymentsContext.get_kafka_brokers(event_definition.deployment_id)
-
-    worker_name = String.to_atom("deployment#{event_definition.deployment_id}")
-
-    # create KafkaEx worker with kafka brokers from deployment_id
-    create_kafka_worker(
-      uris: uris,
-      name: worker_name
-    )
+    {:ok, brokers} = DeploymentsContext.get_kafka_brokers(event_definition.deployment_id)
 
     topic = event_definition.topic
 
-    existing_topics =
-      KafkaEx.metadata(worker_name: worker_name).topic_metadatas |> Enum.map(& &1.topic)
+    {:ok, existing_topics} = Kafka.Api.Topic.list_topics(brokers)
 
     if Enum.member?(existing_topics, topic) do
       consumer_group_id =
@@ -51,14 +47,17 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       child_spec = %{
         id: topic,
         start: {
-          KafkaEx.ConsumerGroup,
+          EventPipeline,
           :start_link,
-          consumer_group_options(
-            name: consumer_group_id,
-            topics: [event_definition.topic],
-            consumer_group_name: consumer_group_name(event_definition.id),
-            extra_consumer_args: %{event_definition: event_definition}
-          )
+          [
+            %{
+              group_id: consumer_group_id,
+              topics: [topic],
+              hosts: brokers,
+              event_definition_id: event_definition.id,
+              event_type: event_definition.event_type
+            }
+          ]
         },
         restart: :transient,
         shutdown: 5000,
@@ -72,10 +71,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def start_child(:deployment) do
-    create_kafka_worker(name: :deployment_stream)
-
-    existing_topics =
-      KafkaEx.metadata(worker_name: :deployment_stream).topic_metadatas |> Enum.map(& &1.topic)
+    {:ok, existing_topics} = Kafka.Api.Topic.list_topics()
 
     if Enum.member?(existing_topics, "deployment") do
       consumer_group_id =
@@ -92,13 +88,15 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       child_spec = %{
         id: :Deployment,
         start: {
-          KafkaEx.ConsumerGroup,
+          DeploymentPipeline,
           :start_link,
-          consumer_group_options(
-            name: consumer_group_id,
-            topics: [Config.deployment_topic()],
-            consumer_group_name: consumer_group_name("Deployment")
-          )
+          [
+            %{
+              group_id: consumer_group_id,
+              topics: [Config.deployment_topic()],
+              hosts: Config.kafka_brokers()
+            }
+          ]
         },
         restart: :transient,
         shutdown: 5000,
@@ -114,8 +112,10 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   def start_child(:drilldown, deployment \\ %Deployment{}) do
     case deployment do
       %Deployment{id: nil} ->
-        create_kafka_worker(name: :drilldown)
-        create_drilldown_topics(:drilldown)
+        Kafka.Api.Topic.create_topics([
+          Config.template_solutions_topic(),
+          Config.template_solution_events_topic()
+        ])
 
         consumer_group_id =
           case Redis.hash_get("dcgid", "Drilldown") do
@@ -136,7 +136,10 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
             [
               %{
                 group_id: consumer_group_id,
-                topics: [Config.topic_sols(), Config.topic_sol_events()],
+                topics: [
+                  Config.template_solutions_topic(),
+                  Config.template_solution_events_topic()
+                ],
                 hosts: Config.kafka_brokers()
               }
             ]
@@ -149,10 +152,9 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         DynamicSupervisor.start_child(__MODULE__, child_spec)
 
       %Deployment{id: id} ->
-        {:ok, uris} = DeploymentsContext.get_kafka_brokers(id)
+        {:ok, brokers} = DeploymentsContext.get_kafka_brokers(id)
 
-        hash_string = Integer.to_string(:erlang.phash2(uris))
-        worker_name = String.to_atom("drilldown" <> hash_string)
+        hash_string = Integer.to_string(:erlang.phash2(brokers))
 
         consumer_group_id =
           case Redis.hash_get("dcgid", "Drilldown-#{hash_string}") do
@@ -165,8 +167,13 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
               "Drilldown-#{hash_string}" <> "-" <> consumer_group_id
           end
 
-        create_kafka_worker(uris: uris, name: worker_name)
-        create_drilldown_topics(worker_name)
+        Kafka.Api.Topic.create_topics(
+          [
+            Config.template_solutions_topic(),
+            Config.template_solution_events_topic()
+          ],
+          brokers: brokers
+        )
 
         child_spec = %{
           id: :DrillDown,
@@ -176,8 +183,11 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
             [
               %{
                 group_id: consumer_group_id,
-                topics: [Config.topic_sols(), Config.topic_sol_events()],
-                hosts: uris
+                topics: [
+                  Config.template_solutions_topic(),
+                  Config.template_solution_events_topic()
+                ],
+                hosts: brokers
               }
             ]
           },
@@ -191,7 +201,9 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def stop_child(event_definition_id) when is_binary(event_definition_id) do
-    child_pid = Process.whereis(consumer_group_name(event_definition_id))
+    consumer_group_id = fetch_event_cgid(event_definition_id)
+
+    child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)
@@ -203,7 +215,9 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def stop_child(:deployment) do
-    child_pid = Process.whereis(consumer_group_name("Deployment"))
+    consumer_group_id = fetch_deployment_cgid()
+
+    child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)
@@ -217,16 +231,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   def stop_child(:drilldown, deployment \\ %Deployment{}) do
     case deployment do
       %Deployment{id: nil} ->
-        consumer_group_id =
-          case Redis.hash_get("dcgid", "Drilldown") do
-            {:ok, nil} ->
-              id = "#{UUID.uuid1()}"
-              Redis.hash_set("dcgid", "Drilldown", id)
-              "Drilldown" <> "-" <> id
-
-            {:ok, consumer_group_id} ->
-              "Drilldown" <> "-" <> consumer_group_id
-          end
+        consumer_group_id = fetch_drilldown_cgid()
 
         child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
 
@@ -236,20 +241,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
           {:ok, :success}
         end
 
-      %Deployment{id: id} ->
-        {:ok, uris} = DeploymentsContext.get_kafka_brokers(id)
-        hash_string = Integer.to_string(:erlang.phash2(uris))
-
-        consumer_group_id =
-          case Redis.hash_get("dcgid", "Drilldown-#{hash_string}") do
-            {:ok, nil} ->
-              id = "#{UUID.uuid1()}"
-              Redis.hash_set("dcgid", "Drilldown-#{hash_string}", id)
-              "Drilldown-#{hash_string}" <> "-" <> id
-
-            {:ok, consumer_group_id} ->
-              "Drilldown-#{hash_string}" <> "-" <> consumer_group_id
-          end
+      %Deployment{id: deployment_id} ->
+        consumer_group_id = fetch_drilldown_cgid(deployment_id)
 
         child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
 
@@ -266,18 +259,9 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   def drilldown_consumer_running?(deployment \\ %Deployment{}) do
     case deployment do
       %Deployment{id: nil} ->
-        consumer_group_id =
-          case Redis.hash_get("dcgid", "Drilldown") do
-            {:ok, nil} ->
-              id = "#{UUID.uuid1()}"
-              Redis.hash_set("dcgid", "Drilldown", id)
-              "Drilldown" <> "-" <> id
+        consumer_group_id = fetch_drilldown_cgid()
 
-            {:ok, consumer_group_id} ->
-              "Drilldown" <> "-" <> consumer_group_id
-          end
-
-        child_pid = Process.whereis(String.to_atom(consumer_group_id))
+        child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
 
         case is_nil(child_pid) do
           true ->
@@ -287,22 +271,10 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
             true
         end
 
-      %Deployment{id: id} ->
-        {:ok, uris} = DeploymentsContext.get_kafka_brokers(id)
-        hash_string = Integer.to_string(:erlang.phash2(uris))
+      %Deployment{id: deployment_id} ->
+        consumer_group_id = fetch_drilldown_cgid(deployment_id)
 
-        consumer_group_id =
-          case Redis.hash_get("dcgid", "Drilldown-#{hash_string}") do
-            {:ok, nil} ->
-              id = "#{UUID.uuid1()}"
-              Redis.hash_set("dcgid", "Drilldown-#{hash_string}", id)
-              "Drilldown-#{hash_string}" <> "-" <> id
-
-            {:ok, consumer_group_id} ->
-              "Drilldown-#{hash_string}" <> "-" <> consumer_group_id
-          end
-
-        child_pid = Process.whereis(String.to_atom(consumer_group_id))
+        child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
 
         case is_nil(child_pid) do
           true ->
@@ -314,8 +286,9 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def consumer_running?(name) do
-    child_pid = Process.whereis(consumer_group_name(name))
+  def event_consumer_running?(event_definition_id) do
+    consumer_group_id = fetch_event_cgid(event_definition_id)
+    child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
 
     case is_nil(child_pid) do
       true ->
@@ -326,65 +299,59 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  # ----------------------- #
-  # --- private methods --- #
-  # ----------------------- #
-  defp consumer_group_options(opts) do
-    name = Keyword.get(opts, :name)
-    consumer_group_name = Keyword.get(opts, :consumer_group_name)
-    topics = Keyword.get(opts, :topics)
-    extra_consumer_args = Keyword.get(opts, :extra_consumer_args, %{})
+  def deployment_consumer_running?() do
+    consumer_group_id = fetch_deployment_cgid()
+    child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
 
-    [
-      KafkaConsumer,
-      name,
-      topics,
-      [
-        name: consumer_group_name,
-        commit_interval: Config.commit_interval(),
-        commit_threshold: Config.commit_threshold(),
-        heartbeat_interval: Config.heartbeat_interval(),
-        max_restarts: Config.max_restarts(),
-        max_seconds: Config.max_seconds(),
-        extra_consumer_args: extra_consumer_args
-      ]
-    ]
+    case is_nil(child_pid) do
+      true ->
+        false
+
+      false ->
+        true
+    end
   end
 
-  defp create_kafka_worker(opts) do
-    uris = Keyword.get(opts, :uris, Config.kafka_brokers())
-    name = Keyword.get(opts, :name, :standard)
+  def fetch_drilldown_cgid(deployment_id \\ nil) do
+    if is_nil(deployment_id) do
+      case Redis.hash_get("dcgid", "Drilldown") do
+        {:ok, nil} ->
+          ""
 
-    KafkaEx.create_worker(name,
-      uris: uris,
-      consumer_group: "kafka_ex",
-      consumer_group_update_interval: 100
-    )
+        {:ok, consumer_group_id} ->
+          "Drilldown" <> "-" <> consumer_group_id
+      end
+    else
+      {:ok, brokers} = DeploymentsContext.get_kafka_brokers(deployment_id)
+      hash_string = Integer.to_string(:erlang.phash2(brokers))
+
+      case Redis.hash_get("dcgid", "Drilldown-#{hash_string}") do
+        {:ok, nil} ->
+          ""
+
+        {:ok, consumer_group_id} ->
+          "Drilldown-#{hash_string}" <> "-" <> consumer_group_id
+      end
+    end
   end
 
-  defp create_drilldown_topics(worker_name) do
-    KafkaEx.create_topics(
-      [
-        %{
-          topic: Config.topic_sols(),
-          num_partitions: Config.partitions(),
-          replication_factor: Config.replication(),
-          replica_assignment: [],
-          config_entries: Config.topic_config()
-        },
-        %{
-          topic: Config.topic_sol_events(),
-          num_partitions: Config.partitions(),
-          replication_factor: Config.replication(),
-          replica_assignment: [],
-          config_entries: Config.topic_config()
-        }
-      ],
-      worker_name: worker_name,
-      timeout: 10_000
-    )
+  def fetch_deployment_cgid() do
+    case Redis.hash_get("dpcgid", "Deployment") do
+      {:ok, nil} ->
+        ""
+
+      {:ok, consumer_group_id} ->
+        "Deployment" <> "-" <> consumer_group_id
+    end
   end
 
-  defp consumer_group_name(name),
-    do: String.to_atom(name <> "Group")
+  def fetch_event_cgid(event_definition_id) do
+    case Redis.hash_get("ecgid", "EventDefinition-#{event_definition_id}") do
+      {:ok, nil} ->
+        ""
+
+      {:ok, consumer_group_id} ->
+        "EventDefinition-#{event_definition_id}" <> "-" <> consumer_group_id
+    end
+  end
 end

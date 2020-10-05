@@ -1,39 +1,19 @@
-defmodule CogyntWorkstationIngest.Servers.Startup do
+defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   @moduledoc """
-  Genserver Module that is used for tasks that need to run upon Application startup
+  Task to run needed logic for application startup
   """
-  use GenServer
+  use Task
+
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Servers.Caches.DeploymentConsumerRetryCache
 
-  # -------------------- #
-  # --- client calls --- #
-  # -------------------- #
-  def start_link do
-    GenServer.start_link(__MODULE__, [], name: __MODULE__)
+  def start_link(_arg \\ []) do
+    Task.start_link(__MODULE__, :run, [])
   end
 
-  # ------------------------ #
-  # --- server callbacks --- #
-  # ------------------------ #
-  @impl true
-  def init(_args) do
-    {:ok, %{}}
-  end
-
-  @impl true
-  def handle_info(:initialize_consumers, state) do
-    CogyntLogger.info("#{__MODULE__}", "Initializing Consumers")
-    initialize_consumers()
-    {:noreply, state}
-  end
-
-  # ----------------------- #
-  # --- private methods --- #
-  # ----------------------- #l
-  defp initialize_consumers() do
+  def run() do
     with :ok <- Application.ensure_started(:phoenix),
          :ok <- Application.ensure_started(:postgrex) do
       EventsContext.initalize_consumer_states()

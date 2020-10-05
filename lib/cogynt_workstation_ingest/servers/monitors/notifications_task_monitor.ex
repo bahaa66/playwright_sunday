@@ -36,23 +36,23 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
     new_state = Map.put(state, pid, %{id: notification_setting_id, type: :backfill})
 
-    case Redis.hash_get("task_statuses", "backfill_notifications", decode: true) do
+    case Redis.hash_get("ts", "bn", decode: true) do
       {:ok, nil} ->
         Redis.hash_set(
-          "task_statuses",
-          "backfill_notifications",
+          "ts",
+          "bn",
           [notification_setting_id]
         )
 
       {:ok, notification_setting_ids} ->
         Redis.hash_set(
-          "task_statuses",
-          "backfill_notifications",
+          "ts",
+          "bn",
           Enum.uniq(notification_setting_ids ++ [notification_setting_id])
         )
     end
 
-    Redis.key_pexpire("task_statuses", 30000)
+    Redis.key_pexpire("ts", 60000)
 
     Redis.publish_async("notification_settings_subscription", %{
       id: notification_setting_id,
@@ -68,23 +68,23 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
     new_state = Map.put(state, pid, %{id: notification_setting_id, type: :update})
 
-    case Redis.hash_get("task_statuses", "update_notifications", decode: true) do
+    case Redis.hash_get("ts", "un", decode: true) do
       {:ok, nil} ->
         Redis.hash_set(
-          "task_statuses",
-          "update_notifications",
+          "ts",
+          "un",
           [notification_setting_id]
         )
 
       {:ok, notification_setting_ids} ->
         Redis.hash_set(
-          "task_statuses",
-          "update_notifications",
+          "ts",
+          "un",
           Enum.uniq(notification_setting_ids ++ [notification_setting_id])
         )
     end
 
-    Redis.key_pexpire("task_statuses", 30000)
+    Redis.key_pexpire("ts", 60000)
 
     Redis.publish_async("notification_settings_subscription", %{
       id: notification_setting_id,
@@ -100,23 +100,23 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
     new_state = Map.put(state, pid, %{id: notification_setting_id, type: :delete})
 
-    case Redis.hash_get("task_statuses", "delete_notifications", decode: true) do
+    case Redis.hash_get("ts", "dn", decode: true) do
       {:ok, nil} ->
         Redis.hash_set(
-          "task_statuses",
-          "delete_notifications",
+          "ts",
+          "dn",
           [notification_setting_id]
         )
 
       {:ok, notification_setting_ids} ->
         Redis.hash_set(
-          "task_statuses",
-          "delete_notifications",
+          "ts",
+          "dn",
           Enum.uniq(notification_setting_ids ++ [notification_setting_id])
         )
     end
 
-    Redis.key_pexpire("task_statuses", 30000)
+    Redis.key_pexpire("ts", 60000)
 
     Redis.publish_async("notification_settings_subscription", %{
       id: notification_setting_id,
@@ -187,7 +187,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
           end)
         end
 
-        case Redis.hash_get("task_statuses", "backfill_notifications", decode: true) do
+        case Redis.hash_get("ts", "bn", decode: true) do
           {:ok, nil} ->
             nil
 
@@ -196,8 +196,8 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
               List.delete(notification_setting_ids, notification_setting_id)
 
             Redis.hash_set(
-              "task_statuses",
-              "backfill_notifications",
+              "ts",
+              "bn",
               notification_setting_ids
             )
         end
@@ -245,7 +245,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
           end)
         end
 
-        case Redis.hash_get("task_statuses", "update_notifications", decode: true) do
+        case Redis.hash_get("ts", "un", decode: true) do
           {:ok, nil} ->
             nil
 
@@ -254,8 +254,8 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
               List.delete(notification_setting_ids, notification_setting_id)
 
             Redis.hash_set(
-              "task_statuses",
-              "update_notifications",
+              "ts",
+              "un",
               notification_setting_ids
             )
         end
@@ -303,7 +303,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
           end)
         end
 
-        case Redis.hash_get("task_statuses", "delete_notifications", decode: true) do
+        case Redis.hash_get("ts", "dn", decode: true) do
           {:ok, nil} ->
             nil
 
@@ -312,14 +312,14 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
               List.delete(notification_setting_ids, notification_setting_id)
 
             Redis.hash_set(
-              "task_statuses",
-              "delete_notifications",
+              "ts",
+              "dn",
               notification_setting_ids
             )
         end
     end
 
-    Redis.key_pexpire("task_statuses", 30000)
+    Redis.key_pexpire("ts", 60000)
 
     Redis.publish_async("notification_settings_subscription", %{
       id: notification_setting_id,

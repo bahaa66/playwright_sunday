@@ -37,10 +37,10 @@ defmodule CogyntWorkstationIngest.Servers.EventDefinitionTaskMonitor do
     new_state = Map.put(state, pid, event_definition_ids)
 
     Enum.each(event_definition_ids, fn event_definition_id ->
-      Redis.hash_set("task_statuses", event_definition_id, true)
+      Redis.hash_set("ts", event_definition_id, true)
     end)
 
-    Redis.key_pexpire("task_statuses", 30000)
+    Redis.key_pexpire("ts", 60000)
 
     # TODO: implement handler for this on cogynt-otp
     Redis.publish_async("event_definitions_subscription", %{
@@ -57,8 +57,8 @@ defmodule CogyntWorkstationIngest.Servers.EventDefinitionTaskMonitor do
 
     new_state = Map.put(state, pid, event_definition_id)
 
-    Redis.hash_set("task_statuses", event_definition_id, true)
-    Redis.key_pexpire("task_statuses", 30000)
+    Redis.hash_set("ts", event_definition_id, true)
+    Redis.key_pexpire("ts", 60000)
 
     # TODO: implement handler for this on cogynt-otp
     Redis.publish_async("event_definitions_subscription", %{
@@ -77,7 +77,7 @@ defmodule CogyntWorkstationIngest.Servers.EventDefinitionTaskMonitor do
 
     if is_list(val) do
       Enum.each(val, fn event_definition_id ->
-        Redis.hash_delete("task_statuses", event_definition_id)
+        Redis.hash_delete("ts", event_definition_id)
       end)
 
       # TODO: implement handler for this on cogynt-otp
@@ -88,7 +88,7 @@ defmodule CogyntWorkstationIngest.Servers.EventDefinitionTaskMonitor do
 
       {:noreply, Map.delete(state, pid)}
     else
-      Redis.hash_delete("task_statuses", val)
+      Redis.hash_delete("ts", val)
 
       # TODO: implement handler for this on cogynt-otp
       Redis.publish_async("event_definitions_subscription", %{

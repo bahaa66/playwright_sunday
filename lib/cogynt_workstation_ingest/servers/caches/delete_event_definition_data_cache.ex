@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DeleteEventDefinitionDataCache 
   is finished processing all data for a given EventDefinitionId
   """
   use GenServer
-  alias CogyntWorkstationIngest.Supervisors.TaskSupervisor
+  alias CogyntWorkstationIngest.Supervisors.DynamicTaskSupervisor
 
   # -------------------- #
   # --- client calls --- #
@@ -56,7 +56,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.DeleteEventDefinitionDataCache 
       %{status: status, hard_delete: delete} = ed ->
         cond do
           status == :waiting and new_status == :ready ->
-            TaskSupervisor.start_child(%{
+            DynamicTaskSupervisor.start_child(%{
               delete_event_definitions_and_topics: %{
                 event_definition_ids: [event_definition_id],
                 hard_delete: delete,
