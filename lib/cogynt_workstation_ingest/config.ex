@@ -65,7 +65,7 @@ defmodule CogyntWorkstationIngest.Config do
 
   defp startup(), do: Application.get_env(:cogynt_workstation_ingest, :startup)
 
-  defp elasticsearch(), do: Application.get_env(:elasticsearch, :config)
+  defp elasticsearch(), do: Application.get_env(:elasticsearch, :application)
 
   defp clients(), do: Application.get_env(:cogynt_workstation_ingest, :clients)
 end

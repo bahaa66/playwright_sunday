@@ -44,7 +44,7 @@ config :kafka, :application,
   session_timeout: (System.get_env("SESSION_TIMEOUT") || "10000") |> String.to_integer()
 
 # Elasticsearch configurations
-config :elasticsearch, :config,
+config :elasticsearch, :application,
   certfile: System.get_env("ELASTIC_CERT_PATH") || "",
   host: System.get_env("ELASTIC_URL") || "http://localhost:9200",
   username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",

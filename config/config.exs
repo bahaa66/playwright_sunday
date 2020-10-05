@@ -25,7 +25,7 @@ config :kafka, :application,
   deployment_topic: "deployment"
 
 # Elasticsearch Configurations
-config :elasticsearch, :config,
+config :elasticsearch, :application,
   event_index_alias: "event",
   risk_history_index_alias: "risk_history",
   retry_on_conflict: 5,
