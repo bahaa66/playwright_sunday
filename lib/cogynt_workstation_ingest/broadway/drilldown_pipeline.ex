@@ -98,7 +98,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
           )
 
           data = Map.put(data, :retry_count, new_retry_count)
-          message = 
+          message =
             Map.put(message, :data, data)
             |> Map.drop([:status, :acknowledger])
 
