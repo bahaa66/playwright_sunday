@@ -2,9 +2,6 @@ defmodule LivenessCheck do
   import Plug.Conn
   alias CogyntWorkstationIngest.Config
 
-  @path "/_cluster/health?wait_for_status=green&timeout=10s"
-  @index_path "/_cluster/health/"
-  @index_params "?wait_for_status=green&timeout=10s"
   @type options :: [resp_body: String.t()]
 
   @resp_body "Server's Up!"
@@ -17,52 +14,17 @@ defmodule LivenessCheck do
 
   @spec call(Plug.Conn.t(), options) :: Plug.Conn.t()
   def call(%Plug.Conn{} = conn, _opts) do
-    if elasticsearch_health?() and kafka_health?() and postgres_health?() and redis_health?() and
-         elasticsearch_index_health?(Config.event_index_alias()) and
-         elasticsearch_index_health?(Config.risk_history_index_alias()) do
+    {_, cluster_health} = Elasticsearch.cluster_health?()
+    {_, event_index_health} = Elasticsearch.index_health?(Config.event_index_alias())
+
+    {_, risk_history_index_health} =
+      Elasticsearch.index_health?(Config.risk_history_index_alias())
+
+    if cluster_health and kafka_health?() and postgres_health?() and redis_health?() and
+      event_index_health and risk_history_index_health do
       send_resp(conn, 200, @resp_body)
     else
       send_resp(conn, 500, @resp_body_error)
-    end
-  end
-
-  defp elasticsearch_health?() do
-    elastic_health_url = "#{Config.elasticsearch_host()}#{@path}"
-
-    case HTTPoison.get(elastic_health_url) do
-      {:ok, %HTTPoison.Response{status_code: 200, body: _body}} ->
-        true
-
-      {:ok, %HTTPoison.Response{status_code: 404}} ->
-        false
-
-      {:error, _error} ->
-        false
-    end
-  end
-
-  defp elasticsearch_index_health?(index) do
-    elastic_health_url = "#{Config.elasticsearch_host()}#{@index_path}#{index}#{@index_params}"
-
-    case HTTPoison.get(elastic_health_url) do
-      {:ok, %HTTPoison.Response{status_code: 200, body: _body}} ->
-        true
-
-      {:ok, %HTTPoison.Response{status_code: 404}} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Elasticsearch Healthcheck failed with status_code 404 response"
-        )
-
-        false
-
-      {:error, error} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Elasticsearch Healthcheck failed with Error: #{inspect(error)}"
-        )
-
-        false
     end
   end
 
@@ -71,6 +33,7 @@ defmodule LivenessCheck do
       case Kafka.Api.Topic.list_topics() do
         {:ok, _result} ->
           true
+
         _ ->
           false
       end
