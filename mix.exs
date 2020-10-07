@@ -85,7 +85,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :elasticsearch,
-        #tag: "v1.8.3-beta",
+        #tag: "v1.8.9-beta",
         branch: "feature/CDST-720-redefine-event-index",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",

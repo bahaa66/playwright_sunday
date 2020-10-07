@@ -45,12 +45,12 @@ config :kafka, :application,
 
 # Elasticsearch configurations
 config :elasticsearch, :application,
-  certfile: System.get_env("ELASTIC_CERT_PATH") || "",
+  cacertfile: System.get_env("ELASTIC_CA_CERT_PATH") || "",
   host: System.get_env("ELASTIC_URL") || "http://localhost:9200",
   username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",
   password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
-  shards: System.get_env("ELASTIC_SHARDS") || 1,
-  replicas: System.get_env("ELASTIC_REPLICAS") || 0
+  shards: (System.get_env("ELASTIC_SHARDS") || "1") |> String.to_integer(),
+  replicas: (System.get_env("ELASTIC_REPLICAS") || "0") |> String.to_integer()
 
 # Redis configurations
 config :redis, :application,
