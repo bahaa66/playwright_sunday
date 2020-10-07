@@ -1,3 +1,10 @@
+## [1.14.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.13.0...v1.14.0) (2020-10-07)
+
+
+### :sparkles: Feature
+
+* **elastic:** elasticsearch livenesschecks ([4fcbfcb](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/4fcbfcbe87be82b4200e7395a1bd436a4a23d026))
+
 ## [1.13.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.12.0...v1.13.0) (2020-10-05)
 
 
