@@ -64,21 +64,24 @@ defmodule CogyntWorkstationIngest.MixProject do
        override: true},
       {
         :models,
-        tag: "v1.8.0",
+        # tag: "v1.8.0",
+        branch: "feature/CDST-732-system-notifications-2.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.8.0",
+        # tag: "v1.8.0",
+        branch: "feature/CDST-732-system-notifications-2.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
       },
       {
         :utils,
-        tag: "v1.8.0",
+        #  tag: "v1.8.0",
+        branch: "feature/CDST-732-system-notifications-2.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "utils",
         override: true
