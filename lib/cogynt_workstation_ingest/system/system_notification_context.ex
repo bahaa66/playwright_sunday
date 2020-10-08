@@ -3,7 +3,8 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
   The SystemNotificationContext: public interface for systen_notification related functionality.
   """
 
-  alias Models.System.{NotificationDetails, SystemNotificationDetails, SystemNotification}
+  alias Models.Enums.SystemNotificationTypeIds
+  alias Models.System.{SystemNotificationDetails, SystemNotification}
   alias CogyntWorkstationIngest.Repo
   import Ecto.Query
 
@@ -24,7 +25,7 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
       |> build_system_notifications()
 
     Repo.insert_all(SystemNotification, notifications,
-      returning: [:id, :created_at, :updated_at, :assigned_to, :message, :title, :type, :details]
+      returning: [:id, :created_at, :updated_at, :assigned_to, :details]
     )
   end
 
@@ -92,28 +93,21 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
         Enum.reduce(notifications, [], fn notification, acc ->
           case !is_nil(notification.assigned_to) and is_nil(notification.deleted_at) do
             true ->
-              notification_details = %NotificationDetails{
+              system_notification_details = %SystemNotificationDetails{
                 notification_id: notification.id,
                 event_id: notification.event_id
               }
 
-              system_notification_details = %SystemNotificationDetails{
-                notification: notification_details
-              }
-
-              title = "Notificaition Assignment."
-              message = "#{notification.title} is now assigned to you."
-
               acc ++
                 [
                   %{
-                    title: title,
-                    message: message,
-                    type: :info,
                     assigned_to: notification.assigned_to,
                     details: system_notification_details,
                     created_at: DateTime.truncate(DateTime.utc_now(), :second),
-                    updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                    updated_at: DateTime.truncate(DateTime.utc_now(), :second),
+                    system_notification_type_id:
+                      SystemNotificationTypeIds.BulkNotificationAssignment.value(),
+                    custom: %{}
                   }
                 ]
 
