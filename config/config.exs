@@ -26,6 +26,9 @@ config :kafka, :application,
 
 # Elasticsearch Configurations
 config :elasticsearch, :application,
+  elasticsearch_client: Elasticsearch,
+  http_client: HTTPoison,
+  event_index_alias: "event",
   event_index_alias: "event",
   risk_history_index_alias: "risk_history",
   retry_on_conflict: 5,
