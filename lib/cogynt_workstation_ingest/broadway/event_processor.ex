@@ -238,11 +238,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     # Build elasticsearch documents
     elasticsearch_event_doc =
       if action != @delete do
+        doc_event_details =
+          Enum.filter(event_details, fn event_detail ->
+            not Enum.member?(@elastic_blacklist, event_detail.field_name)
+          end)
+
         case EventDocumentBuilder.build_document(
                event_id,
                core_id,
                event_definition_id,
-               event_details,
+               doc_event_details,
                published_at
              ) do
           {:ok, event_doc} ->
