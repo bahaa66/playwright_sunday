@@ -60,7 +60,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:kafka,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "kafka",
-       tag: "v1.8.5-beta",
+       tag: "v1.9.2-beta",
        override: true},
       {
         :models,
@@ -88,7 +88,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :elasticsearch,
-        tag: "v1.8.9-beta",
+        tag: "v1.9.3-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
         override: true
