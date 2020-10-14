@@ -1,3 +1,10 @@
+## [1.12.0-develop.5](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.12.0-develop.4...v1.12.0-develop.5) (2020-10-14)
+
+
+### :sparkles: Feature
+
+* **elastic:** basic auth ([62716d0](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/62716d0c534a1e15551635ccffa9f5cce1bfeca5))
+
 ## [1.12.0-develop.4](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.12.0-develop.3...v1.12.0-develop.4) (2020-10-07)
 
 
