@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
   alias Models.Enums.SystemNotificationTypeIds
   alias Models.System.{SystemNotificationDetails, SystemNotification}
   alias CogyntWorkstationIngest.Repo
-  import Ecto.Query
 
   # ------------------------------------------ #
   # --- System Notification Schema Nethods --- #
