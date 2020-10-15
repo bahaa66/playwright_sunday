@@ -1,0 +1,3 @@
+defmodule Cogynt.Repo.Migrations.AddSystemNotificationEntitiesView do
+  use Migrations.CreateSytemNotificationEntityView
+end
