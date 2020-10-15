@@ -8,7 +8,6 @@ defmodule CogyntWorkstationIngest.Application do
 
   Protocol.derive(Jason.Encoder, Broadway.Message,
     only: [
-      :acknowledger,
       :batch_key,
       :batch_mode,
       :batcher,

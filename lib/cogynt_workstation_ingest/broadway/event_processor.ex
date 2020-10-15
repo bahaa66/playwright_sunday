@@ -476,8 +476,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           "#{__MODULE__}",
           "event has CRUD key but missing `id` field. Throwing away record. #{
             inspect(event, pretty: true)
-          }",
-          true
+          }"
         )
 
         {:error, nil}
