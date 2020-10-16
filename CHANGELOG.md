@@ -1,3 +1,10 @@
+## [1.12.0-develop.6](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.12.0-develop.5...v1.12.0-develop.6) (2020-10-15)
+
+
+### :sparkles: Feature
+
+* **CDST-732 System Nots 2.0:** Merge pull request [#138](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/138) from Cogility/feature/CDST-732-system-notifications-2.0 ([c2ed6d6](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/c2ed6d6d428f22c49ed51fed3d40d2e1c62899e1))
+
 ## [1.12.0-develop.5](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.12.0-develop.4...v1.12.0-develop.5) (2020-10-14)
 
 
