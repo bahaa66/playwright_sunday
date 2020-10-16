@@ -1,3 +1,10 @@
+## [1.12.0-develop.7](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.12.0-develop.6...v1.12.0-develop.7) (2020-10-16)
+
+
+### :sparkles: Feature
+
+* **CDST-736 Sys Not Configs:** Merge pull request [#139](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/139) from Cogility/feature/CDST-736-system-notification-configs ([46a2a2f](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/46a2a2fe924b99f9ae1f42d4a3d7296e8adf23e5))
+
 ## [1.12.0-develop.6](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.12.0-develop.5...v1.12.0-develop.6) (2020-10-15)
 
 
