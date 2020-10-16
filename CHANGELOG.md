@@ -1,3 +1,13 @@
+## [1.15.0-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.14.0...v1.15.0-develop.1) (2020-10-16)
+
+
+### :sparkles: Feature
+
+* **CDST-732 System Nots 2.0:** Merge pull request [#138](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/138) from Cogility/feature/CDST-732-system-notifications-2.0 ([c2ed6d6](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/c2ed6d6d428f22c49ed51fed3d40d2e1c62899e1))
+* **CDST-736 Sys Not Configs:** Merge pull request [#139](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/139) from Cogility/feature/CDST-736-system-notification-configs ([46a2a2f](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/46a2a2fe924b99f9ae1f42d4a3d7296e8adf23e5))
+* **elastic:** basic auth ([62716d0](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/62716d0c534a1e15551635ccffa9f5cce1bfeca5))
+* **elastic:** elasticsearch livenesschecks ([b5b441f](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/b5b441f8916cf72d2e47791e7908817978c4c003))
+
 ## [1.12.0-develop.7](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.12.0-develop.6...v1.12.0-develop.7) (2020-10-16)
 
 
