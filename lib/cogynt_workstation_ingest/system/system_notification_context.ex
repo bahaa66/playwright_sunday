@@ -3,9 +3,10 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
   The SystemNotificationContext: public interface for systen_notification related functionality.
   """
 
-  alias Models.System.{NotificationDetails, SystemNotificationDetails, SystemNotification}
-  alias CogyntWorkstationIngest.Repo
   import Ecto.Query
+  alias Models.Enums.SystemNotificationTypeIds
+  alias Models.System.{SystemNotificationConfiguration, SystemNotificationDetails, SystemNotification}
+  alias CogyntWorkstationIngest.Repo
 
   # ------------------------------------------ #
   # --- System Notification Schema Nethods --- #
@@ -21,10 +22,10 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
   def bulk_insert_system_notifications(notifications) when is_list(notifications) do
     notifications =
       notifications
-      |> build_system_notifications()
+      |> build_system_notifications(SystemNotificationTypeIds.BulkNotificationAssignment.value())
 
     Repo.insert_all(SystemNotification, notifications,
-      returning: [:id, :created_at, :updated_at, :assigned_to, :message, :title, :type, :details]
+      returning: [:id, :created_at, :updated_at, :assigned_to, :details]
     )
   end
 
@@ -39,38 +40,26 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
   def bulk_update_system_notifications(notifications) do
     case Enum.empty?(notifications) do
       false ->
-        deleted_notification_ids =
+        deleted_notifications =
           notifications
           |> Enum.reduce([], fn notification, acc ->
             if !is_nil(notification.deleted_at) do
-              [notification.id | acc]
+              [notification | acc]
             else
               acc
             end
           end)
 
-        case Enum.empty?(deleted_notification_ids) do
+        case Enum.empty?(deleted_notifications) do
           false ->
-            query =
-              from(sn in SystemNotification,
-                where:
-                  fragment(
-                    """
-                    ?->?->>? = ANY(?)
-                    """,
-                    sn.details,
-                    ^"notification",
-                    ^"notification_id",
-                    ^deleted_notification_ids
-                  )
+            deleted_notifications =
+              deleted_notifications
+              |> build_system_notifications(
+                SystemNotificationTypeIds.BulkNotificationRetraction.value()
               )
 
-            Repo.update_all(query,
-              set: [
-                title: "Notification Retracted",
-                message: "One of your notifications has been retracted and no longer relevant.",
-                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-              ]
+            Repo.insert_all(SystemNotification, deleted_notifications,
+              returning: [:id, :created_at, :updated_at, :assigned_to, :details]
             )
 
           true ->
@@ -82,48 +71,67 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
     end
   end
 
+  @doc """
+  Gets a single SystemNotificationConfiguration from the database
+  ## Examples
+      iex> get_system_notification_config_by(user_id: "d99f475b-1ad0-439b-958b-00f4af258995")
+      %SystemNotificationConfiguration{}
+      iex> get_system_notification_config_by(system_notification_type_id: 55)
+      nil
+  """
+  def get_system_notification_config_by(clauses),
+    do: Repo.get_by(from(c in SystemNotificationConfiguration), clauses)
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
 
-  defp build_system_notifications(notifications) do
+  defp build_system_notifications(notifications, type_id) do
     case Enum.empty?(notifications) do
       false ->
-        Enum.reduce(notifications, [], fn notification, acc ->
-          case !is_nil(notification.assigned_to) and is_nil(notification.deleted_at) do
-            true ->
-              notification_details = %NotificationDetails{
-                notification_id: notification.id,
-                event_id: notification.event_id
-              }
+        Enum.group_by(notifications, &Map.get(&1, :assigned_to))
+        |> Enum.reduce([], fn
+          {nil, _notifications}, a ->
+            a
 
-              system_notification_details = %SystemNotificationDetails{
-                notification: notification_details
-              }
+          {user_id, notifications}, a ->
+            if should_create_system_notification?(type_id, user_id) do
+              Enum.reduce(notifications, a, fn notification, acc ->
+                if is_nil(notification.deleted_at) do
+                    system_notification_details = %SystemNotificationDetails{
+                      notification_id: notification.id,
+                      event_id: notification.event_id
+                    }
 
-              title = "Notificaition Assignment."
-              message = "#{notification.title} is now assigned to you."
+                    acc ++
+                      [
+                        %{
+                          assigned_to: notification.assigned_to,
+                          details: system_notification_details,
+                          created_at: DateTime.truncate(DateTime.utc_now(), :second),
+                          updated_at: DateTime.truncate(DateTime.utc_now(), :second),
+                          system_notification_type_id: type_id,
+                          custom: %{}
+                        }
+                      ]
 
-              acc ++
-                [
-                  %{
-                    title: title,
-                    message: message,
-                    type: :info,
-                    assigned_to: notification.assigned_to,
-                    details: system_notification_details,
-                    created_at: DateTime.truncate(DateTime.utc_now(), :second),
-                    updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-                  }
-                ]
-
-            false ->
-              acc
-          end
+                    else
+                    acc
+                end
+              end)
+            else
+              a
+            end
         end)
-
       true ->
         []
     end
+  end
+
+  defp should_create_system_notification?(system_notification_type_id, assigned_to) do
+    get_system_notification_config_by(
+      system_notification_type_id: system_notification_type_id,
+      user_id: assigned_to
+    )
   end
 end
