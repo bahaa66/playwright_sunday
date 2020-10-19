@@ -16,7 +16,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @delete Application.get_env(:cogynt_workstation_ingest, :core_keys)[:delete]
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
   @lexicons Application.get_env(:cogynt_workstation_ingest, :core_keys)[:lexicons]
-  @elastic_blacklist [@entities, @crud, @partial, @risk_score]
 
   @doc """
   Requires :event_definition_id field in the data map. Will get the latest EventDefinition
@@ -246,6 +245,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         case EventDocumentBuilder.build_document(
                event_id,
                core_id,
+               event_definition.title,
                event_definition_id,
                doc_event_details,
                published_at
