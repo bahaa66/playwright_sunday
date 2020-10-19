@@ -240,7 +240,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       if action != @delete do
         doc_event_details =
           Enum.filter(event_details, fn event_detail ->
-            not Enum.member?(@elastic_blacklist, event_detail.field_name)
+            not is_nil(event_detail.field_type)
           end)
 
         case EventDocumentBuilder.build_document(
