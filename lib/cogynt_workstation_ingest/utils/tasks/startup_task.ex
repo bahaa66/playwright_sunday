@@ -3,11 +3,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   Task to run needed logic for application startup
   """
   use Task
-
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngest.Servers.Caches.DeploymentConsumerRetryCache
 
   def start_link(_arg \\ []) do
     Task.start_link(__MODULE__, :run, [])
@@ -21,8 +20,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
 
       case ConsumerGroupSupervisor.start_child(:deployment) do
         {:error, nil} ->
-          CogyntLogger.warn("#{__MODULE__}", "Deployment Topic DNE. Adding to RetryCache")
-          DeploymentConsumerRetryCache.retry_consumer(:deployment)
+          CogyntLogger.warn("#{__MODULE__}", "Deployment topic DNE. Will retry to create consumer...")
+          Redis.hash_set_async("crw", Config.deployment_topic(), "dp")
 
         _ ->
           CogyntLogger.info("#{__MODULE__}", "Started Deployment Stream")

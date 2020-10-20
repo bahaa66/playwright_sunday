@@ -8,7 +8,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   alias CogyntWorkstationIngest.Servers.ConsumerMonitor
 
   alias CogyntWorkstationIngest.Servers.Caches.{
-    ConsumerRetryCache,
     DeleteEventDefinitionDataCache
   }
 
@@ -144,7 +143,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   end
 
   def get_consumer_state(event_definition_id) do
-    case Redis.hash_get("cs:#{event_definition_id}", "cs", decode: true) do
+    case Redis.hash_get("cs:#{event_definition_id}", "cs") do
       {:ok, nil} ->
         {:ok, @default_state}
 
@@ -161,6 +160,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
     Redis.hash_delete("ecgid", "EventDefinition-#{event_definition_id}")
     Redis.hash_delete("ts", event_definition_id)
+    Redis.hash_delete("crw", event_definition_id)
   end
 
   def finished_processing?(event_definition_id) do
@@ -227,7 +227,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 false ->
                   case ConsumerGroupSupervisor.start_child(event_definition) do
                     {:error, nil} ->
-                      ConsumerRetryCache.retry_consumer(event_definition)
+                      Redis.hash_set_async("crw", event_definition.id, "et")
 
                       upsert_consumer_state(
                         event_definition.id,
@@ -318,12 +318,13 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
               %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
 
             consumer_state.status == ConsumerStatusTypeEnum.status()[:topic_does_not_exist] ->
+              Redis.hash_set_async("crw", event_definition.id, "et")
               %{response: {:ok, consumer_state.status}}
 
             true ->
               case ConsumerGroupSupervisor.start_child(event_definition) do
                 {:error, nil} ->
-                  ConsumerRetryCache.retry_consumer(event_definition)
+                  Redis.hash_set_async("crw", event_definition.id, "et")
 
                   upsert_consumer_state(
                     event_definition.id,
@@ -573,7 +574,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                   "Triggering backfill notifications task: #{inspect(notification_setting_id)}"
                 )
 
-                DynamicTaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+                DynamicTaskSupervisor.start_child(%{
+                  backfill_notifications: notification_setting_id
+                })
               end
 
               upsert_consumer_state(
@@ -599,7 +602,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     "Triggering backfill notifications task: #{inspect(notification_setting_id)}"
                   )
 
-                  DynamicTaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
+                  DynamicTaskSupervisor.start_child(%{
+                    backfill_notifications: notification_setting_id
+                  })
 
                   upsert_consumer_state(
                     event_definition_id,
@@ -974,7 +979,10 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
             %{response: {:error, consumer_state.status}}
 
           true ->
-            DynamicTaskSupervisor.start_child(%{delete_event_definition_events: event_definition_id})
+            DynamicTaskSupervisor.start_child(%{
+              delete_event_definition_events: event_definition_id
+            })
+
             %{response: {:ok, :success}}
         end
 
