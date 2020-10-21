@@ -51,18 +51,11 @@ config :cogynt_workstation_ingest, :core_keys,
   delete: "delete",
   create: "create"
 
-# Cache Configurations
 config :cogynt_workstation_ingest, :failed_messages,
   retry_timer: 600_000,
   max_retry: 144
 
-config :cogynt_workstation_ingest, :consumer_retry_cache,
-  time_delay: 600_000,
-  max_retry: 144
-
-config :cogynt_workstation_ingest, :deployment_retry_cache,
-  time_delay: 30_000,
-  max_retry: 2880
+config :cogynt_workstation_ingest, :consumer_retry_worker, retry_timer: 30_000
 
 # Configures Elixir's Logger
 config :logger, :console,
