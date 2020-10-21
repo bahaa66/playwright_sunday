@@ -52,8 +52,6 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
         )
     end
 
-    Redis.key_pexpire("ts", 60000)
-
     Redis.publish_async("notification_settings_subscription", %{
       id: notification_setting_id,
       status: "running"
@@ -84,8 +82,6 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
         )
     end
 
-    Redis.key_pexpire("ts", 60000)
-
     Redis.publish_async("notification_settings_subscription", %{
       id: notification_setting_id,
       status: "running"
@@ -115,8 +111,6 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
           Enum.uniq(notification_setting_ids ++ [notification_setting_id])
         )
     end
-
-    Redis.key_pexpire("ts", 60000)
 
     Redis.publish_async("notification_settings_subscription", %{
       id: notification_setting_id,
@@ -318,8 +312,6 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
             )
         end
     end
-
-    Redis.key_pexpire("ts", 60000)
 
     Redis.publish_async("notification_settings_subscription", %{
       id: notification_setting_id,
