@@ -6,11 +6,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
   alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, DynamicTaskSupervisor}
   alias CogyntWorkstationIngest.Servers.ConsumerMonitor
-
-  alias CogyntWorkstationIngest.Servers.Caches.{
-    DeleteEventDefinitionDataCache
-  }
-
+  alias CogyntWorkstationIngest.Servers.Workers.DeleteDataWorker
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
 
@@ -60,7 +56,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           status: status
         })
 
-        update_delete_event_definition_data_cache(event_definition_id, status)
+        update_delete_data_worker_status(event_definition_id, status)
 
         {:ok, :success}
 
@@ -136,7 +132,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           status: consumer_state.status
         })
 
-        update_delete_event_definition_data_cache(event_definition_id, consumer_state.status)
+        update_delete_data_worker_status(event_definition_id, consumer_state.status)
 
         {:ok, :success}
     end
@@ -1052,55 +1048,22 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   end
 
   defp is_event_definition_being_deleted?(event_definition_id) do
-    {:ok, deletion_pending} =
-      case DeleteEventDefinitionDataCache.get_status(event_definition_id) do
-        nil ->
-          {:ok, false}
+    {:ok, deployment_status} = Redis.hash_get("ts", "dptr")
+    {:ok, event_definition_status} = Redis.hash_get("ts", event_definition_id)
 
-        %{status: :waiting} ->
-          {:ok, true}
-
-        _ ->
-          {:ok, false}
-      end
-
-    {:ok, deployment_status} =
-      case Redis.hash_get("ts", "dptr") do
-        {:ok, nil} ->
-          {:ok, false}
-
-        {:ok, status} ->
-          {:ok, status}
-      end
-
-    {:ok, event_definition_status} =
-      case Redis.hash_get("ts", event_definition_id) do
-        {:ok, nil} ->
-          {:ok, false}
-
-        {:ok, status} ->
-          {:ok, status}
-      end
-
-    deployment_status or event_definition_status or deletion_pending
+    not is_nil(deployment_status) or not is_nil(event_definition_status)
   end
 
-  defp update_delete_event_definition_data_cache(event_definition_id, new_status) do
-    case DeleteEventDefinitionDataCache.get_status(event_definition_id) do
-      nil ->
-        nil
+  defp update_delete_data_worker_status(event_definition_id, new_status) do
+    {status_code, result} = Redis.hash_get("ts", event_definition_id)
 
-      _ ->
-        cond do
-          new_status == ConsumerStatusTypeEnum.status()[:paused_and_processing] or
-              new_status == ConsumerStatusTypeEnum.status()[:running] ->
-            nil
-
-          true ->
-            DeleteEventDefinitionDataCache.upsert_status(event_definition_id,
-              status: :ready
-            )
-        end
+    if status_code == :error or is_nil(result) or
+         new_status == ConsumerStatusTypeEnum.status()[:paused_and_processing] or
+         new_status == ConsumerStatusTypeEnum.status()[:running] do
+      # Nothing to update
+      nil
+    else
+      DeleteDataWorker.upsert_status(event_definition_id, status: "ready")
     end
   end
 end

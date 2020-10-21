@@ -5,10 +5,12 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   use Supervisor
 
   alias CogyntWorkstationIngest.Servers.Caches.{
-    DeleteEventDefinitionDataCache,
     FailedMessagesRetryCache
   }
-  alias CogyntWorkstationIngest.Servers.Workers.ConsumerRetryWorker
+  alias CogyntWorkstationIngest.Servers.Workers.{
+    ConsumerRetryWorker,
+    DeleteDataWorker
+  }
   alias CogyntWorkstationIngest.Servers.PubSub.{
     IngestPubSub
   }
@@ -28,7 +30,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
 
     children = [
       child_spec(ConsumerRetryWorker),
-      child_spec(DeleteEventDefinitionDataCache),
+      child_spec(DeleteDataWorker),
       child_spec(FailedMessagesRetryCache),
       child_spec(ConsumerMonitor, restart: :permanent),
       child_spec(NotificationsTaskMonitor, restart: :permanent),
