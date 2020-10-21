@@ -5,7 +5,13 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
 
   import Ecto.Query
   alias Models.Enums.SystemNotificationTypeIds
-  alias Models.System.{SystemNotificationConfiguration, SystemNotificationDetails, SystemNotification}
+
+  alias Models.System.{
+    SystemNotificationConfiguration,
+    SystemNotificationDetails,
+    SystemNotification
+  }
+
   alias CogyntWorkstationIngest.Repo
 
   # ------------------------------------------ #
@@ -82,6 +88,30 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
   def get_system_notification_config_by(clauses),
     do: Repo.get_by(from(c in SystemNotificationConfiguration), clauses)
 
+  def system_notification_config_exists?(args) do
+    Enum.reduce(
+      args,
+      from(c in SystemNotificationConfiguration),
+      &parse_list_system_notification_configs_args(&2, &1)
+    )
+    |> Repo.exists?()
+  end
+
+  defp parse_list_system_notification_configs_args(query, {:filter, filter}) do
+    Enum.reduce(filter, query, &parse_list_system_notification_configs_filters(&2, &1))
+  end
+
+  defp parse_list_system_notification_configs_filters(query, {:user_id, user_id}) do
+    where(query, [c], c.user_id == ^user_id)
+  end
+
+  defp parse_list_system_notification_configs_filters(
+         query,
+         {:system_notification_type_id, system_notification_type_id}
+       ) do
+    where(query, [c], c.system_notification_type_id == ^system_notification_type_id)
+  end
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
@@ -98,40 +128,42 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
             if should_create_system_notification?(type_id, user_id) do
               Enum.reduce(notifications, a, fn notification, acc ->
                 if is_nil(notification.deleted_at) do
-                    system_notification_details = %SystemNotificationDetails{
-                      notification_id: notification.id,
-                      event_id: notification.event_id
-                    }
+                  system_notification_details = %SystemNotificationDetails{
+                    notification_id: notification.id,
+                    event_id: notification.event_id
+                  }
 
-                    acc ++
-                      [
-                        %{
-                          assigned_to: notification.assigned_to,
-                          details: system_notification_details,
-                          created_at: DateTime.truncate(DateTime.utc_now(), :second),
-                          updated_at: DateTime.truncate(DateTime.utc_now(), :second),
-                          system_notification_type_id: type_id,
-                          custom: %{}
-                        }
-                      ]
-
-                    else
-                    acc
+                  acc ++
+                    [
+                      %{
+                        assigned_to: notification.assigned_to,
+                        details: system_notification_details,
+                        created_at: DateTime.truncate(DateTime.utc_now(), :second),
+                        updated_at: DateTime.truncate(DateTime.utc_now(), :second),
+                        system_notification_type_id: type_id,
+                        custom: %{}
+                      }
+                    ]
+                else
+                  acc
                 end
               end)
             else
               a
             end
         end)
+
       true ->
         []
     end
   end
 
   defp should_create_system_notification?(system_notification_type_id, assigned_to) do
-    get_system_notification_config_by(
-      system_notification_type_id: system_notification_type_id,
-      user_id: assigned_to
-    )
+    not system_notification_config_exists?(%{
+      filter: %{
+        user_id: assigned_to,
+        system_notification_type_id: system_notification_type_id
+      }
+    })
   end
 end
