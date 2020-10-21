@@ -158,6 +158,9 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
     end
   end
 
+  # The presence of a system notification config for a user indicates that the user has
+  # turned off the setting. This allows the default of new settings to be "on" for all
+  # users.
   defp should_create_system_notification?(system_notification_type_id, assigned_to) do
     not system_notification_config_exists?(%{
       filter: %{
