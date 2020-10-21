@@ -30,7 +30,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
       )
 
       # First stop the consumer
-      ConsumerStateManager.manage_request(%{stop_consumer: event_definition_id})
+      Redis.publish_async("ingest_channel", %{stop_consumer: EventsContext.remove_event_definition_virtual_fields(event_definition)})
 
       # Second soft delete_event_definition_event_detail_templates_data˝
       EventsContext.delete_event_definition_event_detail_templates_data(event_definition)

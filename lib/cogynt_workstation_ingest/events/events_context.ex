@@ -703,9 +703,11 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       )
 
     Enum.each(event_definitions, fn event_definition ->
-      ConsumerStateManager.manage_request(%{
+      Redis.publish_async("ingest_channel", %{
         start_consumer: remove_event_definition_virtual_fields(event_definition)
       })
+
+      CogyntLogger.info("#{__MODULE__}", "Consumer Started for Id: #{event_definition.id}")
     end)
 
     # Fetch all EventDefinitions and check if they were in the middle of
@@ -755,7 +757,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
               "Initalizing delete notifications task: #{inspect(notification_setting_id)}"
             )
 
-            DynamicTaskSupervisor.start_child(%{delete_notification_setting: notification_setting_id})
+            DynamicTaskSupervisor.start_child(%{
+              delete_notification_setting: notification_setting_id
+            })
           end)
 
         true ->

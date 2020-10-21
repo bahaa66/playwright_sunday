@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.Servers.Workers.ConsumerRetryWorker do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias Models.Events.EventDefinition
 
   # -------------------- #
@@ -63,9 +62,11 @@ defmodule CogyntWorkstationIngest.Servers.Workers.ConsumerRetryWorker do
            EventsContext.get_event_definition(event_definition_id),
          true <- is_nil(event_definition.deleted_at),
          true <- event_definition.active do
-      ed = EventsContext.remove_event_definition_virtual_fields(event_definition)
       Redis.hash_delete("crw", event_definition_id)
-      ConsumerStateManager.manage_request(%{start_consumer: ed})
+
+      Redis.publish_async("ingest_channel", %{
+        start_consumer: EventsContext.remove_event_definition_virtual_fields(event_definition)
+      })
     else
       false ->
         Redis.hash_delete("crw", event_definition_id)
@@ -73,6 +74,8 @@ defmodule CogyntWorkstationIngest.Servers.Workers.ConsumerRetryWorker do
   end
 
   defp start_deployment_consumer(topic) do
+    # TODO: This needs to call a Redis Pub/Sub method in order to ensure this
+    # Pipeline is started on multiple pods
     case ConsumerGroupSupervisor.start_child(String.to_atom(topic)) do
       {:error, nil} ->
         CogyntLogger.warn(

@@ -82,7 +82,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
           "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
         )
 
-        ConsumerStateManager.manage_request(%{stop_consumer: event_definition.id})
+        ConsumerStateManager.manage_request(%{stop_consumer: event_definition})
 
       {:ok, %{backfill_notifications: notification_setting_id} = request} ->
         CogyntLogger.info(

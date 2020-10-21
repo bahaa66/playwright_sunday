@@ -256,7 +256,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def drilldown_consumer_running?(deployment \\ %Deployment{}) do
+  # TODO: move *_pipeline_running?() methods to another module
+  def drilldown_pipeline_running?(deployment \\ %Deployment{}) do
     case deployment do
       %Deployment{id: nil} ->
         consumer_group_id = fetch_drilldown_cgid()
@@ -286,7 +287,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def event_consumer_running?(event_definition_id) do
+  def event_pipeline_running?(event_definition_id) do
     consumer_group_id = fetch_event_cgid(event_definition_id)
     child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
 
@@ -299,7 +300,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def deployment_consumer_running?() do
+  def deployment_pipeline_running?() do
     consumer_group_id = fetch_deployment_cgid()
     child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
 
@@ -312,6 +313,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
+  # TODO: move fetch_*_cgid() methods to another module
   def fetch_drilldown_cgid(deployment_id \\ nil) do
     if is_nil(deployment_id) do
       case Redis.hash_get("dcgid", "Drilldown") do

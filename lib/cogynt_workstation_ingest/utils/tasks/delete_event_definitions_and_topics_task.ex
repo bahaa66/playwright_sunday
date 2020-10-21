@@ -56,8 +56,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
           "#{__MODULE__}",
           "Stoping ConsumerGroup for #{event_definition.topic}"
         )
-
-        ConsumerStateManager.manage_request(%{stop_consumer: event_definition.id})
+        Redis.publish_async("ingest_channel", %{stop_consumer: EventsContext.remove_event_definition_virtual_fields(event_definition)})
 
         # Second check to see if the topic needs to be deleted
         if delete_topics do

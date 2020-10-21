@@ -154,7 +154,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
                 EventsContext.get_event_definition(notification_setting.event_definition_id)
                 |> EventsContext.remove_event_definition_virtual_fields()
 
-              ConsumerStateManager.manage_request(%{start_consumer: event_definition_map})
+              Redis.publish_async("ingest_channel", %{start_consumer: event_definition_map})
 
             true ->
               ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
@@ -212,7 +212,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
                 EventsContext.get_event_definition(notification_setting.event_definition_id)
                 |> EventsContext.remove_event_definition_virtual_fields()
 
-              ConsumerStateManager.manage_request(%{start_consumer: event_definition_map})
+              Redis.publish_async("ingest_channel", %{start_consumer: event_definition_map})
 
             true ->
               ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
@@ -270,7 +270,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
                 EventsContext.get_event_definition(notification_setting.event_definition_id)
                 |> EventsContext.remove_event_definition_virtual_fields()
 
-              ConsumerStateManager.manage_request(%{start_consumer: event_definition_map})
+              Redis.publish_async("ingest_channel", %{start_consumer: event_definition_map})
 
             true ->
               ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,

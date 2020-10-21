@@ -178,8 +178,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         {:start_consumer, event_definition}, _acc ->
           start_consumer(event_definition)
 
-        {:stop_consumer, event_definition_id}, _acc ->
-          stop_consumer(event_definition_id)
+        {:stop_consumer, event_definition}, _acc ->
+          stop_consumer(event_definition)
 
         {:backfill_notifications, notification_setting_id}, _acc ->
           backfill_notifications(notification_setting_id)
@@ -216,7 +216,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
           cond do
             consumer_state.status == ConsumerStatusTypeEnum.status()[:running] ->
-              case ConsumerGroupSupervisor.event_consumer_running?(event_definition.id) do
+              case ConsumerGroupSupervisor.event_pipeline_running?(event_definition.id) do
                 true ->
                   %{response: {:ok, consumer_state.status}}
 
@@ -387,26 +387,49 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
-  defp stop_consumer(event_definition_id) do
+  defp stop_consumer(event_definition) do
     try do
-      event_definition = EventsContext.get_event_definition(event_definition_id)
-
-      {:ok, consumer_state} = get_consumer_state(event_definition_id)
+      {:ok, consumer_state} = get_consumer_state(event_definition.id)
 
       cond do
         consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] ->
           handle_unknown_status(event_definition.id)
 
-        consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
-          %{response: {:ok, consumer_state.status}}
+        consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_processing] or
+            consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
+          case ConsumerGroupSupervisor.event_pipeline_running?(event_definition.id) do
+            true ->
+              ConsumerGroupSupervisor.stop_child(event_definition.id)
 
-        consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
-          %{response: {:ok, consumer_state.status}}
+              consumer_status =
+                case finished_processing?(event_definition.id) do
+                  {:ok, true} ->
+                    ConsumerStatusTypeEnum.status()[:paused_and_finished]
+
+                  {:ok, false} ->
+                    ConsumerStatusTypeEnum.status()[:paused_and_processing]
+                end
+
+              upsert_consumer_state(
+                event_definition.id,
+                topic: event_definition.topic,
+                status: consumer_status,
+                prev_status: consumer_state.status,
+                backfill_notifications: consumer_state.backfill_notifications,
+                update_notifications: consumer_state.update_notifications,
+                delete_notifications: consumer_state.delete_notifications
+              )
+
+              %{response: {:ok, consumer_status}}
+
+            false ->
+              %{response: {:ok, consumer_state.status}}
+          end
 
         consumer_state.status ==
             ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
           consumer_status =
-            case finished_processing?(event_definition_id) do
+            case finished_processing?(event_definition.id) do
               {:ok, true} ->
                 ConsumerStatusTypeEnum.status()[:paused_and_finished]
 
@@ -415,7 +438,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
             end
 
           upsert_consumer_state(
-            event_definition_id,
+            event_definition.id,
             topic: event_definition.topic,
             status: consumer_state.status,
             prev_status: consumer_status,
@@ -429,7 +452,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         consumer_state.status ==
             ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
           consumer_status =
-            case finished_processing?(event_definition_id) do
+            case finished_processing?(event_definition.id) do
               {:ok, true} ->
                 ConsumerStatusTypeEnum.status()[:paused_and_finished]
 
@@ -438,7 +461,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
             end
 
           upsert_consumer_state(
-            event_definition_id,
+            event_definition.id,
             topic: event_definition.topic,
             status: consumer_state.status,
             prev_status: consumer_status,
@@ -452,7 +475,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         consumer_state.status ==
             ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
           consumer_status =
-            case finished_processing?(event_definition_id) do
+            case finished_processing?(event_definition.id) do
               {:ok, true} ->
                 ConsumerStatusTypeEnum.status()[:paused_and_finished]
 
@@ -461,7 +484,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
             end
 
           upsert_consumer_state(
-            event_definition_id,
+            event_definition.id,
             topic: event_definition.topic,
             status: consumer_state.status,
             prev_status: consumer_status,
@@ -473,10 +496,10 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           %{response: {:ok, consumer_state.status}}
 
         true ->
-          ConsumerGroupSupervisor.stop_child(event_definition_id)
+          ConsumerGroupSupervisor.stop_child(event_definition.id)
 
           consumer_status =
-            case finished_processing?(event_definition_id) do
+            case finished_processing?(event_definition.id) do
               {:ok, true} ->
                 ConsumerStatusTypeEnum.status()[:paused_and_finished]
 
@@ -485,7 +508,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
             end
 
           upsert_consumer_state(
-            event_definition_id,
+            event_definition.id,
             topic: event_definition.topic,
             status: consumer_status,
             prev_status: consumer_state.status,
@@ -503,10 +526,11 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           "stop_consumer/1 failed with error: #{inspect(error, pretty: true)}"
         )
 
-        internal_error_state(event_definition_id)
+        internal_error_state(event_definition.id)
     end
   end
 
+  # TODO: Check against "ts" Redis key before kicking off a backfill task
   defp backfill_notifications(notification_setting_id) do
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
@@ -656,6 +680,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
+  # TODO: Check against "ts" Redis key before kicking off a update task
   defp update_notifications(notification_setting_id) do
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
@@ -803,6 +828,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
+  # TODO: Check against "ts" Redis key before kicking off a backfill task
   defp delete_notifications(notification_setting_id) do
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
@@ -950,6 +976,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
+  # TODO: Check against "ts" Redis key before kicking off a delete events task
   defp delete_events(event_definition_id) do
     case is_event_definition_being_deleted?(event_definition_id) do
       false ->
@@ -1001,15 +1028,13 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
 
     # check if there is a consumer running
-    if ConsumerGroupSupervisor.event_consumer_running?(event_definition_id) do
+    if ConsumerGroupSupervisor.event_pipeline_running?(event_definition_id) do
       # Stop Consumer
       ConsumerGroupSupervisor.stop_child(event_definition_id)
     end
 
-    # remove any redis data
+    # remove the ConsumerStatus Redis key
     Redis.key_delete("cs:#{event_definition_id}")
-
-    # TODO: need to check if paused_and_processing ?
 
     # set the consumer status
     upsert_consumer_state(event_definition_id,

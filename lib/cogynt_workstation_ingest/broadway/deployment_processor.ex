@@ -5,9 +5,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
 
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-
   alias Models.Deployments.Deployment
   alias Models.Enums.DeploymentStatusTypeEnum
   alias Models.Events.EventDefinition
@@ -75,7 +73,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
         # If they are in the list make sure to update the DeploymentStatus if it needs to be changed
         Enum.each(current_event_definitions, fn %EventDefinition{
                                                   deployment_status: deployment_status,
-                                                  id: event_definition_id,
                                                   authoring_event_definition_id:
                                                     authoring_event_definition_id
                                                 } = current_event_definition ->
@@ -97,19 +94,22 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
                 deployment_status: DeploymentStatusTypeEnum.status()[:inactive]
               })
 
-              ConsumerStateManager.manage_request(%{
-                stop_consumer: event_definition_id
+              Redis.publish_async("ingest_channel", %{
+                stop_consumer:
+                  EventsContext.remove_event_definition_virtual_fields(current_event_definition)
               })
           end
         end)
 
         # Start Drilldown Consumer for Deployment
-        if not ConsumerGroupSupervisor.drilldown_consumer_running?(deployment) do
+        if not ConsumerGroupSupervisor.drilldown_pipeline_running?(deployment) do
           CogyntLogger.info(
             "#{__MODULE__}",
             "Starting Drilldown ConsumerGroup for deplpoyment_id: #{deployment.id}"
           )
 
+          # TODO: This needs to call a Redis Pub/Sub method in order to ensure this
+          # Pipeline is started on multiple pods
           ConsumerGroupSupervisor.start_child(:drilldown, deployment)
         end
 

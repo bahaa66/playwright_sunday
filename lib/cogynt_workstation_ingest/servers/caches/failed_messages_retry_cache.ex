@@ -2,6 +2,7 @@ defmodule CogyntWorkstationIngest.Servers.Caches.FailedMessagesRetryCache do
   @moduledoc """
   Module that will poll the failed pipeline messages from Redis and republish them back to each pipeline
   """
+  # TODO: move this module to the Workers folder and rename to FailedMessageRetryWorker
   use GenServer
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor

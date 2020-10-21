@@ -7,7 +7,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, DynamicTaskSupervisor}
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask
 
   alias Models.Events.EventDefinition
@@ -36,6 +35,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
 
     CogyntLogger.info("#{__MODULE__}", "Stoping the Deployment ConsumerGroup")
     # Second stop the consumerGroup for the deployment topic
+    # TODO: This needs to call a Redis Pub/Sub method in order to ensure this
+    # Pipeline is started on multiple pods
     ConsumerGroupSupervisor.stop_child(:deployment)
 
     CogyntLogger.info(
@@ -55,16 +56,17 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
     event_definitions = EventsContext.list_event_definitions()
 
     Enum.each(event_definitions, fn %EventDefinition{
-                                      id: event_definition_id,
                                       topic: topic,
                                       deployment_id: deployment_id
-                                    } ->
+                                    } = event_definition ->
       CogyntLogger.info(
         "#{__MODULE__}",
         "Stoping ConsumerGroup for #{topic}, Deployment_id: #{deployment_id}"
       )
 
-      ConsumerStateManager.manage_request(%{stop_consumer: event_definition_id})
+      Redis.publish_async("ingest_channel", %{
+        stop_consumer: EventsContext.remove_event_definition_virtual_fields(event_definition)
+      })
 
       # Delete topic data
       CogyntLogger.info(
@@ -100,6 +102,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
 
     CogyntLogger.info("#{__MODULE__}", "Starting the Deployment ConsumerGroup")
 
+    # TODO: This needs to call a Redis Pub/Sub method in order to ensure this
+    # Pipeline is started on multiple pods
     case ConsumerGroupSupervisor.start_child(:deployment) do
       {:error, nil} ->
         CogyntLogger.warn(

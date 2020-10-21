@@ -13,25 +13,21 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   end
 
   def run() do
-    with :ok <- Application.ensure_started(:phoenix),
-         :ok <- Application.ensure_started(:postgrex) do
-      EventsContext.initalize_consumer_states()
-      CogyntLogger.info("#{__MODULE__}", "Consumers Initialized")
+    EventsContext.initalize_consumer_states()
 
-      case ConsumerGroupSupervisor.start_child(:deployment) do
-        {:error, nil} ->
-          CogyntLogger.warn("#{__MODULE__}", "Deployment topic DNE. Will retry to create consumer...")
-          Redis.hash_set_async("crw", Config.deployment_topic(), "dp")
-
-        _ ->
-          CogyntLogger.info("#{__MODULE__}", "Started Deployment Stream")
-      end
-    else
-      {:error, error} ->
-        CogyntLogger.error(
+    # TODO: This needs to call a Redis Pub/Sub method in order to ensure this
+    # Pipeline is started on multiple pods
+    case ConsumerGroupSupervisor.start_child(:deployment) do
+      {:error, nil} ->
+        CogyntLogger.warn(
           "#{__MODULE__}",
-          "CogyntWorkstationIngest Application not started. #{inspect(error, pretty: true)}"
+          "Deployment topic DNE. Will retry to create consumer..."
         )
+
+        Redis.hash_set_async("crw", Config.deployment_topic(), "dp")
+
+      _ ->
+        CogyntLogger.info("#{__MODULE__}", "Started Deployment Stream")
     end
 
     case DeploymentsContext.list_deployments() do
@@ -45,6 +41,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
             "Starting DrilldownConsumer for Deplpoyment_ID: #{deployment.id}"
           )
 
+          # TODO: This needs to call a Redis Pub/Sub method in order to ensure this
+          # Pipeline is started on multiple pods
           ConsumerGroupSupervisor.start_child(:drilldown, deployment)
         end)
     end

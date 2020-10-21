@@ -33,6 +33,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
 
     Enum.each(deployments, fn %Deployment{id: id} = deployment ->
       CogyntLogger.info("#{__MODULE__}", "Stoping the Drilldown ConsumerGroup's")
+      # TODO: This needs to call a Redis Pub/Sub method in order to ensure this
+      # Pipeline is started on multiple pods
       ConsumerGroupSupervisor.stop_child(:drilldown, deployment)
 
       {:ok, brokers} = DeploymentsContext.get_kafka_brokers(id)
@@ -75,6 +77,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
         "Starting Drilldown ConsumerGroup for DeploymentID: #{deployment.id}"
       )
 
+      # TODO: This needs to call a Redis Pub/Sub method in order to ensure this
+      # Pipeline is started on multiple pods
       ConsumerGroupSupervisor.start_child(:drilldown, deployment)
     else
       case finished_processing?(hashed_brokers) do
@@ -86,6 +90,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
             "Starting Drilldown ConsumerGroup for DeploymentID: #{deployment.id}"
           )
 
+          # TODO: This needs to call a Redis Pub/Sub method in order to ensure this
+          # Pipeline is started on multiple pods
           ConsumerGroupSupervisor.start_child(:drilldown, deployment)
 
         _ ->

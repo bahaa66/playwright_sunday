@@ -65,11 +65,6 @@ defmodule CogyntWorkstationIngest.Servers.Workers.DeleteDataWorker do
             {:noreply, state}
 
           true ->
-            Redis.hash_set_async("ts", event_definition_id, %{
-              status: new_status,
-              hard_delete: hard_delete
-            })
-
             {:noreply, state}
         end
 
