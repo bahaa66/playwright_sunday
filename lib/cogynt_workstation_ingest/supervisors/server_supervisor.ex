@@ -5,16 +5,15 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   use Supervisor
 
   alias CogyntWorkstationIngest.Servers.Caches.{
-    ConsumerRetryCache,
-    DeploymentConsumerRetryCache,
-    DeleteEventDefinitionDataCache,
     FailedMessagesRetryCache
   }
-
+  alias CogyntWorkstationIngest.Servers.Workers.{
+    ConsumerRetryWorker,
+    DeleteDataWorker
+  }
   alias CogyntWorkstationIngest.Servers.PubSub.{
     IngestPubSub
   }
-
   alias CogyntWorkstationIngest.Servers.{
     ConsumerMonitor,
     NotificationsTaskMonitor
@@ -30,9 +29,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
     {:ok, pubsub} = Redis.pub_sub_start()
 
     children = [
-      child_spec(ConsumerRetryCache),
-      child_spec(DeploymentConsumerRetryCache),
-      child_spec(DeleteEventDefinitionDataCache),
+      child_spec(ConsumerRetryWorker),
+      child_spec(DeleteDataWorker),
       child_spec(FailedMessagesRetryCache),
       child_spec(ConsumerMonitor, restart: :permanent),
       child_spec(NotificationsTaskMonitor, restart: :permanent),

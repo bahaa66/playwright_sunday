@@ -9,7 +9,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Collections.CollectionsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
-  alias CogyntWorkstationIngest.Servers.Caches.DeleteEventDefinitionDataCache
+  alias CogyntWorkstationIngest.Servers.Workers.DeleteDataWorker
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
 
   alias Models.Events.EventDefinition
@@ -91,7 +91,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
                   "Messages still processing. Will finish DevDelete when they are flushed from pipeline"
                 )
 
-                DeleteEventDefinitionDataCache.upsert_status(event_definition.id,
+                DeleteDataWorker.upsert_status(event_definition.id,
                   status: :waiting,
                   hard_delete: hard_delete_event_definitions
                 )
@@ -108,7 +108,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
               "Messages still processing. Will finish DevDelete when they are flushed from pipeline"
             )
 
-            DeleteEventDefinitionDataCache.upsert_status(event_definition.id,
+            DeleteDataWorker.upsert_status(event_definition.id,
               status: :waiting,
               hard_delete: hard_delete_event_definitions
             )
@@ -190,7 +190,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
         EventsContext.hard_delete_event_definition(event_definition)
 
       ConsumerStateManager.remove_consumer_state(event_definition.id)
-      DeleteEventDefinitionDataCache.remove_status(event_definition.id)
 
       Redis.publish_async(
         "event_definitions_subscription",
@@ -202,7 +201,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
            }) do
         {:ok, %EventDefinition{} = updated_event_definition} ->
           ConsumerStateManager.remove_consumer_state(event_definition.id)
-          DeleteEventDefinitionDataCache.remove_status(event_definition.id)
 
           Redis.publish_async(
             "event_definitions_subscription",

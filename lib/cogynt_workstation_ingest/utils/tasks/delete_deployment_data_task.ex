@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
   use Task
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, DynamicTaskSupervisor}
-  alias CogyntWorkstationIngest.Servers.Caches.DeploymentConsumerRetryCache
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask
@@ -97,6 +96,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
     DeploymentsContext.hard_delete_deployments()
     Redis.key_delete("dpcgid")
     Redis.key_delete("fdpm")
+    Redis.hash_delete("crw", Config.deployment_topic())
 
     CogyntLogger.info("#{__MODULE__}", "Starting the Deployment ConsumerGroup")
 
@@ -107,7 +107,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
           "Deployment Topic DNE. Adding to retry cache. Will reconnect once topic is created"
         )
 
-        DeploymentConsumerRetryCache.retry_consumer(:deployment)
+        Redis.hash_set_async("crw", Config.deployment_topic(), "dp")
 
       _ ->
         CogyntLogger.info("#{__MODULE__}", "Started Deployment Stream")
