@@ -110,8 +110,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
     message
     |> DeploymentProcessor.process_deployment_message()
 
-    {:ok, _tmp} = Redis.hash_increment_by("dpmi", "tmp", 1)
-
+    Redis.hash_increment_by("dpmi", "tmp", 1)
     message
   end
 end

@@ -9,8 +9,9 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
   @doc """
   process_template_data/1
   """
-  def process_template_data(%Message{data: nil}) do
-    raise "process_template_data/1 failed. No message data"
+  def process_template_data(%Message{data: nil} = message) do
+    CogyntLogger.warn("#{__MODULE__}", "process_template_data/1 failed. No message data")
+    message
   end
 
   def process_template_data(%Message{data: %{event: event_message} = data} = message) do
@@ -51,8 +52,9 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownProcessor do
   upsert_template_solutions/1 passes the data map object to the DrilldownCache to
   have its state updated with the new data
   """
-  def upsert_template_solutions(%Message{data: nil}) do
-    raise "upsert_template_solutions/1 failed. No message data"
+  def upsert_template_solutions(%Message{data: nil} = message) do
+    CogyntLogger.warn("#{__MODULE__}", "upsert_template_solutions/1 failed. No message data")
+    message
   end
 
   def upsert_template_solutions(%Message{data: data} = message) do

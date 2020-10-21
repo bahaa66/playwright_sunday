@@ -234,6 +234,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       iex> process_notifications(%{field: bad_value})
       {:error, reason}
   """
+  # TODO: make this query more simple. Do not need to use streams and transactions
   def process_notifications(%{
         event_definition: event_definition,
         event_id: event_id,

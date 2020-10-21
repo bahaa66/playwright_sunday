@@ -123,8 +123,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
     |> DrilldownProcessor.process_template_data()
     |> DrilldownProcessor.upsert_template_solutions()
 
-    {:ok, _tmp} = Redis.hash_increment_by("dmi:#{group_id}", "tmp", 1)
-
+    Redis.hash_increment_by("dmi:#{group_id}", "tmp", 1)
     message
   end
 end

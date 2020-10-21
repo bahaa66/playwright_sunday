@@ -22,10 +22,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   Requires :event_definition_id field in the data map. Will get the latest EventDefinition
   to store and use for the pipeline.
   """
-  def fetch_event_definition(%Message{data: nil}) do
-    raise "fetch_event_definition/1 failed. No message data"
+  def fetch_event_definition(%Message{data: nil} = message) do
+    CogyntLogger.warn("#{__MODULE__}", "fetch_event_definition/1 failed. No message data")
+    message
   end
 
+  # TODO: Change this to be cached in Redis. Can update the EventDefinition Cache value
+  # in the DeploymentProcessor when an EventDefinition is being updated.
   def fetch_event_definition(
         %Message{data: %{event_definition_id: event_definition_id} = data} = message
       ) do
@@ -40,53 +43,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   @doc """
-  Requires event field in the data map. Based on the crud action value
-  process_event/1 will create a single Event record in the database that is assosciated with
-  the event_definition.id. It will also pull all the event_ids and doc_ids that need to be
+  Based on the crud action value, process_event/1 will create a single
+  Event record in the database that is assosciated with the event_definition_id.
+  It will also pull all the event_ids and elasticsearch document ids that need to be
   soft_deleted from the database and elasticsearch. The data map is updated with the :event_id,
   :delete_event_ids, :delete_docs fields.
   """
-  def process_event(%Message{data: nil}) do
-    raise "process_event/1 failed. No message data"
+  def process_event(%Message{data: nil} = message) do
+    CogyntLogger.warn("#{__MODULE__}", "process_event/1 failed. No message data")
+    message
   end
 
-  def process_event(%Message{data: %{event: %{@crud => action}, event_id: nil} = data} = message) do
-    {:ok,
-     %{
-       event_id: new_event_id,
-       delete_event_ids: delete_event_ids,
-       delete_doc_ids: delete_doc_ids
-     }} =
-      case action do
-        @delete ->
-          delete_event(data)
-
-        _ ->
-          create_or_update_event(data)
-      end
-
-    data =
-      Map.put(data, :event_id, new_event_id)
-      |> Map.put(:delete_event_ids, delete_event_ids)
-      |> Map.put(:delete_docs, delete_doc_ids)
-      |> Map.put(:crud_action, action)
-
-    Map.put(message, :data, data)
-  end
-
-  def process_event(
-        %Message{data: %{event: %{@crud => action}, event_id: event_id} = data} = message
-      ) do
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "deleting event for retry message: #{event_id}"
-    )
-
-    EventsContext.update_events(
-      %{filter: %{event_ids: [event_id]}},
-      set: [deleted_at: DateTime.truncate(DateTime.utc_now(), :second)]
-    )
-
+  def process_event(%Message{data: %{event: %{@crud => action}} = data} = message) do
     {:ok,
      %{
        event_id: new_event_id,
@@ -111,12 +79,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   @doc """
-  Requires event_definition field in the data map. process_event/1 will create a single Event
-  record in the database that is assosciated with the event_definition.id. The data map
+  process_event/1 will create a single Event record in the database
+  that is assosciated with the event_definition_id. The data map
   is updated with the :event_id returned from the database.
   """
   def process_event(
-        %Message{data: %{event: event, event_definition: event_definition, event_id: nil} = data} =
+        %Message{data: %{event: event, event_definition: event_definition} = data} =
           message
       ) do
     case EventsContext.create_event(%{
@@ -142,52 +110,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
-  def process_event(
-        %Message{
-          data: %{event: event, event_definition: event_definition, event_id: event_id} = data
-        } = message
-      ) do
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "deleting event for retry message: #{event_id}"
-    )
-
-    EventsContext.update_events(
-      %{filter: %{event_ids: [event_id]}},
-      set: [deleted_at: DateTime.truncate(DateTime.utc_now(), :second)]
-    )
-
-    case EventsContext.create_event(%{
-           event_definition_id: event_definition.id,
-           core_id: event["id"]
-         }) do
-      {:ok, %{id: event_id}} ->
-        data =
-          Map.put(data, :event_id, event_id)
-          |> Map.put(:delete_event_ids, nil)
-          |> Map.put(:delete_docs, nil)
-          |> Map.put(:crud_action, nil)
-
-        Map.put(message, :data, data)
-
-      {:error, reason} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "process_event/1 failed with reason: #{inspect(reason, pretty: true)}"
-        )
-
-        raise "process_event/1 failed"
-    end
-  end
-
   @doc """
-  Requires event, event_definition and event_id fields in the data map. Takes the
-  field_name and field_value fields from the event and creates a list of event_detail
+  Takes the field_name and field_value fields from the event and creates a list of event_detail
   maps. Also creates a list of elasticsearch docs. Returns an updated data map with
   the :event_details, :risk_history_doc and :event_docs values.
   """
-  def process_event_details_and_elasticsearch_docs(%Message{data: nil}) do
-    raise "process_event_details_and_elasticsearch_docs/1 failed. No message data"
+  def process_event_details_and_elasticsearch_docs(%Message{data: nil} = message) do
+    CogyntLogger.warn("#{__MODULE__}", "process_event_details_and_elasticsearch_docs/1 failed. No message data")
+    message
   end
 
   def process_event_details_and_elasticsearch_docs(%Message{data: %{event_id: nil}} = message),
@@ -292,14 +222,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   @doc """
-  Requires event, event_definition and event_id fields in the data map. process_notifications/1
-  will stream all notification_settings that are linked to the event_definition.id. On each
-  notification_setting returned it will build a notification map. Finally it will return a list
-  notification maps. Returns an updated data map with the field :notifications storing the list
-  of notification maps.
+  process_notifications/1 will stream all notification_settings that are linked to the
+  event_definition.id. On each notification_setting returned it will build a notification map.
+  Finally it will return a list notification maps. Returns an updated data map with the field
+  :notifications storing the list of notification maps.
   """
-  def process_notifications(%Message{data: nil}) do
-    raise "process_notifications/1 failed. No message data"
+  def process_notifications(%Message{data: nil} = message) do
+    CogyntLogger.warn("#{__MODULE__}", "process_notifications/1 failed. No message data")
+    message
   end
 
   def process_notifications(%Message{data: %{event_id: nil}} = message), do: message
@@ -337,26 +267,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
-  def process_notifications(
-        %Message{
-          data: %{
-            event: _event,
-            event_definition: _event_definition,
-            event_id: _event_id,
-            delete_event_ids: _delete_event_ids
-          }
-        } = message
-      ),
-      do: message
+  def process_notifications(%Message{} = message), do: message
 
   @doc """
-  Requires :event_details, :notifications, :event_docs, :risk_history_doc, :delete_event_ids, and :delete_docs
-  fields in the data map. Takes all the fields and executes them in one databse transaction. When
+  Takes all the fields and executes them in one databse transaction. When
   it finishes with no errors it will update the :event_processed key to have a value of true
   in the data map and return.
   """
-  def execute_transaction(%Message{data: nil}) do
-    raise "execute_transaction/1 failed. No message data"
+  def execute_transaction(%Message{data: nil} = message) do
+    CogyntLogger.warn("#{__MODULE__}", "execute_transaction/1 failed. No message data")
+    message
   end
 
   def execute_transaction(%Message{data: %{event_id: nil}} = message), do: message

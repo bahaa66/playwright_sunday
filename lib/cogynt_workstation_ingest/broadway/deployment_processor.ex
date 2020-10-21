@@ -16,8 +16,9 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   @doc """
   process_deployment_message/1
   """
-  def process_deployment_message(%Message{data: nil}) do
-    raise "process_deployment_message/1 failed. No message data"
+  def process_deployment_message(%Message{data: nil} = message) do
+    CogyntLogger.error("#{__MODULE__}", "Message data is nil. No data to process")
+    message
   end
 
   def process_deployment_message(
@@ -27,7 +28,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
       nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
-          "object_type key is missing from Deployment Stream message. #{
+          "`object_type` key is missing from Deployment Stream message. #{
             inspect(deployment_message, pretty: true)
           }"
         )

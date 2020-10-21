@@ -16,8 +16,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   Checks to make sure if a valid link event was passed through authoring. If incomplete data
   then :validated is set to false. Otherwise it is set to true.
   """
-  def validate_link_event(%Message{data: nil}) do
-    raise "validate_link_event/1 failed. No message data"
+  def validate_link_event(%Message{data: nil} = message) do
+    CogyntLogger.warn("#{__MODULE__}", "validate_link_event/1 failed. No message data")
+    message
   end
 
   def validate_link_event(%Message{data: %{event: event} = data} = message) do
@@ -53,8 +54,10 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   and pull out just the "id" fields. Ex: ${"locations" => [1, 2, 3], "accounts" => [5, 6]}. Will
   udpate the data map with a new :link_entities value storing the return value.
   """
-  def process_entities(%Message{data: nil}),
-    do: raise("process_entities/1 failed. No message data")
+  def process_entities(%Message{data: nil} = message) do
+    CogyntLogger.warn("#{__MODULE__}", "process_entities/1 failed. No message data")
+    message
+  end
 
   def process_entities(%Message{data: %{validated: false}} = message), do: message
   def process_entities(%Message{data: %{event_id: nil}} = message), do: message
@@ -91,8 +94,10 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   Requires :event_links fields in the data map. Takes all the fields and
   executes them in one databse transaction.
   """
-  def execute_transaction(%Message{data: nil}),
-    do: raise("execute_transaction/1 failed. No message data")
+  def execute_transaction(%Message{data: nil} = message) do
+    CogyntLogger.warn("#{__MODULE__}", "execute_transaction/1 failed. No message data")
+    message
+  end
 
   def execute_transaction(%Message{data: %{event_id: nil}} = message), do: message
 

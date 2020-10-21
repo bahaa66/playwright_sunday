@@ -77,7 +77,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         {:error, error} ->
           CogyntLogger.error(
             "#{__MODULE__}",
-            "Failed to decode Event Kafka message. Error: #{inspect(error)}"
+            "Failed to decode EventPipeline Kafka message. Error: #{inspect(error)}"
           )
 
           Map.put(message, :data, nil)
@@ -106,7 +106,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       Enum.reduce(messages, [], fn %Broadway.Message{
                                      data:
                                        %{
-                                         event_definition_id: event_definition_id,
+                                         event_definition_id: id,
                                          retry_count: retry_count
                                        } = data
                                    } = message,
@@ -116,7 +116,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
           CogyntLogger.warn(
             "#{__MODULE__}",
-            "Retrying Failed EventPipeline Message. EventDefinitionId: #{event_definition_id}. Attempt: #{
+            "Retrying Failed EventPipeline Message. EventDefinitionId: #{id}. Attempt: #{
               new_retry_count
             }"
           )
@@ -194,6 +194,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
        delete_notifications: delete_notifications
      }} = ConsumerStateManager.get_consumer_state(event_definition_id)
 
+    # If a backfill_notifications, update_notifications or delete_notifications task is triggered
+    # while the pipeline is ingesting or processing data. The consumer state manager will update
+    # its status to the corresponding task status. Once the pipeline finishes processing it will
+    # check here if any of those status were set. If so it will trigger the tasks for all the Ids
+    # stored in its corresponding consumer_status key.
     cond do
       status ==
           ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
@@ -226,14 +231,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         )
 
       true ->
-        nil
+        CogyntLogger.warn("#{__MODULE__}", "Unexpected ConsumerStatus: #{status} found when finished processing data")
     end
 
     Redis.publish_async("event_definitions_subscription", %{updated: event_definition_id})
 
     CogyntLogger.info(
       "#{__MODULE__}",
-      "Finished processing all messages for EventDefinitionId: #{event_definition_id}"
+      "EventPipeline finished processing messages for EventDefinitionId: #{event_definition_id}"
     )
   end
 end
