@@ -73,7 +73,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.ConsumerRetryWorker do
   end
 
   defp start_deployment_consumer(topic) do
-    case ConsumerGroupSupervisor.start_child(topic) do
+    case ConsumerGroupSupervisor.start_child(String.to_atom(topic)) do
       {:error, nil} ->
         CogyntLogger.warn(
           "#{__MODULE__}",
