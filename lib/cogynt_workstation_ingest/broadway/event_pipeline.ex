@@ -231,7 +231,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         )
 
       true ->
-        CogyntLogger.warn("#{__MODULE__}", "Unexpected ConsumerStatus: #{status} found when finished processing data")
+        nil
     end
 
     Redis.publish_async("event_definitions_subscription", %{updated: event_definition_id})
