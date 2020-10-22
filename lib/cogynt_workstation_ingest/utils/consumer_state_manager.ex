@@ -151,12 +151,18 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
-  def remove_consumer_state(event_definition_id) do
+  def remove_consumer_state(event_definition_id, opts \\ []) do
+    hard_delete_event_definition = Keyword.get(opts, :hard_delete_event_definition, false)
+
     for x <- ["fem", "emi", "cs"], do: Redis.key_delete("#{x}:#{event_definition_id}")
 
     Redis.hash_delete("ecgid", "EventDefinition-#{event_definition_id}")
     Redis.hash_delete("ts", event_definition_id)
     Redis.hash_delete("crw", event_definition_id)
+
+    if hard_delete_event_definition do
+      Redis.hash_delete("ed", event_definition_id)
+    end
   end
 
   def finished_processing?(event_definition_id) do
