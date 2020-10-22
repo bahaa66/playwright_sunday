@@ -321,4 +321,37 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
     new_state = Map.delete(state, pid)
     {:noreply, new_state}
   end
+
+  @doc false
+  def is_backfill_notifications_task_running?(notification_setting_id) do
+    {status_code, results} = Redis.hash_get("ts", "bn")
+
+    if status_code == :error or is_nil(results) do
+      false
+    else
+      Enum.member?(results, notification_setting_id)
+    end
+  end
+
+  @doc false
+  def is_update_notifications_task_running?(notification_setting_id) do
+    {status_code, results} = Redis.hash_get("ts", "un")
+
+    if status_code == :error or is_nil(results) do
+      false
+    else
+      Enum.member?(results, notification_setting_id)
+    end
+  end
+
+  @doc false
+  def is_delete_notifications_task_running?(notification_setting_id) do
+    {status_code, results} = Redis.hash_get("ts", "dn")
+
+    if status_code == :error or is_nil(results) do
+      false
+    else
+      Enum.member?(results, notification_setting_id)
+    end
+  end
 end

@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   """
   alias CogyntWorkstationIngest.Broadway.EventPipeline
   alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, DynamicTaskSupervisor}
-  alias CogyntWorkstationIngest.Servers.ConsumerMonitor
+  alias CogyntWorkstationIngest.Servers.{ConsumerMonitor, NotificationsTaskMonitor}
   alias CogyntWorkstationIngest.Servers.Workers.DeleteDataWorker
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
@@ -210,7 +210,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
   defp start_consumer(event_definition) do
     try do
-      case is_event_definition_being_deleted?(event_definition.id) do
+      case DeleteDataWorker.is_event_type_being_deleted?(event_definition.id) do
         false ->
           {:ok, consumer_state} = get_consumer_state(event_definition.id)
 
@@ -530,14 +530,16 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
-  # TODO: Check against "ts" Redis key before kicking off a backfill task
   defp backfill_notifications(notification_setting_id) do
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
     event_definition_id = notification_setting.event_definition_id
 
     try do
-      case is_event_definition_being_deleted?(event_definition_id) do
+      case DeleteDataWorker.is_event_type_being_deleted?(event_definition_id) and
+             NotificationsTaskMonitor.is_backfill_notifications_task_running?(
+               notification_setting_id
+             ) do
         false ->
           {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
@@ -664,7 +666,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         true ->
           CogyntLogger.warn(
             "#{__MODULE__}",
-            "Failed to run backfill_notifications/1. DevDelete task pending or running. Must to wait until it is finished"
+            "Failed to run backfill_notifications/1. DevDelete task pending/running or BackfillNotifications task already running. Must to wait until it is finished"
           )
 
           %{response: {:error, :internal_server_error}}
@@ -680,14 +682,16 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
-  # TODO: Check against "ts" Redis key before kicking off a update task
   defp update_notifications(notification_setting_id) do
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
     event_definition_id = notification_setting.event_definition_id
 
     try do
-      case is_event_definition_being_deleted?(event_definition_id) do
+      case DeleteDataWorker.is_event_type_being_deleted?(event_definition_id) and
+             NotificationsTaskMonitor.is_update_notifications_task_running?(
+               notification_setting_id
+             ) do
         false ->
           {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
@@ -828,14 +832,16 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
-  # TODO: Check against "ts" Redis key before kicking off a backfill task
   defp delete_notifications(notification_setting_id) do
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
     event_definition_id = notification_setting.event_definition_id
 
     try do
-      case is_event_definition_being_deleted?(event_definition_id) do
+      case DeleteDataWorker.is_event_type_being_deleted?(event_definition_id) and
+             NotificationsTaskMonitor.is_delete_notifications_task_running?(
+               notification_setting_id
+             ) do
         false ->
           {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
@@ -976,9 +982,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
-  # TODO: Check against "ts" Redis key before kicking off a delete events task
   defp delete_events(event_definition_id) do
-    case is_event_definition_being_deleted?(event_definition_id) do
+    case DeleteDataWorker.is_event_type_being_deleted?(event_definition_id) do
       false ->
         {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
@@ -1070,13 +1075,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
         %{response: {:error, :internal_server_error}}
     end
-  end
-
-  defp is_event_definition_being_deleted?(event_definition_id) do
-    {:ok, deployment_status} = Redis.hash_get("ts", "dptr")
-    {:ok, event_definition_status} = Redis.hash_get("ts", event_definition_id)
-
-    not is_nil(deployment_status) or not is_nil(event_definition_status)
   end
 
   defp update_delete_data_worker_status(event_definition_id, new_status) do

@@ -234,54 +234,46 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       iex> process_notifications(%{field: bad_value})
       {:error, reason}
   """
-  # TODO: make this query more simple. Do not need to use streams and transactions
   def process_notifications(%{
         event_definition: event_definition,
         event_id: event_id,
         risk_score: risk_score
       }) do
-    ns_query =
+    result =
       from(ns in NotificationSetting,
         where: ns.event_definition_id == type(^event_definition.id, :binary_id),
         where: ns.active == true and is_nil(ns.deleted_at)
       )
+      |> Repo.all()
+      |> Enum.map(fn ns ->
+        has_event_definition_detail =
+          Enum.find(event_definition.event_definition_details, fn
+            %{field_name: name} ->
+              name == ns.title
+          end) != nil
 
-    {status, result} =
-      Repo.transaction(fn ->
-        Repo.stream(ns_query)
-        |> Stream.map(fn ns ->
-          has_event_definition_detail =
-            Enum.find(event_definition.event_definition_details, fn
-              %{field_name: name} ->
-                name == ns.title
-            end) != nil
-
-          if in_risk_range?(risk_score, ns.risk_range) and has_event_definition_detail do
-            %{
-              event_id: event_id,
-              user_id: ns.user_id,
-              assigned_to: ns.assigned_to,
-              tag_id: ns.tag_id,
-              title: ns.title,
-              notification_setting_id: ns.id,
-              created_at: DateTime.truncate(DateTime.utc_now(), :second),
-              updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-            }
-          else
-            nil
-          end
-        end)
-        |> Enum.to_list()
-        |> Enum.filter(& &1)
-      end)
-
-    case status do
-      :ok ->
-        if Enum.empty?(result) do
-          {:ok, nil}
+        if in_risk_range?(risk_score, ns.risk_range) and has_event_definition_detail do
+          %{
+            event_id: event_id,
+            user_id: ns.user_id,
+            assigned_to: ns.assigned_to,
+            tag_id: ns.tag_id,
+            title: ns.title,
+            notification_setting_id: ns.id,
+            created_at: DateTime.truncate(DateTime.utc_now(), :second),
+            updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+          }
         else
-          {:ok, result}
+          nil
         end
+      end)
+      |> Enum.to_list()
+      |> Enum.filter(& &1)
+
+    if Enum.empty?(result) do
+      {:ok, nil}
+    else
+      {:ok, result}
     end
   end
 

@@ -117,7 +117,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
             "Starting DrilldownPipeline for Deplpoyment_Id: #{deployment.id}"
           )
 
-          Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment})
+          Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment.id})
         end)
     end
   end

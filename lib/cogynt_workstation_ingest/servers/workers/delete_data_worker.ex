@@ -79,4 +79,12 @@ defmodule CogyntWorkstationIngest.Servers.Workers.DeleteDataWorker do
         {:noreply, state}
     end
   end
+
+  @doc false
+  def is_event_type_being_deleted?(event_definition_id) do
+    {:ok, deployment_status} = Redis.hash_get("ts", "dptr")
+    {:ok, event_definition_status} = Redis.hash_get("ts", event_definition_id)
+
+    not is_nil(deployment_status) or not is_nil(event_definition_status)
+  end
 end

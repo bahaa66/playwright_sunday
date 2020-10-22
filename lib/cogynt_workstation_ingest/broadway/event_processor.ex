@@ -19,27 +19,32 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @elastic_blacklist [@entities, @crud, @partial, @risk_score]
 
   @doc """
-  Requires :event_definition_id field in the data map. Will get the latest EventDefinition
-  to store and use for the pipeline.
+   Will check Redis for cached EventDefinition for the event_definition_id. If Redis
+   cache is empty then it will fall back to PostgreSQL db.
   """
   def fetch_event_definition(%Message{data: nil} = message) do
     CogyntLogger.warn("#{__MODULE__}", "fetch_event_definition/1 failed. No message data")
     message
   end
 
-  # TODO: Change this to be cached in Redis. Can update the EventDefinition Cache value
-  # in the DeploymentProcessor when an EventDefinition is being updated.
   def fetch_event_definition(
         %Message{data: %{event_definition_id: event_definition_id} = data} = message
       ) do
-    event_definition_map =
-      EventsContext.get_event_definition(event_definition_id)
-      |> EventsContext.remove_event_definition_virtual_fields(
-        include_event_definition_details: true
-      )
+    {status_code, ed_result} = Redis.hash_get("ed", event_definition_id)
 
-    data = Map.put(data, :event_definition, event_definition_map)
-    Map.put(message, :data, data)
+    if status_code == :error or is_nil(ed_result) do
+      event_definition_map =
+        EventsContext.get_event_definition(event_definition_id)
+        |> EventsContext.remove_event_definition_virtual_fields(
+          include_event_definition_details: true
+        )
+
+      data = Map.put(data, :event_definition, event_definition_map)
+      Map.put(message, :data, data)
+    else
+      data = Map.put(data, :event_definition, ed_result)
+      Map.put(message, :data, data)
+    end
   end
 
   @doc """
@@ -84,8 +89,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   is updated with the :event_id returned from the database.
   """
   def process_event(
-        %Message{data: %{event: event, event_definition: event_definition} = data} =
-          message
+        %Message{data: %{event: event, event_definition: event_definition} = data} = message
       ) do
     case EventsContext.create_event(%{
            event_definition_id: event_definition.id,
@@ -116,7 +120,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   the :event_details, :risk_history_doc and :event_docs values.
   """
   def process_event_details_and_elasticsearch_docs(%Message{data: nil} = message) do
-    CogyntLogger.warn("#{__MODULE__}", "process_event_details_and_elasticsearch_docs/1 failed. No message data")
+    CogyntLogger.warn(
+      "#{__MODULE__}",
+      "process_event_details_and_elasticsearch_docs/1 failed. No message data"
+    )
+
     message
   end
 

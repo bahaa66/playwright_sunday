@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
   """
   use GenServer
   alias CogyntWorkstationIngest.Config
+  alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Supervisors.DynamicTaskSupervisor
@@ -78,13 +79,13 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
         ConsumerStateManager.manage_request(%{start_consumer: event_definition})
 
-      # TODO: figure out how to convert deployment
-      {:ok, %{start_drilldown_pipeline: deployment} = request} ->
+      {:ok, %{start_drilldown_pipeline: deployment_id} = request} ->
         CogyntLogger.info(
           "#{__MODULE__}",
           "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
         )
 
+        deployment = DeploymentsContext.get_deployment(deployment_id)
         ConsumerGroupSupervisor.start_child(:drilldown, deployment)
 
       {:ok, %{start_deployment_pipeline: _args} = request} ->
@@ -123,13 +124,13 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
         ConsumerGroupSupervisor.stop_child(:deployment)
 
-      # TODO: figure out how to structure deployment
-      {:ok, %{stop_drilldown_pipeline: deployment} = request} ->
+      {:ok, %{stop_drilldown_pipeline: deployment_id} = request} ->
         CogyntLogger.info(
           "#{__MODULE__}",
           "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
         )
 
+        deployment = DeploymentsContext.get_deployment(deployment_id)
         ConsumerGroupSupervisor.stop_child(:drilldown, deployment)
 
       {:ok, %{backfill_notifications: notification_setting_id} = request} ->

@@ -35,22 +35,30 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
 
       "event_type" ->
         # Temp Store id as `authoring_event_definition_id` until field can be removed
-        Map.put(deployment_message, :authoring_event_definition_id, deployment_message.id)
-        |> Map.put(:topic, deployment_message.filter)
-        |> Map.put(:title, deployment_message.name)
-        |> Map.put(
-          :manual_actions,
-          Map.get(deployment_message, :manualActions, nil)
-        )
-        |> Map.put_new_lazy(:event_type, fn ->
-          if is_nil(deployment_message.dsType) do
-            :none
-          else
-            deployment_message.dsType
-          end
-        end)
-        |> Map.drop([:id])
-        |> EventsContext.upsert_event_definition()
+        {:ok, %EventDefinition{} = ed_result} =
+          Map.put(deployment_message, :authoring_event_definition_id, deployment_message.id)
+          |> Map.put(:topic, deployment_message.filter)
+          |> Map.put(:title, deployment_message.name)
+          |> Map.put(
+            :manual_actions,
+            Map.get(deployment_message, :manualActions, nil)
+          )
+          |> Map.put_new_lazy(:event_type, fn ->
+            if is_nil(deployment_message.dsType) do
+              :none
+            else
+              deployment_message.dsType
+            end
+          end)
+          |> Map.drop([:id])
+          |> EventsContext.upsert_event_definition()
+
+        # Update the Redis cache with the latest EventDefinition value
+        event_definition_map =
+          EventsContext.remove_event_definition_virtual_fields(ed_result,
+            include_event_definition_details: true
+          )
+        Redis.hash_set_async("ed", event_definition_map.id, event_definition_map)
 
         message
 
@@ -108,7 +116,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
             "Starting Drilldown ConsumerGroup for deplpoyment_id: #{deployment.id}"
           )
 
-          Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment})
+          Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment.id})
         end
 
         message

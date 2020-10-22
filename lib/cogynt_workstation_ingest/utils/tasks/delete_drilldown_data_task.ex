@@ -74,7 +74,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
         "Starting Drilldown ConsumerGroup for DeploymentID: #{deployment.id}"
       )
 
-      Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment})
+      Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment.id})
     else
       case finished_processing?(hashed_brokers) do
         {:ok, true} ->
@@ -85,7 +85,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
             "Starting Drilldown ConsumerGroup for DeploymentID: #{deployment.id}"
           )
 
-          Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment})
+          Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment.id})
 
         _ ->
           CogyntLogger.warn(
