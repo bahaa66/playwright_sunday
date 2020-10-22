@@ -8,6 +8,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   alias Broadway.Message
   alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.Config
+  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Broadway.{EventProcessor, LinkEventProcessor}
 
@@ -179,6 +180,20 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     end
 
     message
+  end
+
+  @doc false
+  def event_pipeline_running?(event_definition_id) do
+    consumer_group_id = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
+    child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
+
+    case is_nil(child_pid) do
+      true ->
+        false
+
+      false ->
+        true
+    end
   end
 
   # ----------------------- #

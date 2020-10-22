@@ -3,7 +3,9 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
   """
   use GenServer
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
+  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Supervisors.DynamicTaskSupervisor
 
   # -------------------- #
@@ -76,6 +78,35 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
         ConsumerStateManager.manage_request(%{start_consumer: event_definition})
 
+      # TODO: figure out how to convert deployment
+      {:ok, %{start_drilldown_pipeline: deployment} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
+        ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+
+      {:ok, %{start_deployment_pipeline: _args} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
+        case ConsumerGroupSupervisor.start_child(:deployment) do
+          {:error, nil} ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Deployment Topic DNE. Adding to retry cache. Will reconnect once topic is created"
+            )
+
+            Redis.hash_set_async("crw", Config.deployment_topic(), "dp")
+
+          _ ->
+            Redis.hash_delete("crw", Config.deployment_topic())
+            CogyntLogger.info("#{__MODULE__}", "Started Deployment Pipeline")
+        end
+
       {:ok, %{stop_consumer: event_definition} = request} ->
         CogyntLogger.info(
           "#{__MODULE__}",
@@ -83,6 +114,23 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
         )
 
         ConsumerStateManager.manage_request(%{stop_consumer: event_definition})
+
+      {:ok, %{stop_deployment_pipeline: _args} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
+        ConsumerGroupSupervisor.stop_child(:deployment)
+
+      # TODO: figure out how to structure deployment
+      {:ok, %{stop_drilldown_pipeline: deployment} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
+        ConsumerGroupSupervisor.stop_child(:drilldown, deployment)
 
       {:ok, %{backfill_notifications: notification_setting_id} = request} ->
         CogyntLogger.info(

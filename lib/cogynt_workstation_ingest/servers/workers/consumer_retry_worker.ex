@@ -5,7 +5,6 @@ defmodule CogyntWorkstationIngest.Servers.Workers.ConsumerRetryWorker do
   use GenServer
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias Models.Events.EventDefinition
 
   # -------------------- #
@@ -47,8 +46,11 @@ defmodule CogyntWorkstationIngest.Servers.Workers.ConsumerRetryWorker do
           end
         end)
 
-      {:error, _} ->
-        CogyntLogger.error("#{__MODULE__}", "Failed to fetch CRW Redis hash")
+      {:error, reason} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Failed to fetch CRW Redis hash. Reason: #{inspect(reason)}"
+        )
     end
 
     {:noreply, state}
@@ -74,18 +76,6 @@ defmodule CogyntWorkstationIngest.Servers.Workers.ConsumerRetryWorker do
   end
 
   defp start_deployment_consumer(topic) do
-    # TODO: This needs to call a Redis Pub/Sub method in order to ensure this
-    # Pipeline is started on multiple pods
-    case ConsumerGroupSupervisor.start_child(String.to_atom(topic)) do
-      {:error, nil} ->
-        CogyntLogger.warn(
-          "#{__MODULE__}",
-          "Deployment topic DNE. Will retry to create consumer..."
-        )
-
-      _ ->
-        Redis.hash_delete("crw", topic)
-        CogyntLogger.info("#{__MODULE__}", "Started Deployment Consumer")
-    end
+    Redis.publish_async("ingest_channel", %{start_deployment_pipeline: topic})
   end
 end

@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
   """
   use Task
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
-  alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, DynamicTaskSupervisor}
+  alias CogyntWorkstationIngest.Supervisors.DynamicTaskSupervisor
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask
 
@@ -35,9 +35,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
 
     CogyntLogger.info("#{__MODULE__}", "Stoping the Deployment ConsumerGroup")
     # Second stop the consumerGroup for the deployment topic
-    # TODO: This needs to call a Redis Pub/Sub method in order to ensure this
-    # Pipeline is started on multiple pods
-    ConsumerGroupSupervisor.stop_child(:deployment)
+    Redis.publish_async("ingest_channel", %{stop_deployment_pipeline: "deployment"})
 
     CogyntLogger.info(
       "#{__MODULE__}",
@@ -102,19 +100,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
 
     CogyntLogger.info("#{__MODULE__}", "Starting the Deployment ConsumerGroup")
 
-    # TODO: This needs to call a Redis Pub/Sub method in order to ensure this
-    # Pipeline is started on multiple pods
-    case ConsumerGroupSupervisor.start_child(:deployment) do
-      {:error, nil} ->
-        CogyntLogger.warn(
-          "#{__MODULE__}",
-          "Deployment Topic DNE. Adding to retry cache. Will reconnect once topic is created"
-        )
-
-        Redis.hash_set_async("crw", Config.deployment_topic(), "dp")
-
-      _ ->
-        CogyntLogger.info("#{__MODULE__}", "Started Deployment Stream")
-    end
+    Redis.publish_async("ingest_channel", %{start_deployment_pipeline: "deployment"})
   end
 end

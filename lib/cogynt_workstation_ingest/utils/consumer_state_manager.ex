@@ -3,7 +3,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   Genserver that keeps track of the State of each Consumer. Also knows which actions are
   allowed to be performed based on what state the consumer is in.
   """
-
+  alias CogyntWorkstationIngest.Broadway.EventPipeline
   alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, DynamicTaskSupervisor}
   alias CogyntWorkstationIngest.Servers.ConsumerMonitor
   alias CogyntWorkstationIngest.Servers.Workers.DeleteDataWorker
@@ -216,7 +216,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
           cond do
             consumer_state.status == ConsumerStatusTypeEnum.status()[:running] ->
-              case ConsumerGroupSupervisor.event_pipeline_running?(event_definition.id) do
+              case EventPipeline.event_pipeline_running?(event_definition.id) do
                 true ->
                   %{response: {:ok, consumer_state.status}}
 
@@ -397,7 +397,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
         consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_processing] or
             consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
-          case ConsumerGroupSupervisor.event_pipeline_running?(event_definition.id) do
+          case EventPipeline.event_pipeline_running?(event_definition.id) do
             true ->
               ConsumerGroupSupervisor.stop_child(event_definition.id)
 
@@ -1028,7 +1028,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
 
     # check if there is a consumer running
-    if ConsumerGroupSupervisor.event_pipeline_running?(event_definition_id) do
+    if EventPipeline.event_pipeline_running?(event_definition_id) do
       # Stop Consumer
       ConsumerGroupSupervisor.stop_child(event_definition_id)
     end

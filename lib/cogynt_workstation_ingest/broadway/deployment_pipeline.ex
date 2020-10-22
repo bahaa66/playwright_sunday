@@ -8,6 +8,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
   alias Broadway.Message
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Broadway.DeploymentProcessor
+  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
 
   def start_link(%{group_id: group_id, topics: topics, hosts: hosts}) do
     Broadway.start_link(__MODULE__,
@@ -112,5 +113,19 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
 
     Redis.hash_increment_by("dpmi", "tmp", 1)
     message
+  end
+
+  @doc false
+  def deployment_pipeline_running?() do
+    consumer_group_id = ConsumerGroupSupervisor.fetch_deployment_cgid()
+    child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
+
+    case is_nil(child_pid) do
+      true ->
+        false
+
+      false ->
+        true
+    end
   end
 end

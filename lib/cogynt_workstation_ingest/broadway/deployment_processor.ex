@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
 
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
+  alias CogyntWorkstationIngest.Broadway.DrilldownPipeline
   alias Models.Deployments.Deployment
   alias Models.Enums.DeploymentStatusTypeEnum
   alias Models.Events.EventDefinition
@@ -102,15 +102,13 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
         end)
 
         # Start Drilldown Consumer for Deployment
-        if not ConsumerGroupSupervisor.drilldown_pipeline_running?(deployment) do
+        if not DrilldownPipeline.drilldown_pipeline_running?(deployment) do
           CogyntLogger.info(
             "#{__MODULE__}",
             "Starting Drilldown ConsumerGroup for deplpoyment_id: #{deployment.id}"
           )
 
-          # TODO: This needs to call a Redis Pub/Sub method in order to ensure this
-          # Pipeline is started on multiple pods
-          ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+          Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment})
         end
 
         message
