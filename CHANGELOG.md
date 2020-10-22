@@ -1,3 +1,10 @@
+### [1.15.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.15.0...v1.15.1) (2020-10-22)
+
+
+### :bug: Bugfix
+
+* **CDST-782:** Merge pull request [#142](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/142) from Cogility/hotfix/reverse-config-settings ([e70f8b4](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/e70f8b4eeee5190d1982efc4c0175384631d03df))
+
 ## [1.15.0](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.14.0...v1.15.0) (2020-10-19)
 
 
