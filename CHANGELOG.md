@@ -1,3 +1,17 @@
+## [1.16.0-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.15.1...v1.16.0-develop.1) (2020-10-22)
+
+
+### :sparkles: Feature
+
+* **state to redis:** Merge pull request [#141](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/141) from Cogility/feature/CDST-777-state-to-redis ([0f47367](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/0f473677d47176db2f21c29a35cfc57b80893110))
+
+## [1.15.0-develop.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.15.0-develop.1...v1.15.0-develop.2) (2020-10-21)
+
+
+### :sparkles: Feature
+
+* **state to redis:** Merge pull request [#141](https://github.com/Cogility/cogynt-ws-ingest-otp/issues/141) from Cogility/feature/CDST-777-state-to-redis ([0f47367](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/0f473677d47176db2f21c29a35cfc57b80893110))
+
 ## [1.15.0-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.14.0...v1.15.0-develop.1) (2020-10-16)
 
 
