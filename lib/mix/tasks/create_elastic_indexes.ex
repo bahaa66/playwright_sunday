@@ -19,24 +19,14 @@ defmodule Mix.Tasks.CreateElasticIndexes do
            ) do
       Mix.shell().info("The index: #{Config.event_index_alias()} for Cogynt has been created.")
     else
-      {:ok, true} ->
-        Mix.shell().info("The #{Config.event_index_alias()} index already exists.")
-
-      {:ok, :elasticsearch_not_enabled} ->
-        Mix.shell().info("Elasticsearch not enabled.")
-
-      {:error, error} ->
+      {:error, _} ->
         CogyntLogger.error(
-          "Create Elastic Index Failed",
-          "An error occured trying to create the index #{Config.event_index_alias()}. Error: #{
-            inspect(error)
-          }"
+          "#{__MODULE__}",
+          "An error occured trying to create the index #{Config.event_index_alias()}"
         )
 
         Mix.raise("""
-          An error occured trying to create the index #{Config.event_index_alias()}. Error: #{
-          inspect(error)
-        }
+          An error occured trying to create the index #{Config.event_index_alias()}
         """)
 
       _ ->
@@ -56,24 +46,14 @@ defmodule Mix.Tasks.CreateElasticIndexes do
         "The index: #{Config.risk_history_index_alias()} for Cogynt has been created."
       )
     else
-      {:ok, true} ->
-        Mix.shell().info("The #{Config.risk_history_index_alias()} index already exists.")
-
-      {:ok, :elasticsearch_not_enabled} ->
-        Mix.shell().info("Elasticsearch not enabled.")
-
-      {:error, error} ->
+      {:error, _} ->
         CogyntLogger.error(
           "Create Elastic Index Failed",
-          "An error occured trying to create the index #{Config.risk_history_index_alias()}. Error: #{
-            inspect(error)
-          }"
+          "An error occured trying to create the index #{Config.risk_history_index_alias()}"
         )
 
         Mix.raise("""
-          An error occured trying to create the index #{Config.risk_history_index_alias()}. Error: #{
-          inspect(error)
-        }
+          An error occured trying to create the index #{Config.risk_history_index_alias()}
         """)
 
       _ ->

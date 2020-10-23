@@ -83,9 +83,11 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
 
       IO.puts("indexes complete..")
     else
+      {:error, _} ->
+        IO.puts("Failed to create event index")
+
       {:ok, true} ->
         IO.puts("event_index already exists.")
-
         IO.puts("indexes complete..")
     end
 
@@ -100,6 +102,9 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
 
       IO.puts("indexes complete..")
     else
+      {:error, _} ->
+        IO.puts("Failed to create risk_history index")
+
       {:ok, true} ->
         IO.puts("risk_history_index already exists.")
 

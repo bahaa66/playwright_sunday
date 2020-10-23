@@ -266,14 +266,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:ok, notifications} ->
         data = Map.put(data, :notifications, notifications)
         Map.put(message, :data, data)
-
-      {:error, reason} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "process_notifications/1 failed with reason: #{inspect(reason, pretty: true)}"
-        )
-
-        raise "process_notifications/1 failed"
     end
   end
 
@@ -601,7 +593,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   defp is_null_or_empty?(enumerable) when is_list(enumerable) do
-    is_nil(enumerable) or Enum.empty?(enumerable)
+    Enum.empty?(enumerable)
   end
 
   defp is_null_or_empty?(binary) do

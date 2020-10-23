@@ -33,7 +33,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   )
 
   def children(info, _conn) do
-    (Map.values(info["events"]) || [])
+    Map.values(info["events"])
     |> Enum.filter(&(not (&1["$partial"] == true and &1["_confidence"] == 0.0)))
     |> Enum.map(fn occ ->
       id = occ["published_by"]

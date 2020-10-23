@@ -247,7 +247,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> upsert_event_definition(%{field: bad_value})
       {:error, %Ecto.Changeset{}}
   """
-  def upsert_event_definition(attrs \\ %{}) do
+  def upsert_event_definition(attrs) do
     case get_event_definition_by(%{
            authoring_event_definition_id: attrs.authoring_event_definition_id,
            deployment_id: attrs.deployment_id

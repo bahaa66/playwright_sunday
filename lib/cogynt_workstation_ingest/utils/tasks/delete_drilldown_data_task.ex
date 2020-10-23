@@ -131,7 +131,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
           "Drilldown-#{hashed_brokers}" <> "-" <> consumer_group_id
       end
 
-    if consumer_group_id == nil do
+    if consumer_group_id == "" do
       {:ok, true}
     else
       case Redis.key_exists?("dmi:#{consumer_group_id}") do

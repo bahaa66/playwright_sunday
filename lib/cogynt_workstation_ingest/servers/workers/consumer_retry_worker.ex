@@ -28,15 +28,15 @@ defmodule CogyntWorkstationIngest.Servers.Workers.ConsumerRetryWorker do
     Process.send_after(__MODULE__, :consumer_retry, Config.consumer_retry_retry_timer())
 
     case Redis.hash_get_all("crw") do
-      {:ok, results} ->
-        Map.keys(results)
+      {:ok, result} ->
+        Map.keys(result)
         |> Enum.each(fn key ->
           cond do
-            Map.get(results, key) == "et" ->
+            Map.get(result, key) == "et" ->
               CogyntLogger.info("#{__MODULE__}", "Retrying to start consumer for id: #{key}")
               start_event_type_consumers(key)
 
-            Map.get(results, key) == "dp" ->
+            Map.get(result, key) == "dp" ->
               CogyntLogger.info("#{__MODULE__}", "Retrying to start consumer for topic: #{key}")
               start_deployment_consumer(key)
 
@@ -70,7 +70,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.ConsumerRetryWorker do
         start_consumer: EventsContext.remove_event_definition_virtual_fields(event_definition)
       })
     else
-      false ->
+      _ ->
         Redis.hash_delete("crw", event_definition_id)
     end
   end
