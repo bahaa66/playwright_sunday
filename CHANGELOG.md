@@ -1,3 +1,10 @@
+## [1.16.0-develop.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.1...v1.16.0-develop.2) (2020-10-27)
+
+
+### :sparkles: Feature
+
+* **ingest scaling:** ingest scaling changes ([50d03f7](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/50d03f71f771e2d6fab241bcaa2909584ee998af))
+
 ## [1.16.0-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.15.1...v1.16.0-develop.1) (2020-10-22)
 
 
