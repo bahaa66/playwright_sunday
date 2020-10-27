@@ -5,6 +5,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
   """
   use Task
   alias CogyntWorkstationIngest.Config
+  alias CogyntWorkstationIngest.Broadway.EventPipeline
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Collections.CollectionsContext
@@ -51,15 +52,21 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
         )
 
       event_definition ->
-        # First stop the consumer if there is one running for the event_definition
+        # First stop the EventPipeline if there is one running for the event_definition
         CogyntLogger.info(
           "#{__MODULE__}",
-          "Stoping ConsumerGroup for #{event_definition.topic}"
+          "Stopping EventPipeline for #{event_definition.topic}"
         )
 
-        Redis.publish_async("ingest_channel", %{
-          stop_consumer: EventsContext.remove_event_definition_virtual_fields(event_definition)
-        })
+        {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
+
+        if consumer_state.status != ConsumerStatusTypeEnum.status()[:unknown] do
+          Redis.publish_async("ingest_channel", %{
+            stop_consumer: EventsContext.remove_event_definition_virtual_fields(event_definition)
+          })
+
+          ensure_event_pipeline_stopped(event_definition.id)
+        end
 
         # Second check to see if the topic needs to be deleted
         if delete_topics do
@@ -68,9 +75,16 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
             "Deleting Kakfa topic: #{event_definition.topic}"
           )
 
-          {:ok, brokers} = DeploymentsContext.get_kafka_brokers(event_definition.deployment_id)
+          case DeploymentsContext.get_kafka_brokers(event_definition.deployment_id) do
+            {:ok, brokers} ->
+              Kafka.Api.Topic.delete_topic(event_definition.topic, brokers)
 
-          Kafka.Api.Topic.delete_topic(event_definition.topic, brokers)
+            {:error, :does_not_exist} ->
+              CogyntLogger.error(
+                "#{__MODULE__}",
+                "Failed to fetch brokers for DeploymentId: #{event_definition.deployment_id}"
+              )
+          end
         end
 
         # Fourth check the consumer_state to make sure if it has any data left in the pipeline
@@ -90,7 +104,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
                 # trigger the delete task when it is done
                 CogyntLogger.warn(
                   "#{__MODULE__}",
-                  "Messages still processing. Will finish DevDelete when they are flushed from pipeline"
+                  "EventPipeline Messages still processing. Will finish DevDelete when they are flushed from pipeline"
                 )
 
                 DeleteDataWorker.upsert_status(event_definition.id,
@@ -107,7 +121,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
             # trigger the delete task when it is done
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "Messages still processing. Will finish DevDelete when they are flushed from pipeline"
+              "EventPipeline Messages still processing. Will finish DevDelete when they are flushed from pipeline"
             )
 
             DeleteDataWorker.upsert_status(event_definition.id,
@@ -125,7 +139,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
     # delete data
     CogyntLogger.info(
       "#{__MODULE__}",
-      "Deleting data for event definition: #{event_definition.id}"
+      "Deleting data for EventDefinitionId: #{event_definition.id}"
     )
 
     # Fifth remove all records from Elasticsearch
@@ -136,7 +150,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
       {:ok, _count} ->
         CogyntLogger.info(
           "#{__MODULE__}",
-          "Elasticsearch data deleted for event definition: #{event_definition.id}"
+          "Elasticsearch data deleted for EventDefinitionId: #{event_definition.id}"
         )
 
       {:error, error} ->
@@ -288,6 +302,23 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
         )
 
       delete_event_definition_data(next_page, event_definition_id)
+    end
+  end
+
+  defp ensure_event_pipeline_stopped(event_definition_id) do
+    case EventPipeline.event_pipeline_running?(event_definition_id) or
+           not EventPipeline.event_pipeline_finished_processing?(event_definition_id) do
+      true ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before resetting data"
+        )
+
+        Process.sleep(500)
+        ensure_event_pipeline_stopped(event_definition_id)
+
+      false ->
+        CogyntLogger.info("#{__MODULE__}", "EventPipeline #{event_definition_id} stopped")
     end
   end
 end

@@ -6,6 +6,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
   use Task
   alias CogyntWorkstationIngest.Config
   alias Models.Deployments.Deployment
+  alias CogyntWorkstationIngest.Broadway.DrilldownPipeline
   alias CogyntWorkstationIngest.Drilldown.DrilldownContext
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
 
@@ -28,79 +29,85 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
   # --- Private Methods --- #
   # ----------------------- #
   defp delete_drilldown_data(delete_drilldown_topics) do
+    # First fetch all deployment records
     deployments = DeploymentsContext.list_deployments()
 
-    Enum.each(deployments, fn %Deployment{id: id} = deployment ->
-      CogyntLogger.info("#{__MODULE__}", "Stoping the Drilldown ConsumerGroup's")
-      Redis.publish_async("ingest_channel", %{stop_drilldown_pipeline: deployment})
+    # Second for each deployment stop its corresponding DrilldownPipeline
+    # and delete any topic data if the options specify to do so
+    Enum.each(deployments, fn %Deployment{id: deployment_id} = deployment ->
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "Stopping the DrilldownPipeline for with DeploymentId: #{deployment_id}"
+      )
 
-      {:ok, brokers} = DeploymentsContext.get_kafka_brokers(id)
+      Redis.publish_async("ingest_channel", %{stop_drilldown_pipeline: deployment_id})
 
-      hashed_brokers = Integer.to_string(:erlang.phash2(brokers))
+      # make sure the drilldownPipeline has stopped before moving forward
+      ensure_drilldown_pipeline_stopped(deployment)
 
-      if delete_drilldown_topics do
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Deleting the Drilldown Topics. #{Config.template_solutions_topic()}, #{
-            Config.template_solution_events_topic()
-          }. Brokers: #{inspect(brokers)}"
-        )
-
-        # Delete topics for worker
-        delete_topic_result =
-          Kafka.Api.Topic.delete_topics(
-            [Config.template_solutions_topic(), Config.template_solution_events_topic()],
-            brokers
+      case DeploymentsContext.get_kafka_brokers(deployment_id) do
+        {:error, :does_not_exist} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "Failed to fetch brokers for DeploymentId: #{deployment_id}"
           )
 
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Deleted Drilldown Topics result: #{inspect(delete_topic_result, pretty: true)}"
-        )
+        # TODO: what to do here ?
+
+        {:ok, brokers} ->
+          hashed_brokers = Integer.to_string(:erlang.phash2(brokers))
+          # Third if delete_drilldown_topics is true delete the drilldown topics for the
+          # kafka broker assosciated with the deployment_id
+          if delete_drilldown_topics do
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Deleting the Drilldown Topics. #{Config.template_solutions_topic()}, #{
+                Config.template_solution_events_topic()
+              }. Brokers: #{inspect(brokers)}"
+            )
+
+            # Delete topics for worker
+            delete_topic_result =
+              Kafka.Api.Topic.delete_topics(
+                [Config.template_solutions_topic(), Config.template_solution_events_topic()],
+                brokers
+              )
+
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Deleted Drilldown Topics result: #{inspect(delete_topic_result, pretty: true)}"
+            )
+          end
+
+          CogyntLogger.info("#{__MODULE__}", "Starting resetting of drilldown data")
+
+          # Fourth reset all the drilldown data
+          reset_drilldown_data(hashed_brokers)
+          # Finally start the drilldownPipeline again
+          Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment_id})
       end
-
-      CogyntLogger.info("#{__MODULE__}", "Starting resetting of drilldown data")
-
-      reset_drilldown(deployment, hashed_brokers)
     end)
   end
 
-  defp reset_drilldown(deployment, hashed_brokers, counter \\ 0) do
-    if counter >= 6 do
-      reset_cached_data()
+  defp ensure_drilldown_pipeline_stopped(deployment) do
+    case DrilldownPipeline.drilldown_pipeline_running?(deployment) or
+           not DrilldownPipeline.drilldown_pipeline_finished_processing?(deployment) do
+      true ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "DrilldownPipeline still running... waiting for it to shutdown before resetting data"
+        )
 
-      CogyntLogger.info(
-        "#{__MODULE__}",
-        "Starting Drilldown ConsumerGroup for DeploymentID: #{deployment.id}"
-      )
+        Process.sleep(500)
+        ensure_drilldown_pipeline_stopped(deployment)
 
-      Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment.id})
-    else
-      case finished_processing?(hashed_brokers) do
-        {:ok, true} ->
-          reset_cached_data()
-
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "Starting Drilldown ConsumerGroup for DeploymentID: #{deployment.id}"
-          )
-
-          Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment.id})
-
-        _ ->
-          CogyntLogger.warn(
-            "#{__MODULE__}",
-            "DrilldownData still in pipeline, flushing and trying again in 5 seconds..."
-          )
-
-          Process.sleep(5_000)
-          reset_drilldown(deployment, hashed_brokers, counter + 1)
-      end
+      false ->
+        nil
     end
   end
 
-  defp reset_cached_data() do
-    Redis.key_delete("dcgid")
+  defp reset_drilldown_data(hashed_brokers) do
+    Redis.hash_delete("dcgid", "Drilldown-#{hashed_brokers}")
 
     case Redis.keys_by_pattern("fdm:*") do
       {:ok, []} ->
@@ -119,31 +126,5 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
     end
 
     DrilldownContext.hard_delete_template_solutions_data()
-  end
-
-  defp finished_processing?(hashed_brokers) do
-    consumer_group_id =
-      case Redis.hash_get("dcgid", "Drilldown-#{hashed_brokers}") do
-        {:ok, nil} ->
-          ""
-
-        {:ok, consumer_group_id} ->
-          "Drilldown-#{hashed_brokers}" <> "-" <> consumer_group_id
-      end
-
-    if consumer_group_id == "" do
-      {:ok, true}
-    else
-      case Redis.key_exists?("dmi:#{consumer_group_id}") do
-        {:ok, false} ->
-          {:ok, true}
-
-        {:ok, true} ->
-          {:ok, tmc} = Redis.hash_get("dmi:#{consumer_group_id}", "tmc")
-          {:ok, tmp} = Redis.hash_get("dmi:#{consumer_group_id}", "tmp")
-
-          {:ok, String.to_integer(tmp) >= String.to_integer(tmc)}
-      end
-    end
   end
 end

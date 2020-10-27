@@ -215,9 +215,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def stop_child(:deployment) do
-    consumer_group_id = fetch_deployment_cgid()
-
-    child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
+    child_pid = Process.whereis(:DeploymentPipeline)
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)

@@ -196,6 +196,26 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     end
   end
 
+  @doc false
+  def event_pipeline_finished_processing?(event_definition_id) do
+    consumer_group_id = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
+
+    if consumer_group_id == "" do
+      true
+    else
+      case Redis.key_exists?("emi:#{consumer_group_id}") do
+        {:ok, false} ->
+          true
+
+        {:ok, true} ->
+          {:ok, tmc} = Redis.hash_get("emi:#{consumer_group_id}", "tmc")
+          {:ok, tmp} = Redis.hash_get("emi:#{consumer_group_id}", "tmp")
+
+          String.to_integer(tmp) >= String.to_integer(tmc)
+      end
+    end
+  end
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #

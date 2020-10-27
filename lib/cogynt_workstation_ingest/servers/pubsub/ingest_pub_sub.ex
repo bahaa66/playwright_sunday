@@ -86,7 +86,10 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
         )
 
         deployment = DeploymentsContext.get_deployment(deployment_id)
-        ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+
+        if not is_nil(deployment) do
+          ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+        end
 
       {:ok, %{start_deployment_pipeline: _args} = request} ->
         CogyntLogger.info(
@@ -131,7 +134,10 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
         )
 
         deployment = DeploymentsContext.get_deployment(deployment_id)
-        ConsumerGroupSupervisor.stop_child(:drilldown, deployment)
+
+        if not is_nil(deployment) do
+          ConsumerGroupSupervisor.stop_child(:drilldown, deployment)
+        end
 
       {:ok, %{backfill_notifications: notification_setting_id} = request} ->
         CogyntLogger.info(
@@ -188,6 +194,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
           "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
         )
 
+        # TODO: need to ensure that these tasks will only ever be ran on a single pod
         try do
           if reset_deployment do
             DynamicTaskSupervisor.start_child(%{delete_deployment_data: true})

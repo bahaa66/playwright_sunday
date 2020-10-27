@@ -159,4 +159,45 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
         end
     end
   end
+
+  @doc false
+  def drilldown_pipeline_finished_processing?(deployment \\ %Deployment{}) do
+    case deployment do
+      %Deployment{id: nil} ->
+        consumer_group_id = ConsumerGroupSupervisor.fetch_drilldown_cgid()
+
+        if consumer_group_id == "" do
+          true
+        else
+          case Redis.key_exists?("dmi:#{consumer_group_id}") do
+            {:ok, false} ->
+              true
+
+            {:ok, true} ->
+              {:ok, tmc} = Redis.hash_get("dmi:#{consumer_group_id}", "tmc")
+              {:ok, tmp} = Redis.hash_get("dmi:#{consumer_group_id}", "tmp")
+
+              String.to_integer(tmp) >= String.to_integer(tmc)
+          end
+        end
+
+      %Deployment{id: deployment_id} ->
+        consumer_group_id = ConsumerGroupSupervisor.fetch_drilldown_cgid(deployment_id)
+
+        if consumer_group_id == "" do
+          true
+        else
+          case Redis.key_exists?("dmi:#{consumer_group_id}") do
+            {:ok, false} ->
+              true
+
+            {:ok, true} ->
+              {:ok, tmc} = Redis.hash_get("dmi:#{consumer_group_id}", "tmc")
+              {:ok, tmp} = Redis.hash_get("dmi:#{consumer_group_id}", "tmp")
+
+              String.to_integer(tmp) >= String.to_integer(tmc)
+          end
+        end
+    end
+  end
 end

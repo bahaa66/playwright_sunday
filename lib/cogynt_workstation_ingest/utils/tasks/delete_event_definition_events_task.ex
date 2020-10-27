@@ -6,9 +6,12 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
   """
   use Task
   alias CogyntWorkstationIngest.Config
+  alias CogyntWorkstationIngest.Broadway.EventPipeline
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
+
+  alias Models.Events.EventDefinition
+  alias Models.Enums.ConsumerStatusTypeEnum
 
   @page_size 2000
 
@@ -30,7 +33,15 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
       )
 
       # First stop the consumer
-      Redis.publish_async("ingest_channel", %{stop_consumer: EventsContext.remove_event_definition_virtual_fields(event_definition)})
+      {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
+
+      if consumer_state.status != ConsumerStatusTypeEnum.status()[:unknown] do
+        Redis.publish_async("ingest_channel", %{
+          stop_consumer: EventsContext.remove_event_definition_virtual_fields(event_definition)
+        })
+
+        ensure_event_pipeline_stopped(event_definition.id)
+      end
 
       # Second soft delete_event_definition_event_detail_templates_data˝
       EventsContext.delete_event_definition_event_detail_templates_data(event_definition)
@@ -120,5 +131,22 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
     end
 
     {:ok, :success}
+  end
+
+  defp ensure_event_pipeline_stopped(event_definition_id) do
+    case EventPipeline.event_pipeline_running?(event_definition_id) or
+           not EventPipeline.event_pipeline_finished_processing?(event_definition_id) do
+      true ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "EventPipeline still running... waiting for it to shutdown before resetting data"
+        )
+
+        Process.sleep(500)
+        ensure_event_pipeline_stopped(event_definition_id)
+
+      false ->
+        nil
+    end
   end
 end
