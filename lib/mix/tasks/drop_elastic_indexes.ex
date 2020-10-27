@@ -14,24 +14,14 @@ defmodule Mix.Tasks.DropElasticIndexes do
          {:ok, _} <- Elasticsearch.delete_index(Config.event_index_alias()) do
       Mix.shell().info("The index: #{Config.event_index_alias()} for Cogynt has been deleted.")
     else
-      {:ok, false} ->
-        Mix.shell().info("The #{Config.event_index_alias()} index does not exist.")
-
-      {:ok, :elasticsearch_not_enabled} ->
-        Mix.shell().info("Elasticsearch not enabled.")
-
-      {:error, error} ->
+      {:error, _} ->
         CogyntLogger.error(
-          "Delete Elastic Index Failed",
-          "An error occured trying to delete the index #{Config.event_index_alias()}. Error: #{
-            inspect(error)
-          }"
+          "#{__MODULE__}",
+          "An error occured trying to delete the index #{Config.event_index_alias()}"
         )
 
         Mix.raise("""
-          An error occured trying to delete the index #{Config.event_index_alias()}. Error: #{
-          inspect(error)
-        }
+          An error occured trying to delete the index #{Config.event_index_alias()}
         """)
 
       _ ->
@@ -47,24 +37,14 @@ defmodule Mix.Tasks.DropElasticIndexes do
         "The index: #{Config.risk_history_index_alias()} for Cogynt has been deleted."
       )
     else
-      {:ok, false} ->
-        Mix.shell().info("The #{Config.risk_history_index_alias()} index does not exist.")
-
-      {:ok, :elasticsearch_not_enabled} ->
-        Mix.shell().info("Elasticsearch not enabled.")
-
-      {:error, error} ->
+      {:error, _} ->
         CogyntLogger.error(
           "Delete Elastic Index Failed",
-          "An error occured trying to delete the index #{Config.risk_history_index_alias()}. Error: #{
-            inspect(error)
-          }"
+          "An error occured trying to delete the index #{Config.risk_history_index_alias()}"
         )
 
         Mix.raise("""
-          An error occured trying to delete the index #{Config.risk_history_index_alias()}. Error: #{
-          inspect(error)
-        }
+          An error occured trying to delete the index #{Config.risk_history_index_alias()}
         """)
 
       _ ->

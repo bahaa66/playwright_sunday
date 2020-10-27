@@ -56,7 +56,7 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
       iex> upsert_deployment(%{field: bad_value})
       {:error, %Ecto.Changeset{}}
   """
-  def upsert_deployment(attrs \\ %{}) do
+  def upsert_deployment(attrs) do
     case get_deployment(attrs.id) do
       nil ->
         create_deployment(attrs)

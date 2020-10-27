@@ -95,4 +95,18 @@ defmodule CogyntWorkstationIngest.Servers.EventDefinitionTaskMonitor do
 
     {:noreply, Map.delete(state, pid)}
   end
+
+  @doc false
+  def event_definition_task_running?(event_definition_id) do
+    case Redis.hash_get("ts", event_definition_id) do
+      {:ok, nil} ->
+        false
+
+      {:error, _} ->
+        false
+
+      _ ->
+        true
+    end
+  end
 end

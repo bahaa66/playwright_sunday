@@ -215,9 +215,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def stop_child(:deployment) do
-    consumer_group_id = fetch_deployment_cgid()
-
-    child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
+    child_pid = Process.whereis(:DeploymentPipeline)
 
     if child_pid != nil do
       DynamicSupervisor.terminate_child(__MODULE__, child_pid)
@@ -253,62 +251,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         else
           {:ok, :success}
         end
-    end
-  end
-
-  def drilldown_consumer_running?(deployment \\ %Deployment{}) do
-    case deployment do
-      %Deployment{id: nil} ->
-        consumer_group_id = fetch_drilldown_cgid()
-
-        child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
-
-        case is_nil(child_pid) do
-          true ->
-            false
-
-          false ->
-            true
-        end
-
-      %Deployment{id: deployment_id} ->
-        consumer_group_id = fetch_drilldown_cgid(deployment_id)
-
-        child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
-
-        case is_nil(child_pid) do
-          true ->
-            false
-
-          false ->
-            true
-        end
-    end
-  end
-
-  def event_consumer_running?(event_definition_id) do
-    consumer_group_id = fetch_event_cgid(event_definition_id)
-    child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
-
-    case is_nil(child_pid) do
-      true ->
-        false
-
-      false ->
-        true
-    end
-  end
-
-  def deployment_consumer_running?() do
-    consumer_group_id = fetch_deployment_cgid()
-    child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
-
-    case is_nil(child_pid) do
-      true ->
-        false
-
-      false ->
-        true
     end
   end
 

@@ -112,8 +112,34 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
     message
     |> DeploymentProcessor.process_deployment_message()
 
-    {:ok, _tmp} = Redis.hash_increment_by("dpmi", "tmp", 1)
-
+    Redis.hash_increment_by("dpmi", "tmp", 1)
     message
+  end
+
+  @doc false
+  def deployment_pipeline_running?() do
+    child_pid = Process.whereis(:DeploymentPipeline)
+
+    case is_nil(child_pid) do
+      true ->
+        false
+
+      false ->
+        true
+    end
+  end
+
+  @doc false
+  def deployment_pipeline_finished_processing?() do
+    case Redis.key_exists?("dpmi") do
+      {:ok, false} ->
+        true
+
+      {:ok, true} ->
+        {:ok, tmc} = Redis.hash_get("dpmi", "tmc")
+        {:ok, tmp} = Redis.hash_get("dpmi", "tmp")
+
+        String.to_integer(tmp) >= String.to_integer(tmc)
+    end
   end
 end

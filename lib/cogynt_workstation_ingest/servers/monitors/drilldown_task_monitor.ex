@@ -47,4 +47,18 @@ defmodule CogyntWorkstationIngest.Servers.DrilldownTaskMonitor do
 
     {:noreply, state}
   end
+
+  @doc false
+  def drilldown_task_running?() do
+    case Redis.hash_get("ts", "dtr") do
+      {:ok, nil} ->
+        false
+
+      {:error, _} ->
+        false
+
+      _ ->
+        true
+    end
+  end
 end

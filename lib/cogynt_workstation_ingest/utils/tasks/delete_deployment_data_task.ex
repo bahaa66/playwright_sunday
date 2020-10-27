@@ -4,13 +4,14 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
   async task.
   """
   use Task
+  alias CogyntWorkstationIngest.Broadway.DeploymentPipeline
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
-  alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, DynamicTaskSupervisor}
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
-  alias CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask
 
-  alias Models.Events.EventDefinition
+  alias CogyntWorkstationIngest.Utils.Tasks.{
+    DeleteDrilldownDataTask,
+    DeleteEventDefinitionsAndTopicsTask
+  }
 
   alias CogyntWorkstationIngest.Config
 
@@ -34,13 +35,15 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
     # First reset all DrilldownData passing true to delete topic data
     DeleteDrilldownDataTask.run(true)
 
-    CogyntLogger.info("#{__MODULE__}", "Stoping the Deployment ConsumerGroup")
-    # Second stop the consumerGroup for the deployment topic
-    ConsumerGroupSupervisor.stop_child(:deployment)
+    CogyntLogger.info("#{__MODULE__}", "Stopping the DeploymentPipeline")
+    # Second stop the DeploymentPipeline
+    Redis.publish_async("ingest_channel", %{stop_deployment_pipeline: "deployment"})
+
+    ensure_deployment_pipeline_stopped()
 
     CogyntLogger.info(
       "#{__MODULE__}",
-      "Deleting the Deployment Topic: deployment"
+      "Deleting the Deployment Topic: #{Config.deployment_topic()}"
     )
 
     # Third delete all data for the delployment topic
@@ -51,66 +54,48 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
       "Deleted Deployment Topics result: #{inspect(delete_topic_result, pretty: true)}"
     )
 
-    # Fourth fetch all event_definitions, stop the consumers and delete the topic data
-    event_definitions = EventsContext.list_event_definitions()
+    # Fourth reset all the data for each event_definition
+    event_definition_ids =
+      EventsContext.list_event_definitions()
+      |> Enum.map(fn ed -> ed.id end)
 
-    Enum.each(event_definitions, fn %EventDefinition{
-                                      id: event_definition_id,
-                                      topic: topic,
-                                      deployment_id: deployment_id
-                                    } ->
-      CogyntLogger.info(
-        "#{__MODULE__}",
-        "Stoping ConsumerGroup for #{topic}, Deployment_id: #{deployment_id}"
-      )
-
-      ConsumerStateManager.manage_request(%{stop_consumer: event_definition_id})
-
-      # Delete topic data
-      CogyntLogger.info(
-        "#{__MODULE__}",
-        "Deleting Kakfa topic: #{topic}, deplpoyment_id: #{deployment_id}"
-      )
-
-      {:ok, brokers} = DeploymentsContext.get_kafka_brokers(deployment_id)
-
-      Kafka.Api.Topic.delete_topic(topic, brokers)
-    end)
-
-    CogyntLogger.info("#{__MODULE__}", "Resetting Deployment Data")
-    reset_deployment_data(event_definitions)
-  end
-
-  defp reset_deployment_data(event_definitions) do
-    event_definition_ids = Enum.map(event_definitions, fn ed -> ed.id end)
-
-    # Trigger the task to hard delete all event_definition_ids and its data
-    DynamicTaskSupervisor.start_child(%{
-      delete_event_definitions_and_topics: %{
-        event_definition_ids: event_definition_ids,
-        hard_delete: true,
-        delete_topics: true
-      }
+    DeleteEventDefinitionsAndTopicsTask.run(%{
+      event_definition_ids: event_definition_ids,
+      hard_delete: true,
+      delete_topics: true
     })
 
+    # Finally reset all the deployment data
+    CogyntLogger.info("#{__MODULE__}", "Resetting Deployment Data")
+    reset_deployment_data()
+  end
+
+  def ensure_deployment_pipeline_stopped() do
+    case DeploymentPipeline.deployment_pipeline_running?() or
+           not DeploymentPipeline.deployment_pipeline_finished_processing?() do
+      true ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "DeploymentPipeline still running... waiting for it to shutdown before resetting data"
+        )
+
+        Process.sleep(500)
+        ensure_deployment_pipeline_stopped()
+
+      false ->
+        nil
+    end
+  end
+
+  defp reset_deployment_data() do
     DeploymentsContext.hard_delete_deployments()
     Redis.key_delete("dpcgid")
+    Redis.key_delete("dpmi")
     Redis.key_delete("fdpm")
     Redis.hash_delete("crw", Config.deployment_topic())
 
-    CogyntLogger.info("#{__MODULE__}", "Starting the Deployment ConsumerGroup")
+    CogyntLogger.info("#{__MODULE__}", "Starting the DeploymentPipeline")
 
-    case ConsumerGroupSupervisor.start_child(:deployment) do
-      {:error, nil} ->
-        CogyntLogger.warn(
-          "#{__MODULE__}",
-          "Deployment Topic DNE. Adding to retry cache. Will reconnect once topic is created"
-        )
-
-        Redis.hash_set_async("crw", Config.deployment_topic(), "dp")
-
-      _ ->
-        CogyntLogger.info("#{__MODULE__}", "Started Deployment Stream")
-    end
+    Redis.publish_async("ingest_channel", %{start_deployment_pipeline: "deployment"})
   end
 end

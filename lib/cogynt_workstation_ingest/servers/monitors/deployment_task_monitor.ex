@@ -47,4 +47,18 @@ defmodule CogyntWorkstationIngest.Servers.DeploymentTaskMonitor do
 
     {:noreply, state}
   end
+
+  @doc false
+  def deployment_task_running?() do
+    case Redis.hash_get("ts", "dptr") do
+      {:ok, nil} ->
+        false
+
+      {:error, _} ->
+        false
+
+      _ ->
+        true
+    end
+  end
 end

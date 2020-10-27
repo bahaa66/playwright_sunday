@@ -3,8 +3,16 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
   """
   use GenServer
+  alias CogyntWorkstationIngest.Config
+  alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
-  alias CogyntWorkstationIngest.Supervisors.DynamicTaskSupervisor
+  alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, DynamicTaskSupervisor}
+
+  alias CogyntWorkstationIngest.Servers.{
+    DeploymentTaskMonitor,
+    DrilldownTaskMonitor,
+    EventDefinitionTaskMonitor
+  }
 
   # -------------------- #
   # --- client calls --- #
@@ -76,13 +84,65 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
         ConsumerStateManager.manage_request(%{start_consumer: event_definition})
 
+      {:ok, %{start_drilldown_pipeline: deployment_id} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
+        deployment = DeploymentsContext.get_deployment(deployment_id)
+
+        if not is_nil(deployment) do
+          ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+        end
+
+      {:ok, %{start_deployment_pipeline: _args} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
+        case ConsumerGroupSupervisor.start_child(:deployment) do
+          {:error, nil} ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Deployment Topic DNE. Adding to retry cache. Will reconnect once topic is created"
+            )
+
+            Redis.hash_set_async("crw", Config.deployment_topic(), "dp")
+
+          _ ->
+            Redis.hash_delete("crw", Config.deployment_topic())
+            CogyntLogger.info("#{__MODULE__}", "Started Deployment Pipeline")
+        end
+
       {:ok, %{stop_consumer: event_definition} = request} ->
         CogyntLogger.info(
           "#{__MODULE__}",
           "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
         )
 
-        ConsumerStateManager.manage_request(%{stop_consumer: event_definition.id})
+        ConsumerStateManager.manage_request(%{stop_consumer: event_definition})
+
+      {:ok, %{stop_deployment_pipeline: _args} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
+        ConsumerGroupSupervisor.stop_child(:deployment)
+
+      {:ok, %{stop_drilldown_pipeline: deployment_id} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
+        deployment = DeploymentsContext.get_deployment(deployment_id)
+
+        if not is_nil(deployment) do
+          ConsumerGroupSupervisor.stop_child(:drilldown, deployment)
+        end
 
       {:ok, %{backfill_notifications: notification_setting_id} = request} ->
         CogyntLogger.info(
@@ -141,13 +201,22 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
         try do
           if reset_deployment do
-            DynamicTaskSupervisor.start_child(%{delete_deployment_data: true})
+            if not DeploymentTaskMonitor.deployment_task_running?() do
+              DynamicTaskSupervisor.start_child(%{delete_deployment_data: true})
+            end
           else
             if reset_drilldown do
-              DynamicTaskSupervisor.start_child(%{
-                delete_drilldown_data: delete_drilldown_topics
-              })
+              if not DrilldownTaskMonitor.drilldown_task_running?() do
+                DynamicTaskSupervisor.start_child(%{
+                  delete_drilldown_data: delete_drilldown_topics
+                })
+              end
             end
+
+            event_definition_ids =
+              Enum.reject(event_definition_ids, fn event_definition_id ->
+                EventDefinitionTaskMonitor.event_definition_task_running?(event_definition_id)
+              end)
 
             if length(event_definition_ids) > 0 do
               DynamicTaskSupervisor.start_child(%{

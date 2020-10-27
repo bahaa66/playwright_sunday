@@ -56,7 +56,7 @@
   "quiet_logger": {:hex, :quiet_logger, "0.2.0", "5c7b64c84564afa211a306f0cc0ce654e90a3d7c40ed9a1013506b409620d9c2", [:mix], [{:plug, "~> 1.0", [hex: :plug, repo: "hexpm", optional: false]}], "hexpm"},
   "ranch": {:hex, :ranch, "1.7.1", "6b1fab51b49196860b733a49c07604465a47bdb78aa10c1c16a3d199f7f8c881", [:rebar3], [], "hexpm"},
   "recase": {:hex, :recase, "0.6.0", "1dd2dd2f4e06603b74977630e739f08b7fedbb9420cc14de353666c2fc8b99f4", [:mix], [], "hexpm", "8712e318420a228eb2e6366ada230148ed3a4316a798319edd5512f64d78c990"},
-  "redis": {:git, "git@github.com:cogility/cogynt-common.git", "2e23a7524daf74401622a0c430b8f508267836dc", [tag: "v1.9.6-beta", sparse: "redis"]},
+  "redis": {:git, "git@github.com:cogility/cogynt-common.git", "34ac5a2c6e310ffc6d2553dbcff1f0189caae966", [tag: "v1.9.8-beta", sparse: "redis"]},
   "redix": {:hex, :redix, "1.0.0", "4f310341744ffceab3031394450a4e603d4d1001a697c3f18ae57ae776cbd3fb", [:mix], [{:castore, "~> 0.1.0", [hex: :castore, repo: "hexpm", optional: true]}, {:telemetry, "~> 0.4.0", [hex: :telemetry, repo: "hexpm", optional: false]}], "hexpm"},
   "scrivener": {:hex, :scrivener, "2.7.0", "fa94cdea21fad0649921d8066b1833d18d296217bfdf4a5389a2f45ee857b773", [:mix], [], "hexpm"},
   "scrivener_ecto": {:hex, :scrivener_ecto, "2.6.0", "81a83b6f29fdc6f85735fa0b77f23f1ddb6d27350c31ff143f67934d5a23969d", [:mix], [{:ecto, "~> 3.3", [hex: :ecto, repo: "hexpm", optional: false]}, {:scrivener, "~> 2.4", [hex: :scrivener, repo: "hexpm", optional: false]}], "hexpm"},

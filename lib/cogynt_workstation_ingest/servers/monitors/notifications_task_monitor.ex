@@ -154,7 +154,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
                 EventsContext.get_event_definition(notification_setting.event_definition_id)
                 |> EventsContext.remove_event_definition_virtual_fields()
 
-              ConsumerStateManager.manage_request(%{start_consumer: event_definition_map})
+              Redis.publish_async("ingest_channel", %{start_consumer: event_definition_map})
 
             true ->
               ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
@@ -212,7 +212,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
                 EventsContext.get_event_definition(notification_setting.event_definition_id)
                 |> EventsContext.remove_event_definition_virtual_fields()
 
-              ConsumerStateManager.manage_request(%{start_consumer: event_definition_map})
+              Redis.publish_async("ingest_channel", %{start_consumer: event_definition_map})
 
             true ->
               ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
@@ -270,7 +270,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
                 EventsContext.get_event_definition(notification_setting.event_definition_id)
                 |> EventsContext.remove_event_definition_virtual_fields()
 
-              ConsumerStateManager.manage_request(%{start_consumer: event_definition_map})
+              Redis.publish_async("ingest_channel", %{start_consumer: event_definition_map})
 
             true ->
               ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
@@ -320,5 +320,38 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
     new_state = Map.delete(state, pid)
     {:noreply, new_state}
+  end
+
+  @doc false
+  def is_backfill_notifications_task_running?(notification_setting_id) do
+    {status_code, results} = Redis.hash_get("ts", "bn")
+
+    if status_code == :error or is_nil(results) do
+      false
+    else
+      Enum.member?(results, notification_setting_id)
+    end
+  end
+
+  @doc false
+  def is_update_notifications_task_running?(notification_setting_id) do
+    {status_code, results} = Redis.hash_get("ts", "un")
+
+    if status_code == :error or is_nil(results) do
+      false
+    else
+      Enum.member?(results, notification_setting_id)
+    end
+  end
+
+  @doc false
+  def is_delete_notifications_task_running?(notification_setting_id) do
+    {status_code, results} = Redis.hash_get("ts", "dn")
+
+    if status_code == :error or is_nil(results) do
+      false
+    else
+      Enum.member?(results, notification_setting_id)
+    end
   end
 end

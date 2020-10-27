@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.DeleteDataWorker do
   """
   use GenServer
   alias CogyntWorkstationIngest.Supervisors.DynamicTaskSupervisor
+  alias CogyntWorkstationIngest.Servers.{DeploymentTaskMonitor, EventDefinitionTaskMonitor}
 
   # -------------------- #
   # --- client calls --- #
@@ -65,11 +66,6 @@ defmodule CogyntWorkstationIngest.Servers.Workers.DeleteDataWorker do
             {:noreply, state}
 
           true ->
-            Redis.hash_set_async("ts", event_definition_id, %{
-              status: new_status,
-              hard_delete: hard_delete
-            })
-
             {:noreply, state}
         end
 
@@ -83,5 +79,15 @@ defmodule CogyntWorkstationIngest.Servers.Workers.DeleteDataWorker do
 
         {:noreply, state}
     end
+  end
+
+  @doc false
+  def is_event_type_being_deleted?(event_definition_id) do
+    deployment_status = DeploymentTaskMonitor.deployment_task_running?()
+
+    event_definition_status =
+      EventDefinitionTaskMonitor.event_definition_task_running?(event_definition_id)
+
+    deployment_status or event_definition_status
   end
 end

@@ -5,9 +5,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
 
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
-  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-
+  alias CogyntWorkstationIngest.Broadway.DrilldownPipeline
   alias Models.Deployments.Deployment
   alias Models.Enums.DeploymentStatusTypeEnum
   alias Models.Events.EventDefinition
@@ -16,8 +14,9 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   @doc """
   process_deployment_message/1
   """
-  def process_deployment_message(%Message{data: nil}) do
-    raise "process_deployment_message/1 failed. No message data"
+  def process_deployment_message(%Message{data: nil} = message) do
+    CogyntLogger.error("#{__MODULE__}", "Message data is nil. No data to process")
+    message
   end
 
   def process_deployment_message(
@@ -27,7 +26,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
       nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
-          "object_type key is missing from Deployment Stream message. #{
+          "`object_type` key is missing from Deployment Stream message. #{
             inspect(deployment_message, pretty: true)
           }"
         )
@@ -36,22 +35,32 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
 
       "event_type" ->
         # Temp Store id as `authoring_event_definition_id` until field can be removed
-        Map.put(deployment_message, :authoring_event_definition_id, deployment_message.id)
-        |> Map.put(:topic, deployment_message.filter)
-        |> Map.put(:title, deployment_message.name)
-        |> Map.put(
-          :manual_actions,
-          Map.get(deployment_message, :manualActions, nil)
-        )
-        |> Map.put_new_lazy(:event_type, fn ->
-          if is_nil(deployment_message.dsType) do
-            :none
-          else
-            deployment_message.dsType
-          end
-        end)
-        |> Map.drop([:id])
-        |> EventsContext.upsert_event_definition()
+        {:ok, %EventDefinition{} = ed_result} =
+          Map.put(deployment_message, :authoring_event_definition_id, deployment_message.id)
+          |> Map.put(:topic, deployment_message.filter)
+          |> Map.put(:title, deployment_message.name)
+          |> Map.put(
+            :manual_actions,
+            Map.get(deployment_message, :manualActions, nil)
+          )
+          |> Map.put_new_lazy(:event_type, fn ->
+            if is_nil(deployment_message.dsType) do
+              :none
+            else
+              deployment_message.dsType
+            end
+          end)
+          |> Map.drop([:id])
+          |> EventsContext.upsert_event_definition()
+
+        # Update the Redis cache with the latest EventDefinition value
+        event_definition_map =
+          EventsContext.get_event_definition(ed_result.id)
+          |> EventsContext.remove_event_definition_virtual_fields(
+            include_event_definition_details: true
+          )
+
+        Redis.hash_set_async("ed", event_definition_map.id, event_definition_map)
 
         message
 
@@ -74,7 +83,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
         # If they are in the list make sure to update the DeploymentStatus if it needs to be changed
         Enum.each(current_event_definitions, fn %EventDefinition{
                                                   deployment_status: deployment_status,
-                                                  id: event_definition_id,
                                                   authoring_event_definition_id:
                                                     authoring_event_definition_id
                                                 } = current_event_definition ->
@@ -96,20 +104,21 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
                 deployment_status: DeploymentStatusTypeEnum.status()[:inactive]
               })
 
-              ConsumerStateManager.manage_request(%{
-                stop_consumer: event_definition_id
+              Redis.publish_async("ingest_channel", %{
+                stop_consumer:
+                  EventsContext.remove_event_definition_virtual_fields(current_event_definition)
               })
           end
         end)
 
         # Start Drilldown Consumer for Deployment
-        if not ConsumerGroupSupervisor.drilldown_consumer_running?(deployment) do
+        if not DrilldownPipeline.drilldown_pipeline_running?(deployment) do
           CogyntLogger.info(
             "#{__MODULE__}",
             "Starting Drilldown ConsumerGroup for deplpoyment_id: #{deployment.id}"
           )
 
-          ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+          Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment.id})
         end
 
         message
