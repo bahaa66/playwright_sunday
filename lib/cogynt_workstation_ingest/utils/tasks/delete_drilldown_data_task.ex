@@ -52,7 +52,35 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
             "Failed to fetch brokers for DeploymentId: #{deployment_id}"
           )
 
-        # TODO: what to do here ?
+          # Third if delete_drilldown_topics is true delete the drilldown topics for the
+          # kafka broker assosciated with the deployment_id
+          if delete_drilldown_topics do
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Deleting the Drilldown Topics. #{Config.template_solutions_topic()}, #{
+                Config.template_solution_events_topic()
+              }. Brokers: #{Config.kafka_brokers()}"
+            )
+
+            # Delete topics for worker
+            delete_topic_result =
+              Kafka.Api.Topic.delete_topics([
+                Config.template_solutions_topic(),
+                Config.template_solution_events_topic()
+              ])
+
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Deleted Drilldown Topics result: #{inspect(delete_topic_result, pretty: true)}"
+            )
+          end
+
+          CogyntLogger.info("#{__MODULE__}", "Starting resetting of drilldown data")
+
+          # Fourth reset all the drilldown data
+          reset_drilldown_data()
+          # Finally start the drilldownPipeline again
+          Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment_id})
 
         {:ok, brokers} ->
           hashed_brokers = Integer.to_string(:erlang.phash2(brokers))
@@ -106,8 +134,12 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
     end
   end
 
-  defp reset_drilldown_data(hashed_brokers) do
-    Redis.hash_delete("dcgid", "Drilldown-#{hashed_brokers}")
+  defp reset_drilldown_data(hashed_brokers \\ nil) do
+    if is_nil(hashed_brokers) do
+      Redis.hash_delete("dcgid", "Drilldown")
+    else
+      Redis.hash_delete("dcgid", "Drilldown-#{hashed_brokers}")
+    end
 
     case Redis.keys_by_pattern("fdm:*") do
       {:ok, []} ->

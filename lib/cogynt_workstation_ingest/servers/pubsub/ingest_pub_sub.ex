@@ -6,8 +6,13 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
-  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngest.Supervisors.DynamicTaskSupervisor
+  alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, DynamicTaskSupervisor}
+
+  alias CogyntWorkstationIngest.Servers.{
+    DeploymentTaskMonitor,
+    DrilldownTaskMonitor,
+    EventDefinitionTaskMonitor
+  }
 
   # -------------------- #
   # --- client calls --- #
@@ -194,16 +199,24 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
           "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
         )
 
-        # TODO: need to ensure that these tasks will only ever be ran on a single pod
         try do
           if reset_deployment do
-            DynamicTaskSupervisor.start_child(%{delete_deployment_data: true})
+            if not DeploymentTaskMonitor.deployment_task_running?() do
+              DynamicTaskSupervisor.start_child(%{delete_deployment_data: true})
+            end
           else
             if reset_drilldown do
-              DynamicTaskSupervisor.start_child(%{
-                delete_drilldown_data: delete_drilldown_topics
-              })
+              if not DrilldownTaskMonitor.drilldown_task_running?() do
+                DynamicTaskSupervisor.start_child(%{
+                  delete_drilldown_data: delete_drilldown_topics
+                })
+              end
             end
+
+            event_definition_ids =
+              Enum.reject(event_definition_ids, fn event_definition_id ->
+                EventDefinitionTaskMonitor.event_definition_task_running?(event_definition_id)
+              end)
 
             if length(event_definition_ids) > 0 do
               DynamicTaskSupervisor.start_child(%{

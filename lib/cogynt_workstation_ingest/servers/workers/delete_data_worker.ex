@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.DeleteDataWorker do
   """
   use GenServer
   alias CogyntWorkstationIngest.Supervisors.DynamicTaskSupervisor
+  alias CogyntWorkstationIngest.Servers.{DeploymentTaskMonitor, EventDefinitionTaskMonitor}
 
   # -------------------- #
   # --- client calls --- #
@@ -82,29 +83,10 @@ defmodule CogyntWorkstationIngest.Servers.Workers.DeleteDataWorker do
 
   @doc false
   def is_event_type_being_deleted?(event_definition_id) do
-    deployment_status =
-      case Redis.hash_get("ts", "dptr") do
-        {:ok, nil} ->
-          false
-
-        {:error, _} ->
-          false
-
-        _ ->
-          true
-      end
+    deployment_status = DeploymentTaskMonitor.deployment_task_running?()
 
     event_definition_status =
-      case Redis.hash_get("ts", event_definition_id) do
-        {:ok, nil} ->
-          false
-
-        {:error, _} ->
-          false
-
-        _ ->
-          true
-      end
+      EventDefinitionTaskMonitor.event_definition_task_running?(event_definition_id)
 
     deployment_status or event_definition_status
   end

@@ -43,15 +43,8 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
         inst = DrilldownContext.get_template_solution_data(id)
         # inst
         if info["id"] == inst["id"] or Enum.member?(info["#visited"], inst["id"]) do
-          # IO.inspect(occ, label: "@@@@ Event published by self?")
-          # IO.inspect(inst, label: "@@@@ Instance causing recursion")
           nil
         else
-          # CogyntLogger.info(
-          #   "Drilldown View",
-          #   "@@@@ Instance #{inst["id"]} parent #{info["key"]}"
-          # )
-
           inst
         end
       else
