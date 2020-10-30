@@ -1,3 +1,11 @@
+## [1.16.0-develop.5](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.4...v1.16.0-develop.5) (2020-10-30)
+
+
+### :sparkles: Feature
+
+* **liveness:** Remove cluster level elastic health check ([b1d3afe](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/b1d3afeba4eaec2b9d311e94c11db715a2e79254))
+* **liveness:** trigger build ([dffb5df](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/dffb5df266c5aa8b71fd2baef22cdd780c3863a5))
+
 ## [1.16.0-develop.4](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.3...v1.16.0-develop.4) (2020-10-30)
 
 
