@@ -1,3 +1,10 @@
+## [1.16.0-develop.7](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.6...v1.16.0-develop.7) (2020-10-30)
+
+
+### :sparkles: Feature
+
+* **redis:** remove blocking option ([d5675fa](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/d5675fa213969ea7ad7d2264f06afb7b1282b723))
+
 ## [1.16.0-develop.6](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.5...v1.16.0-develop.6) (2020-10-30)
 
 
