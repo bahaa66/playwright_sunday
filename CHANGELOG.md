@@ -1,3 +1,10 @@
+## [1.16.0-develop.3](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.2...v1.16.0-develop.3) (2020-10-30)
+
+
+### :sparkles: Feature
+
+* **redis:** Implement Redis consumergroup ([7add7ed](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/7add7edea38fae6d96d461a6e8b2db67721129e4))
+
 ## [1.16.0-develop.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.1...v1.16.0-develop.2) (2020-10-27)
 
 
