@@ -85,14 +85,14 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :elasticsearch,
-        tag: "v1.9.3-beta",
+        tag: "v1.10.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
         override: true
       },
       {
         :redis,
-        tag: "v1.9.8-beta",
+        tag: "v1.10.0-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true

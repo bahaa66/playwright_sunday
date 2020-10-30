@@ -13,6 +13,8 @@ defmodule CogyntWorkstationIngest.Config do
   def failed_messages_max_retry(), do: failed_messages()[:max_retry]
   def failed_messages_retry_timer(), do: failed_messages()[:retry_timer]
 
+  def ingest_task_worker_timer(), do: ingest_task_worker()[:timer]
+
   def kafka_brokers, do: kafka()[:brokers]
   def kafka_client, do: kafka()[:kafka_client]
   def partition_strategy, do: kafka()[:partition_strategy]
@@ -55,6 +57,8 @@ defmodule CogyntWorkstationIngest.Config do
     do: Application.get_env(:cogynt_workstation_ingest, :consumer_retry_worker)
 
   defp failed_messages(), do: Application.get_env(:cogynt_workstation_ingest, :failed_messages)
+
+  defp ingest_task_worker(), do: Application.get_env(:cogynt_workstation_ingest, :ingest_task_worker)
 
   defp startup(), do: Application.get_env(:cogynt_workstation_ingest, :startup)
 
