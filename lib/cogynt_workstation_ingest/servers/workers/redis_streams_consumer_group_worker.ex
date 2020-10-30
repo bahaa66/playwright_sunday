@@ -55,16 +55,14 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
               :dev_delete ->
                 case field_value do
                   %{
-                    dev_delete: %{
-                      drilldown: %{
-                        reset_drilldown: reset_drilldown,
-                        delete_drilldown_topics: delete_drilldown_topics
-                      },
-                      deployment: reset_deployment,
-                      event_definitions: %{
-                        event_definition_ids: event_definition_ids,
-                        delete_topics: delete_topics
-                      }
+                    drilldown: %{
+                      reset_drilldown: reset_drilldown,
+                      delete_drilldown_topics: delete_drilldown_topics
+                    },
+                    deployment: reset_deployment,
+                    event_definitions: %{
+                      event_definition_ids: event_definition_ids,
+                      delete_topics: delete_topics
                     }
                   } ->
                     try do
