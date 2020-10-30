@@ -6,13 +6,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
-  alias CogyntWorkstationIngest.Supervisors.{ConsumerGroupSupervisor, DynamicTaskSupervisor}
-
-  alias CogyntWorkstationIngest.Servers.{
-    DeploymentTaskMonitor,
-    DrilldownTaskMonitor,
-    EventDefinitionTaskMonitor
-  }
+  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
 
   # -------------------- #
   # --- client calls --- #
@@ -142,98 +136,6 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
         if not is_nil(deployment) do
           ConsumerGroupSupervisor.stop_child(:drilldown, deployment)
-        end
-
-      {:ok, %{backfill_notifications: notification_setting_id} = request} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
-        )
-
-        ConsumerStateManager.manage_request(%{backfill_notifications: notification_setting_id})
-
-      {:ok, %{update_notifications: notification_setting_id} = request} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
-        )
-
-        ConsumerStateManager.manage_request(%{
-          update_notifications: notification_setting_id
-        })
-
-      {:ok, %{delete_notifications: notification_setting_id} = request} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
-        )
-
-        ConsumerStateManager.manage_request(%{
-          delete_notifications: notification_setting_id
-        })
-
-      {:ok, %{delete_event_definition_events: event_definition_id} = request} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
-        )
-
-        ConsumerStateManager.manage_request(%{delete_event_definition_events: event_definition_id})
-
-      {:ok,
-       %{
-         dev_delete: %{
-           drilldown: %{
-             reset_drilldown: reset_drilldown,
-             delete_drilldown_topics: delete_drilldown_topics
-           },
-           deployment: reset_deployment,
-           event_definitions: %{
-             event_definition_ids: event_definition_ids,
-             delete_topics: delete_topics
-           }
-         }
-       } = request} ->
-        CogyntLogger.warn(
-          "#{__MODULE__}",
-          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
-        )
-
-        try do
-          if reset_deployment do
-            if not DeploymentTaskMonitor.deployment_task_running?() do
-              DynamicTaskSupervisor.start_child(%{delete_deployment_data: true})
-            end
-          else
-            if reset_drilldown do
-              if not DrilldownTaskMonitor.drilldown_task_running?() do
-                DynamicTaskSupervisor.start_child(%{
-                  delete_drilldown_data: delete_drilldown_topics
-                })
-              end
-            end
-
-            event_definition_ids =
-              Enum.reject(event_definition_ids, fn event_definition_id ->
-                EventDefinitionTaskMonitor.event_definition_task_running?(event_definition_id)
-              end)
-
-            if length(event_definition_ids) > 0 do
-              DynamicTaskSupervisor.start_child(%{
-                delete_event_definitions_and_topics: %{
-                  event_definition_ids: event_definition_ids,
-                  hard_delete: false,
-                  delete_topics: delete_topics
-                }
-              })
-            end
-          end
-        rescue
-          error ->
-            CogyntLogger.error(
-              "#{__MODULE__}",
-              "dev_delete failed with error: #{inspect(error, pretty: true)}"
-            )
         end
 
       {:ok, _} ->

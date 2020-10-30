@@ -7,7 +7,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   alias CogyntWorkstationIngest.Servers.Workers.{
     ConsumerRetryWorker,
     DeleteDataWorker,
-    FailedMessagesRetryWorker
+    FailedMessagesRetryWorker,
+    RedisStreamsConsumerGroupWorker
   }
   alias CogyntWorkstationIngest.Servers.PubSub.{
     IngestPubSub
@@ -30,6 +31,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
       child_spec(ConsumerRetryWorker),
       child_spec(DeleteDataWorker),
       child_spec(FailedMessagesRetryWorker),
+      child_spec(RedisStreamsConsumerGroupWorker),
       child_spec(ConsumerMonitor, restart: :permanent),
       child_spec(NotificationsTaskMonitor, restart: :permanent),
       child_spec(IngestPubSub, start_link_opts: [pubsub])

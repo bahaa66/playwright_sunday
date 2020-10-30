@@ -1,3 +1,67 @@
+## [1.16.0-develop.10](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.9...v1.16.0-develop.10) (2020-10-30)
+
+
+### :sparkles: Feature
+
+* **dev_delete:** fix dev delete params ([f13e828](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/f13e82866c77fb38bba2efc62a7e8862f25db4b2))
+
+## [1.16.0-develop.9](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.8...v1.16.0-develop.9) (2020-10-30)
+
+
+### :sparkles: Feature
+
+* **debug:** remove debug logs ([638aea1](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/638aea1175f8c19e260304458dbb533631700182))
+
+## [1.16.0-develop.8](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.7...v1.16.0-develop.8) (2020-10-30)
+
+
+### :sparkles: Feature
+
+* **redis:** remove blocking call ([57bfb9a](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/57bfb9a7ed4895d8526c2d2f7825385b25d245d3))
+
+## [1.16.0-develop.7](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.6...v1.16.0-develop.7) (2020-10-30)
+
+
+### :sparkles: Feature
+
+* **redis:** remove blocking option ([d5675fa](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/d5675fa213969ea7ad7d2264f06afb7b1282b723))
+
+## [1.16.0-develop.6](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.5...v1.16.0-develop.6) (2020-10-30)
+
+
+### :sparkles: Feature
+
+* **debug:** add liveness debug loggin ([36ef621](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/36ef621991dcdf23ab4af8a21865fd021db6327f))
+
+## [1.16.0-develop.5](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.4...v1.16.0-develop.5) (2020-10-30)
+
+
+### :sparkles: Feature
+
+* **liveness:** Remove cluster level elastic health check ([b1d3afe](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/b1d3afeba4eaec2b9d311e94c11db715a2e79254))
+* **liveness:** trigger build ([dffb5df](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/dffb5df266c5aa8b71fd2baef22cdd780c3863a5))
+
+## [1.16.0-develop.4](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.3...v1.16.0-develop.4) (2020-10-30)
+
+
+### :sparkles: Feature
+
+* **logging:** LivenessCheck Logs ([c3562fe](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/c3562fe90a4b371c510469474fdaf537841ed1e7))
+
+## [1.16.0-develop.3](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.2...v1.16.0-develop.3) (2020-10-30)
+
+
+### :sparkles: Feature
+
+* **redis:** Implement Redis consumergroup ([7add7ed](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/7add7edea38fae6d96d461a6e8b2db67721129e4))
+
+## [1.16.0-develop.2](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.1...v1.16.0-develop.2) (2020-10-27)
+
+
+### :sparkles: Feature
+
+* **ingest scaling:** ingest scaling changes ([50d03f7](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/50d03f71f771e2d6fab241bcaa2909584ee998af))
+
 ## [1.16.0-develop.1](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.15.1...v1.16.0-develop.1) (2020-10-22)
 
 
