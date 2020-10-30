@@ -1,3 +1,10 @@
+## [1.16.0-develop.10](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.9...v1.16.0-develop.10) (2020-10-30)
+
+
+### :sparkles: Feature
+
+* **dev_delete:** fix dev delete params ([f13e828](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/f13e82866c77fb38bba2efc62a7e8862f25db4b2))
+
 ## [1.16.0-develop.9](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.8...v1.16.0-develop.9) (2020-10-30)
 
 
