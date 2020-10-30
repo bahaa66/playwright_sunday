@@ -14,10 +14,14 @@ defmodule LivenessCheck do
 
   @spec call(Plug.Conn.t(), options) :: Plug.Conn.t()
   def call(%Plug.Conn{} = conn, _opts) do
+    CogyntLogger.info("#{__MODULE__}", "LivenessCheck EventIndexHealth request started")
     {_, event_index_health} = Elasticsearch.index_health?(Config.event_index_alias())
+    CogyntLogger.info("#{__MODULE__}", "LivenessCheck EventIndexHealth request finished")
 
+    CogyntLogger.info("#{__MODULE__}", "LivenessCheck RiskIndexHealth request started")
     {_, risk_history_index_health} =
       Elasticsearch.index_health?(Config.risk_history_index_alias())
+      CogyntLogger.info("#{__MODULE__}", "LivenessCheck RiskIndexHealth request finished")
 
     if kafka_health?() and postgres_health?() and redis_health?() and
          event_index_health and risk_history_index_health do
@@ -29,8 +33,11 @@ defmodule LivenessCheck do
 
   defp kafka_health?() do
     try do
+      CogyntLogger.info("#{__MODULE__}", "LivenessCheck Kafka request started")
+
       case Kafka.Api.Topic.list_topics() do
         {:ok, _result} ->
+          CogyntLogger.info("#{__MODULE__}", "LivenessCheck Kafka request finished")
           true
 
         _ ->
@@ -46,7 +53,9 @@ defmodule LivenessCheck do
 
   defp postgres_health?() do
     try do
+      CogyntLogger.info("#{__MODULE__}", "LivenessCheck PostgreSQL request started")
       Ecto.Adapters.SQL.query(CogyntWorkstationIngest.Repo, "select 1", [])
+      CogyntLogger.info("#{__MODULE__}", "LivenessCheck PostgreSQL request finished")
       true
     rescue
       DBConnection.ConnectionError ->
@@ -60,8 +69,11 @@ defmodule LivenessCheck do
   end
 
   defp redis_health?() do
+    CogyntLogger.info("#{__MODULE__}", "LivenessCheck Redis request started")
+
     case Redis.ping() do
       {:ok, _pong} ->
+        CogyntLogger.info("#{__MODULE__}", "LivenessCheck Redis request finished")
         true
 
       {:error, :redis_connection_error} ->
