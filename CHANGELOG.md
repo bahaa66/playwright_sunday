@@ -1,3 +1,10 @@
+## [1.16.0-develop.9](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.8...v1.16.0-develop.9) (2020-10-30)
+
+
+### :sparkles: Feature
+
+* **debug:** remove debug logs ([638aea1](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/638aea1175f8c19e260304458dbb533631700182))
+
 ## [1.16.0-develop.8](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.7...v1.16.0-develop.8) (2020-10-30)
 
 
