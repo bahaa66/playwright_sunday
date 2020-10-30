@@ -19,9 +19,11 @@ defmodule LivenessCheck do
     CogyntLogger.info("#{__MODULE__}", "LivenessCheck EventIndexHealth request finished")
 
     CogyntLogger.info("#{__MODULE__}", "LivenessCheck RiskIndexHealth request started")
+
     {_, risk_history_index_health} =
       Elasticsearch.index_health?(Config.risk_history_index_alias())
-      CogyntLogger.info("#{__MODULE__}", "LivenessCheck RiskIndexHealth request finished")
+
+    CogyntLogger.info("#{__MODULE__}", "LivenessCheck RiskIndexHealth request finished")
 
     if kafka_health?() and postgres_health?() and redis_health?() and
          event_index_health and risk_history_index_health do

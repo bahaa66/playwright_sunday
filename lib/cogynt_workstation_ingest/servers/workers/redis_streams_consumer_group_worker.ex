@@ -31,7 +31,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
 
   @impl true
   def handle_info(:fetch_tasks, state) do
-    case Redis.stream_read_group("itw", "cogynt-ws-ingest-otp", 1, block: 2000) do
+    case Redis.stream_read_group("itw", "cogynt-ws-ingest-otp", 1) do
       {:ok, stream_results} ->
         IO.inspect(stream_results, label: "STREAM RESULTS")
         Enum.each(stream_results, fn [message_id, message_fields] ->
