@@ -1,3 +1,10 @@
+## [1.16.0-develop.6](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.5...v1.16.0-develop.6) (2020-10-30)
+
+
+### :sparkles: Feature
+
+* **debug:** add liveness debug loggin ([36ef621](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/36ef621991dcdf23ab4af8a21865fd021db6327f))
+
 ## [1.16.0-develop.5](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.4...v1.16.0-develop.5) (2020-10-30)
 
 
