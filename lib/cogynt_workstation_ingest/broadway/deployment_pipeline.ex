@@ -88,7 +88,9 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
           )
 
           data = Map.put(data, :retry_count, retry_count + 1)
-          message = Map.put(message, :data, data)
+          message =
+            Map.put(message, :data, data)
+            |> Map.drop([:status, :acknowledger])
 
           acc ++ [message]
         else
