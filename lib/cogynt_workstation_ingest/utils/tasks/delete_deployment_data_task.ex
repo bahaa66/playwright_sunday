@@ -4,7 +4,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
   async task.
   """
   use Task
-  alias CogyntWorkstationIngest.Broadway.DeploymentPipeline
+  alias CogyntWorkstationIngest.Broadway.{DeploymentPipeline, EventPipeline}
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Events.EventsContext
 
@@ -65,6 +65,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
       delete_topics: true
     })
 
+    ensure_all_event_pipelines_stopped(event_definition_ids)
+
     # Finally reset all the deployment data
     CogyntLogger.info("#{__MODULE__}", "Resetting Deployment Data")
     reset_deployment_data()
@@ -84,6 +86,29 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
 
       false ->
         nil
+    end
+  end
+
+  defp ensure_all_event_pipelines_stopped(event_definition_ids) do
+    Enum.each(event_definition_ids, fn event_definition_id ->
+      ensure_event_pipeline_stopped(event_definition_id)
+    end)
+  end
+
+  defp ensure_event_pipeline_stopped(event_definition_id) do
+    case EventPipeline.event_pipeline_running?(event_definition_id) or
+           not EventPipeline.event_pipeline_finished_processing?(event_definition_id) do
+      true ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before resetting data"
+        )
+
+        Process.sleep(500)
+        ensure_event_pipeline_stopped(event_definition_id)
+
+      false ->
+        CogyntLogger.info("#{__MODULE__}", "EventPipeline #{event_definition_id} stopped")
     end
   end
 
