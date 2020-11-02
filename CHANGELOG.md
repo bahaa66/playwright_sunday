@@ -1,3 +1,10 @@
+## [1.16.0-develop.11](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.10...v1.16.0-develop.11) (2020-11-02)
+
+
+### :sparkles: Feature
+
+* **dev delete:** ensure_event_pipelines_stopped ([2e994b0](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/2e994b07ca4c4e779ee9303ee5fc393a1759eb69))
+
 ## [1.16.0-develop.10](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.9...v1.16.0-develop.10) (2020-10-30)
 
 
