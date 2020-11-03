@@ -1,3 +1,11 @@
+## [1.16.0-develop.12](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.11...v1.16.0-develop.12) (2020-11-03)
+
+
+### :bug: Bugfix
+
+* **ed cache:** missed commit ([6c56be4](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/6c56be4ac6070b91e35a7fb512947afcab44389a))
+* **ed cache:** remove cache of event_definition ([810b9b6](https://github.com/Cogility/cogynt-ws-ingest-otp/commit/810b9b648f886813a4654ff0ba7e2abc750894eb))
+
 ## [1.16.0-develop.11](https://github.com/Cogility/cogynt-ws-ingest-otp/compare/v1.16.0-develop.10...v1.16.0-develop.11) (2020-11-02)
 
 
