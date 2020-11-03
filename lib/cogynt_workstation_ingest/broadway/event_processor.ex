@@ -46,13 +46,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     # end
 
     event_definition_map =
-          EventsContext.get_event_definition(event_definition_id)
-          |> EventsContext.remove_event_definition_virtual_fields(
-            include_event_definition_details: true
-          )
+      EventsContext.get_event_definition(event_definition_id)
+      |> EventsContext.remove_event_definition_virtual_fields(
+        include_event_definition_details: true
+      )
 
-        data = Map.put(data, :event_definition, event_definition_map)
-        Map.put(message, :data, data)
+    data = Map.put(data, :event_definition, event_definition_map)
+    Map.put(message, :data, data)
   end
 
   @doc """
