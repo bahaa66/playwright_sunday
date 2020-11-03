@@ -35,32 +35,31 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
 
       "event_type" ->
         # Temp Store id as `authoring_event_definition_id` until field can be removed
-        {:ok, %EventDefinition{} = ed_result} =
-          Map.put(deployment_message, :authoring_event_definition_id, deployment_message.id)
-          |> Map.put(:topic, deployment_message.filter)
-          |> Map.put(:title, deployment_message.name)
-          |> Map.put(
-            :manual_actions,
-            Map.get(deployment_message, :manualActions, nil)
-          )
-          |> Map.put_new_lazy(:event_type, fn ->
-            if is_nil(deployment_message.dsType) do
-              :none
-            else
-              deployment_message.dsType
-            end
-          end)
-          |> Map.drop([:id])
-          |> EventsContext.upsert_event_definition()
+        Map.put(deployment_message, :authoring_event_definition_id, deployment_message.id)
+        |> Map.put(:topic, deployment_message.filter)
+        |> Map.put(:title, deployment_message.name)
+        |> Map.put(
+          :manual_actions,
+          Map.get(deployment_message, :manualActions, nil)
+        )
+        |> Map.put_new_lazy(:event_type, fn ->
+          if is_nil(deployment_message.dsType) do
+            :none
+          else
+            deployment_message.dsType
+          end
+        end)
+        |> Map.drop([:id])
+        |> EventsContext.upsert_event_definition()
 
         # Update the Redis cache with the latest EventDefinition value
-        event_definition_map =
-          EventsContext.get_event_definition(ed_result.id)
-          |> EventsContext.remove_event_definition_virtual_fields(
-            include_event_definition_details: true
-          )
+        # event_definition_map =
+        #   EventsContext.get_event_definition(ed_result.id)
+        #   |> EventsContext.remove_event_definition_virtual_fields(
+        #     include_event_definition_details: true
+        #   )
 
-        Redis.hash_set_async("ed", event_definition_map.id, event_definition_map)
+        # Redis.hash_set_async("ed", event_definition_map.id, event_definition_map)
 
         message
 
