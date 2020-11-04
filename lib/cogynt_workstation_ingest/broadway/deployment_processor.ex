@@ -52,15 +52,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
         |> Map.drop([:id])
         |> EventsContext.upsert_event_definition()
 
-        # Update the Redis cache with the latest EventDefinition value
-        # event_definition_map =
-        #   EventsContext.get_event_definition(ed_result.id)
-        #   |> EventsContext.remove_event_definition_virtual_fields(
-        #     include_event_definition_details: true
-        #   )
-
-        # Redis.hash_set_async("ed", event_definition_map.id, event_definition_map)
-
         message
 
       "deployment" ->

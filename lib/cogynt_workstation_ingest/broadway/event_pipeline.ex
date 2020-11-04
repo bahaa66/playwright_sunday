@@ -123,6 +123,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           )
 
           data = Map.put(data, :retry_count, new_retry_count)
+
           message =
             Map.put(message, :data, data)
             |> Map.drop([:status, :acknowledger])
@@ -158,6 +159,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     case message do
       %Message{data: %{event_definition: %{event_type: :linkage}}} ->
+        message
+        |> EventProcessor.process_event()
+        |> EventProcessor.process_event_details_and_elasticsearch_docs()
+        |> EventProcessor.process_notifications()
+        |> LinkEventProcessor.validate_link_event()
+        |> LinkEventProcessor.process_entities()
+        |> LinkEventProcessor.execute_transaction()
+
+      %Message{data: %{event_definition: %{event_type: "linkage"}}} ->
         message
         |> EventProcessor.process_event()
         |> EventProcessor.process_event_details_and_elasticsearch_docs()

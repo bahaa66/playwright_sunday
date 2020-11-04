@@ -93,5 +93,5 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   password: System.get_env("POSTGRESQL_PASSWORD") || "postgres",
   database: System.get_env("POSTGRESQL_DATABASE") || "cogynt_dev",
   hostname: System.get_env("POSTGRESQL_HOST") || "localhost",
-  pool_size: (System.get_env("POSTGRESQL_POOL_SIZE") || "50") |> String.to_integer(),
+  pool_size: (System.get_env("POSTGRESQL_POOL_SIZE") || "20") |> String.to_integer(),
   telemetry_prefix: [:cogynt_workstation_ingest, :repo]

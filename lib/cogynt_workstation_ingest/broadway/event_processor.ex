@@ -29,30 +29,21 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       ) do
     # TODO: Need to have the PostgreSQL pub sub also update this Redis key when it gets new
     # updates to the EventDefinition table
-    # {status_code, ed_result} = Redis.hash_get("ed", event_definition_id)
+    {status_code, ed_result} = Redis.hash_get("ed", event_definition_id)
 
-    # if status_code == :error or is_nil(ed_result) do
-    #   event_definition_map =
-    #     EventsContext.get_event_definition(event_definition_id)
-    #     |> EventsContext.remove_event_definition_virtual_fields(
-    #       include_event_definition_details: true
-    #     )
+    if status_code == :error or is_nil(ed_result) do
+      event_definition_map =
+        EventsContext.get_event_definition(event_definition_id)
+        |> EventsContext.remove_event_definition_virtual_fields(
+          include_event_definition_details: true
+        )
 
-    #   data = Map.put(data, :event_definition, event_definition_map)
-    #   Map.put(message, :data, data)
-    # else
-    #   data = Map.put(data, :event_definition, ed_result)
-    #   Map.put(message, :data, data)
-    # end
-
-    event_definition_map =
-      EventsContext.get_event_definition(event_definition_id)
-      |> EventsContext.remove_event_definition_virtual_fields(
-        include_event_definition_details: true
-      )
-
-    data = Map.put(data, :event_definition, event_definition_map)
-    Map.put(message, :data, data)
+      data = Map.put(data, :event_definition, event_definition_map)
+      Map.put(message, :data, data)
+    else
+      data = Map.put(data, :event_definition, ed_result)
+      Map.put(message, :data, data)
+    end
   end
 
   @doc """
@@ -203,7 +194,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           {:ok, event_doc} ->
             event_doc
 
-          {:error, :invalid_data} ->
+          {:error, _} ->
             nil
         end
       else
