@@ -38,6 +38,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           include_event_definition_details: true
         )
 
+      Redis.hash_set_async("ed", event_definition_id, event_definition_map)
+
       data = Map.put(data, :event_definition, event_definition_map)
       Map.put(message, :data, data)
     else
