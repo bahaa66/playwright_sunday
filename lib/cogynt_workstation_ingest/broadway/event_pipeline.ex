@@ -140,6 +140,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       Redis.list_append_pipeline("fem:#{event_definition_id}", failed_messages)
     end
 
+    incr_total_processed_message_count(event_definition_id)
     messages
   end
 
@@ -184,13 +185,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         |> EventProcessor.execute_transaction()
     end
 
-    {:ok, tmc} = Redis.hash_get("emi:#{event_definition_id}", "tmc")
-    {:ok, tmp} = Redis.hash_increment_by("emi:#{event_definition_id}", "tmp", 1)
-
-    if tmp >= String.to_integer(tmc) do
-      finished_processing(event_definition_id)
-    end
-
+    incr_total_processed_message_count(event_definition_id)
     message
   end
 
@@ -287,5 +282,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       "#{__MODULE__}",
       "EventPipeline finished processing messages for EventDefinitionId: #{event_definition_id}"
     )
+  end
+
+  defp incr_total_processed_message_count(event_definition_id) do
+    {:ok, tmc} = Redis.hash_get("emi:#{event_definition_id}", "tmc")
+    {:ok, tmp} = Redis.hash_increment_by("emi:#{event_definition_id}", "tmp", 1)
+
+    if tmp >= String.to_integer(tmc) do
+      finished_processing(event_definition_id)
+    end
   end
 end

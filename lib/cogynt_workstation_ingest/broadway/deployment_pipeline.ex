@@ -99,6 +99,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
       end)
 
     Redis.list_append_pipeline("fdpm", failed_messages)
+    incr_total_processed_message_count()
     messages
   end
 
@@ -112,7 +113,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
     message
     |> DeploymentProcessor.process_deployment_message()
 
-    Redis.hash_increment_by("dpmi", "tmp", 1)
+    incr_total_processed_message_count()
     message
   end
 
@@ -141,5 +142,12 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
 
         String.to_integer(tmp) >= String.to_integer(tmc)
     end
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp incr_total_processed_message_count() do
+    Redis.hash_increment_by("dpmi", "tmp", 1)
   end
 end

@@ -100,6 +100,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
           )
 
           data = Map.put(data, :retry_count, new_retry_count)
+
           message =
             Map.put(message, :data, data)
             |> Map.drop([:status, :acknowledger])
@@ -111,6 +112,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
       end)
 
     Redis.list_append_pipeline("fdm:#{group_id}", failed_messages)
+    incr_total_processed_message_count(group_id)
     messages
   end
 
@@ -127,7 +129,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
     |> DrilldownProcessor.process_template_data()
     |> DrilldownProcessor.upsert_template_solutions()
 
-    Redis.hash_increment_by("dmi:#{group_id}", "tmp", 1)
+    incr_total_processed_message_count(group_id)
     message
   end
 
@@ -201,5 +203,12 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
           end
         end
     end
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp incr_total_processed_message_count(group_id) do
+    Redis.hash_increment_by("dmi:#{group_id}", "tmp", 1)
   end
 end

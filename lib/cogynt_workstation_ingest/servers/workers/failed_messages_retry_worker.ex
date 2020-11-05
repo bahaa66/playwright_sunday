@@ -5,6 +5,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
   use GenServer
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
+  alias CogyntWorkstationIngest.Broadway.{EventPipeline, DeploymentPipeline}
 
   @demand 100
   @deployment_pipeline_name :DeploymentPipeline
@@ -43,10 +44,12 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
 
     try do
       # poll for failed deployment messages
-      failed_deployment_messages =
-        fetch_and_release_failed_messages(@demand, @deployment_pipeline_module, "fdpm")
+      if DeploymentPipeline.deployment_pipeline_running?() do
+        failed_deployment_messages =
+          fetch_and_release_failed_messages(@demand, @deployment_pipeline_module, "fdpm")
 
-      Broadway.push_messages(@deployment_pipeline_name, failed_deployment_messages)
+        Broadway.push_messages(@deployment_pipeline_name, failed_deployment_messages)
+      end
     rescue
       _ ->
         CogyntLogger.error(
@@ -57,6 +60,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
 
     try do
       # poll for failed drilldown messages
+      # TODO: make sure DrilldownPipeline is running
       {:ok, drilldown_failed_message_keys} = Redis.keys_by_pattern("fdm:*")
 
       Enum.each(drilldown_failed_message_keys, fn key ->
@@ -91,13 +95,15 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
 
         consumer_group_id = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
 
-        failed_event_definition_messages =
-          fetch_and_release_failed_messages(@demand, @event_pipeline_module, key)
+        if EventPipeline.event_pipeline_running?(event_definition_id) do
+          failed_event_definition_messages =
+            fetch_and_release_failed_messages(@demand, @event_pipeline_module, key)
 
-        Broadway.push_messages(
-          String.to_atom(consumer_group_id <> "Pipeline"),
-          failed_event_definition_messages
-        )
+          Broadway.push_messages(
+            String.to_atom(consumer_group_id <> "Pipeline"),
+            failed_event_definition_messages
+          )
+        end
       end)
     rescue
       _ ->
