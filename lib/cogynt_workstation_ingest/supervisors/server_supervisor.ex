@@ -15,7 +15,10 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   }
   alias CogyntWorkstationIngest.Servers.{
     ConsumerMonitor,
-    NotificationsTaskMonitor
+    NotificationsTaskMonitor,
+    DeploymentTaskMonitor,
+    DrilldownTaskMonitor,
+    EventDefinitionTaskMonitor
   }
 
   def start_link do
@@ -34,6 +37,9 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
       child_spec(RedisStreamsConsumerGroupWorker),
       child_spec(ConsumerMonitor, restart: :permanent),
       child_spec(NotificationsTaskMonitor, restart: :permanent),
+      child_spec(DeploymentTaskMonitor, restart: :permanent),
+      child_spec(DrilldownTaskMonitor, restart: :permanent),
+      child_spec(EventDefinitionTaskMonitor, restart: :permanent),
       child_spec(IngestPubSub, start_link_opts: [pubsub])
     ]
 

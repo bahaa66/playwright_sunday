@@ -119,6 +119,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       Enum.reduce(args, from(e in Event), fn
         {:filter, filter}, q ->
           filter_events(filter, q)
+
+        {:select, select}, q ->
+          select(q, ^select)
       end)
 
     query =

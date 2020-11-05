@@ -15,12 +15,8 @@ defmodule CogyntWorkstationIngest.Servers.EventDefinitionTaskMonitor do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
-  def monitor(pid, event_definition_ids) when is_list(event_definition_ids) do
-    GenServer.cast(__MODULE__, {:monitor_event_definition_ids, pid, event_definition_ids})
-  end
-
-  def monitor(pid, event_definition_id) do
-    GenServer.cast(__MODULE__, {:monitor_event_definition_id, pid, event_definition_id})
+  def monitor(pid, event_definition_ids) do
+    GenServer.cast(__MODULE__, {:monitor, pid, event_definition_ids})
   end
 
   # ------------------------ #
@@ -32,35 +28,30 @@ defmodule CogyntWorkstationIngest.Servers.EventDefinitionTaskMonitor do
   end
 
   @impl true
-  def handle_cast({:monitor_event_definition_ids, pid, event_definition_ids}, state) do
+  def handle_cast({:monitor, pid, event_definition_ids}, state) do
     Process.monitor(pid)
-
     new_state = Map.put(state, pid, event_definition_ids)
 
-    Enum.each(event_definition_ids, fn event_definition_id ->
-      DeleteDataWorker.upsert_status(event_definition_id, status: "running")
-    end)
+    case is_list(event_definition_ids) do
+      true ->
+        Enum.each(event_definition_ids, fn event_definition_id ->
+          DeleteDataWorker.upsert_status(event_definition_id, status: "running")
+        end)
 
-    # TODO: implement handler for this on cogynt-otp
-    Redis.publish_async("event_definitions_subscription", %{
-      event_definition_ids: event_definition_ids,
-      deleting: true
-    })
+        # TODO: implement handler for this on cogynt-otp
+        Redis.publish_async("event_definitions_subscription", %{
+          event_definition_ids: event_definition_ids,
+          deleting: true
+        })
 
-    {:noreply, new_state}
-  end
-
-  @impl true
-  def handle_cast({:monitor_event_definition_id, pid, event_definition_id}, state) do
-    Process.monitor(pid)
-    new_state = Map.put(state, pid, event_definition_id)
-    DeleteDataWorker.upsert_status(event_definition_id, status: "running")
-
-    # TODO: implement handler for this on cogynt-otp
-    Redis.publish_async("event_definitions_subscription", %{
-      event_definition_ids: [event_definition_id],
-      deleting: true
-    })
+      false ->
+        DeleteDataWorker.upsert_status(event_definition_ids, status: "running")
+        # TODO: implement handler for this on cogynt-otp
+        Redis.publish_async("event_definitions_subscription", %{
+          event_definition_ids: [event_definition_ids],
+          deleting: true
+        })
+    end
 
     {:noreply, new_state}
   end

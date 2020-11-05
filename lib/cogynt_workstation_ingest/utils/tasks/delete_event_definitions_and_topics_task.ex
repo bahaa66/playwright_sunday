@@ -284,6 +284,13 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
         }
       })
 
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "Removing Events and Associated Data for PageNumber: #{page_number} out of TotalPages: #{
+        total_pages
+      }"
+    )
+
     if page_number >= total_pages do
       CogyntLogger.info(
         "#{__MODULE__}",
