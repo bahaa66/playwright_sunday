@@ -105,6 +105,11 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
     )
 
     if page_number >= total_pages do
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "Removing Events for PageNumber: #{page_number} out of TotalPages: #{total_pages}"
+      )
+
       # Update event_definition to be inactive
       EventsContext.update_event_definition(event_definition, %{active: false, deleted_at: nil})
       # remove all state in Redis that is linked to event_definition_id
@@ -113,7 +118,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
 
       CogyntLogger.info(
         "#{__MODULE__}",
-        "Finished processing events for event definition with the ID: #{event_definition_id}"
+        "Finished removing all events for event_definition_id: #{event_definition_id}"
       )
     else
       next_page =
