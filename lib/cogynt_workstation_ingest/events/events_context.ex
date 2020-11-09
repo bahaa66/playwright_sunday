@@ -69,24 +69,16 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> get_events_by_core_id(core_id, event_definition_id)
       [%{}]
       iex> get_events_by_core_id("invalid_id")
-      nil
+      []
   """
   def get_events_by_core_id(core_id, event_definition_id) do
-    event_ids =
-      Repo.all(
-        from(e in Event,
-          join: ed in EventDefinition,
-          on: ed.id == e.event_definition_id,
-          where: e.core_id == ^core_id and ed.id == ^event_definition_id and is_nil(e.deleted_at),
-          select: e.id
-        )
-      )
-
-    if Enum.empty?(event_ids) do
-      nil
-    else
-      event_ids
-    end
+    from(e in Event,
+      join: ed in EventDefinition,
+      on: ed.id == e.event_definition_id,
+      where: e.core_id == ^core_id and ed.id == ^event_definition_id and is_nil(e.deleted_at),
+      select: e.id
+    )
+    |> Repo.all()
   end
 
   @doc """
@@ -110,7 +102,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       }
   """
   def get_page_of_events(args, opts \\ []) do
-    preload_details = Keyword.get(opts, :preload_details, true)
+    preload_details = Keyword.get(opts, :preload_details, false)
     include_deleted = Keyword.get(opts, :include_deleted, false)
     page = Keyword.get(opts, :page_number, 1)
     page_size = Keyword.get(opts, :page_size, 10)
@@ -178,7 +170,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       {:filter, filter}, q ->
         filter_events(filter, q)
     end)
-    |> Repo.delete_all(timeout: 60_000)
+    |> Repo.delete_all(timeout: 120_000)
   end
 
   # ---------------------------------- #
@@ -197,7 +189,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       {:filter, filter}, q ->
         filter_event_details(filter, q)
     end)
-    |> Repo.delete_all(timeout: 60_000)
+    |> Repo.delete_all(timeout: 120_000)
   end
 
   # -------------------------------------- #
@@ -301,9 +293,15 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> get_event_definition!(invalid_id)
        ** (Ecto.NoResultsError)
   """
-  def get_event_definition!(id) do
-    Repo.get!(EventDefinition, id)
-    |> Repo.preload(:event_definition_details)
+  def get_event_definition!(id, opts \\ []) do
+    preload_details = Keyword.get(opts, :preload_details, false)
+
+    if preload_details do
+      Repo.get!(EventDefinition, id)
+      |> Repo.preload(:event_definition_details)
+    else
+      Repo.get!(EventDefinition, id)
+    end
   end
 
   @doc """
@@ -314,9 +312,15 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> get_event_definition(invalid_id)
        nil
   """
-  def get_event_definition(id) do
-    Repo.get(EventDefinition, id)
-    |> Repo.preload(:event_definition_details)
+  def get_event_definition(id, opts \\ []) do
+    preload_details = Keyword.get(opts, :preload_details, false)
+
+    if preload_details do
+      Repo.get(EventDefinition, id)
+      |> Repo.preload(:event_definition_details)
+    else
+      Repo.get(EventDefinition, id)
+    end
   end
 
   @doc """
@@ -357,7 +361,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     query =
       if preload_details do
         query
-        |> preload(:event_details)
+        |> preload(:event_definition_details)
       else
         query
       end
@@ -413,7 +417,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       {:ok, %EventDefinition{}}
   """
   def hard_delete_event_definition(%EventDefinition{} = event_definition) do
-    Repo.delete(event_definition)
+    Repo.delete(event_definition, timeout: 120_000)
   end
 
   @doc """
@@ -427,7 +431,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       {10, nil}
   """
   def hard_delete_event_definitions() do
-    Repo.delete_all(EventDefinition)
+    Repo.delete_all(EventDefinition, timeout: 120_000)
   end
 
   @doc """
@@ -593,11 +597,11 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   """
   def hard_delete_event_definition_details(id) do
     from(details in EventDefinitionDetail, where: details.event_definition_id == ^id)
-    |> Repo.delete_all()
+    |> Repo.delete_all(timeout: 120_000)
   end
 
   def hard_delete_event_definition_details() do
-    Repo.delete_all(EventDefinitionDetail)
+    Repo.delete_all(EventDefinitionDetail, timeout: 120_000)
   end
 
   @doc """
@@ -683,7 +687,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   def run_multi_transaction(multi) do
-    Repo.transaction(multi)
+    Repo.transaction(multi, timeout: 120_000)
   end
 
   # ----------------------- #

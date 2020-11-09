@@ -61,7 +61,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       {:select, select}, q ->
         select(q, ^select)
     end)
-    |> Repo.delete_all()
+    |> Repo.delete_all(timeout: 120_000)
   end
 
   @doc """
@@ -203,7 +203,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       {:select, select}, q ->
         select(q, ^select)
     end)
-    |> Repo.delete_all()
+    |> Repo.delete_all(timeout: 120_000)
   end
 
   @doc """
@@ -328,7 +328,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   end
 
   def run_multi_transaction(multi) do
-    Repo.transaction(multi)
+    Repo.transaction(multi, timeout: 120_000)
   end
 
   def in_risk_range?(risk_score, risk_range) do

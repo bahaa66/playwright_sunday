@@ -33,7 +33,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     if status_code == :error or is_nil(ed_result) do
       event_definition_map =
-        EventsContext.get_event_definition(event_definition_id)
+        EventsContext.get_event_definition(event_definition_id, preload_details: true)
         |> EventsContext.remove_event_definition_virtual_fields(
           include_event_definition_details: true
         )
@@ -407,8 +407,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         {:error, nil}
 
       core_id ->
-        event_ids = EventsContext.get_events_by_core_id(core_id, event_definition.id)
-        {:ok, event_ids}
+        case EventsContext.get_events_by_core_id(core_id, event_definition.id) do
+          [] ->
+            {:ok, nil}
+
+          event_ids ->
+            {:ok, event_ids}
+        end
     end
   end
 

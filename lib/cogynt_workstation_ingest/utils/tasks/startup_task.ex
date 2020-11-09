@@ -25,15 +25,12 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   # ----------------------- #
   defp start_event_type_pipelines() do
     event_definitions =
-      EventsContext.query_event_definitions(
-        %{
-          filter: %{
-            active: true,
-            deleted_at: nil
-          }
-        },
-        preload_detail: true
-      )
+      EventsContext.query_event_definitions(%{
+        filter: %{
+          active: true,
+          deleted_at: nil
+        }
+      })
 
     Enum.each(event_definitions, fn event_definition ->
       Redis.publish_async("ingest_channel", %{
@@ -46,14 +43,12 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
 
   defp start_notification_tasks() do
     event_definitions =
-      EventsContext.query_event_definitions(
-        %{
-          filter: %{
-            deleted_at: nil
-          }
+      EventsContext.query_event_definitions(%{
+        filter: %{
+          deleted_at: nil
         },
-        preload_detail: true
-      )
+        select: [:id]
+      })
 
     Enum.each(event_definitions, fn event_definition ->
       {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)

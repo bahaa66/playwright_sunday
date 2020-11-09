@@ -178,11 +178,11 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
     page =
       EventsContext.get_page_of_events(
         %{
-          filter: %{event_definition_id: event_definition.id}
+          filter: %{event_definition_id: event_definition.id},
+          select: [:id]
         },
         page_number: 1,
         page_size: @page_size,
-        preload_details: false,
         include_deleted: true
       )
 
@@ -300,11 +300,11 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
       next_page =
         EventsContext.get_page_of_events(
           %{
-            filter: %{event_definition_id: event_definition_id}
+            filter: %{event_definition_id: event_definition_id},
+            select: [:id]
           },
           page_number: page_number + 1,
           page_size: @page_size,
-          preload_details: false,
           include_deleted: true
         )
 

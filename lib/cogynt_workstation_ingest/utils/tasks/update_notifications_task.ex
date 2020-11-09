@@ -5,8 +5,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationsTask do
   """
   use Task
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
-
-  alias Models.Notifications.{Notification, NotificationSetting}
+  alias Models.Notifications.NotificationSetting
 
   @page_size 2000
 
@@ -29,7 +28,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationsTask do
 
       page =
         NotificationsContext.get_page_of_notifications(
-          %{filter: %{notification_setting_id: notification_setting_id}},
+          %{
+            filter: %{notification_setting_id: notification_setting_id},
+            select: [:id]
+          },
           page_size: @page_size,
           include_deleted: true
         )
@@ -62,7 +64,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationsTask do
     case NotificationsContext.update_notifcations(
            %{
              filter: %{notification_ids: notification_ids},
-             select: Notification.__schema__(:fields)
+             select: [:id, :tag_id, :title, :assigned_to]
            },
            set: [tag_id: tag_id, title: ns_title, assigned_to: assigned_to]
          ) do
@@ -83,7 +85,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.UpdateNotificationsTask do
     else
       next_page =
         NotificationsContext.get_page_of_notifications(
-          %{filter: %{notification_setting_id: id}},
+          %{
+            filter: %{notification_setting_id: id},
+            select: [:id]
+          },
           page_number: page_number + 1,
           page_size: @page_size,
           include_deleted: true

@@ -72,9 +72,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
             select: [:id]
           },
           page_number: 1,
-          page_size: @page_size,
-          preload_details: false,
-          include_deleted: false
+          page_size: @page_size
         )
 
       process_page(page, event_definition)
@@ -97,13 +95,19 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
 
     # Update all events to be deleted
     EventsContext.update_events(
-      %{filter: %{event_ids: event_ids}},
+      %{
+        filter: %{event_ids: event_ids},
+        select: [:id, :deleted_at]
+      },
       set: [deleted_at: deleted_at]
     )
 
     # Update all event_links to be deleted
     EventsContext.update_event_links(
-      %{filter: %{linkage_event_ids: event_ids}},
+      %{
+        filter: %{linkage_event_ids: event_ids},
+        select: [:id, :deleted_at]
+      },
       set: [deleted_at: deleted_at]
     )
 
@@ -131,9 +135,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
             select: [:id]
           },
           page_number: 1,
-          page_size: @page_size,
-          preload_details: false,
-          include_deleted: false
+          page_size: @page_size
         )
 
       Redis.publish_async("event_definitions_subscription", %{updated: event_definition_id})

@@ -89,7 +89,7 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
       {10, nil}
   """
   def hard_delete_deployments() do
-    Repo.delete_all(Deployment)
+    Repo.delete_all(Deployment, timeout: 120_000)
   end
 
   @doc """
