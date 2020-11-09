@@ -155,36 +155,20 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
       end
 
     if not Enum.empty?(list_items) do
-      Enum.reduce(list_items, [], fn json_encoded_message, acc ->
-        case Jason.decode(json_encoded_message, keys: :atoms) do
-          {:ok,
-           %{
-             batch_key: batch_key,
-             data: data,
-             metadata: metadata
-           }} ->
-            acc ++
-              [
-                %Broadway.Message{
-                  acknowledger: {pipeline_module, :ack_id, :ack_data},
-                  batch_key: list_to_tuple(batch_key),
-                  batch_mode: :bulk,
-                  batcher: :default,
-                  data: data,
-                  metadata: metadata
-                }
-              ]
-
-          {:error, error} ->
-            CogyntLogger.warn(
-              "#{__MODULE__}",
-              "Failed to jason decode failed message for Redis key: #{key}. Error: #{
-                inspect(error, pretty: true)
-              }"
-            )
-
-            acc
-        end
+      Enum.reduce(list_items, [], fn %{batch_key: batch_key, data: data, metadata: metadata} =
+                                       item,
+                                     acc ->
+        acc ++
+          [
+            %Broadway.Message{
+              acknowledger: {pipeline_module, :ack_id, :ack_data},
+              batch_key: list_to_tuple(batch_key),
+              batch_mode: :bulk,
+              batcher: :default,
+              data: first_level_keys_to_atoms(data),
+              metadata: first_level_keys_to_atoms(metadata)
+            }
+          ]
       end)
     else
       list_items
@@ -199,5 +183,9 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
 
   defp list_to_tuple(item) do
     item
+  end
+
+  defp first_level_keys_to_atoms(string_key_map) do
+    for {key, val} <- string_key_map, into: %{}, do: {String.to_atom(key), val}
   end
 end

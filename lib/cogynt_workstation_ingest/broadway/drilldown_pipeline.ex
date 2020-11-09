@@ -112,7 +112,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
       end)
 
     Redis.list_append_pipeline("fdm:#{group_id}", failed_messages)
-    incr_total_processed_message_count(group_id)
+    incr_total_processed_message_count(group_id, Enum.count(messages))
     messages
   end
 
@@ -208,7 +208,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp incr_total_processed_message_count(group_id) do
-    Redis.hash_increment_by("dmi:#{group_id}", "tmp", 1)
+  defp incr_total_processed_message_count(group_id, count \\ 1) do
+    Redis.hash_increment_by("dmi:#{group_id}", "tmp", count)
   end
 end

@@ -88,6 +88,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
           )
 
           data = Map.put(data, :retry_count, retry_count + 1)
+
           message =
             Map.put(message, :data, data)
             |> Map.drop([:status, :acknowledger])
@@ -99,7 +100,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
       end)
 
     Redis.list_append_pipeline("fdpm", failed_messages)
-    incr_total_processed_message_count()
+    incr_total_processed_message_count(Enum.count(messages))
     messages
   end
 
@@ -147,7 +148,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp incr_total_processed_message_count() do
-    Redis.hash_increment_by("dpmi", "tmp", 1)
+  defp incr_total_processed_message_count(count \\ 1) do
+    Redis.hash_increment_by("dpmi", "tmp", count)
   end
 end
