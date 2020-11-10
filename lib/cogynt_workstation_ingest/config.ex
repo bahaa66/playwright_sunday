@@ -40,6 +40,8 @@ defmodule CogyntWorkstationIngest.Config do
   def http_client(), do: clients()[:http_client]
   def elasticsearch_client(), do: clients()[:elasticsearch_client]
 
+  def enable_dev_tools?(), do: Application.get_env(:cogynt_workstation_ingest, :enable_dev_tools)
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
@@ -58,7 +60,8 @@ defmodule CogyntWorkstationIngest.Config do
 
   defp failed_messages(), do: Application.get_env(:cogynt_workstation_ingest, :failed_messages)
 
-  defp ingest_task_worker(), do: Application.get_env(:cogynt_workstation_ingest, :ingest_task_worker)
+  defp ingest_task_worker(),
+    do: Application.get_env(:cogynt_workstation_ingest, :ingest_task_worker)
 
   defp startup(), do: Application.get_env(:cogynt_workstation_ingest, :startup)
 

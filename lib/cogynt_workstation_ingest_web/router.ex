@@ -1,8 +1,9 @@
 defmodule CogyntWorkstationIngestWeb.Router do
   use CogyntWorkstationIngestWeb, :router
   import Phoenix.LiveDashboard.Router
-
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Supervisors.TelemetrySupervisor
+  alias CogyntWorkstationIngestWeb.FallbackController
 
   pipeline :api do
     plug(:accepts, ["json"])
@@ -18,7 +19,10 @@ defmodule CogyntWorkstationIngestWeb.Router do
 
   scope "/" do
     pipe_through(:browser)
-    live_dashboard("/dashboard", metrics: TelemetrySupervisor)
+
+    if Config.enable_dev_tools?() do
+      live_dashboard("/dashboard", metrics: TelemetrySupervisor)
+    end
   end
 
   ## Health Check route
@@ -30,5 +34,10 @@ defmodule CogyntWorkstationIngestWeb.Router do
     pipe_through(:api)
     get("/drilldown/all/:id", DrilldownController, :index)
     get("/drilldown/:id", DrilldownController, :show)
+  end
+
+  scope "/*path" do
+    pipe_through(:api)
+    get "/", FallbackController, {:error, :not_found}
   end
 end
