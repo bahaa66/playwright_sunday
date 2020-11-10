@@ -155,8 +155,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
       end
 
     if not Enum.empty?(list_items) do
-      Enum.reduce(list_items, [], fn %{batch_key: batch_key, data: data, metadata: metadata} =
-                                       item,
+      Enum.reduce(list_items, [], fn %{batch_key: batch_key, data: data, metadata: metadata}
                                      acc ->
         acc ++
           [
