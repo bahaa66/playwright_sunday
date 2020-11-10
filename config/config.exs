@@ -1,7 +1,8 @@
 use Mix.Config
 
 config :cogynt_workstation_ingest,
-  ecto_repos: [CogyntWorkstationIngest.Repo]
+  ecto_repos: [CogyntWorkstationIngest.Repo],
+  enable_dev_tools: System.get_env("ENABLE_DEV_TOOLS") || true
 
 # Configures the endpoint
 config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,

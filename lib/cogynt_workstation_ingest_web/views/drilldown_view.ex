@@ -10,6 +10,10 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
     %{errors: %{detail: "User is not authenticated"}}
   end
 
+  def render("404.json", _) do
+    %{errors: %{detail: "Not found"}}
+  end
+
   def type, do: "solutions"
 
   def id(info, _conn) do
