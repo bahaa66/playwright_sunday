@@ -1,3 +1,0 @@
-defmodule CogyntWorkstationIngest.Repo.Migrations.AlterSeverityField do
-  use Migrations.NotificationsAndNotificationSettingsDropSeverityAddTagId
-end
