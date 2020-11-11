@@ -56,7 +56,7 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
       iex> upsert_deployment(%{field: bad_value})
       {:error, %Ecto.Changeset{}}
   """
-  def upsert_deployment(attrs \\ %{}) do
+  def upsert_deployment(attrs) do
     case get_deployment(attrs.id) do
       nil ->
         create_deployment(attrs)
@@ -89,7 +89,7 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
       {10, nil}
   """
   def hard_delete_deployments() do
-    Repo.delete_all(Deployment)
+    Repo.delete_all(Deployment, timeout: 120_000)
   end
 
   @doc """

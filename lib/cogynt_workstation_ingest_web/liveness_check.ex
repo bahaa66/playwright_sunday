@@ -14,14 +14,13 @@ defmodule LivenessCheck do
 
   @spec call(Plug.Conn.t(), options) :: Plug.Conn.t()
   def call(%Plug.Conn{} = conn, _opts) do
-    {_, cluster_health} = Elasticsearch.cluster_health?()
     {_, event_index_health} = Elasticsearch.index_health?(Config.event_index_alias())
 
     {_, risk_history_index_health} =
       Elasticsearch.index_health?(Config.risk_history_index_alias())
 
-    if cluster_health and kafka_health?() and postgres_health?() and redis_health?() and
-      event_index_health and risk_history_index_health do
+    if kafka_health?() and postgres_health?() and redis_health?() and
+         event_index_health and risk_history_index_health do
       send_resp(conn, 200, @resp_body)
     else
       send_resp(conn, 500, @resp_body_error)
@@ -35,10 +34,12 @@ defmodule LivenessCheck do
           true
 
         _ ->
+          CogyntLogger.error("#{__MODULE__}", "LivenessCheck Kafka Failed")
           false
       end
     rescue
       _ ->
+        CogyntLogger.error("#{__MODULE__}", "LivenessCheck Kafka Failed")
         false
     end
   end
@@ -48,7 +49,13 @@ defmodule LivenessCheck do
       Ecto.Adapters.SQL.query(CogyntWorkstationIngest.Repo, "select 1", [])
       true
     rescue
-      DBConnection.ConnectionError -> false
+      DBConnection.ConnectionError ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "LivenessCheck PostgreSQL Failed with DBConnection.ConnectionError"
+        )
+
+        false
     end
   end
 

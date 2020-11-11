@@ -16,8 +16,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   Checks to make sure if a valid link event was passed through authoring. If incomplete data
   then :validated is set to false. Otherwise it is set to true.
   """
-  def validate_link_event(%Message{data: nil}) do
-    raise "validate_link_event/1 failed. No message data"
+  def validate_link_event(%Message{data: nil} = message) do
+    CogyntLogger.warn("#{__MODULE__}", "validate_link_event/1 failed. No message data")
+    message
   end
 
   def validate_link_event(%Message{data: %{event: event} = data} = message) do
@@ -53,8 +54,10 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   and pull out just the "id" fields. Ex: ${"locations" => [1, 2, 3], "accounts" => [5, 6]}. Will
   udpate the data map with a new :link_entities value storing the return value.
   """
-  def process_entities(%Message{data: nil}),
-    do: raise("process_entities/1 failed. No message data")
+  def process_entities(%Message{data: nil} = message) do
+    CogyntLogger.warn("#{__MODULE__}", "process_entities/1 failed. No message data")
+    message
+  end
 
   def process_entities(%Message{data: %{validated: false}} = message), do: message
   def process_entities(%Message{data: %{event_id: nil}} = message), do: message
@@ -91,8 +94,10 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   Requires :event_links fields in the data map. Takes all the fields and
   executes them in one databse transaction.
   """
-  def execute_transaction(%Message{data: nil}),
-    do: raise("execute_transaction/1 failed. No message data")
+  def execute_transaction(%Message{data: nil} = message) do
+    CogyntLogger.warn("#{__MODULE__}", "execute_transaction/1 failed. No message data")
+    message
+  end
 
   def execute_transaction(%Message{data: %{event_id: nil}} = message), do: message
 
@@ -106,17 +111,17 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
             event_details: event_details,
             link_events: link_events,
             delete_event_ids: delete_event_ids,
-            event_docs: event_doc_data,
-            risk_history_doc: risk_history_doc,
-            delete_docs: doc_ids,
+            event_doc: event_index_document,
+            risk_history_doc: risk_history_index_document,
             crud_action: action,
             event_id: event_id
           }
         } = message
       ) do
     # elasticsearch updates
-    update_event_docs(event_doc_data, doc_ids)
-    update_risk_history_doc(risk_history_doc)
+    delete_event_index_documents(delete_event_ids)
+    upsert_event_index_document(event_index_document)
+    upsert_risk_history_index_document(risk_history_index_document)
 
     transaction_result =
       EventsContext.insert_all_event_details_multi(event_details)
@@ -176,17 +181,17 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
             event_details: event_details,
             link_events: link_events,
             delete_event_ids: delete_event_ids,
-            event_docs: event_doc_data,
-            risk_history_doc: risk_history_doc,
-            delete_docs: doc_ids,
+            event_doc: event_index_document,
+            risk_history_doc: risk_history_index_document,
             crud_action: action,
             event_id: event_id
           }
         } = message
       ) do
     # elasticsearch updates
-    update_event_docs(event_doc_data, doc_ids)
-    update_risk_history_doc(risk_history_doc)
+    delete_event_index_documents(delete_event_ids)
+    upsert_event_index_document(event_index_document)
+    upsert_risk_history_index_document(risk_history_index_document)
 
     transaction_result =
       EventsContext.insert_all_event_details_multi(event_details)
@@ -222,48 +227,35 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp update_event_docs(
-         %{event_docs: event_docs, remove_docs_for_update: remove_docs_for_update},
-         delete_event_doc_ids
-       ) do
-    if is_null_or_empty?(delete_event_doc_ids) == false do
+  defp delete_event_index_documents(delete_elasticsearch_document_ids) do
+    if not is_null_or_empty?(delete_elasticsearch_document_ids) do
       {:ok, _} =
-        Elasticsearch.bulk_delete_document(Config.event_index_alias(), delete_event_doc_ids)
-    else
-      if is_null_or_empty?(remove_docs_for_update) == false do
-        {:ok, _} =
-          Elasticsearch.bulk_delete_document(Config.event_index_alias(), remove_docs_for_update)
-      end
-
-      if is_null_or_empty?(event_docs) == false do
-        {:ok, %{"errors" => errors}} =
-          Elasticsearch.bulk_upsert_document(
-            Config.event_index_alias(),
-            event_docs
-          )
-
-        if errors do
-          CogyntLogger.warn(
-            "#{__MODULE__}",
-            "Elasticsearch.bulk_upsert_document/3 errors was true"
-          )
-        end
-      end
+        Elasticsearch.bulk_delete_document(
+          Config.event_index_alias(),
+          delete_elasticsearch_document_ids
+        )
     end
   end
 
-  defp update_risk_history_doc(risk_history_doc) do
-    case !is_nil(risk_history_doc) do
-      true ->
-        {:ok, _} =
-          Elasticsearch.upsert_document(
-            Config.risk_history_index_alias(),
-            risk_history_doc.id,
-            risk_history_doc
-          )
+  defp upsert_event_index_document(event_index_document) do
+    if !is_nil(event_index_document) do
+      {:ok, _} =
+        Elasticsearch.upsert_document(
+          Config.event_index_alias(),
+          event_index_document.id,
+          event_index_document
+        )
+    end
+  end
 
-      false ->
-        :ok
+  defp upsert_risk_history_index_document(risk_history_index_document) do
+    if !is_nil(risk_history_index_document) do
+      {:ok, _} =
+        Elasticsearch.upsert_document(
+          Config.risk_history_index_alias(),
+          risk_history_index_document.id,
+          risk_history_index_document
+        )
     end
   end
 

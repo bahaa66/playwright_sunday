@@ -36,7 +36,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
     new_state = Map.put(state, pid, %{id: notification_setting_id, type: :backfill})
 
-    case Redis.hash_get("ts", "bn", decode: true) do
+    case Redis.hash_get("ts", "bn") do
       {:ok, nil} ->
         Redis.hash_set(
           "ts",
@@ -51,8 +51,6 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
           Enum.uniq(notification_setting_ids ++ [notification_setting_id])
         )
     end
-
-    Redis.key_pexpire("ts", 60000)
 
     Redis.publish_async("notification_settings_subscription", %{
       id: notification_setting_id,
@@ -68,7 +66,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
     new_state = Map.put(state, pid, %{id: notification_setting_id, type: :update})
 
-    case Redis.hash_get("ts", "un", decode: true) do
+    case Redis.hash_get("ts", "un") do
       {:ok, nil} ->
         Redis.hash_set(
           "ts",
@@ -83,8 +81,6 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
           Enum.uniq(notification_setting_ids ++ [notification_setting_id])
         )
     end
-
-    Redis.key_pexpire("ts", 60000)
 
     Redis.publish_async("notification_settings_subscription", %{
       id: notification_setting_id,
@@ -100,7 +96,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
     new_state = Map.put(state, pid, %{id: notification_setting_id, type: :delete})
 
-    case Redis.hash_get("ts", "dn", decode: true) do
+    case Redis.hash_get("ts", "dn") do
       {:ok, nil} ->
         Redis.hash_set(
           "ts",
@@ -115,8 +111,6 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
           Enum.uniq(notification_setting_ids ++ [notification_setting_id])
         )
     end
-
-    Redis.key_pexpire("ts", 60000)
 
     Redis.publish_async("notification_settings_subscription", %{
       id: notification_setting_id,
@@ -160,7 +154,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
                 EventsContext.get_event_definition(notification_setting.event_definition_id)
                 |> EventsContext.remove_event_definition_virtual_fields()
 
-              ConsumerStateManager.manage_request(%{start_consumer: event_definition_map})
+              Redis.publish_async("ingest_channel", %{start_consumer: event_definition_map})
 
             true ->
               ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
@@ -187,7 +181,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
           end)
         end
 
-        case Redis.hash_get("ts", "bn", decode: true) do
+        case Redis.hash_get("ts", "bn") do
           {:ok, nil} ->
             nil
 
@@ -218,7 +212,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
                 EventsContext.get_event_definition(notification_setting.event_definition_id)
                 |> EventsContext.remove_event_definition_virtual_fields()
 
-              ConsumerStateManager.manage_request(%{start_consumer: event_definition_map})
+              Redis.publish_async("ingest_channel", %{start_consumer: event_definition_map})
 
             true ->
               ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
@@ -245,7 +239,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
           end)
         end
 
-        case Redis.hash_get("ts", "un", decode: true) do
+        case Redis.hash_get("ts", "un") do
           {:ok, nil} ->
             nil
 
@@ -276,7 +270,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
                 EventsContext.get_event_definition(notification_setting.event_definition_id)
                 |> EventsContext.remove_event_definition_virtual_fields()
 
-              ConsumerStateManager.manage_request(%{start_consumer: event_definition_map})
+              Redis.publish_async("ingest_channel", %{start_consumer: event_definition_map})
 
             true ->
               ConsumerStateManager.upsert_consumer_state(notification_setting.event_definition_id,
@@ -303,7 +297,7 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
           end)
         end
 
-        case Redis.hash_get("ts", "dn", decode: true) do
+        case Redis.hash_get("ts", "dn") do
           {:ok, nil} ->
             nil
 
@@ -319,8 +313,6 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
         end
     end
 
-    Redis.key_pexpire("ts", 60000)
-
     Redis.publish_async("notification_settings_subscription", %{
       id: notification_setting_id,
       status: "finished"
@@ -328,5 +320,38 @@ defmodule CogyntWorkstationIngest.Servers.NotificationsTaskMonitor do
 
     new_state = Map.delete(state, pid)
     {:noreply, new_state}
+  end
+
+  @doc false
+  def is_backfill_notifications_task_running?(notification_setting_id) do
+    {status_code, results} = Redis.hash_get("ts", "bn")
+
+    if status_code == :error or is_nil(results) do
+      false
+    else
+      Enum.member?(results, notification_setting_id)
+    end
+  end
+
+  @doc false
+  def is_update_notifications_task_running?(notification_setting_id) do
+    {status_code, results} = Redis.hash_get("ts", "un")
+
+    if status_code == :error or is_nil(results) do
+      false
+    else
+      Enum.member?(results, notification_setting_id)
+    end
+  end
+
+  @doc false
+  def is_delete_notifications_task_running?(notification_setting_id) do
+    {status_code, results} = Redis.hash_get("ts", "dn")
+
+    if status_code == :error or is_nil(results) do
+      false
+    else
+      Enum.member?(results, notification_setting_id)
+    end
   end
 end

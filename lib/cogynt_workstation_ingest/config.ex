@@ -8,14 +8,12 @@ defmodule CogyntWorkstationIngest.Config do
   def event_processor_stages(), do: event_pipeline()[:processor_stages]
   def event_producer_stages(), do: event_pipeline()[:producer_stages]
 
-  def consumer_retry_time_delay(), do: consumer_retry_cache()[:time_delay]
-  def consumer_retry_max_retry(), do: consumer_retry_cache()[:max_retry]
-
-  def deployment_consumer_retry_time_delay(), do: deployment_retry_cache()[:time_delay]
-  def deployment_consumer_retry_max_retry(), do: deployment_retry_cache()[:max_retry]
+  def consumer_retry_retry_timer(), do: consumer_retry_worker()[:retry_timer]
 
   def failed_messages_max_retry(), do: failed_messages()[:max_retry]
   def failed_messages_retry_timer(), do: failed_messages()[:retry_timer]
+
+  def ingest_task_worker_timer(), do: ingest_task_worker()[:timer]
 
   def kafka_brokers, do: kafka()[:brokers]
   def kafka_client, do: kafka()[:kafka_client]
@@ -42,6 +40,8 @@ defmodule CogyntWorkstationIngest.Config do
   def http_client(), do: clients()[:http_client]
   def elasticsearch_client(), do: clients()[:elasticsearch_client]
 
+  def enable_dev_tools?(), do: Application.get_env(:cogynt_workstation_ingest, :enable_dev_tools)
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
@@ -55,17 +55,17 @@ defmodule CogyntWorkstationIngest.Config do
 
   defp event_pipeline(), do: Application.get_env(:cogynt_workstation_ingest, :event_pipeline)
 
-  defp consumer_retry_cache(),
-    do: Application.get_env(:cogynt_workstation_ingest, :consumer_retry_cache)
-
-  defp deployment_retry_cache(),
-    do: Application.get_env(:cogynt_workstation_ingest, :deployment_retry_cache)
+  defp consumer_retry_worker(),
+    do: Application.get_env(:cogynt_workstation_ingest, :consumer_retry_worker)
 
   defp failed_messages(), do: Application.get_env(:cogynt_workstation_ingest, :failed_messages)
 
+  defp ingest_task_worker(),
+    do: Application.get_env(:cogynt_workstation_ingest, :ingest_task_worker)
+
   defp startup(), do: Application.get_env(:cogynt_workstation_ingest, :startup)
 
-  defp elasticsearch(), do: Application.get_env(:elasticsearch, :config)
+  defp elasticsearch(), do: Application.get_env(:elasticsearch, :application)
 
   defp clients(), do: Application.get_env(:cogynt_workstation_ingest, :clients)
 end

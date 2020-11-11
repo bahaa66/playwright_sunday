@@ -5,9 +5,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   import Ecto.Query, warn: false
   alias Ecto.Multi
   alias CogyntWorkstationIngest.Repo
-  alias Models.Enums.ConsumerStatusTypeEnum
-  alias CogyntWorkstationIngest.Supervisors.DynamicTaskSupervisor
-  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
 
   alias Models.Events.{
     Event,
@@ -72,24 +69,16 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> get_events_by_core_id(core_id, event_definition_id)
       [%{}]
       iex> get_events_by_core_id("invalid_id")
-      nil
+      []
   """
   def get_events_by_core_id(core_id, event_definition_id) do
-    event_ids =
-      Repo.all(
-        from(e in Event,
-          join: ed in EventDefinition,
-          on: ed.id == e.event_definition_id,
-          where: e.core_id == ^core_id and ed.id == ^event_definition_id and is_nil(e.deleted_at),
-          select: e.id
-        )
-      )
-
-    if Enum.empty?(event_ids) do
-      nil
-    else
-      event_ids
-    end
+    from(e in Event,
+      join: ed in EventDefinition,
+      on: ed.id == e.event_definition_id,
+      where: e.core_id == ^core_id and ed.id == ^event_definition_id and is_nil(e.deleted_at),
+      select: e.id
+    )
+    |> Repo.all()
   end
 
   @doc """
@@ -113,7 +102,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       }
   """
   def get_page_of_events(args, opts \\ []) do
-    preload_details = Keyword.get(opts, :preload_details, true)
+    preload_details = Keyword.get(opts, :preload_details, false)
     include_deleted = Keyword.get(opts, :include_deleted, false)
     page = Keyword.get(opts, :page_number, 1)
     page_size = Keyword.get(opts, :page_size, 10)
@@ -122,6 +111,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       Enum.reduce(args, from(e in Event), fn
         {:filter, filter}, q ->
           filter_events(filter, q)
+
+        {:select, select}, q ->
+          select(q, ^select)
       end)
 
     query =
@@ -178,7 +170,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       {:filter, filter}, q ->
         filter_events(filter, q)
     end)
-    |> Repo.delete_all(timeout: 60_000)
+    |> Repo.delete_all(timeout: 120_000)
   end
 
   # ---------------------------------- #
@@ -197,7 +189,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       {:filter, filter}, q ->
         filter_event_details(filter, q)
     end)
-    |> Repo.delete_all(timeout: 60_000)
+    |> Repo.delete_all(timeout: 120_000)
   end
 
   # -------------------------------------- #
@@ -250,7 +242,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> upsert_event_definition(%{field: bad_value})
       {:error, %Ecto.Changeset{}}
   """
-  def upsert_event_definition(attrs \\ %{}) do
+  def upsert_event_definition(attrs) do
     case get_event_definition_by(%{
            authoring_event_definition_id: attrs.authoring_event_definition_id,
            deployment_id: attrs.deployment_id
@@ -301,9 +293,15 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> get_event_definition!(invalid_id)
        ** (Ecto.NoResultsError)
   """
-  def get_event_definition!(id) do
-    Repo.get!(EventDefinition, id)
-    |> Repo.preload(:event_definition_details)
+  def get_event_definition!(id, opts \\ []) do
+    preload_details = Keyword.get(opts, :preload_details, false)
+
+    if preload_details do
+      Repo.get!(EventDefinition, id)
+      |> Repo.preload(:event_definition_details)
+    else
+      Repo.get!(EventDefinition, id)
+    end
   end
 
   @doc """
@@ -314,9 +312,15 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> get_event_definition(invalid_id)
        nil
   """
-  def get_event_definition(id) do
-    Repo.get(EventDefinition, id)
-    |> Repo.preload(:event_definition_details)
+  def get_event_definition(id, opts \\ []) do
+    preload_details = Keyword.get(opts, :preload_details, false)
+
+    if preload_details do
+      Repo.get(EventDefinition, id)
+      |> Repo.preload(:event_definition_details)
+    else
+      Repo.get(EventDefinition, id)
+    end
   end
 
   @doc """
@@ -357,7 +361,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     query =
       if preload_details do
         query
-        |> preload(:event_details)
+        |> preload(:event_definition_details)
       else
         query
       end
@@ -413,7 +417,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       {:ok, %EventDefinition{}}
   """
   def hard_delete_event_definition(%EventDefinition{} = event_definition) do
-    Repo.delete(event_definition)
+    Repo.delete(event_definition, timeout: 120_000)
   end
 
   @doc """
@@ -427,7 +431,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       {10, nil}
   """
   def hard_delete_event_definitions() do
-    Repo.delete_all(EventDefinition)
+    Repo.delete_all(EventDefinition, timeout: 120_000)
   end
 
   @doc """
@@ -593,11 +597,11 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   """
   def hard_delete_event_definition_details(id) do
     from(details in EventDefinitionDetail, where: details.event_definition_id == ^id)
-    |> Repo.delete_all()
+    |> Repo.delete_all(timeout: 120_000)
   end
 
   def hard_delete_event_definition_details() do
-    Repo.delete_all(EventDefinitionDetail)
+    Repo.delete_all(EventDefinitionDetail, timeout: 120_000)
   end
 
   @doc """
@@ -683,86 +687,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   def run_multi_transaction(multi) do
-    Repo.transaction(multi)
-  end
-
-  # ----------------------------------- #
-  # --- Application Startup Methods --- #
-  # ----------------------------------- #
-  def initalize_consumer_states() do
-    # Fetch all active EventDefinitions and start their consumers
-    event_definitions =
-      query_event_definitions(
-        %{
-          filter: %{
-            active: true,
-            deleted_at: nil
-          }
-        },
-        preload_detail: true
-      )
-
-    Enum.each(event_definitions, fn event_definition ->
-      ConsumerStateManager.manage_request(%{
-        start_consumer: remove_event_definition_virtual_fields(event_definition)
-      })
-    end)
-
-    # Fetch all EventDefinitions and check if they were in the middle of
-    # any tasks when application was restarted. If so trigger the tasks
-    # that were running
-    event_definitions =
-      query_event_definitions(
-        %{
-          filter: %{
-            deleted_at: nil
-          }
-        },
-        preload_detail: true
-      )
-
-    Enum.each(event_definitions, fn event_definition ->
-      {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
-
-      cond do
-        consumer_state.status ==
-            ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-          Enum.each(consumer_state.backfill_notifications, fn notification_setting_id ->
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Initalizing backfill notifications task: #{inspect(notification_setting_id)}"
-            )
-
-            DynamicTaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
-          end)
-
-        consumer_state.status ==
-            ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-          Enum.each(consumer_state.update_notifications, fn notification_setting_id ->
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Initalizing update notifications task: #{inspect(notification_setting_id)}"
-            )
-
-            DynamicTaskSupervisor.start_child(%{update_notifications: notification_setting_id})
-          end)
-
-        consumer_state.status ==
-            ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
-          Enum.each(consumer_state.delete_notifications, fn notification_setting_id ->
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Initalizing delete notifications task: #{inspect(notification_setting_id)}"
-            )
-
-            DynamicTaskSupervisor.start_child(%{delete_notification_setting: notification_setting_id})
-          end)
-
-        true ->
-          # No tasks to trigger
-          nil
-      end
-    end)
+    Repo.transaction(multi, timeout: 120_000)
   end
 
   # ----------------------- #

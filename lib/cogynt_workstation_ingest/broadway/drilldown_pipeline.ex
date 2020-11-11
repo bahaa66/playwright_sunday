@@ -8,6 +8,8 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   alias Broadway.Message
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Broadway.DrilldownProcessor
+  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
+  alias Models.Deployments.Deployment
 
   def start_link(%{group_id: group_id, topics: topics, hosts: hosts}) do
     Broadway.start_link(__MODULE__,
@@ -98,7 +100,10 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
           )
 
           data = Map.put(data, :retry_count, new_retry_count)
-          message = Map.put(message, :data, data)
+
+          message =
+            Map.put(message, :data, data)
+            |> Map.drop([:status, :acknowledger])
 
           acc ++ [message]
         else
@@ -107,6 +112,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
       end)
 
     Redis.list_append_pipeline("fdm:#{group_id}", failed_messages)
+    incr_total_processed_message_count(group_id, Enum.count(messages))
     messages
   end
 
@@ -123,8 +129,86 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
     |> DrilldownProcessor.process_template_data()
     |> DrilldownProcessor.upsert_template_solutions()
 
-    {:ok, _tmp} = Redis.hash_increment_by("dmi:#{group_id}", "tmp", 1)
-
+    incr_total_processed_message_count(group_id)
     message
+  end
+
+  @doc false
+  def drilldown_pipeline_running?(deployment \\ %Deployment{}) do
+    case deployment do
+      %Deployment{id: nil} ->
+        consumer_group_id = ConsumerGroupSupervisor.fetch_drilldown_cgid()
+
+        child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
+
+        case is_nil(child_pid) do
+          true ->
+            false
+
+          false ->
+            true
+        end
+
+      %Deployment{id: deployment_id} ->
+        consumer_group_id = ConsumerGroupSupervisor.fetch_drilldown_cgid(deployment_id)
+
+        child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
+
+        case is_nil(child_pid) do
+          true ->
+            false
+
+          false ->
+            true
+        end
+    end
+  end
+
+  @doc false
+  def drilldown_pipeline_finished_processing?(deployment \\ %Deployment{}) do
+    case deployment do
+      %Deployment{id: nil} ->
+        consumer_group_id = ConsumerGroupSupervisor.fetch_drilldown_cgid()
+
+        if consumer_group_id == "" do
+          true
+        else
+          case Redis.key_exists?("dmi:#{consumer_group_id}") do
+            {:ok, false} ->
+              true
+
+            {:ok, true} ->
+              {:ok, tmc} = Redis.hash_get("dmi:#{consumer_group_id}", "tmc")
+              {:ok, tmp} = Redis.hash_get("dmi:#{consumer_group_id}", "tmp")
+
+              String.to_integer(tmp) >= String.to_integer(tmc)
+          end
+        end
+
+      %Deployment{id: deployment_id} ->
+        consumer_group_id = ConsumerGroupSupervisor.fetch_drilldown_cgid(deployment_id)
+
+        if consumer_group_id == "" do
+          true
+        else
+          case Redis.key_exists?("dmi:#{consumer_group_id}") do
+            {:ok, false} ->
+              true
+
+            {:ok, true} ->
+              {:ok, tmc} = Redis.hash_get("dmi:#{consumer_group_id}", "tmc")
+              {:ok, tmp} = Redis.hash_get("dmi:#{consumer_group_id}", "tmp")
+
+              String.to_integer(tmp) >= String.to_integer(tmc)
+          end
+        end
+    end
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp incr_total_processed_message_count(group_id, count \\ 1) do
+    Redis.hash_increment_by("dmi:#{group_id}", "tmp", count)
   end
 end

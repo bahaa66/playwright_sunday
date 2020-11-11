@@ -44,7 +44,7 @@ config :kafka, :application,
   session_timeout: (System.get_env("SESSION_TIMEOUT") || "10000") |> String.to_integer()
 
 # Elasticsearch configurations
-config :elasticsearch, :config,
+config :elasticsearch, :application,
   cacertfile: System.get_env("ELASTIC_CA_CERT_PATH") || "",
   host: System.get_env("ELASTIC_URL") || "http://localhost:9200",
   username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",
@@ -93,5 +93,5 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   password: System.get_env("POSTGRESQL_PASSWORD") || "postgres",
   database: System.get_env("POSTGRESQL_DATABASE") || "cogynt_dev",
   hostname: System.get_env("POSTGRESQL_HOST") || "localhost",
-  pool_size: (System.get_env("POSTGRESQL_POOL_SIZE") || "50") |> String.to_integer(),
+  pool_size: (System.get_env("POSTGRESQL_POOL_SIZE") || "20") |> String.to_integer(),
   telemetry_prefix: [:cogynt_workstation_ingest, :repo]

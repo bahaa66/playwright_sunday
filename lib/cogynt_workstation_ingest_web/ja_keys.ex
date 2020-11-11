@@ -46,16 +46,13 @@ defmodule CogyntWorkstationIngestWeb.JA_Keys do
     |> Enum.reduce(to, fn {k,v}, o ->
       cond do
         k in legals ->
-          # IO.inspect "@@@@ Legal attr: #{inspect k} as #{inspect CEPAPI.JA_Keys.dasherize(k)}"
           Map.put(o, JA_Keys.dasherize_key(k), v)
         is_atom(k) ->
-          # IO.inspect "@@@@ aton attr: #{inspect k} as #{inspect CEPAPI.JA_Keys.dasherize(k)}"
           Map.put(o, JA_Keys.dasherize_key(k), v)
         true ->
           o
       end
     end)
-    # |> IO.inspect(label: "@@@@ Atomized keys")
   end
 
   def dasherize(map) when is_map(map) do

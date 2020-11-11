@@ -1,7 +1,8 @@
 use Mix.Config
 
 config :cogynt_workstation_ingest,
-  ecto_repos: [CogyntWorkstationIngest.Repo]
+  ecto_repos: [CogyntWorkstationIngest.Repo],
+  enable_dev_tools: (System.get_env("ENABLE_DEV_TOOLS") || "true") == "true"
 
 # Configures the endpoint
 config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
@@ -25,7 +26,10 @@ config :kafka, :application,
   deployment_topic: "deployment"
 
 # Elasticsearch Configurations
-config :elasticsearch, :config,
+config :elasticsearch, :application,
+  elasticsearch_client: Elasticsearch,
+  http_client: HTTPoison,
+  event_index_alias: "event",
   event_index_alias: "event",
   risk_history_index_alias: "risk_history",
   retry_on_conflict: 5,
@@ -48,18 +52,13 @@ config :cogynt_workstation_ingest, :core_keys,
   delete: "delete",
   create: "create"
 
-# Cache Configurations
 config :cogynt_workstation_ingest, :failed_messages,
   retry_timer: 600_000,
   max_retry: 144
 
-config :cogynt_workstation_ingest, :consumer_retry_cache,
-  time_delay: 600_000,
-  max_retry: 144
+config :cogynt_workstation_ingest, :consumer_retry_worker, retry_timer: 30_000
 
-config :cogynt_workstation_ingest, :deployment_retry_cache,
-  time_delay: 30_000,
-  max_retry: 2880
+config :cogynt_workstation_ingest, :ingest_task_worker, timer: 1000
 
 # Configures Elixir's Logger
 config :logger, :console,

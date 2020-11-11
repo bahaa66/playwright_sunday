@@ -29,7 +29,7 @@ defmodule CogyntWorkstationIngest.Collections.CollectionsContext do
       {:filter, filter}, q ->
         filter_collection_items(filter, q)
     end)
-    |> Repo.delete_all()
+    |> Repo.delete_all(timeout: 120_000)
   end
 
   # ----------------------- #

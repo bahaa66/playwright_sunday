@@ -34,12 +34,16 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
     with %NotificationSetting{} = notification_setting <-
            NotificationsContext.get_notification_setting_by(%{id: notification_setting_id}),
          %EventDefinition{} = event_definition <-
-           EventsContext.get_event_definition!(notification_setting.event_definition_id) do
+           EventsContext.get_event_definition(notification_setting.event_definition_id, preload_details: true) do
       page =
         EventsContext.get_page_of_events(
-          %{filter: %{event_definition_id: event_definition.id}},
+          %{
+            filter: %{event_definition_id: event_definition.id},
+            select: [:id, :event_details]
+          },
           page_number: 1,
-          page_size: @page_size
+          page_size: @page_size,
+          preload_details: true
         )
 
       process_page(page, event_definition, notification_setting)
@@ -92,9 +96,13 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
       false ->
         next_page =
           EventsContext.get_page_of_events(
-            %{filter: %{event_definition_id: event_definition_id}},
+            %{
+              filter: %{event_definition_id: event_definition_id},
+              select: [:id, :event_details]
+            },
             page_number: page_number + 1,
-            page_size: @page_size
+            page_size: @page_size,
+            preload_details: true
           )
 
         process_page(next_page, event_definition, notification_setting)

@@ -8,7 +8,7 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
 
   def init(_arg) do
     children = [
-      {:telemetry_poller, measurements: periodic_measurements(), period: 10_000}
+      # {:telemetry_poller, measurements: periodic_measurements(), period: 10_000}
       # Add reporters as children of your supervision tree.
       # {Telemetry.Metrics.ConsoleReporter, metrics: metrics()}
     ]
@@ -37,13 +37,13 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
       summary(
         "cogynt_workstation_ingest.repo.query.total_time",
         unit: {:native, :millisecond},
-        tags: [:source, :command]
+        tags: [:source, :query, :command]
       ),
 
       # Database Count Metrics - Formats `count` metric type
       counter(
         "cogynt_workstation_ingest.repo.query.count",
-        tags: [:source, :command]
+        tags: [:source, :query, :command]
       ),
 
       # Phoenix Time Metrics - Formats `timing` metric type
@@ -65,6 +65,10 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
       # Redis Metrics
       summary(
         "redix.hash_set.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "redix.hash_get.duration",
         unit: {:native, :millisecond}
       ),
       summary(
@@ -102,11 +106,11 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
     ]
   end
 
-  defp periodic_measurements do
-    [
-      # A module, function and arguments to be invoked periodically.
-      # This function must call :telemetry.execute/3 and a metric must be added above.
-      # {MyApp, :count_users, []}
-    ]
-  end
+  # defp periodic_measurements do
+  #   [
+  #     # A module, function and arguments to be invoked periodically.
+  #     # This function must call :telemetry.execute/3 and a metric must be added above.
+  #     # {MyApp, :count_users, []}
+  #   ]
+  # end
 end

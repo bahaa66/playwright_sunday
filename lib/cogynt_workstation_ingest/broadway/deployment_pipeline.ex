@@ -88,7 +88,10 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
           )
 
           data = Map.put(data, :retry_count, retry_count + 1)
-          message = Map.put(message, :data, data)
+
+          message =
+            Map.put(message, :data, data)
+            |> Map.drop([:status, :acknowledger])
 
           acc ++ [message]
         else
@@ -97,6 +100,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
       end)
 
     Redis.list_append_pipeline("fdpm", failed_messages)
+    incr_total_processed_message_count(Enum.count(messages))
     messages
   end
 
@@ -110,8 +114,41 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
     message
     |> DeploymentProcessor.process_deployment_message()
 
-    {:ok, _tmp} = Redis.hash_increment_by("dpmi", "tmp", 1)
-
+    incr_total_processed_message_count()
     message
+  end
+
+  @doc false
+  def deployment_pipeline_running?() do
+    child_pid = Process.whereis(:DeploymentPipeline)
+
+    case is_nil(child_pid) do
+      true ->
+        false
+
+      false ->
+        true
+    end
+  end
+
+  @doc false
+  def deployment_pipeline_finished_processing?() do
+    case Redis.key_exists?("dpmi") do
+      {:ok, false} ->
+        true
+
+      {:ok, true} ->
+        {:ok, tmc} = Redis.hash_get("dpmi", "tmc")
+        {:ok, tmp} = Redis.hash_get("dpmi", "tmp")
+
+        String.to_integer(tmp) >= String.to_integer(tmc)
+    end
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp incr_total_processed_message_count(count \\ 1) do
+    Redis.hash_increment_by("dpmi", "tmp", count)
   end
 end

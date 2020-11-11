@@ -8,6 +8,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   alias Broadway.Message
   alias Models.Enums.ConsumerStatusTypeEnum
   alias CogyntWorkstationIngest.Config
+  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Broadway.{EventProcessor, LinkEventProcessor}
 
@@ -77,7 +78,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         {:error, error} ->
           CogyntLogger.error(
             "#{__MODULE__}",
-            "Failed to decode Event Kafka message. Error: #{inspect(error)}"
+            "Failed to decode EventPipeline Kafka message. Error: #{inspect(error)}"
           )
 
           Map.put(message, :data, nil)
@@ -106,7 +107,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       Enum.reduce(messages, [], fn %Broadway.Message{
                                      data:
                                        %{
-                                         event_definition_id: event_definition_id,
+                                         event_definition_id: id,
                                          retry_count: retry_count
                                        } = data
                                    } = message,
@@ -116,13 +117,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
           CogyntLogger.warn(
             "#{__MODULE__}",
-            "Retrying Failed EventPipeline Message. EventDefinitionId: #{event_definition_id}. Attempt: #{
+            "Retrying Failed EventPipeline Message. EventDefinitionId: #{id}. Attempt: #{
               new_retry_count
             }"
           )
 
           data = Map.put(data, :retry_count, new_retry_count)
-          message = Map.put(message, :data, data)
+
+          message =
+            Map.put(message, :data, data)
+            |> Map.drop([:status, :acknowledger])
 
           acc ++ [message]
         else
@@ -136,6 +140,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       Redis.list_append_pipeline("fem:#{event_definition_id}", failed_messages)
     end
 
+    incr_total_processed_message_count(event_definition_id, Enum.count(messages))
     messages
   end
 
@@ -163,6 +168,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         |> LinkEventProcessor.process_entities()
         |> LinkEventProcessor.execute_transaction()
 
+      %Message{data: %{event_definition: %{event_type: "linkage"}}} ->
+        message
+        |> EventProcessor.process_event()
+        |> EventProcessor.process_event_details_and_elasticsearch_docs()
+        |> EventProcessor.process_notifications()
+        |> LinkEventProcessor.validate_link_event()
+        |> LinkEventProcessor.process_entities()
+        |> LinkEventProcessor.execute_transaction()
+
       _ ->
         message
         |> EventProcessor.process_event()
@@ -171,14 +185,42 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         |> EventProcessor.execute_transaction()
     end
 
-    {:ok, tmc} = Redis.hash_get("emi:#{event_definition_id}", "tmc")
-    {:ok, tmp} = Redis.hash_increment_by("emi:#{event_definition_id}", "tmp", 1)
-
-    if tmp >= String.to_integer(tmc) do
-      finished_processing(event_definition_id)
-    end
-
+    incr_total_processed_message_count(event_definition_id)
     message
+  end
+
+  @doc false
+  def event_pipeline_running?(event_definition_id) do
+    consumer_group_id = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
+    child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
+
+    case is_nil(child_pid) do
+      true ->
+        false
+
+      false ->
+        true
+    end
+  end
+
+  @doc false
+  def event_pipeline_finished_processing?(event_definition_id) do
+    consumer_group_id = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
+
+    if consumer_group_id == "" do
+      true
+    else
+      case Redis.key_exists?("emi:#{consumer_group_id}") do
+        {:ok, false} ->
+          true
+
+        {:ok, true} ->
+          {:ok, tmc} = Redis.hash_get("emi:#{consumer_group_id}", "tmc")
+          {:ok, tmp} = Redis.hash_get("emi:#{consumer_group_id}", "tmp")
+
+          String.to_integer(tmp) >= String.to_integer(tmc)
+      end
+    end
   end
 
   # ----------------------- #
@@ -194,6 +236,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
        delete_notifications: delete_notifications
      }} = ConsumerStateManager.get_consumer_state(event_definition_id)
 
+    # If a backfill_notifications, update_notifications or delete_notifications task is triggered
+    # while the pipeline is ingesting or processing data. The consumer state manager will update
+    # its status to the corresponding task status. Once the pipeline finishes processing it will
+    # check here if any of those status were set. If so it will trigger the tasks for all the Ids
+    # stored in its corresponding consumer_status key.
     cond do
       status ==
           ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
@@ -233,7 +280,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     CogyntLogger.info(
       "#{__MODULE__}",
-      "Finished processing all messages for EventDefinitionId: #{event_definition_id}"
+      "EventPipeline finished processing messages for EventDefinitionId: #{event_definition_id}"
     )
+  end
+
+  defp incr_total_processed_message_count(event_definition_id, count \\ 1) do
+    {:ok, tmc} = Redis.hash_get("emi:#{event_definition_id}", "tmc")
+    {:ok, tmp} = Redis.hash_increment_by("emi:#{event_definition_id}", "tmp", count)
+
+    if tmp >= String.to_integer(tmc) do
+      finished_processing(event_definition_id)
+    end
   end
 end

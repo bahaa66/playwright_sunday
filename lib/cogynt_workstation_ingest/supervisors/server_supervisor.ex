@@ -4,20 +4,21 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   """
   use Supervisor
 
-  alias CogyntWorkstationIngest.Servers.Caches.{
-    ConsumerRetryCache,
-    DeploymentConsumerRetryCache,
-    DeleteEventDefinitionDataCache,
-    FailedMessagesRetryCache
+  alias CogyntWorkstationIngest.Servers.Workers.{
+    ConsumerRetryWorker,
+    DeleteDataWorker,
+    FailedMessagesRetryWorker,
+    RedisStreamsConsumerGroupWorker
   }
-
   alias CogyntWorkstationIngest.Servers.PubSub.{
     IngestPubSub
   }
-
   alias CogyntWorkstationIngest.Servers.{
     ConsumerMonitor,
-    NotificationsTaskMonitor
+    NotificationsTaskMonitor,
+    DeploymentTaskMonitor,
+    DrilldownTaskMonitor,
+    EventDefinitionTaskMonitor
   }
 
   def start_link do
@@ -30,12 +31,15 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
     {:ok, pubsub} = Redis.pub_sub_start()
 
     children = [
-      child_spec(ConsumerRetryCache),
-      child_spec(DeploymentConsumerRetryCache),
-      child_spec(DeleteEventDefinitionDataCache),
-      child_spec(FailedMessagesRetryCache),
+      child_spec(ConsumerRetryWorker),
+      child_spec(DeleteDataWorker),
+      child_spec(FailedMessagesRetryWorker),
+      child_spec(RedisStreamsConsumerGroupWorker),
       child_spec(ConsumerMonitor, restart: :permanent),
       child_spec(NotificationsTaskMonitor, restart: :permanent),
+      child_spec(DeploymentTaskMonitor, restart: :permanent),
+      child_spec(DrilldownTaskMonitor, restart: :permanent),
+      child_spec(EventDefinitionTaskMonitor, restart: :permanent),
       child_spec(IngestPubSub, start_link_opts: [pubsub])
     ]
 
