@@ -1,3 +1,0 @@
-defmodule CogyntWorkstationIngest.Repo.Migrations.EventDefinitionAddDeploymentStatus do
-  use Migrations.EventDefinitionsAddDeploymentStatus
-end

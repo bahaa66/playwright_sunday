@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.CreateSystemNotificationConfigurations do
+  use Migrations.CreateSytemNotificationConfigurations
+end

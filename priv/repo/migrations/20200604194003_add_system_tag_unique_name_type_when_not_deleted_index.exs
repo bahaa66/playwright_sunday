@@ -1,3 +1,0 @@
-defmodule CogyntWorkstationIngest.Repo.Migrations.AddSystemTagUniqueNameTypeWhenNotDeletedIndex do
-  use Migrations.SystemTagsAddUniqueNameTypeWhenNotDeletedIndex
-end

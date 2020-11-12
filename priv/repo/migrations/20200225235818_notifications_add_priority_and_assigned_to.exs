@@ -1,3 +1,0 @@
-defmodule CogyntWorkstationIngest.Repo.Migrations.NotificationsAddPriorityAndAssignedTo do
-  use Migrations.NotificationsAddPriorityAndAssignedTo
-end

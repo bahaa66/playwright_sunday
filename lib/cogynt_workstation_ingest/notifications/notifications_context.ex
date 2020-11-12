@@ -133,6 +133,9 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       Enum.reduce(args, from(n in Notification), fn
         {:filter, filter}, q ->
           filter_notifications(filter, q)
+
+        {:select, select}, q ->
+          select(q, ^select)
       end)
 
     if include_deleted do
