@@ -1,3 +1,0 @@
-defmodule Cogynt.Repo.Migrations.AddSystemNotificationTypesTable do
-  use Migrations.CreateSystemNotificationTypes
-end

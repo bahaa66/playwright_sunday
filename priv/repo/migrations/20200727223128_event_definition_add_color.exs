@@ -1,3 +1,0 @@
-defmodule CogyntWorkstationIngest.Repo.Migrations.EventDefinitionAddColor do
-  use Migrations.EventDefinitionAddColor
-end
