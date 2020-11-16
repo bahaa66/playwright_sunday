@@ -55,12 +55,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
     )
 
     # Fourth reset all the data for each event_definition
-    event_definition_ids =
-      EventsContext.list_event_definitions()
-      |> Enum.map(fn ed -> ed.id end)
-
     DeleteEventDefinitionsAndTopicsTask.run(%{
-      event_definition_ids: event_definition_ids,
+      event_definition_ids: [],
       hard_delete: true,
       delete_topics: true
     })

@@ -35,7 +35,13 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
       }, delete_topics: #{delete_topics}"
     )
 
-    Enum.each(event_definition_ids, fn event_definition_id ->
+    if hard_delete_event_definitions do
+      EventsContext.list_event_definitions()
+      |> Enum.map(fn ed -> ed.id end)
+    else
+      event_definition_ids
+    end
+    |> Enum.each(event_definition_ids, fn event_definition_id ->
       case EventsContext.get_event_definition(event_definition_id) do
         nil ->
           CogyntLogger.warn(
