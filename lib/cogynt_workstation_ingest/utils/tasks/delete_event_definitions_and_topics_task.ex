@@ -41,7 +41,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
     else
       event_definition_ids
     end
-    |> Enum.each(event_definition_ids, fn event_definition_id ->
+    |> Enum.each(fn event_definition_id ->
       case EventsContext.get_event_definition(event_definition_id) do
         nil ->
           CogyntLogger.warn(
