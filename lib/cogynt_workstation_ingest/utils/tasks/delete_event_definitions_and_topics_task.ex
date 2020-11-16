@@ -37,47 +37,54 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
 
     if hard_delete_event_definitions do
       EventsContext.list_event_definitions()
-      |> Enum.map(fn ed -> ed.id end)
-    else
-      event_definition_ids
-    end
-    |> Enum.each(fn event_definition_id ->
-      case EventsContext.get_event_definition(event_definition_id) do
-        nil ->
-          CogyntLogger.warn(
-            "#{__MODULE__}",
-            "Event definition not found for event_definition_id: #{event_definition_id}"
-          )
+      |> Enum.each(fn event_definition ->
+        # First stop the EventPipeline if there is one running for the event_definition
+        stop_event_pipeline(event_definition)
 
-        event_definition ->
-          # First stop the EventPipeline if there is one running for the event_definition
-          stop_event_pipeline(event_definition)
+        # Second check to see if the topic needs to be deleted
+        if delete_topics do
+          delete_topics(event_definition)
+        end
 
-          # Second check to see if the topic needs to be deleted
-          if delete_topics do
-            delete_topics(event_definition)
-          end
+        # Third remove all records from Elasticsearch
+        delete_elasticsearch_data(event_definition)
 
-          # Third remove all records from Elasticsearch
-          delete_elasticsearch_data(event_definition)
+        ConsumerStateManager.remove_consumer_state(event_definition.id,
+          hard_delete_event_definition: true
+        )
+      end)
 
-          if not hard_delete_event_definitions do
-            delete_event_definition(event_definition)
-          else
-            ConsumerStateManager.remove_consumer_state(event_definition.id,
-              hard_delete_event_definition: true
-            )
-          end
-      end
-    end)
-
-    if hard_delete_event_definitions do
       truncate_all_tables()
 
       CogyntLogger.info(
         "#{__MODULE__}",
         "Finished deleting data for EventDefinitionIds: #{inspect(event_definition_ids)}"
       )
+    else
+      Enum.each(event_definition_ids, fn event_definition_id ->
+        case EventsContext.get_event_definition(event_definition_id) do
+          nil ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Event definition not found for event_definition_id: #{event_definition_id}"
+            )
+
+          event_definition ->
+            # First stop the EventPipeline if there is one running for the event_definition
+            stop_event_pipeline(event_definition)
+
+            # Second check to see if the topic needs to be deleted
+            if delete_topics do
+              delete_topics(event_definition)
+            end
+
+            # Third remove all records from Elasticsearch
+            delete_elasticsearch_data(event_definition)
+
+            # Finally delete the event definition data
+            delete_event_definition(event_definition)
+        end
+      end)
     end
   end
 
