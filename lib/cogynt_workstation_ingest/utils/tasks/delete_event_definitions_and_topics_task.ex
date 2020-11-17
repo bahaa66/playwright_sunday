@@ -78,8 +78,11 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
             # Third remove all records from Elasticsearch
             delete_elasticsearch_data(event_definition)
 
-            # Finally delete the event definition data
+            # Fourth delete the event definition data
             delete_event_definition(event_definition)
+
+            # Finally one last call to remove elasticsearch data to ensure all data has been removed from all shards
+            delete_elasticsearch_data(event_definition)
         end
       end)
     end
@@ -173,6 +176,11 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
   end
 
   defp delete_elasticsearch_data(event_definition) do
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "Deleting Elasticsearch data for EventDefinitionId: #{event_definition.id}"
+    )
+
     case Elasticsearch.delete_by_query(Config.event_index_alias(), %{
            field: "event_definition_id",
            value: event_definition.id
@@ -211,6 +219,11 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
         "Finished Removing All EventDefinitionData For DevDelete Action"
       )
     else
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "Removing Events and Associated Data W/ EventCount: #{Enum.count(events)}"
+      )
+
       event_ids = Enum.map(events, fn e -> e.id end)
 
       # Delete notifications
@@ -275,11 +288,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
       # Delete event detail templates
       {_event_definition_details_count, _} =
         EventsContext.hard_delete_event_definition_details(event_definition_id)
-
-      CogyntLogger.info(
-        "#{__MODULE__}",
-        "Removing Events and Associated Data W/ EventCount: #{Enum.count(events)}"
-      )
 
       new_events =
         EventsContext.query_events(%{
