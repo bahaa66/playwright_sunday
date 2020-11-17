@@ -6,6 +6,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.DeleteDataWorker do
   alias CogyntWorkstationIngest.Supervisors.DynamicTaskSupervisor
   alias CogyntWorkstationIngest.Servers.{DeploymentTaskMonitor, EventDefinitionTaskMonitor}
 
+  # TODO: move this module and replace with direct redis calls
   # -------------------- #
   # --- client calls --- #
   # -------------------- #

@@ -86,10 +86,22 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
   in the delete query
     ## Examples
       iex> hard_delete_deployments()
-      {10, nil}
   """
   def hard_delete_deployments() do
-    Repo.delete_all(Deployment, timeout: 120_000)
+    try do
+      {:ok, result = %Postgrex.Result{}} = Repo.query("TRUNCATE deployments", [])
+
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "hard_delete_deployments completed with result: #{result.connection_id}"
+      )
+    rescue
+      _ ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "hard_delete_deployments failed"
+        )
+    end
   end
 
   @doc """
