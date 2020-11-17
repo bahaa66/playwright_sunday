@@ -15,7 +15,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
 
-  @page_size 250
+  @page_size 2000
 
   def start_link(arg) do
     Task.start_link(__MODULE__, :run, [arg])
