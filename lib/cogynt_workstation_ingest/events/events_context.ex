@@ -805,7 +805,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   defp filter_event_detail_templates(filter, query) do
     Enum.reduce(filter, query, fn
       {:event_definition_id, event_definition_id}, q ->
-        where(q, [edt], edt.event_definition_id in ^event_definition_id)
+        where(q, [edt], edt.event_definition_id == ^event_definition_id)
     end)
   end
 end
