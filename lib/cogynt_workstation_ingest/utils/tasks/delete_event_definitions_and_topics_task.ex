@@ -15,9 +15,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
 
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
-  alias Models.Notifications.NotificationSetting
-
-  @page_size 2000
 
   def start_link(arg) do
     Task.start_link(__MODULE__, :run, [arg])
@@ -142,20 +139,13 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
 
     # Sixth delete all event_definition_data. Anything linked to the
     # event_definition_id
-    page =
-      EventsContext.get_page_of_events(
-        %{
-          filter: %{event_definition_id: event_definition.id},
-          select: [:id]
-        },
-        page_number: 1,
-        page_size: @page_size,
-        include_deleted: true
-      )
-
-    if length(page.entries) > 0 do
-      delete_event_definition_data(page, event_definition.id)
-    end
+    EventsContext.query_events(%{
+      filter: %{event_definition_id: event_definition.id},
+      select: [:id],
+      order_by: :created_at,
+      limit: 2000
+    })
+    |> delete_event_definition_data(event_definition.id)
 
     # Finally update the EventDefintion to be inactive
     case EventsContext.update_event_definition(event_definition, %{
@@ -214,100 +204,92 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
     end
   end
 
-  defp delete_event_definition_data(
-         %{entries: events, page_number: page_number, total_pages: total_pages},
-         event_definition_id
-       ) do
-    event_ids = Enum.map(events, fn e -> e.id end)
-
-    # Delete notifications
-    {_notification_count, notifications} =
-      NotificationsContext.hard_delete_notifications(%{
-        filter: %{event_ids: event_ids},
-        select: [:id]
-      })
-
-    notification_ids = Enum.map(notifications, fn n -> n.id end)
-
-    # Delete notification_settings
-    {_notification_settings_count, _notification_settings} =
-      NotificationsContext.hard_delete_notification_settings(%{
-        filter: %{
-          event_definition_id: event_definition_id
-        },
-        select: NotificationSetting.__schema__(:fields)
-      })
-
-    # Delete notification collection items
-    {_notification_item_count, _} =
-      CollectionsContext.hard_delete_collection_items(%{
-        filter: %{
-          item_ids: notification_ids,
-          item_type: "notification"
-        }
-      })
-
-    # Delete event details
-    {_event_detail_count, _} =
-      EventsContext.hard_delete_event_details(%{
-        filter: %{event_ids: event_ids}
-      })
-
-    # Delete events
-    {_event_count, _} =
-      EventsContext.hard_delete_events(%{
-        filter: %{event_ids: event_ids}
-      })
-
-    # TODO
-    # Delete event links
-
-    # TODO
-    # Delete event definition details
-
-    # TODO
-    # Delete event detail template group items
-
-    # TODO
-    # Delete event detail template groups
-
-    # TODO
-    # Delete event detail templates
-
-    # Delete event collection items
-    {_event_item_count, _} =
-      CollectionsContext.hard_delete_collection_items(%{
-        filter: %{
-          item_ids: event_ids,
-          item_type: "event"
-        }
-      })
-
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "Removing Events and Associated Data for PageNumber: #{page_number} out of TotalPages: #{
-        total_pages
-      }"
-    )
-
-    if page_number >= total_pages do
+  defp delete_event_definition_data(events, event_definition_id) do
+    if Enum.empty?(events) do
       CogyntLogger.info(
         "#{__MODULE__}",
         "Finished Removing All EventDefinitionData For DevDelete Action"
       )
     else
-      next_page =
-        EventsContext.get_page_of_events(
-          %{
-            filter: %{event_definition_id: event_definition_id},
-            select: [:id]
-          },
-          page_number: page_number + 1,
-          page_size: @page_size,
-          include_deleted: true
-        )
+      event_ids = Enum.map(events, fn e -> e.id end)
 
-      delete_event_definition_data(next_page, event_definition_id)
+      # Delete notifications
+      {_notification_count, notifications} =
+        NotificationsContext.hard_delete_notifications(%{
+          filter: %{event_ids: event_ids},
+          select: [:id]
+        })
+
+      notification_ids = Enum.map(notifications, fn n -> n.id end)
+
+      # Delete notification_settings
+      {_notification_settings_count, _notification_settings} =
+        NotificationsContext.hard_delete_notification_settings(%{
+          filter: %{
+            event_definition_id: event_definition_id
+          }
+        })
+
+      # Delete notification collection items
+      {_notification_item_count, _} =
+        CollectionsContext.hard_delete_collection_items(%{
+          filter: %{
+            item_ids: notification_ids,
+            item_type: "notification"
+          }
+        })
+
+      # Delete event details
+      {_event_detail_count, _} =
+        EventsContext.hard_delete_event_details(%{
+          filter: %{event_ids: event_ids}
+        })
+
+      # Delete event links
+      {_event_link_count, _} =
+        EventsContext.hard_delete_event_links(%{
+          filter: %{linkage_event_ids: event_ids}
+        })
+
+      # Delete event collection items
+      {_event_item_count, _} =
+        CollectionsContext.hard_delete_collection_items(%{
+          filter: %{
+            item_ids: event_ids,
+            item_type: "event"
+          }
+        })
+
+      # Delete events
+      {_event_count, _} =
+        EventsContext.hard_delete_events(%{
+          filter: %{event_ids: event_ids}
+        })
+
+      # Delete event detail templates
+      {_event_detail_template_count, _} =
+        EventsContext.hard_delete_event_detail_templates(%{
+          filter: %{event_definition_id: event_definition_id}
+        })
+
+      # Delete event detail templates
+      {_event_definition_details_count, _} =
+        EventsContext.hard_delete_event_definition_details(event_definition_id)
+
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "Removing Events and Associated Data W/ EventCount: #{Enum.count(events)}"
+      )
+
+      new_events =
+        EventsContext.query_events(%{
+          filter: %{event_definition_id: event_definition_id},
+          select: [:id],
+          order_by: :created_at,
+          limit: 2000
+        })
+
+      delete_event_definition_data(new_events, event_definition_id)
     end
   end
 
