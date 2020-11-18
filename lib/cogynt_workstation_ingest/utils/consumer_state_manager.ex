@@ -397,6 +397,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     try do
       {:ok, consumer_state} = get_consumer_state(event_definition.id)
 
+      IO.inspect(consumer_state.state, label: "************ConsumerState.State")
+
       cond do
         consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] ->
           handle_unknown_status(event_definition.id)
