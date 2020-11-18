@@ -27,7 +27,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   def fetch_event_definition(
         %Message{data: %{event_definition_id: event_definition_id} = data} = message
       ) do
-    CogyntLogger.warn("#{__MODULE__}", "Proccessing event_definition_id: #{event_definition_id}")
     # TODO: Need to have the PostgreSQL pub sub also update this Redis key when it gets new
     # updates to the EventDefinition table
     {status_code, ed_result} = Redis.hash_get("ed", event_definition_id)
