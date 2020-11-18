@@ -497,7 +497,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # ------------------------------------------ #
   # --- EventDetailTemplate Schema Methods --- #
   # ------------------------------------------ #
-    @doc """
+  @doc """
   Deletes EventDetailTemplates and removes their rows from the database.
   ## Examples
       iex> hard_delete_event_detail_templates(%{
