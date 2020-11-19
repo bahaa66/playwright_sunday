@@ -198,6 +198,10 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.delete_all(timeout: 120_000)
   end
 
+  def insert_all_event_details(event_details) do
+    Repo.insert_all(EventDetail, event_details)
+  end
+
   # -------------------------------------- #
   # --- EventDefinition Schema Methods --- #
   # -------------------------------------- #

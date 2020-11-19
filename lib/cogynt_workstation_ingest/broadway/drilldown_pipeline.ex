@@ -26,10 +26,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
              group_config: [
                session_timeout_seconds: 10
              ],
-             fetch_config: [
-               # 3 MB
-               max_bytes: 3_145_728
-             ],
              client_config: [
                connect_timeout: 10000
              ]
