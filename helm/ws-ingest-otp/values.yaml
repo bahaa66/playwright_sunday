@@ -118,12 +118,12 @@ probes:
       port: https
 
   resources:
-  #  limits:
-  #   memory: 4096Mi
-  #    cpu: 500m
-   requests:
-     cpu: 1050m
-     memory: 800Mi
+    limits:
+      memory: 2000Mi
+      cpu: 3000m
+    requests:
+      cpu: 1050m
+      memory: 800Mi
 
 # Ingress for load balancer
 ingress:
