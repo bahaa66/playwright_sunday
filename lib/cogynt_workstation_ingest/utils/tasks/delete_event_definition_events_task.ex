@@ -8,7 +8,9 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Broadway.EventPipeline
   alias CogyntWorkstationIngest.Events.EventsContext
+  alias CogyntWorkstationIngest.Repo
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
+  alias Ecto.Multi
 
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
@@ -65,17 +67,34 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
 
       # Fourth paginate through all the events linked to the event_definition_id and
       # soft delete them
-      page =
-        EventsContext.get_page_of_events(
-          %{
-            filter: %{event_definition_id: event_definition.id},
-            select: [:id]
-          },
-          page_number: 1,
-          page_size: @page_size
-        )
+      process_events(event_definition.id)
+      |> case do
+        {:ok, result} ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "Finished removing all event data for event_definition_id #{event_definition_id}: #{
+              inspect(result, pretty: true)
+            }"
+          )
 
-      process_page(page, event_definition)
+          # Update event_definition to be inactive
+          EventsContext.update_event_definition(event_definition, %{
+            active: false,
+            deleted_at: nil
+          })
+
+          # remove all state in Redis that is linked to event_definition_id
+          ConsumerStateManager.remove_consumer_state(event_definition_id)
+          Redis.publish_async("event_definitions_subscription", %{updated: event_definition_id})
+
+        {:error, error} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "Error deleting event data for #{event_definition_id}. Error: #{
+              inspect(error, pretty: true)
+            }"
+          )
+      end
     else
       nil ->
         CogyntLogger.warn(
@@ -85,65 +104,86 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
     end
   end
 
-  defp process_page(
-         %{entries: entries, total_pages: total_pages, total_entries: total_entries},
-         %{id: event_definition_id} = event_definition
-       ) do
-    deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
+  defp process_events(event_definition_id, accumulator \\ %{})
+       when is_binary(event_definition_id) do
+    Multi.new()
+    |> Multi.run(:create_temp_view, fn _, _ ->
+      view_name = "delete_events_#{String.replace(event_definition_id, "-", "_")}"
 
-    event_ids = Enum.map(entries, fn e -> e.id end)
+      Ecto.Adapters.SQL.query(Repo, """
+        CREATE OR REPLACE TEMPORARY VIEW #{view_name} AS
+          SELECT id
+          FROM events
+          WHERE event_definition_id='#{event_definition_id}'
+          AND deleted_at IS NULL
+          LIMIT #{@page_size};
+      """)
+      |> case do
+        {:ok, _} ->
+          {:ok, view_name}
 
-    # Update all events to be deleted
-    EventsContext.update_events(
-      %{
-        filter: %{event_ids: event_ids},
-        select: [:id, :deleted_at]
-      },
-      set: [deleted_at: deleted_at]
-    )
-
-    # Update all event_links to be deleted
-    EventsContext.update_event_links(
-      %{
-        filter: %{linkage_event_ids: event_ids},
-        select: [:id, :deleted_at]
-      },
-      set: [deleted_at: deleted_at]
-    )
-
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "Removing Events, TotalPages: #{total_pages} remaining"
-    )
-
-    if total_entries <= 0 do
-      # Update event_definition to be inactive
-      EventsContext.update_event_definition(event_definition, %{active: false, deleted_at: nil})
-      # remove all state in Redis that is linked to event_definition_id
-      ConsumerStateManager.remove_consumer_state(event_definition_id)
-      Redis.publish_async("event_definitions_subscription", %{updated: event_definition_id})
-
-      CogyntLogger.info(
-        "#{__MODULE__}",
-        "Finished removing all events for event_definition_id: #{event_definition_id}"
-      )
-    else
-      next_page =
-        EventsContext.get_page_of_events(
-          %{
-            filter: %{event_definition_id: event_definition_id},
-            select: [:id]
-          },
-          page_number: 1,
-          page_size: @page_size
+        {:error, error} ->
+          {:error, error}
+      end
+    end)
+    |> Multi.run(:delete_event_links, fn _repo, %{create_temp_view: view_name} ->
+      Ecto.Adapters.SQL.query(Repo, """
+        UPDATE event_links el
+        SET deleted_at=now()
+        FROM #{view_name} d
+        WHERE d.id = el.linkage_event_id;
+      """)
+    end)
+    |> Multi.run(:delete_events, fn _repo, %{create_temp_view: view_name} ->
+      Ecto.Adapters.SQL.query(Repo, """
+        UPDATE events e
+        SET deleted_at=now()
+        FROM #{view_name} d
+        WHERE d.id = e.id;
+      """)
+    end)
+    |> Repo.transaction()
+    |> case do
+      {:ok,
+       %{
+         delete_events: %Postgrex.Result{num_rows: num_rows},
+         create_temp_view: view_name
+       } = r}
+      when num_rows < @page_size ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Finished deleting events for #{event_definition_id}."
         )
 
-      Redis.publish_async("event_definitions_subscription", %{updated: event_definition_id})
+        Ecto.Adapters.SQL.query(Repo, "DROP VIEW IF EXISTS #{view_name}")
+        {:ok, build_accumulator(r, accumulator)}
 
-      process_page(next_page, event_definition)
+      {:ok, result} ->
+        accumulator = build_accumulator(result, accumulator)
+        process_events(event_definition_id, accumulator)
+
+      {:error, :create_temp_view, e, _} ->
+        {:error, e}
+
+      {:error, _, e, %{create_temp_view: view_name}} ->
+        Ecto.Adapters.SQL.query(Repo, "DROP VIEW IF EXISTS #{view_name}")
+        {:error, e}
     end
+  end
 
-    {:ok, :success}
+  defp build_accumulator(result, accumulator) do
+    Enum.reduce(result, accumulator, fn
+      {:delete_events, %Postgrex.Result{num_rows: num_rows}}, a ->
+        total_events = Map.get(a, :total_events, 0)
+        Map.put(a, :total_events, total_events + num_rows)
+
+      {:delete_event_links, %Postgrex.Result{num_rows: num_rows}}, a ->
+        total_event_links = Map.get(a, :total_event_links, 0)
+        Map.put(a, :total_event_links, total_event_links + num_rows)
+
+      _, a ->
+        a
+    end)
   end
 
   defp ensure_event_pipeline_stopped(event_definition_id) do

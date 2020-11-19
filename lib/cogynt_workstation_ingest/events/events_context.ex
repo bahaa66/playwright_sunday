@@ -57,6 +57,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
         {:select, select}, q ->
           select(q, ^select)
+
+        {:order_by, order_by}, q ->
+          order_by(q, ^order_by)
+
+        {:limit, limit}, q ->
+          limit(q, ^limit)
       end)
 
     Repo.all(query)
@@ -190,6 +196,10 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         filter_event_details(filter, q)
     end)
     |> Repo.delete_all(timeout: 120_000)
+  end
+
+  def insert_all_event_details(event_details) do
+    Repo.insert_all(EventDetail, event_details)
   end
 
   # -------------------------------------- #
@@ -492,6 +502,22 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # --- EventDetailTemplate Schema Methods --- #
   # ------------------------------------------ #
   @doc """
+  Deletes EventDetailTemplates and removes their rows from the database.
+  ## Examples
+      iex> hard_delete_event_detail_templates(%{
+        filter: %{ids: "73c3c043-73ff-4d09-b206-029641880cf5"}
+      })
+      {3, nil}
+  """
+  def hard_delete_event_detail_templates(args) do
+    Enum.reduce(args, from(edt in EventDetailTemplate), fn
+      {:filter, filter}, q ->
+        filter_event_detail_templates(filter, q)
+    end)
+    |> Repo.delete_all(timeout: 120_000)
+  end
+
+  @doc """
   Updates the deleted_at values for all EventDetailTemplate
   data associated with the EventDefinition
   """
@@ -595,8 +621,10 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> hard_delete_event_definitions()
       {10, nil}
   """
-  def hard_delete_event_definition_details(id) do
-    from(details in EventDefinitionDetail, where: details.event_definition_id == ^id)
+  def hard_delete_event_definition_details(event_definition_id) do
+    from(details in EventDefinitionDetail,
+      where: details.event_definition_id == ^event_definition_id
+    )
     |> Repo.delete_all(timeout: 120_000)
   end
 
@@ -633,6 +661,22 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         select(q, ^select)
     end)
     |> Repo.update_all(set: set)
+  end
+
+  @doc """
+  Deletes EventLinks and removes their rows from the database.
+  ## Examples
+      ex> hard_delete_event_links(%{
+        filter: %{event_ids: "73c3c043-73ff-4d09-b206-029641880cf5"}
+      })
+      {3, nil}
+  """
+  def hard_delete_event_links(args) do
+    Enum.reduce(args, from(el in EventLink), fn
+      {:filter, filter}, q ->
+        filter_event_links(filter, q)
+    end)
+    |> Repo.delete_all(timeout: 120_000)
   end
 
   # ------------------------------------ #
@@ -759,6 +803,13 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     Enum.reduce(filter, query, fn
       {:linkage_event_ids, linkage_event_ids}, q ->
         where(q, [el], el.linkage_event_id in ^linkage_event_ids)
+    end)
+  end
+
+  defp filter_event_detail_templates(filter, query) do
+    Enum.reduce(filter, query, fn
+      {:event_definition_id, event_definition_id}, q ->
+        where(q, [edt], edt.event_definition_id == ^event_definition_id)
     end)
   end
 end

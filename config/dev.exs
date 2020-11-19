@@ -38,7 +38,7 @@ config :kafka, :application,
   ],
   partition_strategy: (System.get_env("PARTITION_STRATEGY") || "random") |> String.to_atom(),
   partitions: (System.get_env("PARTITIONS") || "10") |> String.to_integer(),
-  replication_factor: (System.get_env("REPLICATION_FACTOR") || "1") |> String.to_integer(),
+  replication_factor: (System.get_env("REPLICATION_FACTOR") || "3") |> String.to_integer(),
   replica_assignment: System.get_env("REPLICA_ASSIGNMENT") || [],
   config_entries: System.get_env("CONFIG_ENTRIES") || [],
   session_timeout: (System.get_env("SESSION_TIMEOUT") || "10000") |> String.to_integer()

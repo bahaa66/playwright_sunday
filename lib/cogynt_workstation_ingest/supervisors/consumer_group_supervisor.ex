@@ -201,6 +201,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def stop_child(event_definition_id) when is_binary(event_definition_id) do
+    IO.puts("********STOPING CONSUMER********")
     consumer_group_id = fetch_event_cgid(event_definition_id)
 
     child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
