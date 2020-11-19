@@ -49,7 +49,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         ]
       ],
       batchers: [
-        no_crud: [concurrency: 10, batch_size: 200]
+        no_crud: [concurrency: 10, batch_size: 500]
       ],
       context: [event_definition_id: event_definition_id]
     )
@@ -237,9 +237,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   def handle_batch(:no_crud, messages, _batch_info, context) do
     event_definition_id = Keyword.get(context, :event_definition_id, nil)
 
-    messages
-    |> Enum.map(fn e -> e.data end)
-    |> EventProcessor.execute_batch_transaction()
+    List.first(messages)
+    |> case do
+      %Message{data: %{event_definition: %{event_type: :linkage}}} ->
+        messages
+        |> Enum.map(fn e -> e.data end)
+        |> LinkEventProcessor.execute_batch_transaction()
+
+      _ ->
+        messages
+        |> Enum.map(fn e -> e.data end)
+        |> EventProcessor.execute_batch_transaction()
+    end
 
     incr_total_processed_message_count(event_definition_id, Enum.count(messages))
     messages

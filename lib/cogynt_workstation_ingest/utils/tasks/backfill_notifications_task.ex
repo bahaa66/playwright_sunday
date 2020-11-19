@@ -11,7 +11,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
   alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.System.SystemNotificationContext
 
-  @page_size 500
+  @page_size 2000
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
 
   def start_link(arg) do

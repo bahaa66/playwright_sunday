@@ -540,6 +540,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             raise "execute_batch_transaction/1 failed"
         end
     end
+
+    messages
   end
 
   # ----------------------- #

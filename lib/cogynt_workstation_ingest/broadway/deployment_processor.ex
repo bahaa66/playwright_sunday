@@ -103,11 +103,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
 
         # Start Drilldown Consumer for Deployment
         if not DrilldownPipeline.drilldown_pipeline_running?(deployment) do
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "Starting Drilldown ConsumerGroup for deplpoyment_id: #{deployment.id}"
-          )
-
           Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment.id})
         end
 

@@ -49,7 +49,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       )
       [%Event{}, %Event{}]
   """
-  def query_events(args) do
+  def query_events(args, opts \\ []) do
+    preload_event_details = Keyword.get(opts, :preload_event_details, false)
+
     query =
       Enum.reduce(args, from(ns in Event), fn
         {:filter, filter}, q ->
@@ -64,6 +66,14 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         {:limit, limit}, q ->
           limit(q, ^limit)
       end)
+
+    query =
+      if preload_event_details do
+        query
+        |> preload(:event_details)
+      else
+        query
+      end
 
     Repo.all(query)
   end
