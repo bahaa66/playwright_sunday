@@ -1,6 +1,7 @@
 defmodule CogyntWorkstationIngest.Config do
   def drilldown_processor_stages(), do: drilldown_pipeline()[:processor_stages]
   def drilldown_producer_stages(), do: drilldown_pipeline()[:producer_stages]
+  def drilldown_enabled(), do: drilldown_pipeline()[:enabled]
 
   def deployment_processor_stages(), do: deployment_pipeline()[:processor_stages]
   def deployment_producer_stages(), do: deployment_pipeline()[:producer_stages]

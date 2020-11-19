@@ -68,15 +68,16 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
         ConsumerStateManager.manage_request(%{start_consumer: event_definition})
 
       {:ok, %{start_drilldown_pipeline: deployment_id} = request} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
-        )
+        if Config.drilldown_enabled() do
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+          )
+          deployment = DeploymentsContext.get_deployment(deployment_id)
 
-        deployment = DeploymentsContext.get_deployment(deployment_id)
-
-        if not is_nil(deployment) do
-          ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+          if not is_nil(deployment) do
+            ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+          end
         end
 
       {:ok, %{start_deployment_pipeline: _args} = request} ->
@@ -116,15 +117,17 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
         ConsumerGroupSupervisor.stop_child(:deployment)
 
       {:ok, %{stop_drilldown_pipeline: deployment_id} = request} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
-        )
+        if Config.drilldown_enabled() do
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+          )
 
-        deployment = DeploymentsContext.get_deployment(deployment_id)
+          deployment = DeploymentsContext.get_deployment(deployment_id)
 
-        if not is_nil(deployment) do
-          ConsumerGroupSupervisor.stop_child(:drilldown, deployment)
+          if not is_nil(deployment) do
+            ConsumerGroupSupervisor.stop_child(:drilldown, deployment)
+          end
         end
 
       {:ok, _} ->
