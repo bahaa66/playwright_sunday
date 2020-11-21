@@ -64,14 +64,14 @@ defmodule CogyntWorkstationIngest.MixProject do
        override: true},
       {
         :models,
-        tag: "v1.11.0-beta",
+        tag: "v1.11.4",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.11.2-beta",
+        tag: "v1.11.4",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
