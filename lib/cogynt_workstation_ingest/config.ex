@@ -1,6 +1,7 @@
 defmodule CogyntWorkstationIngest.Config do
   def drilldown_processor_stages(), do: drilldown_pipeline()[:processor_stages]
   def drilldown_producer_stages(), do: drilldown_pipeline()[:producer_stages]
+  def drilldown_enabled(), do: drilldown_pipeline()[:enabled]
 
   def deployment_processor_stages(), do: deployment_pipeline()[:processor_stages]
   def deployment_producer_stages(), do: deployment_pipeline()[:producer_stages]
@@ -42,9 +43,14 @@ defmodule CogyntWorkstationIngest.Config do
 
   def enable_dev_tools?(), do: Application.get_env(:cogynt_workstation_ingest, :enable_dev_tools)
 
+  def postgres_username(), do: postgres()[:username]
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
+  defp postgres(),
+    do: Application.get_env(:cogynt_workstation_ingest, CogyntWorkstationIngest.Repo)
+
   defp kafka, do: Application.get_env(:kafka, :application)
 
   defp drilldown_pipeline(),

@@ -3,7 +3,7 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
   Supervisor for all CogyntWorkstationIngest modules that implement Task.
   """
   use Supervisor
-  alias CogyntWorkstationIngest.Utils.Tasks.StartUpTask
+  alias CogyntWorkstationIngest.Utils.Tasks.{StartUpTask, CreateIngestionTasksConsumerGroup}
 
   def start_link do
     Supervisor.start_link(__MODULE__, [], name: __MODULE__)
@@ -12,7 +12,8 @@ defmodule CogyntWorkstationIngest.Supervisors.TaskSupervisor do
   @impl true
   def init(_) do
     children = [
-      {StartUpTask, []}
+      {StartUpTask, []},
+      {CreateIngestionTasksConsumerGroup, []}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

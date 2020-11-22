@@ -133,6 +133,9 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       Enum.reduce(args, from(n in Notification), fn
         {:filter, filter}, q ->
           filter_notifications(filter, q)
+
+        {:select, select}, q ->
+          select(q, ^select)
       end)
 
     if include_deleted do
@@ -303,22 +306,13 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
             nil
           end
 
+        select = Notification.__schema__(:fields)
+
         n_query =
           from(n in Notification,
-            where: n.event_id in ^delete_event_ids,
-            select: %{
-              event_id: n.event_id,
-              user_id: n.user_id,
-              tag_id: n.tag_id,
-              id: n.id,
-              title: n.title,
-              notification_setting_id: n.notification_setting_id,
-              created_at: n.created_at,
-              updated_at: n.updated_at,
-              assigned_to: n.assigned_to,
-              deleted_at: n.deleted_at
-            }
+            where: n.event_id in ^delete_event_ids
           )
+          |> select(^select)
 
         multi
         |> Multi.update_all(:update_notifications, n_query,

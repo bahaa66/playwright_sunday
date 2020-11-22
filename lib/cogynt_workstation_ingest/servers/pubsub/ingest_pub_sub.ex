@@ -59,35 +59,25 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
               nil
           end
 
-        started_at =
-          case is_nil(event_definition.started_at) do
-            false ->
-              {:ok, started_at, _} = DateTime.from_iso8601(event_definition.started_at)
-              started_at
-
-            true ->
-              nil
-          end
-
         event_definition =
           event_definition
           |> Map.put(:deleted_at, deleted_at)
           |> Map.put(:created_at, created_at)
-          |> Map.put(:started_at, started_at)
           |> Map.put(:updated_at, updated_at)
 
         ConsumerStateManager.manage_request(%{start_consumer: event_definition})
 
       {:ok, %{start_drilldown_pipeline: deployment_id} = request} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
-        )
+        if Config.drilldown_enabled() do
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+          )
+          deployment = DeploymentsContext.get_deployment(deployment_id)
 
-        deployment = DeploymentsContext.get_deployment(deployment_id)
-
-        if not is_nil(deployment) do
-          ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+          if not is_nil(deployment) do
+            ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+          end
         end
 
       {:ok, %{start_deployment_pipeline: _args} = request} ->
@@ -127,15 +117,17 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
         ConsumerGroupSupervisor.stop_child(:deployment)
 
       {:ok, %{stop_drilldown_pipeline: deployment_id} = request} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
-        )
+        if Config.drilldown_enabled() do
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+          )
 
-        deployment = DeploymentsContext.get_deployment(deployment_id)
+          deployment = DeploymentsContext.get_deployment(deployment_id)
 
-        if not is_nil(deployment) do
-          ConsumerGroupSupervisor.stop_child(:drilldown, deployment)
+          if not is_nil(deployment) do
+            ConsumerGroupSupervisor.stop_child(:drilldown, deployment)
+          end
         end
 
       {:ok, _} ->

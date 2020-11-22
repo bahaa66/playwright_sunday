@@ -7,10 +7,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   use Broadway
   alias Broadway.Message
   alias Models.Enums.ConsumerStatusTypeEnum
+
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
+  alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Broadway.{EventProcessor, LinkEventProcessor}
+
+  @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
 
   def start_link(%{
         group_id: group_id,
@@ -44,6 +48,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           concurrency: Config.event_processor_stages()
         ]
       ],
+      batchers: [
+        no_crud: [concurrency: 10, batch_size: 500]
+      ],
       context: [event_definition_id: event_definition_id]
     )
   end
@@ -72,7 +79,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
             event: decoded_data,
             event_definition_id: event_definition_id,
             event_id: nil,
-            retry_count: 0
+            retry_count: 0,
+            event_definition:
+              EventsContext.get_event_definition(event_definition_id, preload_details: true)
+              |> EventsContext.remove_event_definition_virtual_fields(
+                include_event_definition_details: true
+              )
           })
 
         {:error, error} ->
@@ -153,40 +165,93 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @impl true
   def handle_message(
         _processor,
+        %Message{
+          data: %{
+            event_definition_id: event_definition_id,
+            event_definition: %{event_type: :linkage}
+          }
+        } = message,
+        _context
+      ) do
+    message =
+      case message do
+        %Message{data: %{event: %{@crud => _action}}} ->
+          message =
+            message
+            |> EventProcessor.process_event()
+            |> EventProcessor.process_event_details_and_elasticsearch_docs()
+            |> EventProcessor.process_notifications()
+            |> LinkEventProcessor.validate_link_event()
+            |> LinkEventProcessor.process_entities()
+            |> LinkEventProcessor.execute_transaction()
+
+          incr_total_processed_message_count(event_definition_id)
+
+          message
+
+        _ ->
+          message
+          |> EventProcessor.process_event()
+          |> EventProcessor.process_event_details_and_elasticsearch_docs()
+          |> EventProcessor.process_notifications()
+          |> LinkEventProcessor.validate_link_event()
+          |> LinkEventProcessor.process_entities()
+          |> Message.put_batcher(:no_crud)
+      end
+
+    message
+  end
+
+  @impl true
+  def handle_message(
+        _processor,
         %Message{data: %{event_definition_id: event_definition_id}} = message,
         _context
       ) do
-    message = EventProcessor.fetch_event_definition(message)
+    message =
+      case message do
+        %Message{data: %{event: %{@crud => _action}}} ->
+          message =
+            message
+            |> EventProcessor.process_event()
+            |> EventProcessor.process_event_details_and_elasticsearch_docs()
+            |> EventProcessor.process_notifications()
+            |> EventProcessor.execute_transaction()
 
-    case message do
+          incr_total_processed_message_count(event_definition_id)
+
+          message
+
+        _ ->
+          message
+          |> EventProcessor.process_event()
+          |> EventProcessor.process_event_details_and_elasticsearch_docs()
+          |> EventProcessor.process_notifications()
+          |> Message.put_batcher(:no_crud)
+      end
+
+    message
+  end
+
+  @impl true
+  def handle_batch(:no_crud, messages, _batch_info, context) do
+    event_definition_id = Keyword.get(context, :event_definition_id, nil)
+
+    List.first(messages)
+    |> case do
       %Message{data: %{event_definition: %{event_type: :linkage}}} ->
-        message
-        |> EventProcessor.process_event()
-        |> EventProcessor.process_event_details_and_elasticsearch_docs()
-        |> EventProcessor.process_notifications()
-        |> LinkEventProcessor.validate_link_event()
-        |> LinkEventProcessor.process_entities()
-        |> LinkEventProcessor.execute_transaction()
-
-      %Message{data: %{event_definition: %{event_type: "linkage"}}} ->
-        message
-        |> EventProcessor.process_event()
-        |> EventProcessor.process_event_details_and_elasticsearch_docs()
-        |> EventProcessor.process_notifications()
-        |> LinkEventProcessor.validate_link_event()
-        |> LinkEventProcessor.process_entities()
-        |> LinkEventProcessor.execute_transaction()
+        messages
+        |> Enum.map(fn e -> e.data end)
+        |> LinkEventProcessor.execute_batch_transaction()
 
       _ ->
-        message
-        |> EventProcessor.process_event()
-        |> EventProcessor.process_event_details_and_elasticsearch_docs()
-        |> EventProcessor.process_notifications()
-        |> EventProcessor.execute_transaction()
+        messages
+        |> Enum.map(fn e -> e.data end)
+        |> EventProcessor.execute_batch_transaction()
     end
 
-    incr_total_processed_message_count(event_definition_id)
-    message
+    incr_total_processed_message_count(event_definition_id, Enum.count(messages))
+    messages
   end
 
   @doc false

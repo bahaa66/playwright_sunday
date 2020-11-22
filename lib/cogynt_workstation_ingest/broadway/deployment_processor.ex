@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Broadway.DrilldownPipeline
   alias Models.Deployments.Deployment
-  alias Models.Enums.DeploymentStatusTypeEnum
+  alias Models.Enums.DeploymentStatusType
   alias Models.Events.EventDefinition
   alias Broadway.Message
 
@@ -81,17 +81,17 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
                  authoring_event_definition_id
                ) do
             true ->
-              if deployment_status == DeploymentStatusTypeEnum.status()[:inactive] or
-                   deployment_status == DeploymentStatusTypeEnum.status()[:not_deployed] do
+              if deployment_status == DeploymentStatusType.status()[:inactive] or
+                   deployment_status == DeploymentStatusType.status()[:not_deployed] do
                 EventsContext.update_event_definition(current_event_definition, %{
-                  deployment_status: DeploymentStatusTypeEnum.status()[:active]
+                  deployment_status: DeploymentStatusType.status()[:active]
                 })
               end
 
             false ->
               EventsContext.update_event_definition(current_event_definition, %{
                 active: false,
-                deployment_status: DeploymentStatusTypeEnum.status()[:inactive]
+                deployment_status: DeploymentStatusType.status()[:inactive]
               })
 
               Redis.publish_async("ingest_channel", %{
@@ -103,11 +103,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
 
         # Start Drilldown Consumer for Deployment
         if not DrilldownPipeline.drilldown_pipeline_running?(deployment) do
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "Starting Drilldown ConsumerGroup for deplpoyment_id: #{deployment.id}"
-          )
-
           Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment.id})
         end
 

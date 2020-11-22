@@ -11,7 +11,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
   alias Models.Events.EventDefinition
   alias CogyntWorkstationIngest.System.SystemNotificationContext
 
-  @page_size 500
+  @page_size 2000
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
 
   def start_link(arg) do
@@ -34,12 +34,14 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
     with %NotificationSetting{} = notification_setting <-
            NotificationsContext.get_notification_setting_by(%{id: notification_setting_id}),
          %EventDefinition{} = event_definition <-
-           EventsContext.get_event_definition(notification_setting.event_definition_id, preload_details: true) do
+           EventsContext.get_event_definition(notification_setting.event_definition_id,
+             preload_details: true
+           ) do
       page =
         EventsContext.get_page_of_events(
           %{
             filter: %{event_definition_id: event_definition.id},
-            select: [:id, :event_details]
+            select: [:id]
           },
           page_number: 1,
           page_size: @page_size,
@@ -98,7 +100,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.BackfillNotificationsTask do
           EventsContext.get_page_of_events(
             %{
               filter: %{event_definition_id: event_definition_id},
-              select: [:id, :event_details]
+              select: [:id]
             },
             page_number: page_number + 1,
             page_size: @page_size,
