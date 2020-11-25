@@ -38,6 +38,24 @@ config :elasticsearch, :application,
 # Redis Configurations
 config :redis, :application, port: 6379
 
+# Exq Job Queue
+config :exq,
+  name: Exq,
+  start_on_application: false,
+  namespace: "exq",
+  middleware: [
+    Exq.Middleware.Stats,
+    CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job,
+    Exq.Middleware.Manager,
+    CogyntWorkstationIngest.Utils.JobQueue.Middleware.Logger
+  ],
+  poll_timeout: 50,
+  scheduler_poll_timeout: 200,
+  scheduler_enable: false,
+  max_retries: 25,
+  mode: :default,
+  shutdown_timeout: 15000
+
 # Configurations for keys in Cogynt Core events
 config :cogynt_workstation_ingest, :core_keys,
   crud: "$crud",

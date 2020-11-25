@@ -1,0 +1,174 @@
+defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.UpdateNotificationsWorker do
+  @moduledoc """
+  Worker module that will be called by the Exq Job Queue to execute the
+  UpdateNotifications work
+  """
+  alias CogyntWorkstationIngest.Notifications.NotificationsContext
+  alias CogyntWorkstationIngest.Events.EventsContext
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
+  alias CogyntWorkstationIngest.Broadway.EventPipeline
+
+  alias Models.Notifications.NotificationSetting
+  alias Models.Events.EventDefinition
+  alias Models.Enums.ConsumerStatusTypeEnum
+
+  @page_size 2000
+
+  def perform(notification_setting_id) do
+    with %NotificationSetting{} = notification_setting <-
+           NotificationsContext.get_notification_setting(notification_setting_id),
+         %EventDefinition{} = event_definition <-
+           EventsContext.get_event_definition(notification_setting.event_definition_id) do
+      # First stop the pipeline and ensure that if finishes processing its messages in the pipeline
+      # before starting the update of notifications
+      stop_event_pipeline(event_definition)
+
+      # Second once the pipeline has been stopped and the finished processing start the pagination
+      # of events and update of notifications
+      page =
+        NotificationsContext.get_page_of_notifications(
+          %{
+            filter: %{notification_setting_id: notification_setting_id},
+            select: [:id]
+          },
+          page_size: @page_size,
+          include_deleted: true
+        )
+
+      process_page(page, notification_setting)
+
+      # Finally check to see if consumer should be started back up again
+      start_event_pipeline(event_definition)
+    else
+      nil ->
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "NotificationSetting/EventDefinition not found for NotificationSettingId: #{
+            notification_setting_id
+          }"
+        )
+
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "UpdateNotificationsWorker failed for NotificationSettingId: #{notification_setting_id}. Error: #{
+            inspect(error, pretty: true)
+          }"
+        )
+    end
+  end
+
+  # ----------------------- #
+  # --- Private Methods --- #
+  # ----------------------- #
+  defp stop_event_pipeline(event_definition) do
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "Stopping EventPipeline for #{event_definition.topic}"
+    )
+
+    {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
+
+    if consumer_state.status != ConsumerStatusTypeEnum.status()[:unknown] do
+      Redis.publish_async("ingest_channel", %{
+        stop_consumer: EventsContext.remove_event_definition_virtual_fields(event_definition)
+      })
+    end
+
+    ensure_event_pipeline_stopped(event_definition.id)
+  end
+
+  defp start_event_pipeline(event_definition) do
+    queue_name = "notifications" <> "#{event_definition.id}"
+
+    # TODO: need to be able to check against running jobs as well
+    case Exq.Api.queue_size(Exq.Api, queue_name) do
+      {:ok, count} ->
+        if count <= 0 do
+          {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
+
+          if consumer_state.status != ConsumerStatusTypeEnum.status()[:unknown] do
+            ConsumerStateManager.upsert_consumer_state(
+              event_definition.id,
+              topic: event_definition.topic,
+              status: consumer_state.prev_status,
+              prev_status: consumer_state.status
+            )
+
+            if consumer_state.prev_status == ConsumerStatusTypeEnum.status()[:running] do
+              CogyntLogger.info(
+                "#{__MODULE__}",
+                "Starting EventPipeline for #{event_definition.topic}"
+              )
+
+              Redis.publish_async("ingest_channel", %{
+                start_consumer:
+                  EventsContext.remove_event_definition_virtual_fields(event_definition)
+              })
+            end
+          end
+        end
+
+      _ ->
+        CogyntLogger.warn("#{__MODULE__}", "Exq.Api.queue_size/2 failed to fetch queue_size")
+    end
+  end
+
+  defp ensure_event_pipeline_stopped(event_definition_id) do
+    case EventPipeline.event_pipeline_running?(event_definition_id) or
+           not EventPipeline.event_pipeline_finished_processing?(event_definition_id) do
+      true ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before running update of notifications"
+        )
+
+        Process.sleep(500)
+        ensure_event_pipeline_stopped(event_definition_id)
+
+      false ->
+        CogyntLogger.info("#{__MODULE__}", "EventPipeline #{event_definition_id} Stopped")
+    end
+  end
+
+  defp process_page(
+         %{entries: entries, page_number: page_number, total_pages: total_pages},
+         %{tag_id: tag_id, id: id, title: ns_title, assigned_to: assigned_to} =
+           notification_setting
+       ) do
+    notification_ids = Enum.map(entries, fn e -> e.id end)
+
+    case NotificationsContext.update_notifcations(
+           %{
+             filter: %{notification_ids: notification_ids},
+             select: [:id, :tag_id, :title, :assigned_to]
+           },
+           set: [tag_id: tag_id, title: ns_title, assigned_to: assigned_to]
+         ) do
+      {_count, []} ->
+        nil
+
+      {_count, _updated_notifications} ->
+        Redis.publish_async("notification_settings_subscription", %{
+          updated: notification_setting.id
+        })
+    end
+
+    if page_number >= total_pages do
+      {:ok, :success}
+    else
+      next_page =
+        NotificationsContext.get_page_of_notifications(
+          %{
+            filter: %{notification_setting_id: id},
+            select: [:id]
+          },
+          page_number: page_number + 1,
+          page_size: @page_size,
+          include_deleted: true
+        )
+
+      process_page(next_page, notification_setting)
+    end
+  end
+end

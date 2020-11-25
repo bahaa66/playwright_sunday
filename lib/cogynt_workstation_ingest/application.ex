@@ -36,6 +36,8 @@ defmodule CogyntWorkstationIngest.Application do
       CogyntWorkstationIngestWeb.Endpoint,
       # Start the Supervisor for Redis,
       child_spec_supervisor(RedisSupervisor, RedisSupervisor),
+      # Start the Exq job queue Supervisor,
+      child_spec_supervisor(Exq, Exq),
       # Start the Supervisor for all Genserver modules
       child_spec_supervisor(ServerSupervisor, ServerSupervisor),
       # Start the DynamicSupervisor for Kafka ConsumerGroups

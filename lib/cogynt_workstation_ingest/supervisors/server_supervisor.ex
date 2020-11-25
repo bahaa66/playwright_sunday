@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
 
   alias CogyntWorkstationIngest.Servers.Workers.{
     ConsumerRetryWorker,
-    DeleteDataWorker,
     FailedMessagesRetryWorker,
     RedisStreamsConsumerGroupWorker
   }
@@ -15,7 +14,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   }
   alias CogyntWorkstationIngest.Servers.{
     ConsumerMonitor,
-    NotificationsTaskMonitor,
     DeploymentTaskMonitor,
     DrilldownTaskMonitor,
     EventDefinitionTaskMonitor
@@ -32,11 +30,9 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
 
     children = [
       child_spec(ConsumerRetryWorker),
-      child_spec(DeleteDataWorker),
       child_spec(FailedMessagesRetryWorker),
       child_spec(RedisStreamsConsumerGroupWorker),
       child_spec(ConsumerMonitor, restart: :permanent),
-      child_spec(NotificationsTaskMonitor, restart: :permanent),
       child_spec(DeploymentTaskMonitor, restart: :permanent),
       child_spec(DrilldownTaskMonitor, restart: :permanent),
       child_spec(EventDefinitionTaskMonitor, restart: :permanent),
