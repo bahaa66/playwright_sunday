@@ -65,12 +65,6 @@ config :redis, :application,
   sync_connect: System.get_env("COGYNT_REDIS_SYNC_CONNECT") || true,
   instance: (System.get_env("COGYNT_REDIS_INSTANCE") || "single") |> String.to_atom()
 
-# Exq Job Queue configurations
-config :exq,
-  host: System.get_env("COGYNT_REDIS_HOST") || "127.0.0.1",
-  port: 6379,
-  password: System.get_env("COGYNT_REDIS_PASSWORD") || nil
-
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, :event_pipeline,
   processor_stages:
