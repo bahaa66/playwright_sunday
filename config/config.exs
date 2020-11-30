@@ -41,6 +41,7 @@ config :redis, :application, port: 6379
 # Exq Job Queue
 config :exq,
   name: Exq,
+  node_identifier: CogyntWorkstationIngest.Utils.JobQueue.CustomNodeIdentifier,
   start_on_application: false,
   namespace: "exq",
   middleware: [
@@ -54,7 +55,10 @@ config :exq,
   scheduler_enable: false,
   max_retries: 25,
   mode: :default,
-  shutdown_timeout: 15000
+  shutdown_timeout: 15000,
+  heartbeat_enable: true,
+  heartbeat_interval: 60_000,
+  missed_heartbeats_allowed: 5
 
 # Configurations for keys in Cogynt Core events
 config :cogynt_workstation_ingest, :core_keys,
