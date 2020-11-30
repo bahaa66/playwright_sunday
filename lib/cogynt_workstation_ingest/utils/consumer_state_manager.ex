@@ -1,12 +1,11 @@
 defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   @moduledoc """
-  Genserver that keeps track of the State of each Consumer. Also knows which actions are
-  allowed to be performed based on what state the consumer is in.
+  Genserver that keeps track of the State of each Consumer. Acts as a FSM
+  that will move ConsumerStatus from one state to another
   """
   alias CogyntWorkstationIngest.Broadway.EventPipeline
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngest.Servers.ConsumerMonitor
-  alias CogyntWorkstationIngest.Servers.Workers.DeleteDataWorker
+  alias CogyntWorkstationIngest.Servers.{ConsumerMonitor, EventDefinitionTaskMonitor}
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
 
@@ -18,6 +17,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   }
 
   alias Models.Enums.ConsumerStatusTypeEnum
+  alias Models.Notifications.NotificationSetting
 
   @default_state %{
     topic: nil,
@@ -46,7 +46,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
         CogyntLogger.info(
           "#{__MODULE__}",
-          "New Consumer State Created for event_definition_id: #{event_definition_id}, #{
+          "New Consumer State created for EventDefinitionId: #{event_definition_id}, #{
             inspect(consumer_state, pretty: true)
           }"
         )
@@ -56,8 +56,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           topic: topic,
           status: status
         })
-
-        update_delete_data_worker_status(event_definition_id, status)
 
         {:ok, :success}
 
@@ -101,7 +99,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
         CogyntLogger.info(
           "#{__MODULE__}",
-          "Consumer State Updated for event_definition_id: #{event_definition_id}, #{
+          "Consumer State updated for EventDefinitionId: #{event_definition_id}, #{
             inspect(consumer_state, pretty: true)
           }"
         )
@@ -111,8 +109,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           topic: consumer_state.topic,
           status: consumer_state.status
         })
-
-        update_delete_data_worker_status(event_definition_id, consumer_state.status)
 
         {:ok, :success}
     end
@@ -143,7 +139,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     for x <- ["fem", "emi", "cs"], do: Redis.key_delete("#{x}:#{event_definition_id}")
 
     Redis.hash_delete("ecgid", "EventDefinition-#{event_definition_id}")
-    # TODO: can remove this key after some time
     Redis.hash_delete("ts", event_definition_id)
     Redis.hash_delete("crw", event_definition_id)
 
@@ -189,7 +184,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   # ----------------------- #
   defp start_consumer(event_definition) do
     try do
-      case DeleteDataWorker.is_event_type_being_deleted?(event_definition.id) do
+      case EventDefinitionTaskMonitor.event_definition_task_running?(event_definition.id) do
         false ->
           {:ok, consumer_state} = get_consumer_state(event_definition.id)
 
@@ -427,7 +422,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     event_definition_id = notification_setting.event_definition_id
 
     try do
-      case DeleteDataWorker.is_event_type_being_deleted?(event_definition_id) do
+      case EventDefinitionTaskMonitor.event_definition_task_running?(event_definition_id) do
         false ->
           {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
@@ -503,7 +498,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     event_definition_id = notification_setting.event_definition_id
 
     try do
-      case DeleteDataWorker.is_event_type_being_deleted?(event_definition_id) do
+      case EventDefinitionTaskMonitor.event_definition_task_running?(event_definition_id) do
         false ->
           {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
@@ -579,7 +574,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     event_definition_id = notification_setting.event_definition_id
 
     try do
-      case DeleteDataWorker.is_event_type_being_deleted?(event_definition_id) do
+      case EventDefinitionTaskMonitor.event_definition_task_running?(event_definition_id) do
         false ->
           {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
@@ -650,7 +645,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   end
 
   defp delete_events(event_definition_id) do
-    case DeleteDataWorker.is_event_type_being_deleted?(event_definition_id) do
+    case EventDefinitionTaskMonitor.event_definition_task_running?(event_definition_id) do
       false ->
         {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
@@ -748,12 +743,12 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   defp build_job_queue_for_prefix(queue_prefix, id) do
     case queue_prefix do
       "events" ->
-        create_job_queue(id)
+        create_job_queue_if_not_exists(queue_prefix, id)
 
       "notifications" ->
         with %NotificationSetting{} = notification_setting <-
                NotificationsContext.get_notification_setting_by(%{id: id}) do
-          create_job_queue(notification_setting.event_definition_id)
+          create_job_queue_if_not_exists(queue_prefix, notification_setting.event_definition_id)
         else
           _ ->
             CogyntLogger.error(
@@ -776,7 +771,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
-  defp create_job_queue_if_not_exists(id) do
+  defp create_job_queue_if_not_exists(queue_prefix, id) do
     case Exq.Api.queues(Exq.Api) do
       {:ok, queues} ->
         queue_name = queue_prefix <> "-" <> "#{id}"
