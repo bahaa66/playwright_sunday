@@ -47,7 +47,7 @@ config :exq,
     Exq.Middleware.Stats,
     CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job,
     Exq.Middleware.Manager,
-    CogyntWorkstationIngest.Utils.JobQueue.Middleware.Logger
+    Exq.Middleware.Logger
   ],
   poll_timeout: 50,
   scheduler_poll_timeout: 200,

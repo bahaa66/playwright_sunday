@@ -17,7 +17,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   }
 
   alias Models.Enums.ConsumerStatusTypeEnum
-  alias Models.Notifications.NotificationSetting
 
   @default_state %{
     topic: nil,
@@ -432,7 +431,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
             consumer_state.status ==
                 ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-              case build_job_queue_for_prefix("notifications", event_definition_id) do
+              case create_job_queue_if_not_exists("notifications", event_definition_id) do
                 {:ok, queue_name} ->
                   {:ok, _job_id} =
                     Exq.enqueue(Exq, queue_name, BackfillNotificationsWorker, [
@@ -456,7 +455,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 prev_status: consumer_state.status
               )
 
-              case build_job_queue_for_prefix("notifications", event_definition_id) do
+              case create_job_queue_if_not_exists("notifications", event_definition_id) do
                 {:ok, queue_name} ->
                   {:ok, _job_id} =
                     Exq.enqueue(Exq, queue_name, BackfillNotificationsWorker, [
@@ -464,7 +463,13 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     ])
 
                 _ ->
-                  nil
+                  # Something failed when queueing the job. Reset the consumer_state
+                  upsert_consumer_state(
+                    event_definition_id,
+                    topic: consumer_state.topic,
+                    status: consumer_state.status,
+                    prev_status: consumer_state.prev_status
+                  )
               end
 
               %{
@@ -508,7 +513,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
             consumer_state.status ==
                 ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-              case build_job_queue_for_prefix("notifications", event_definition_id) do
+              case create_job_queue_if_not_exists("notifications", event_definition_id) do
                 {:ok, queue_name} ->
                   {:ok, _job_id} =
                     Exq.enqueue(Exq, queue_name, UpdateNotificationsWorker, [
@@ -532,7 +537,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 prev_status: consumer_state.status
               )
 
-              case build_job_queue_for_prefix("notifications", event_definition_id) do
+              case create_job_queue_if_not_exists("notifications", event_definition_id) do
                 {:ok, queue_name} ->
                   {:ok, _job_id} =
                     Exq.enqueue(Exq, queue_name, UpdateNotificationsWorker, [
@@ -540,7 +545,13 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     ])
 
                 _ ->
-                  nil
+                  # Something failed when queueing the job. Reset the consumer_state
+                  upsert_consumer_state(
+                    event_definition_id,
+                    topic: consumer_state.topic,
+                    status: consumer_state.status,
+                    prev_status: consumer_state.prev_status
+                  )
               end
 
               %{
@@ -584,7 +595,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
             consumer_state.status ==
                 ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
-              case build_job_queue_for_prefix("notifications", event_definition_id) do
+              case create_job_queue_if_not_exists("notifications", event_definition_id) do
                 {:ok, queue_name} ->
                   {:ok, _job_id} =
                     Exq.enqueue(Exq, queue_name, DeleteNotificationsWorker, [
@@ -608,7 +619,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 prev_status: consumer_state.status
               )
 
-              case build_job_queue_for_prefix("notifications", event_definition_id) do
+              case create_job_queue_if_not_exists("notifications", event_definition_id) do
                 {:ok, queue_name} ->
                   {:ok, _job_id} =
                     Exq.enqueue(Exq, queue_name, DeleteNotificationsWorker, [
@@ -616,7 +627,13 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     ])
 
                 _ ->
-                  nil
+                  # Something failed when queueing the job. Reset the consumer_state
+                  upsert_consumer_state(
+                    event_definition_id,
+                    topic: consumer_state.topic,
+                    status: consumer_state.status,
+                    prev_status: consumer_state.prev_status
+                  )
               end
 
               %{
@@ -669,7 +686,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
             %{response: {:error, consumer_state.status}}
 
           true ->
-            case build_job_queue_for_prefix("events", event_definition_id) do
+            case create_job_queue_if_not_exists("events", event_definition_id) do
               {:ok, queue_name} ->
                 {:ok, _job_id} =
                   Exq.enqueue(Exq, queue_name, DeleteEventDefinitionEventsWorker, [
@@ -737,37 +754,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         )
 
         %{response: {:error, :internal_server_error}}
-    end
-  end
-
-  defp build_job_queue_for_prefix(queue_prefix, id) do
-    case queue_prefix do
-      "events" ->
-        create_job_queue_if_not_exists(queue_prefix, id)
-
-      "notifications" ->
-        with %NotificationSetting{} = notification_setting <-
-               NotificationsContext.get_notification_setting_by(%{id: id}) do
-          create_job_queue_if_not_exists(queue_prefix, notification_setting.event_definition_id)
-        else
-          _ ->
-            CogyntLogger.error(
-              "#{__MODULE__}",
-              "create_job_queue_if_not_exists/2 failed to find NotificationSetting for NotificationSettingId: #{
-                id
-              }"
-            )
-
-            {:error, :notification_setting_does_not_exist}
-        end
-
-      _ ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "create_job_queue_if_not_exists/2 Unknown QueuePrefix passed"
-        )
-
-        {:error, :unknown_queue_prefix}
     end
   end
 
