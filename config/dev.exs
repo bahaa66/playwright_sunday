@@ -89,9 +89,9 @@ config :phoenix, :plug_init_mode, :runtime
 
 # Configure your database
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
-  username: "cogynt_user",
-  password: "C0gPa22Word1",
-  database: "cogynt_repo",
-  hostname: "cogynt-test.cluster-ceggkovob3zi.us-west-2.rds.amazonaws.com",
-  pool_size: (System.get_env("POSTGRESQL_POOL_SIZE") || "10") |> String.to_integer(),
+  username: System.get_env("POSTGRESQL_USERNAME") || "postgres",
+  password: System.get_env("POSTGRESQL_PASSWORD") || "postgres",
+  database: System.get_env("POSTGRESQL_DATABASE") || "cogynt_dev",
+  hostname: System.get_env("POSTGRESQL_HOST") || "localhost",
+  pool_size: (System.get_env("POSTGRESQL_POOL_SIZE") || "20") |> String.to_integer(),
   telemetry_prefix: [:cogynt_workstation_ingest, :repo]
