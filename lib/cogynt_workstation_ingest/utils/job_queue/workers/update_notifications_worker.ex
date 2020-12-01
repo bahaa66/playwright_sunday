@@ -79,38 +79,33 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.UpdateNotificationsWork
   end
 
   defp start_event_pipeline(event_definition) do
-    queue_name = "notifications" <> "#{event_definition.id}"
+    case is_job_queue_finished?(event_definition.id) do
+      true ->
+        {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
 
-    # TODO: need to be able to check against running jobs as well
-    case Exq.Api.queue_size(Exq.Api, queue_name) do
-      {:ok, count} ->
-        if count <= 0 do
-          {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
+        if consumer_state.status != ConsumerStatusTypeEnum.status()[:unknown] do
+          ConsumerStateManager.upsert_consumer_state(
+            event_definition.id,
+            topic: event_definition.topic,
+            status: consumer_state.prev_status,
+            prev_status: consumer_state.status
+          )
 
-          if consumer_state.status != ConsumerStatusTypeEnum.status()[:unknown] do
-            ConsumerStateManager.upsert_consumer_state(
-              event_definition.id,
-              topic: event_definition.topic,
-              status: consumer_state.prev_status,
-              prev_status: consumer_state.status
+          if consumer_state.prev_status == ConsumerStatusTypeEnum.status()[:running] do
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Starting EventPipeline for #{event_definition.topic}"
             )
 
-            if consumer_state.prev_status == ConsumerStatusTypeEnum.status()[:running] do
-              CogyntLogger.info(
-                "#{__MODULE__}",
-                "Starting EventPipeline for #{event_definition.topic}"
-              )
-
-              Redis.publish_async("ingest_channel", %{
-                start_consumer:
-                  EventsContext.remove_event_definition_virtual_fields(event_definition)
-              })
-            end
+            Redis.publish_async("ingest_channel", %{
+              start_consumer:
+                EventsContext.remove_event_definition_virtual_fields(event_definition)
+            })
           end
         end
 
       _ ->
-        CogyntLogger.warn("#{__MODULE__}", "Exq.Api.queue_size/2 failed to fetch queue_size")
+        nil
     end
   end
 
@@ -169,6 +164,32 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.UpdateNotificationsWork
         )
 
       process_page(next_page, notification_setting)
+    end
+  end
+
+  defp is_job_queue_finished?(id) do
+    try do
+      Enum.reduce(["notifications"], true, fn prefix, acc ->
+        queue_name = prefix <> "-" <> "#{id}"
+        {:ok, count} = Exq.Api.queue_size(Exq.Api, queue_name)
+        {:ok, processes} = Exq.Api.processes(Exq.Api)
+
+        grouped =
+          Enum.group_by(processes, fn process ->
+            decoded_job = Jason.decode!(process.job, keys: :atoms)
+            decoded_job.queue
+          end)
+
+        if count > 0 or Map.get(grouped, queue_name) != nil do
+          false
+        else
+          acc
+        end
+      end)
+    rescue
+      _ ->
+        CogyntLogger.error("#{__MODULE__}", "is_job_queue_finished?/1 Failed.")
+        true
     end
   end
 end

@@ -430,7 +430,11 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
               handle_unknown_status(event_definition_id)
 
             consumer_state.status ==
-                ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
+              ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
+              consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
+                consumer_state.status ==
+                  ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
               case create_job_queue_if_not_exists("notifications", event_definition_id) do
                 {:ok, queue_name} ->
                   {:ok, _job_id} =
@@ -443,8 +447,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
               end
 
               %{
-                response:
-                  {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
+                response: {:ok, consumer_state.status}
               }
 
             true ->
@@ -512,7 +515,11 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
               handle_unknown_status(event_definition_id)
 
             consumer_state.status ==
-                ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
+              ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
+              consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
+                consumer_state.status ==
+                  ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
               case create_job_queue_if_not_exists("notifications", event_definition_id) do
                 {:ok, queue_name} ->
                   {:ok, _job_id} =
@@ -525,8 +532,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
               end
 
               %{
-                response:
-                  {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
+                response: {:ok, consumer_state.status}
               }
 
             true ->
@@ -594,7 +600,11 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
               handle_unknown_status(event_definition_id)
 
             consumer_state.status ==
-                ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
+              ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
+              consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
+                consumer_state.status ==
+                  ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
               case create_job_queue_if_not_exists("notifications", event_definition_id) do
                 {:ok, queue_name} ->
                   {:ok, _job_id} =
@@ -607,8 +617,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
               end
 
               %{
-                response:
-                  {:ok, ConsumerStatusTypeEnum.status()[:delete_notification_task_running]}
+                response: {:ok, consumer_state.status}
               }
 
             true ->
