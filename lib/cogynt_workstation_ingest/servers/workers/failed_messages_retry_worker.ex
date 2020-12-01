@@ -164,8 +164,8 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
               batch_key: list_to_tuple(batch_key),
               batch_mode: :bulk,
               batcher: :default,
-              data: first_level_keys_to_atoms(data),
-              metadata: first_level_keys_to_atoms(metadata)
+              data: build_atom_key_map(data),
+              metadata: build_atom_key_map(metadata)
             }
           ]
       end)
@@ -184,7 +184,34 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
     item
   end
 
-  defp first_level_keys_to_atoms(string_key_map) do
-    for {key, val} <- string_key_map, into: %{}, do: {String.to_atom(key), val}
+  defp build_atom_key_map(string_key_map) do
+    for {key, val} <- string_key_map, into: %{}, do: pipeline_key_conditions(key, val)
+  end
+
+  defp convert_keys_to_atoms(list_of_maps) when is_list(list_of_maps) do
+    Enum.reduce(list_of_maps, [], fn string_map, acc ->
+      acc ++ [convert_keys_to_atoms(string_map)]
+    end)
+  end
+
+  defp convert_keys_to_atoms(string_key_map) when is_map(string_key_map) do
+    for {key, val} <- string_key_map,
+        into: %{},
+        do: {String.to_atom(key), convert_keys_to_atoms(val)}
+  end
+
+  defp convert_keys_to_atoms(value), do: value
+
+  defp pipeline_key_conditions(key, val) do
+    case(key) do
+      "deployment_message" ->
+        {String.to_atom(key), convert_keys_to_atoms(val)}
+
+      "event_definition" ->
+        {String.to_atom(key), convert_keys_to_atoms(val)}
+
+      _ ->
+        {String.to_atom(key), val}
+    end
   end
 end
