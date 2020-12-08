@@ -324,7 +324,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                   end
 
                 _ ->
-                  v1 ++ v2
+                  v2
               end
             end)
           end)
@@ -574,7 +574,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               end
 
             _ ->
-              v1 ++ v2
+              v2
           end
         end)
       end)
