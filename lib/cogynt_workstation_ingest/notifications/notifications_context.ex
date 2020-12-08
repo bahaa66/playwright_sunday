@@ -287,7 +287,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     |> Multi.insert_all(:insert_notifications, Notification, notifications, returning: returning)
   end
 
-  def update_all_notifications_multi(multi \\ Multi.new(), %{
+  def update_all_notifications_multi(multi \\ Multi.new(), multi_name, %{
         delete_event_ids: delete_event_ids,
         action: action,
         event_id: event_id
@@ -298,7 +298,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
 
       false ->
         # If action is a delete we want to leave all notifications
-        # marked as deleted. Event the ones created for the current newest event.
+        # marked as deleted. Even the ones created for the most current event.
         deleted_at =
           if action == @delete do
             DateTime.truncate(DateTime.utc_now(), :second)
@@ -315,9 +315,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
           |> select(^select)
 
         multi
-        |> Multi.update_all(:update_notifications, n_query,
-          set: [event_id: event_id, deleted_at: deleted_at]
-        )
+        |> Multi.update_all(multi_name, n_query, set: [event_id: event_id, deleted_at: deleted_at])
     end
   end
 
