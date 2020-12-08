@@ -28,6 +28,13 @@ defmodule CogyntWorkstationIngest.Config do
   def session_timeout, do: kafka()[:session_timeout]
   def deployment_topic(), do: kafka()[:deployment_topic]
 
+  def redis_host(), do: redis()[:host]
+  def redis_port(), do: redis()[:port]
+  def redis_sentinels(), do: redis()[:sentinels]
+  def redis_sentinel_group(), do: redis()[:sentinel_group]
+  def redis_password(), do: redis()[:password]
+  def redis_instance(), do: redis()[:instance]
+
   def session_key(), do: Application.get_env(:cogynt_workstation_ingest, :session_key)
   def session_domain(), do: Application.get_env(:cogynt_workstation_ingest, :session_domain)
   def signing_salt(), do: Application.get_env(:cogynt_workstation_ingest, :signing_salt)
@@ -52,6 +59,8 @@ defmodule CogyntWorkstationIngest.Config do
     do: Application.get_env(:cogynt_workstation_ingest, CogyntWorkstationIngest.Repo)
 
   defp kafka, do: Application.get_env(:kafka, :application)
+
+  defp redis, do: Application.get_env(:redis, :application)
 
   defp drilldown_pipeline(),
     do: Application.get_env(:cogynt_workstation_ingest, :drilldown_pipeline)

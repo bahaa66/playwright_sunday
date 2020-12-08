@@ -292,45 +292,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   # --- private methods --- #
   # ----------------------- #
   defp finished_processing(event_definition_id) do
-    {:ok,
-     %{
-       status: status,
-       topic: topic,
-       backfill_notifications: backfill_notifications,
-       update_notifications: update_notifications,
-       delete_notifications: delete_notifications
-     }} = ConsumerStateManager.get_consumer_state(event_definition_id)
+    {:ok, %{status: status, topic: topic}} =
+      ConsumerStateManager.get_consumer_state(event_definition_id)
 
-    # If a backfill_notifications, update_notifications or delete_notifications task is triggered
-    # while the pipeline is ingesting or processing data. The consumer state manager will update
-    # its status to the corresponding task status. Once the pipeline finishes processing it will
-    # check here if any of those status were set. If so it will trigger the tasks for all the Ids
-    # stored in its corresponding consumer_status key.
     cond do
-      status ==
-          ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-        Enum.each(backfill_notifications, fn notification_setting_id ->
-          ConsumerStateManager.manage_request(%{
-            backfill_notifications: notification_setting_id
-          })
-        end)
-
-      status ==
-          ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-        Enum.each(update_notifications, fn notification_setting_id ->
-          ConsumerStateManager.manage_request(%{
-            update_notifications: notification_setting_id
-          })
-        end)
-
-      status ==
-          ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
-        Enum.each(delete_notifications, fn notification_setting_id ->
-          ConsumerStateManager.manage_request(%{
-            delete_notifications: notification_setting_id
-          })
-        end)
-
       status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
         ConsumerStateManager.upsert_consumer_state(event_definition_id,
           topic: topic,

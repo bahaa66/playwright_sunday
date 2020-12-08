@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.Servers.EventDefinitionTaskMonitor do
   """
 
   use GenServer
-  alias CogyntWorkstationIngest.Servers.Workers.DeleteDataWorker
 
   # -------------------- #
   # --- client calls --- #
@@ -35,7 +34,10 @@ defmodule CogyntWorkstationIngest.Servers.EventDefinitionTaskMonitor do
     case is_list(event_definition_ids) do
       true ->
         Enum.each(event_definition_ids, fn event_definition_id ->
-          DeleteDataWorker.upsert_status(event_definition_id, status: "running")
+          Redis.hash_set_async("ts", event_definition_id, %{
+            status: "running",
+            hard_delete: false
+          })
         end)
 
         # TODO: implement handler for this on cogynt-otp
@@ -45,7 +47,11 @@ defmodule CogyntWorkstationIngest.Servers.EventDefinitionTaskMonitor do
         })
 
       false ->
-        DeleteDataWorker.upsert_status(event_definition_ids, status: "running")
+        Redis.hash_set_async("ts", event_definition_ids, %{
+          status: "running",
+          hard_delete: false
+        })
+
         # TODO: implement handler for this on cogynt-otp
         Redis.publish_async("event_definitions_subscription", %{
           event_definition_ids: [event_definition_ids],

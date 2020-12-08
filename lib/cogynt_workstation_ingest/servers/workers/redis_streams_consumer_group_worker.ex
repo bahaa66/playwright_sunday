@@ -1,6 +1,6 @@
 defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorker do
   @moduledoc """
-
+  Worker module that fetches messages of a Redis ConsumerGroup for the `itw` stream.
   """
   use GenServer
   alias CogyntWorkstationIngest.Config
@@ -54,6 +54,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
               :delete_event_definition_events ->
                 ConsumerStateManager.manage_request(%{delete_event_definition_events: field_value})
 
+              # This does not use Exq Job Queue and just executes tasks
               :dev_delete ->
                 case field_value do
                   %{
