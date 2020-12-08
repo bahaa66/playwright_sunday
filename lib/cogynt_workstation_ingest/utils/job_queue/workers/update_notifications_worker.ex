@@ -180,7 +180,9 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.UpdateNotificationsWork
             decoded_job.queue
           end)
 
-        if count > 0 or Map.get(grouped, queue_name) != nil do
+        queue_processes = Map.get(grouped, queue_name, [])
+
+        if count > 0 or Enum.count(queue_processes) > 1 do
           false
         else
           acc
