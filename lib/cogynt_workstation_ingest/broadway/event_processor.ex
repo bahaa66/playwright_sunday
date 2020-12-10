@@ -403,7 +403,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         })
       end)
 
-    start = Time.utc_now()
+    # start = Time.utc_now()
 
     # elasticsearch updates
     # TODO: instead of creating all the documents and then in the next
@@ -516,9 +516,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         end
     end
 
-    finish = Time.utc_now()
-    diff = Time.diff(finish, start, :millisecond)
-    IO.puts("DURATION: #{diff}, PID: #{inspect(self())}")
+    # finish = Time.utc_now()
+    # diff = Time.diff(finish, start, :millisecond)
+    # IO.puts("DURATION: #{diff}, PID: #{inspect(self())}")
   end
 
   @doc """
