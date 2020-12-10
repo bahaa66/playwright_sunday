@@ -49,7 +49,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         ]
       ],
       batchers: [
-        no_crud: [concurrency: 10, batch_size: 500]
+        default: [
+          batch_size: 1000,
+          concurrency: 10
+        ]
       ],
       context: [event_definition_id: event_definition_id]
     )
@@ -167,86 +170,51 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         _processor,
         %Message{
           data: %{
-            event_definition_id: event_definition_id,
             event_definition: %{event_type: :linkage}
           }
         } = message,
         _context
       ) do
-    message =
-      case message do
-        %Message{data: %{event: %{@crud => _action}}} ->
-          message =
-            message
-            |> EventProcessor.process_event()
-            |> EventProcessor.process_event_details_and_elasticsearch_docs()
-            |> EventProcessor.process_notifications()
-            |> LinkEventProcessor.validate_link_event()
-            |> LinkEventProcessor.process_entities()
-            |> LinkEventProcessor.execute_transaction()
-
-          incr_total_processed_message_count(event_definition_id)
-
-          message
-
-        _ ->
-          message
-          |> EventProcessor.process_event()
-          |> EventProcessor.process_event_details_and_elasticsearch_docs()
-          |> EventProcessor.process_notifications()
-          |> LinkEventProcessor.validate_link_event()
-          |> LinkEventProcessor.process_entities()
-          |> Message.put_batcher(:no_crud)
-      end
-
     message
+    |> EventProcessor.process_event()
+    |> EventProcessor.process_event_details_and_elasticsearch_docs()
+    |> EventProcessor.process_notifications()
+    |> LinkEventProcessor.validate_link_event()
+    |> LinkEventProcessor.process_entities()
   end
 
   @impl true
-  def handle_message(
-        _processor,
-        %Message{data: %{event_definition_id: event_definition_id}} = message,
-        _context
-      ) do
-    message =
-      case message do
-        %Message{data: %{event: %{@crud => _action}}} ->
-          message =
-            message
-            |> EventProcessor.process_event()
-            |> EventProcessor.process_event_details_and_elasticsearch_docs()
-            |> EventProcessor.process_notifications()
-            |> EventProcessor.execute_transaction()
-
-          incr_total_processed_message_count(event_definition_id)
-
-          message
-
-        _ ->
-          message
-          |> EventProcessor.process_event()
-          |> EventProcessor.process_event_details_and_elasticsearch_docs()
-          |> EventProcessor.process_notifications()
-          |> Message.put_batcher(:no_crud)
-      end
-
+  def handle_message(_processor, message, _context) do
     message
+    |> EventProcessor.process_event()
+    |> EventProcessor.process_event_details_and_elasticsearch_docs()
+    |> EventProcessor.process_notifications()
   end
 
   @impl true
-  def handle_batch(:no_crud, messages, _batch_info, context) do
+  def handle_batch(_, messages, _batch_info, context) do
     event_definition_id = Keyword.get(context, :event_definition_id, nil)
 
     List.first(messages)
     |> case do
+      %Message{data: %{event_definition: %{event_type: :linkage}, event: %{@crud => _action}}} ->
+        messages
+        |> Enum.group_by(fn message -> message.data.event["id"] end)
+        |> LinkEventProcessor.execute_batch_transaction_for_crud()
+
       %Message{data: %{event_definition: %{event_type: :linkage}}} ->
         messages
-        |> Enum.map(fn e -> e.data end)
+        |> Enum.map(fn message -> message.data end)
         |> LinkEventProcessor.execute_batch_transaction()
+
+      %Message{data: %{event: %{@crud => _action}}} ->
+        messages
+        |> Enum.group_by(fn message -> message.data.event["id"] end)
+        |> EventProcessor.execute_batch_transaction_for_crud()
 
       _ ->
         messages
-        |> Enum.map(fn e -> e.data end)
+        |> Enum.map(fn message -> message.data end)
         |> EventProcessor.execute_batch_transaction()
     end
 
@@ -295,15 +263,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     {:ok, %{status: status, topic: topic}} =
       ConsumerStateManager.get_consumer_state(event_definition_id)
 
-    cond do
-      status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
-        ConsumerStateManager.upsert_consumer_state(event_definition_id,
-          topic: topic,
-          status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
-        )
-
-      true ->
-        nil
+    if status == ConsumerStatusTypeEnum.status()[:paused_and_processing] do
+      ConsumerStateManager.upsert_consumer_state(event_definition_id,
+        topic: topic,
+        status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
+      )
     end
 
     Redis.publish_async("event_definitions_subscription", %{updated: event_definition_id})
@@ -314,7 +278,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     )
   end
 
-  defp incr_total_processed_message_count(event_definition_id, count \\ 1) do
+  defp incr_total_processed_message_count(event_definition_id, count) do
     {:ok, tmc} = Redis.hash_get("emi:#{event_definition_id}", "tmc")
     {:ok, tmp} = Redis.hash_increment_by("emi:#{event_definition_id}", "tmp", count)
 
