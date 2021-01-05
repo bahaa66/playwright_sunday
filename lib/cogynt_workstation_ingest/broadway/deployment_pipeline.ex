@@ -77,6 +77,8 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
   """
   @impl true
   def handle_failed(messages, _opts) do
+    incr_total_processed_message_count(Enum.count(messages))
+
     failed_messages =
       Enum.reduce(messages, [], fn %Broadway.Message{data: %{retry_count: retry_count} = data} =
                                      message,
@@ -90,7 +92,8 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
           data = Map.put(data, :retry_count, retry_count + 1)
 
           message =
-            Map.put(message, :data, data)
+            Map.from_struct(message)
+            |> Map.put(:data, data)
             |> Map.drop([:status, :acknowledger])
 
           acc ++ [message]
@@ -100,7 +103,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
       end)
 
     Redis.list_append_pipeline("fdpm", failed_messages)
-    incr_total_processed_message_count(Enum.count(messages))
     messages
   end
 

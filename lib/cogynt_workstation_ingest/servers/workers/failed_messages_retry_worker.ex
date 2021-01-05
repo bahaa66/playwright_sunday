@@ -155,15 +155,21 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
       end
 
     if not Enum.empty?(list_items) do
-      Enum.reduce(list_items, [], fn %{batch_key: batch_key, data: data, metadata: metadata},
+      Enum.reduce(list_items, [], fn %{
+                                       batch_key: batch_key,
+                                       batcher: batcher,
+                                       batch_mode: batch_mode,
+                                       data: data,
+                                       metadata: metadata
+                                     },
                                      acc ->
         acc ++
           [
             %Broadway.Message{
               acknowledger: {pipeline_module, :ack_id, :ack_data},
               batch_key: list_to_tuple(batch_key),
-              batch_mode: :bulk,
-              batcher: :default,
+              batch_mode: String.to_atom(batch_mode),
+              batcher: String.to_atom(batcher),
               data: build_atom_key_map(data),
               metadata: build_atom_key_map(metadata)
             }

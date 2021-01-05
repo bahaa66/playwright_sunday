@@ -83,6 +83,8 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   def handle_failed(messages, context) do
     group_id = Keyword.get(context, :group_id, 1)
 
+    incr_total_processed_message_count(group_id, Enum.count(messages))
+
     failed_messages =
       Enum.reduce(messages, [], fn %Broadway.Message{data: %{retry_count: retry_count} = data} =
                                      message,
@@ -98,7 +100,8 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
           data = Map.put(data, :retry_count, new_retry_count)
 
           message =
-            Map.put(message, :data, data)
+            Map.from_struct(message)
+            |> Map.put(message, :data, data)
             |> Map.drop([:status, :acknowledger])
 
           acc ++ [message]
@@ -108,7 +111,6 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
       end)
 
     Redis.list_append_pipeline("fdm:#{group_id}", failed_messages)
-    incr_total_processed_message_count(group_id, Enum.count(messages))
     messages
   end
 
