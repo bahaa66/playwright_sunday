@@ -74,8 +74,11 @@ defmodule CogyntWorkstationIngest.Application do
   defp exq_job_queue_child_spec() do
     exq_configs = Application.get_all_env(:exq)
 
+    IO.inspect(exq_configs, label: "EXQ CONFIGS")
+
     case Config.redis_instance() do
       :sentinel ->
+        IO.inspect(Config.redis_instance(), label: "REDIS INSTANCE")
         sentinels = String.split(Config.redis_sentinels(), ",", trim: true)
 
         exq_configs =
