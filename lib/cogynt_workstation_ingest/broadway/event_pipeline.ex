@@ -118,6 +118,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   def handle_failed(messages, context) do
     event_definition_id = Keyword.get(context, :event_definition_id, nil)
 
+    incr_total_processed_message_count(event_definition_id, Enum.count(messages))
+
     failed_messages =
       Enum.reduce(messages, [], fn %Broadway.Message{
                                      data:
@@ -140,7 +142,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           data = Map.put(data, :retry_count, new_retry_count)
 
           message =
-            Map.put(message, :data, data)
+            Map.from_struct(message)
+            |> Map.put(:data, data)
             |> Map.drop([:status, :acknowledger])
 
           acc ++ [message]
@@ -155,7 +158,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       Redis.list_append_pipeline("fem:#{event_definition_id}", failed_messages)
     end
 
-    incr_total_processed_message_count(event_definition_id, Enum.count(messages))
     messages
   end
 
