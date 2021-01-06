@@ -76,7 +76,6 @@ defmodule CogyntWorkstationIngest.Application do
 
     case Config.redis_instance() do
       :sentinel ->
-        IO.inspect(Config.redis_instance(), label: "REDIS INSTANCE")
         sentinels = String.split(Config.redis_sentinels(), ",", trim: true)
 
         exq_configs =
@@ -84,11 +83,10 @@ defmodule CogyntWorkstationIngest.Application do
             [
               redis_options: [
                 sentinel: [sentinels: sentinels, group: Config.redis_sentinel_group()],
+                name: Exq.Redis.Client,
                 password: Config.redis_password()
               ]
             ]
-
-        IO.inspect(exq_configs, label: "EXQ CONFIGS")
 
         child_spec_supervisor(
           Exq,
@@ -102,6 +100,7 @@ defmodule CogyntWorkstationIngest.Application do
             [
               redis_options: [
                 host: Config.redis_host(),
+                name: Exq.Redis.Client,
                 password: Config.redis_password()
               ]
             ]
