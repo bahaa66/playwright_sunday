@@ -39,7 +39,7 @@ defmodule CogyntWorkstationIngest.Application do
       # Start the Supervisor for Redis,
       child_spec_supervisor(RedisSupervisor, RedisSupervisor),
       # Start the Exq job queue Supervisor
-      exq_job_queue_child_spec(),
+      #exq_job_queue_child_spec(),
       # Start the Supervisor for all Genserver modules
       child_spec_supervisor(ServerSupervisor, ServerSupervisor),
       # Start the DynamicSupervisor for Kafka ConsumerGroups
