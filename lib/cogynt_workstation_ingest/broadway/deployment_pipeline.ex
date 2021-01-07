@@ -22,10 +22,11 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
              offset_commit_on_ack: true,
              offset_reset_policy: :earliest,
              group_config: [
-               session_timeout_seconds: 10
+               session_timeout_seconds: 30,
+               rejoin_delay_seconds: 10
              ],
              client_config: [
-               connect_timeout: 10000
+               connect_timeout: 30000
              ]
            ]},
         concurrency: Config.deployment_producer_stages(),
