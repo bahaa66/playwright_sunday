@@ -92,7 +92,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :redis,
-        tag: "v1.10.10",
+        tag: "v1.11.6",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true

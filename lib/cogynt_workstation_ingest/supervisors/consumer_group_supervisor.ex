@@ -33,15 +33,16 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     {:ok, existing_topics} = Kafka.Api.Topic.list_topics(brokers)
 
     if Enum.member?(existing_topics, topic) do
-      consumer_group_id =
-        case Redis.hash_get("ecgid", "EventDefinition-#{event_definition.id}") do
-          {:ok, nil} ->
-            id = "#{UUID.uuid1()}"
-            Redis.hash_set("ecgid", "EventDefinition-#{event_definition.id}", id)
-            "EventDefinition-#{event_definition.id}" <> "-" <> id
+      cgid = "#{UUID.uuid1()}"
 
-          {:ok, consumer_group_id} ->
-            "EventDefinition-#{event_definition.id}" <> "-" <> consumer_group_id
+      consumer_group_id =
+        case Redis.hash_set_if_not_exists("ecgid", "EventDefinition-#{event_definition.id}", cgid) do
+          {:ok, 0} ->
+            {:ok, existing_id} = Redis.hash_get("ecgid", "EventDefinition-#{event_definition.id}")
+            "EventDefinition-#{event_definition.id}" <> "-" <> existing_id
+
+          {:ok, 1} ->
+            "EventDefinition-#{event_definition.id}" <> "-" <> cgid
         end
 
       child_spec = %{
@@ -74,15 +75,16 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     {:ok, existing_topics} = Kafka.Api.Topic.list_topics()
 
     if Enum.member?(existing_topics, "deployment") do
-      consumer_group_id =
-        case Redis.hash_get("dpcgid", "Deployment") do
-          {:ok, nil} ->
-            id = "#{UUID.uuid1()}"
-            Redis.hash_set("dpcgid", "Deployment", id)
-            "Deployment" <> "-" <> id
+      cgid = "#{UUID.uuid1()}"
 
-          {:ok, consumer_group_id} ->
-            "Deployment" <> "-" <> consumer_group_id
+      consumer_group_id =
+        case Redis.hash_set_if_not_exists("dpcgid", "Deployment", cgid) do
+          {:ok, 0} ->
+            {:ok, existing_id} = Redis.hash_get("dpcgid", "Deployment")
+            "Deployment" <> "-" <> existing_id
+
+          {:ok, 1} ->
+            "Deployment" <> "-" <> cgid
         end
 
       child_spec = %{
@@ -117,15 +119,16 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
           Config.template_solution_events_topic()
         ])
 
-        consumer_group_id =
-          case Redis.hash_get("dcgid", "Drilldown") do
-            {:ok, nil} ->
-              id = "#{UUID.uuid1()}"
-              Redis.hash_set("dcgid", "Drilldown", id)
-              "Drilldown" <> "-" <> id
+        cgid = "#{UUID.uuid1()}"
 
-            {:ok, consumer_group_id} ->
-              "Drilldown" <> "-" <> consumer_group_id
+        consumer_group_id =
+          case Redis.hash_set_if_not_exists("dcgid", "Drilldown", cgid) do
+            {:ok, 0} ->
+              {:ok, existing_id} = Redis.hash_get("dcgid", "Drilldown")
+              "Drilldown" <> "-" <> existing_id
+
+            {:ok, 1} ->
+              "Drilldown" <> "-" <> cgid
           end
 
         child_spec = %{
@@ -156,15 +159,16 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
         hash_string = Integer.to_string(:erlang.phash2(brokers))
 
-        consumer_group_id =
-          case Redis.hash_get("dcgid", "Drilldown-#{hash_string}") do
-            {:ok, nil} ->
-              id = "#{UUID.uuid1()}"
-              Redis.hash_set("dcgid", "Drilldown-#{hash_string}", id)
-              "Drilldown-#{hash_string}" <> "-" <> id
+        cgid = "#{UUID.uuid1()}"
 
-            {:ok, consumer_group_id} ->
-              "Drilldown-#{hash_string}" <> "-" <> consumer_group_id
+        consumer_group_id =
+          case Redis.hash_set_if_not_exists("dcgid", "Drilldown-#{hash_string}", cgid) do
+            {:ok, 0} ->
+              {:ok, existing_id} = Redis.hash_get("dcgid", "Drilldown-#{hash_string}")
+              "Drilldown-#{hash_string}" <> "-" <> existing_id
+
+            {:ok, 1} ->
+              "Drilldown-#{hash_string}" <> "-" <> cgid
           end
 
         Kafka.Api.Topic.create_topics(
