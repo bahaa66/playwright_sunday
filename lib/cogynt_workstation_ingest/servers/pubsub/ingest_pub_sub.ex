@@ -7,6 +7,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
+  alias CogyntWorkstationIngest.Broadway.{DrilldownPipeline, DeploymentPipeline}
 
   # -------------------- #
   # --- client calls --- #
@@ -73,10 +74,15 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
             "#{__MODULE__}",
             "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
           )
+
+          # Fetch deployment object for deplpoyment_id
           deployment = DeploymentsContext.get_deployment(deployment_id)
 
           if not is_nil(deployment) do
-            ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+            # Ensure that DrilldownPipeline is not already running
+            if not DrilldownPipeline.drilldown_pipeline_running?(deployment) do
+              ConsumerGroupSupervisor.start_child(:drilldown, deployment)
+            end
           end
         end
 
@@ -86,18 +92,21 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
           "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
         )
 
-        case ConsumerGroupSupervisor.start_child(:deployment) do
-          {:error, nil} ->
-            CogyntLogger.warn(
-              "#{__MODULE__}",
-              "Deployment Topic DNE. Adding to retry cache. Will reconnect once topic is created"
-            )
+        # Ensure that Deployment Pipeline is not already running
+        if not DeploymentPipeline.deployment_pipeline_running?() do
+          case ConsumerGroupSupervisor.start_child(:deployment) do
+            {:error, nil} ->
+              CogyntLogger.warn(
+                "#{__MODULE__}",
+                "Deployment Topic DNE. Adding to retry cache. Will reconnect once topic is created"
+              )
 
-            Redis.hash_set_async("crw", Config.deployment_topic(), "dp")
+              Redis.hash_set_if_not_exists("crw", Config.deployment_topic(), "dp")
 
-          _ ->
-            Redis.hash_delete("crw", Config.deployment_topic())
-            CogyntLogger.info("#{__MODULE__}", "Started Deployment Pipeline")
+            _ ->
+              Redis.hash_delete("crw", Config.deployment_topic())
+              CogyntLogger.info("#{__MODULE__}", "Started Deployment Pipeline")
+          end
         end
 
       {:ok, %{stop_consumer: event_definition} = request} ->
