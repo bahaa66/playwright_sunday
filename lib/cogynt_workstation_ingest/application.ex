@@ -24,8 +24,6 @@ defmodule CogyntWorkstationIngest.Application do
     TelemetrySupervisor
   }
 
-  alias CogyntWorkstationIngest.Config
-
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
@@ -39,7 +37,7 @@ defmodule CogyntWorkstationIngest.Application do
       # Start the Supervisor for Redis,
       child_spec_supervisor(RedisSupervisor, RedisSupervisor),
       # Start the Exq job queue Supervisor
-      #exq_job_queue_child_spec(),
+      child_spec_supervisor(Exq, Exq),
       # Start the Supervisor for all Genserver modules
       child_spec_supervisor(ServerSupervisor, ServerSupervisor),
       # Start the DynamicSupervisor for Kafka ConsumerGroups
@@ -66,53 +64,6 @@ defmodule CogyntWorkstationIngest.Application do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-
-  # TODO: REMOVE THIS METHOD ONCE WE ARE USING SEPERATE CONFIGS FOR DEV AND PROD
-  # only have to do this right now because on local envs we are not using Redis Sentinels
-  # but on develop and prod envs we are. And there is no way to dynamically set the redis options to use
-  # Sentinel configs just using the dev.exs config file. Need to be using the dev.exs and prod.exs config files
-  defp exq_job_queue_child_spec() do
-    exq_configs = Application.get_all_env(:exq)
-
-    case Config.redis_instance() do
-      :sentinel ->
-        sentinels = String.split(Config.redis_sentinels(), ",", trim: true)
-
-        exq_configs =
-          exq_configs ++
-            [
-              redis_options: [
-                sentinel: [sentinels: sentinels, group: Config.redis_sentinel_group()],
-                name: Exq.Redis.Client,
-                password: Config.redis_password()
-              ]
-            ]
-
-        child_spec_supervisor(
-          Exq,
-          Exq,
-          [exq_configs]
-        )
-
-      _ ->
-        exq_configs =
-          exq_configs ++
-            [
-              redis_options: [
-                host: Config.redis_host(),
-                name: Exq.Redis.Client,
-                password: Config.redis_password()
-              ]
-            ]
-
-        child_spec_supervisor(
-          Exq,
-          Exq,
-          [exq_configs]
-        )
-    end
-  end
-
   defp child_spec_supervisor(module_name, id, args \\ []) do
     %{
       id: id,
