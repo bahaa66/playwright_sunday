@@ -102,7 +102,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
 
           message =
             Map.from_struct(message)
-            |> Map.put(message, :data, data)
+            |> Map.put(:data, data)
             |> Map.drop([:status, :acknowledger])
 
           acc ++ [message]

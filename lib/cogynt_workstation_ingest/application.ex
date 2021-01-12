@@ -36,6 +36,8 @@ defmodule CogyntWorkstationIngest.Application do
       CogyntWorkstationIngestWeb.Endpoint,
       # Start the Supervisor for Redis,
       child_spec_supervisor(RedisSupervisor, RedisSupervisor),
+      # Start the Exq job queue Supervisor
+      child_spec_supervisor(Exq, Exq),
       # Start the Supervisor for all Genserver modules
       child_spec_supervisor(ServerSupervisor, ServerSupervisor),
       # Start the DynamicSupervisor for Kafka ConsumerGroups
@@ -59,13 +61,16 @@ defmodule CogyntWorkstationIngest.Application do
     :ok
   end
 
-  defp child_spec_supervisor(module_name, id) do
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp child_spec_supervisor(module_name, id, args \\ []) do
     %{
       id: id,
       start: {
         module_name,
         :start_link,
-        []
+        args
       },
       restart: :permanent,
       shutdown: 5000,

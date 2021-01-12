@@ -7,6 +7,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
   """
   use GenServer
   alias Models.Enums.ConsumerStatusTypeEnum
+  alias CogyntWorkstationIngest.Broadway.EventPipeline
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
 
   # -------------------- #
@@ -53,8 +54,8 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
 
         {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition_id)
 
-        case ConsumerStateManager.finished_processing?(event_definition_id) do
-          {:ok, true} ->
+        case EventPipeline.event_pipeline_finished_processing?(event_definition_id) do
+          true ->
             check_consumer_state(
               event_definition_id,
               topic,
@@ -62,7 +63,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
               ConsumerStatusTypeEnum.status()[:paused_and_finished]
             )
 
-          {:ok, false} ->
+          false ->
             check_consumer_state(
               event_definition_id,
               topic,

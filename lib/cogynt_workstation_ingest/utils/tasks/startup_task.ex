@@ -5,9 +5,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   use Task
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
-  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
-  alias CogyntWorkstationIngest.Supervisors.DynamicTaskSupervisor
-  alias Models.Enums.ConsumerStatusTypeEnum
 
   def start_link(_arg \\ []) do
     Task.start_link(__MODULE__, :run, [])
@@ -15,7 +12,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
 
   def run() do
     start_event_type_pipelines()
-    start_notification_tasks()
     start_deployment_pipeline()
     start_drilldown_pipelines()
   end
@@ -38,61 +34,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
       })
 
       CogyntLogger.info("#{__MODULE__}", "EventPipeline Started for Id: #{event_definition.id}")
-    end)
-  end
-
-  defp start_notification_tasks() do
-    event_definitions =
-      EventsContext.query_event_definitions(%{
-        filter: %{
-          deleted_at: nil
-        },
-        select: [:id]
-      })
-
-    Enum.each(event_definitions, fn event_definition ->
-      {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
-
-      cond do
-        consumer_state.status ==
-            ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-          Enum.each(consumer_state.backfill_notifications, fn notification_setting_id ->
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Initalizing backfill notifications task: #{inspect(notification_setting_id)}"
-            )
-
-            DynamicTaskSupervisor.start_child(%{backfill_notifications: notification_setting_id})
-          end)
-
-        consumer_state.status ==
-            ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-          Enum.each(consumer_state.update_notifications, fn notification_setting_id ->
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Initalizing update notifications task: #{inspect(notification_setting_id)}"
-            )
-
-            DynamicTaskSupervisor.start_child(%{update_notifications: notification_setting_id})
-          end)
-
-        consumer_state.status ==
-            ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
-          Enum.each(consumer_state.delete_notifications, fn notification_setting_id ->
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Initalizing delete notifications task: #{inspect(notification_setting_id)}"
-            )
-
-            DynamicTaskSupervisor.start_child(%{
-              delete_notification_setting: notification_setting_id
-            })
-          end)
-
-        true ->
-          # No tasks to trigger
-          nil
-      end
     end)
   end
 

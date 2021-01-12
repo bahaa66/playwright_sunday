@@ -1,10 +1,8 @@
-defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
+defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionEventsWorker do
   @moduledoc """
-  Task module that can be called to paginate through the events of an event_definition and updates the
-  deleted_at using the new deleted_at value of the event_definition. This is used to soft_delete the event_definition
-  and all data associated with it.
+  Worker module that will be called by the Exq Job Queue to execute the
+  DeleteEventDefinitionEvents work
   """
-  use Task
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Broadway.EventPipeline
   alias CogyntWorkstationIngest.Events.EventsContext
@@ -17,11 +15,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
 
   @page_size 2000
 
-  def start_link(arg) do
-    Task.start_link(__MODULE__, :run, [arg])
-  end
-
-  def run(event_definition_id), do: update_event_definition_events(event_definition_id)
+  def perform(event_definition_id), do: update_event_definition_events(event_definition_id)
 
   # ----------------------- #
   # --- Private Methods --- #
@@ -29,11 +23,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionEventsTask do
   defp update_event_definition_events(event_definition_id) do
     with %EventDefinition{} = event_definition <-
            EventsContext.get_event_definition(event_definition_id) do
-      CogyntLogger.info(
-        "#{__MODULE__}",
-        "Running delete event definition events task for EventDefinitionId: #{event_definition_id}"
-      )
-
       # First stop the consumer
       {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
 

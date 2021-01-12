@@ -43,7 +43,6 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:gettext, "~> 0.11"},
       {:jason, "~> 1.0"},
       {:ja_serializer, "~> 0.13.0"},
-      {:uuid, "~> 1.1"},
       {:plug, "~> 1.8"},
       {:cowboy, "~> 2.6"},
       {:plug_cowboy, "~> 2.0"},
@@ -57,6 +56,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:quiet_logger, "~> 0.2.0"},
       {:telemetry, "~> 0.4.0"},
       {:telemetry_poller, "~> 0.4"},
+      {:exq, git: "git@github.com:akira/exq.git", branch: "master"},
       {:kafka,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "kafka",
@@ -85,14 +85,14 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :elasticsearch,
-        tag: "v1.11.4-hotfix",
+        tag: "v1.11.5-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
         override: true
       },
       {
         :redis,
-        tag: "v1.11.6",
+        tag: "v1.11.6-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true
