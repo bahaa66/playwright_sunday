@@ -65,12 +65,31 @@ config :redis, :application,
   sync_connect: System.get_env("COGYNT_REDIS_SYNC_CONNECT") || true,
   instance: (System.get_env("COGYNT_REDIS_INSTANCE") || "single") |> String.to_atom()
 
-# Exq configs
+# Exq Job Queue
 config :exq,
+  name: Exq,
+  node_identifier: CogyntWorkstationIngest.Utils.JobQueue.CustomNodeIdentifier,
+  start_on_application: false,
+  namespace: "exq",
+  middleware: [
+    Exq.Middleware.Stats,
+    CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job,
+    Exq.Middleware.Manager,
+    Exq.Middleware.Logger
+  ],
+  poll_timeout: 50,
+  scheduler_poll_timeout: 200,
+  scheduler_enable: false,
+  max_retries: 25,
+  mode: :default,
+  shutdown_timeout: 15000,
+  heartbeat_enable: true,
+  heartbeat_interval: 60_000,
+  missed_heartbeats_allowed: 5,
   # THIS SECTION IS MEANT FOR PROD/DEV CLUSTERS ONLY
   redis_options: [
     sentinel: [
-      sentinels: String.split(System.get_env("COGYNT_REDIS_SENTINELS") || "", ",", trim: true),
+      sentinels: String.split((System.get_env("COGYNT_REDIS_SENTINELS") || ""), ",", trim: true),
       group: System.get_env("COGYNT_REDIS_SENTINEL_GROUP") || "main"
     ],
     name: Exq.Redis.Client,
