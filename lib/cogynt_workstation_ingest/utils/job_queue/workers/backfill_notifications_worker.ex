@@ -83,7 +83,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
             event_definition.id,
             topic: event_definition.topic,
             status: consumer_state.prev_status,
-            prev_status: consumer_state.status
+            prev_status: ConsumerStatusTypeEnum.status()[:running]
           )
 
           if consumer_state.prev_status == ConsumerStatusTypeEnum.status()[:running] do
