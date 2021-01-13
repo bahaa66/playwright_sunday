@@ -117,6 +117,14 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
         ConsumerStateManager.manage_request(%{stop_consumer: event_definition})
 
+      {:ok, %{stop_consumer_for_notification_tasks: event_definition} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
+        ConsumerStateManager.manage_request(%{stop_consumer_for_notification_tasks: event_definition})
+
       {:ok, %{stop_deployment_pipeline: _args} = request} ->
         CogyntLogger.info(
           "#{__MODULE__}",

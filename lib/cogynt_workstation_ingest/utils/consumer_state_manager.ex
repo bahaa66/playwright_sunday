@@ -155,6 +155,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         {:stop_consumer, event_definition}, _acc ->
           stop_consumer(event_definition)
 
+        {:stop_consumer_for_notification_tasks, event_definition}, _acc ->
+          stop_consumer_for_notification_tasks(event_definition)
+
         {:backfill_notifications, notification_setting_id}, _acc ->
           backfill_notifications(notification_setting_id)
 
@@ -409,6 +412,99 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         CogyntLogger.error(
           "#{__MODULE__}",
           "stop_consumer/1 failed with error: #{inspect(error, pretty: true)}"
+        )
+
+        internal_error_state(event_definition.id)
+    end
+  end
+
+  # This is specifically for stopping consumer for the JobQueue workers until a updated_at field
+  # is implemented for the cs:* Redis hashfield values
+  defp stop_consumer_for_notification_tasks(event_definition) do
+    try do
+      {:ok, consumer_state} = get_consumer_state(event_definition.id)
+
+      cond do
+        consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] ->
+          handle_unknown_status(event_definition.id)
+
+        consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_processing] or
+            consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
+          case EventPipeline.event_pipeline_running?(event_definition.id) do
+            true ->
+              ConsumerGroupSupervisor.stop_child(event_definition.id)
+
+              consumer_status =
+                case EventPipeline.event_pipeline_finished_processing?(event_definition.id) do
+                  true ->
+                    ConsumerStatusTypeEnum.status()[:paused_and_finished]
+
+                  false ->
+                    ConsumerStatusTypeEnum.status()[:paused_and_processing]
+                end
+
+              upsert_consumer_state(
+                event_definition.id,
+                topic: event_definition.topic,
+                status: consumer_status,
+                prev_status: consumer_state.status
+              )
+
+              %{response: {:ok, consumer_status}}
+
+            false ->
+              %{response: {:ok, consumer_state.status}}
+          end
+
+        consumer_state.status ==
+          ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
+          consumer_state.status ==
+            ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
+            consumer_state.status ==
+              ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
+          case EventPipeline.event_pipeline_running?(event_definition.id) do
+            true ->
+              ConsumerGroupSupervisor.stop_child(event_definition.id)
+
+              upsert_consumer_state(
+                event_definition.id,
+                topic: event_definition.topic,
+                status: consumer_state.status,
+                prev_status: consumer_state.prev_status
+              )
+
+              %{response: {:ok, consumer_state.status}}
+
+            false ->
+              %{response: {:ok, consumer_state.status}}
+          end
+
+        true ->
+          ConsumerGroupSupervisor.stop_child(event_definition.id)
+
+          consumer_status =
+            case EventPipeline.event_pipeline_finished_processing?(event_definition.id) do
+              true ->
+                ConsumerStatusTypeEnum.status()[:paused_and_finished]
+
+              false ->
+                ConsumerStatusTypeEnum.status()[:paused_and_processing]
+            end
+
+          upsert_consumer_state(
+            event_definition.id,
+            topic: event_definition.topic,
+            status: consumer_status,
+            prev_status: consumer_state.status
+          )
+
+          %{response: {:ok, consumer_status}}
+      end
+    rescue
+      error ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "stop_consumer_for_notification_tasks/1 failed with error: #{inspect(error, pretty: true)}"
         )
 
         internal_error_state(event_definition.id)

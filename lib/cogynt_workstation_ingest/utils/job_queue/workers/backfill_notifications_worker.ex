@@ -66,7 +66,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
 
     if consumer_state.status != ConsumerStatusTypeEnum.status()[:unknown] do
       Redis.publish_async("ingest_channel", %{
-        stop_consumer: EventsContext.remove_event_definition_virtual_fields(event_definition)
+        stop_consumer_for_notification_tasks:
+          EventsContext.remove_event_definition_virtual_fields(event_definition)
       })
     end
 
@@ -83,7 +84,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
             event_definition.id,
             topic: event_definition.topic,
             status: consumer_state.prev_status,
-            prev_status: ConsumerStatusTypeEnum.status()[:running]
+            prev_status: consumer_state.status
           )
 
           if consumer_state.prev_status == ConsumerStatusTypeEnum.status()[:running] do
