@@ -34,12 +34,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              offset_commit_on_ack: true,
              offset_reset_policy: :earliest,
              group_config: [
-              session_timeout_seconds: 30,
-              rejoin_delay_seconds: 10
-            ],
-            client_config: [
-              connect_timeout: 30000
-            ]
+               session_timeout_seconds: 30,
+               rejoin_delay_seconds: 10
+             ],
+             client_config: [
+               connect_timeout: 30000
+             ]
            ]},
         concurrency: Config.event_producer_stages(),
         transformer: {__MODULE__, :transform, [event_definition_id: event_definition_id]}
