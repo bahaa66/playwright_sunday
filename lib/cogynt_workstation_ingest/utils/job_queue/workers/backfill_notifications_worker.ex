@@ -117,7 +117,24 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
         ensure_event_pipeline_stopped(event_definition_id)
 
       false ->
-        CogyntLogger.info("#{__MODULE__}", "EventPipeline #{event_definition_id} Stopped")
+        {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition_id)
+
+        cond do
+          consumer_state.prev_status == ConsumerStatusTypeEnum.status()[:paused_and_finished] or
+            consumer_state.prev_status == ConsumerStatusTypeEnum.status()[:paused_and_processing] or
+            consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] or
+              consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
+            CogyntLogger.info("#{__MODULE__}", "EventPipeline #{event_definition_id} Stopped")
+
+          true ->
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before running backfill of notifications"
+            )
+
+            Process.sleep(500)
+            ensure_event_pipeline_stopped(event_definition_id)
+        end
     end
   end
 
