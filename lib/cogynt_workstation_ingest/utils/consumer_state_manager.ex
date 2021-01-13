@@ -466,13 +466,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
             true ->
               ConsumerGroupSupervisor.stop_child(event_definition.id)
 
-              upsert_consumer_state(
-                event_definition.id,
-                topic: event_definition.topic,
-                status: consumer_state.status,
-                prev_status: consumer_state.prev_status
-              )
-
               %{response: {:ok, consumer_state.status}}
 
             false ->
