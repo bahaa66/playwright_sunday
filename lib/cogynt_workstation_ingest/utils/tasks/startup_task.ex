@@ -14,6 +14,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
     start_event_type_pipelines()
     start_deployment_pipeline()
     start_drilldown_pipelines()
+    resubscribe_to_job_queues()
   end
 
   # ----------------------- #
@@ -55,6 +56,18 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
 
           Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment.id})
         end)
+    end
+  end
+
+  defp resubscribe_to_job_queues() do
+    case Exq.Api.queues(Exq.Api) do
+      {:ok, queues} ->
+        Enum.each(queues, fn queue_name ->
+          Exq.subscribe(Exq, queue_name, 5)
+        end)
+
+      _ ->
+        nil
     end
   end
 end

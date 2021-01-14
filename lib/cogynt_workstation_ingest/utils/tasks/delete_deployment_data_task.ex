@@ -84,6 +84,36 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
 
   defp reset_deployment_data() do
     DeploymentsContext.hard_delete_deployments()
+    # Reset all JobQ Info
+    try do
+      Exq.Api.clear_processes(Exq.Api)
+      Exq.Api.clear_failed(Exq.Api)
+      Exq.Api.clear_retries(Exq.Api)
+      Exq.Api.clear_scheduled(Exq.Api)
+
+      case Exq.Api.queues(Exq.Api) do
+        {:ok, queues} ->
+          Enum.each(queues, fn queue_name ->
+            Exq.unsubscribe(Exq, queue_name)
+            Exq.Api.remove_queue(Exq.Api, queue_name)
+          end)
+
+        _ ->
+          nil
+      end
+    rescue
+      e ->
+        CogyntLogger.error("#{__MODULE__}", "Failed to Reset JobQ data. Error: #{e}")
+    end
+
+    case Redis.keys_by_pattern("exq:*") do
+      {:ok, []} ->
+        nil
+
+      {:ok, job_q_keys} ->
+        Redis.key_delete_pipeline(job_q_keys)
+    end
+
     Redis.key_delete("dpcgid")
     Redis.key_delete("dpmi")
     Redis.key_delete("fdpm")
