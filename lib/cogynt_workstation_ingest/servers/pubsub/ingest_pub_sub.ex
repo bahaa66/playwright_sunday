@@ -134,6 +134,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
         ConsumerGroupSupervisor.stop_child(:deployment)
 
       {:ok, %{stop_drilldown_pipeline: deployment_id} = request} ->
+        # Controls if Drilldown is enabled on Ingest
         if Config.drilldown_enabled() do
           CogyntLogger.info(
             "#{__MODULE__}",
