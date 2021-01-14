@@ -84,13 +84,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
 
   defp reset_deployment_data() do
     DeploymentsContext.hard_delete_deployments()
-    case Redis.keys_by_pattern("exq:*") do
-      {:ok, []} ->
-        nil
-      {:ok, job_q_keys} ->
-        Redis.key_delete_pipeline(job_q_keys)
-    end
-
     Redis.key_delete("dpcgid")
     Redis.key_delete("dpmi")
     Redis.key_delete("fdpm")

@@ -80,14 +80,12 @@ config :exq,
   poll_timeout: 50,
   scheduler_poll_timeout: 200,
   scheduler_enable: false,
-  max_retries: 10,
+  max_retries: 25,
   mode: :default,
   shutdown_timeout: 15000,
   heartbeat_enable: true,
   heartbeat_interval: 60_000,
   missed_heartbeats_allowed: 5,
-  dead_max_jobs: 10_000,
-  dead_timeout_in_seconds: 180 * 24 * 60 * 60, # 6 months,
   # THIS SECTION IS MEANT FOR PROD/DEV CLUSTERS ONLY
   redis_options: [
     sentinel: [
