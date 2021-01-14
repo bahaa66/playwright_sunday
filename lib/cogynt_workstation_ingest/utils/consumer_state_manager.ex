@@ -132,18 +132,17 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   @doc """
   removes all redis keys that are associated with the given event_definition_id
   """
-  def remove_consumer_state(event_definition_id, opts \\ []) do
-    hard_delete_event_definition = Keyword.get(opts, :hard_delete_event_definition, false)
-
+  def remove_consumer_state(event_definition_id, _opts \\ []) do
     for x <- ["fem", "emi", "cs"], do: Redis.key_delete("#{x}:#{event_definition_id}")
 
     Redis.hash_delete("ecgid", "EventDefinition-#{event_definition_id}")
     Redis.hash_delete("ts", event_definition_id)
     Redis.hash_delete("crw", event_definition_id)
-
-    if hard_delete_event_definition do
-      Redis.hash_delete("ed", event_definition_id)
-    end
+    # Reset JobQs
+    Exq.unsubscribe(Exq, "events-#{event_definition_id}")
+    Exq.unsubscribe(Exq, "notifications-#{event_definition_id}")
+    Exq.Api.remove_queue(Exq.Api, "events-#{event_definition_id}")
+    Exq.Api.remove_queue(Exq.Api, "notifications-#{event_definition_id}")
   end
 
   def manage_request(args) do
@@ -211,6 +210,10 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                       %{response: {:ok, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}}
 
                     {:error, {:already_started, _pid}} ->
+                      # subscribe/resubscribe to JobQs
+                      create_job_queue_if_not_exists("events", event_definition.id)
+                      create_job_queue_if_not_exists("notifications", event_definition.id)
+
                       upsert_consumer_state(
                         event_definition.id,
                         topic: event_definition.topic,
@@ -226,6 +229,10 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                         event_definition.id,
                         event_definition.topic
                       )
+
+                      # subscribe/resubscribe to JobQs
+                      create_job_queue_if_not_exists("events", event_definition.id)
+                      create_job_queue_if_not_exists("notifications", event_definition.id)
 
                       upsert_consumer_state(
                         event_definition.id,
@@ -272,6 +279,10 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                   %{response: {:ok, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}}
 
                 {:error, {:already_started, _pid}} ->
+                  # subscribe/resubscribe to JobQs
+                  create_job_queue_if_not_exists("events", event_definition.id)
+                  create_job_queue_if_not_exists("notifications", event_definition.id)
+
                   upsert_consumer_state(
                     event_definition.id,
                     topic: event_definition.topic,
@@ -287,6 +298,10 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     event_definition.id,
                     event_definition.topic
                   )
+
+                  # subscribe/resubscribe to JobQs
+                  create_job_queue_if_not_exists("events", event_definition.id)
+                  create_job_queue_if_not_exists("notifications", event_definition.id)
 
                   upsert_consumer_state(
                     event_definition.id,
@@ -341,6 +356,10 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     ConsumerStatusTypeEnum.status()[:paused_and_processing]
                 end
 
+              # unsubscribe to JobQs
+              Exq.unsubscribe(Exq, "events-#{event_definition.id}")
+              Exq.unsubscribe(Exq, "notifications-#{event_definition.id}")
+
               upsert_consumer_state(
                 event_definition.id,
                 topic: event_definition.topic,
@@ -373,6 +392,10 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     ConsumerStatusTypeEnum.status()[:paused_and_processing]
                 end
 
+              # unsubscribe to JobQs
+              Exq.unsubscribe(Exq, "events-#{event_definition.id}")
+              Exq.unsubscribe(Exq, "notifications-#{event_definition.id}")
+
               upsert_consumer_state(
                 event_definition.id,
                 topic: event_definition.topic,
@@ -397,6 +420,10 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
               false ->
                 ConsumerStatusTypeEnum.status()[:paused_and_processing]
             end
+
+          # unsubscribe to JobQs
+          Exq.unsubscribe(Exq, "events-#{event_definition.id}")
+          Exq.unsubscribe(Exq, "notifications-#{event_definition.id}")
 
           upsert_consumer_state(
             event_definition.id,
@@ -497,7 +524,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
       error ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "stop_consumer_for_notification_tasks/1 failed with error: #{inspect(error, pretty: true)}"
+          "stop_consumer_for_notification_tasks/1 failed with error: #{
+            inspect(error, pretty: true)
+          }"
         )
 
         internal_error_state(event_definition.id)
@@ -856,12 +885,12 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   end
 
   defp create_job_queue_if_not_exists(queue_prefix, id) do
-    case Exq.Api.queues(Exq.Api) do
-      {:ok, queues} ->
+    case Exq.subscriptions(Exq) do
+      {:ok, subscriptions} ->
         queue_name = queue_prefix <> "-" <> "#{id}"
 
-        if !Enum.member?(queues, queue_name) do
-          :ok = Exq.subscribe(Exq, queue_name, 5)
+        if !Enum.member?(subscriptions, queue_name) do
+          Exq.subscribe(Exq, queue_name, 5)
           CogyntLogger.info("#{__MODULE__}", "Created Queue: #{queue_name}")
         end
 

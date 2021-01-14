@@ -99,11 +99,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
 
     {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
 
-    # Unsubscribe from the events and notification JobQueues so that any queued jobs will be dropped
-    # and not executed
-    for queue_prefix <- ["notifications", "events"],
-        do: Exq.unsubscribe(Exq, queue_prefix <> "-" <> "#{event_definition.id}")
-
     if consumer_state.status != ConsumerStatusTypeEnum.status()[:unknown] do
       Redis.publish_async("ingest_channel", %{
         stop_consumer: EventsContext.remove_event_definition_virtual_fields(event_definition)

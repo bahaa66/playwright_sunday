@@ -89,19 +89,20 @@ config :exq,
   # THIS SECTION IS MEANT FOR PROD/DEV CLUSTERS ONLY
   redis_options: [
     sentinel: [
-      sentinels: String.split((System.get_env("COGYNT_REDIS_SENTINELS") || ""), ",", trim: true),
+      sentinels: String.split(System.get_env("COGYNT_REDIS_SENTINELS") || "", ",", trim: true),
       group: System.get_env("COGYNT_REDIS_SENTINEL_GROUP") || "main"
     ],
     name: Exq.Redis.Client,
     password: System.get_env("COGYNT_REDIS_PASSWORD") || nil
   ]
-  # UNCOMMENT THIS SECTION, COMMENT OUT THE ABOVE SECTION WHEN DOING LOCAL DEVELOPMENT
-  # redis_options: [
-  #   host: System.get_env("COGYNT_REDIS_HOST") || "127.0.0.1",
-  #   port: 6379,
-  #   name: Exq.Redis.Client,
-  #   password: System.get_env("COGYNT_REDIS_PASSWORD") || nil
-  # ]
+
+# UNCOMMENT THIS SECTION, COMMENT OUT THE ABOVE SECTION WHEN DOING LOCAL DEVELOPMENT
+# redis_options: [
+#   host: System.get_env("COGYNT_REDIS_HOST") || "127.0.0.1",
+#   port: 6379,
+#   name: Exq.Redis.Client,
+#   password: System.get_env("COGYNT_REDIS_PASSWORD") || nil
+# ]
 
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, :event_pipeline,
