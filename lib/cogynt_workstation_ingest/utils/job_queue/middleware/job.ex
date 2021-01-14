@@ -17,6 +17,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     [mod | _func_or_empty] = Regex.split(~r/\//, target)
     module = String.to_atom("Elixir.#{mod}")
 
+    CogyntLogger.info("#{__MODULE__}", "Queueing Job for #{module}")
+
     pipeline
     |> monitor_job
     |> assign(:job, job)
