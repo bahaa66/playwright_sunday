@@ -54,7 +54,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
               :delete_event_definition_events ->
                 ConsumerStateManager.manage_request(%{delete_event_definition_events: field_value})
 
-              # This does not use Exq Job Queue and just executes tasks
+              # This does not use Exq Job Queue and kicks off Tasks
               :dev_delete ->
                 case field_value do
                   %{
