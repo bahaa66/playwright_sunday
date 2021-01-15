@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.CreateTemplateSolution do
+  use Migrations.CreateTemplateSolution
+end

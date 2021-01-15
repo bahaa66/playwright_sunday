@@ -3,7 +3,8 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   use JaSerializer.PhoenixView
   alias CogyntWorkstationIngestWeb.JA_Keys
   # alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
-  alias CogyntWorkstationIngest.Drilldown.DrilldownContext
+  # alias CogyntWorkstationIngest.Drilldown.DrilldownContext
+  alias CogyntWorkstationIngest.Drilldown.DrilldownContextNew
   alias CogyntWorkstationIngestWeb.EventView
 
   def render("401.json-api", _) do
@@ -44,7 +45,8 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
 
       if id do
         # {:ok, inst} = DrilldownCache.get(id)
-        inst = DrilldownContext.get_template_solution_data(id)
+        # inst = DrilldownContext.get_template_solution_data(id)
+        inst = DrilldownContextNew.get_template_solution_data(id)
         # inst
         if info["id"] == inst["id"] or Enum.member?(info["#visited"], inst["id"]) do
           nil
