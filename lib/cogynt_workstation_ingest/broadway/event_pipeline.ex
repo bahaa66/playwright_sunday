@@ -77,7 +77,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       case Jason.decode(encoded_data) do
         {:ok, decoded_data} ->
           # Incr the total message count that has been consumed from kafka
-          Redis.hash_increment_by("emi:#{event_definition_id}", "tmc", 1)
+          incr_total_fetched_message_count(event_definition_id)
 
           Map.put(message, :data, %{
             event: decoded_data,
@@ -281,9 +281,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     )
   end
 
+  defp incr_total_fetched_message_count(event_definition_id) do
+    Redis.hash_increment_by("emi:#{event_definition_id}", "tmp", 1)
+    Redis.key_pexpire("emi:#{event_definition_id}", 10000)
+  end
+
   defp incr_total_processed_message_count(event_definition_id, count) do
     {:ok, tmc} = Redis.hash_get("emi:#{event_definition_id}", "tmc")
     {:ok, tmp} = Redis.hash_increment_by("emi:#{event_definition_id}", "tmp", count)
+    Redis.key_pexpire("emi:#{event_definition_id}", 10000)
 
     if tmp >= String.to_integer(tmc) do
       finished_processing(event_definition_id)

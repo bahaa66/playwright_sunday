@@ -48,7 +48,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
     case Jason.decode(encoded_data, keys: :atoms) do
       {:ok, decoded_data} ->
         # Incr the total message count that has been consumed from kafka
-        Redis.hash_increment_by("dpmi", "tmc", 1)
+        incr_total_fetched_message_count()
 
         # Store the deployment message and an initial retry count in the :data field of the message
         Map.put(message, :data, %{deployment_message: decoded_data, retry_count: 0})
@@ -151,7 +151,13 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
+  defp incr_total_fetched_message_count() do
+    Redis.hash_increment_by("dpmi", "tmc", 1)
+    Redis.key_pexpire("dpmi", 10000)
+  end
+
   defp incr_total_processed_message_count(count \\ 1) do
     Redis.hash_increment_by("dpmi", "tmp", count)
+    Redis.key_pexpire("dpmi", 10000)
   end
 end
