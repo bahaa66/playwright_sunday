@@ -24,12 +24,12 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
              offset_commit_on_ack: true,
              offset_reset_policy: :earliest,
              group_config: [
-              session_timeout_seconds: 30,
-              rejoin_delay_seconds: 10
-            ],
-            client_config: [
-              connect_timeout: 30000
-            ]
+               session_timeout_seconds: 30,
+               rejoin_delay_seconds: 10
+             ],
+             client_config: [
+               connect_timeout: 30000
+             ]
            ]},
         concurrency: Config.drilldown_producer_stages(),
         transformer: {__MODULE__, :transform, [group_id: group_id]}
@@ -53,7 +53,7 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
     case Jason.decode(encoded_data) do
       {:ok, decoded_data} ->
         # Incr the total message count that has been consumed from kafka
-        Redis.hash_increment_by("dmi:#{group_id}", "tmc", 1)
+        incr_total_fetched_message_count(group_id)
 
         Map.put(message, :data, %{event: decoded_data, retry_count: 0})
 
@@ -207,7 +207,13 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
+  defp incr_total_fetched_message_count(group_id) do
+    Redis.hash_increment_by("dmi:#{group_id}", "tmc", 1)
+    Redis.key_pexpire("dmi:#{group_id}", 10000)
+  end
+
   defp incr_total_processed_message_count(group_id, count \\ 1) do
     Redis.hash_increment_by("dmi:#{group_id}", "tmp", count)
+    Redis.key_pexpire("dmi:#{group_id}", 10000)
   end
 end
