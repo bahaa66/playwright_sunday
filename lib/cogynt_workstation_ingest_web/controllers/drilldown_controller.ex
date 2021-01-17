@@ -3,6 +3,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
 
   # alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
   alias CogyntWorkstationIngest.Drilldown.DrilldownContext
+  alias CogyntWorkstationIngest.Drilldown.DrilldownContextNew
 
   @doc """
   Return a list of the info on all template instances for the given type
@@ -11,7 +12,8 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
     # case is_authorized?(conn) do
     #   true ->
     # {:ok, data} = DrilldownCache.list()
-    data = DrilldownContext.list_template_solutions()
+    # data = DrilldownContext.list_template_solutions()
+    data = DrilldownContextNew.list_template_solutions()
 
     data =
       data
@@ -34,7 +36,8 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
     # case is_authorized?(conn) do
     #   true ->
     # {:ok, data} = DrilldownCache.get(id)
-    data = DrilldownContext.get_template_solution_data(id)
+    # data = DrilldownContext.get_template_solution_data(id)
+    data = DrilldownContextNew.get_template_solution_data(id)
 
     if data == nil do
       render(conn, "404.json")

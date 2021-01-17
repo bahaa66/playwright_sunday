@@ -52,7 +52,7 @@ config :cogynt_workstation_ingest, :core_keys,
   delete: "delete",
   create: "create"
 
-config :cogynt_workstation_ingest, :drilldown_pipeline, enabled: true
+config :cogynt_workstation_ingest, :drilldown_pipeline, enabled: false
 
 config :cogynt_workstation_ingest, :failed_messages,
   retry_timer: 600_000,
