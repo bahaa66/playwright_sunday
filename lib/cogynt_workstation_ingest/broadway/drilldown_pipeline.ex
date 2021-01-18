@@ -105,6 +105,12 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
             |> Map.put(:data, data)
             |> Map.drop([:status, :acknowledger])
 
+          metadata =
+            Map.get(message, :metadata)
+            |> Map.put(:key, "")
+
+          message = Map.put(message, :metadata, metadata)
+
           acc ++ [message]
         else
           acc
