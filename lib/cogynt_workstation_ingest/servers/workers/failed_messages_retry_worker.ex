@@ -60,7 +60,6 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
 
     try do
       # poll for failed drilldown messages
-      # TODO: make sure DrilldownPipeline is running
       {:ok, drilldown_failed_message_keys} = Redis.keys_by_pattern("fdm:*")
 
       Enum.each(drilldown_failed_message_keys, fn key ->
@@ -68,13 +67,26 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
           String.split(key, ":")
           |> List.last()
 
-        failed_drilldown_messages =
-          fetch_and_release_failed_messages(@demand, @drilldown_pipeline_module, key)
+        child_pid = Process.whereis(String.to_atom(broadway_pipeline_id <> "Pipeline"))
 
-        Broadway.push_messages(
-          String.to_atom(broadway_pipeline_id <> "Pipeline"),
-          failed_drilldown_messages
-        )
+        drilldown_pipeline_running =
+          case is_nil(child_pid) do
+            true ->
+              false
+
+            false ->
+              true
+          end
+
+        if drilldown_pipeline_running do
+          failed_drilldown_messages =
+            fetch_and_release_failed_messages(@demand, @drilldown_pipeline_module, key)
+
+          Broadway.push_messages(
+            String.to_atom(broadway_pipeline_id <> "Pipeline"),
+            failed_drilldown_messages
+          )
+        end
       end)
     rescue
       _ ->
