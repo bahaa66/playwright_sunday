@@ -1,9 +1,6 @@
-defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTask do
+defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsAndTopicsWorker do
   @moduledoc """
-  Task module that can bee called to execute the delete_topic_data work as a
-  async task.
   """
-  use Task
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Repo
   alias CogyntWorkstationIngest.Broadway.EventPipeline
@@ -16,22 +13,11 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
 
-  def start_link(arg) do
-    Task.start_link(__MODULE__, :run, [arg])
-  end
-
-  def run(%{
-        event_definition_ids: event_definition_ids,
-        hard_delete: hard_delete_event_definitions,
-        delete_topics: delete_topics
+  def perform(%{
+        "event_definition_ids" => event_definition_ids,
+        "hard_delete" => hard_delete_event_definitions,
+        "delete_topics" => delete_topics
       }) do
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "Running delete_topic_data_task for event_definition_ids: #{event_definition_ids}, hard_delete_event_definitions: #{
-        hard_delete_event_definitions
-      }, delete_topics: #{delete_topics}"
-    )
-
     if hard_delete_event_definitions do
       EventsContext.list_event_definitions()
       |> Enum.each(fn event_definition ->
@@ -294,20 +280,30 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteEventDefinitionsAndTopicsTas
     end
   end
 
-  defp ensure_event_pipeline_stopped(event_definition_id) do
-    case EventPipeline.event_pipeline_running?(event_definition_id) or
-           not EventPipeline.event_pipeline_finished_processing?(event_definition_id) do
-      true ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before resetting data"
-        )
+  defp ensure_event_pipeline_stopped(event_definition_id, count \\ 1) do
+    if count >= 30 do
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "ensure_event_pipeline_stopped/1 exceeded number of attempts. Moving forward with DeleteEventDefinitionsAndTopics"
+      )
+    else
+      case EventPipeline.event_pipeline_running?(event_definition_id) or
+             not EventPipeline.event_pipeline_finished_processing?(event_definition_id) do
+        true ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before resetting data"
+          )
 
-        Process.sleep(500)
-        ensure_event_pipeline_stopped(event_definition_id)
+          Process.sleep(500)
+          ensure_event_pipeline_stopped(event_definition_id, count + 1)
 
-      false ->
-        CogyntLogger.info("#{__MODULE__}", "EventPipeline #{event_definition_id} stopped")
+        false ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "EventPipeline #{event_definition_id} Stopped"
+          )
+      end
     end
   end
 

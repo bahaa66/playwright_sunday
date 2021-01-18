@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   """
   alias CogyntWorkstationIngest.Broadway.EventPipeline
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngest.Servers.{ConsumerMonitor, EventDefinitionTaskMonitor}
+  alias CogyntWorkstationIngest.Servers.ConsumerMonitor
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
 
@@ -185,7 +185,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   # ----------------------- #
   defp start_consumer(event_definition) do
     try do
-      case EventDefinitionTaskMonitor.event_definition_task_running?(event_definition.id) do
+      case event_definition_task_running?(event_definition.id) do
         false ->
           {:ok, consumer_state} = get_consumer_state(event_definition.id)
 
@@ -539,7 +539,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     event_definition_id = notification_setting.event_definition_id
 
     try do
-      case EventDefinitionTaskMonitor.event_definition_task_running?(event_definition_id) do
+      case event_definition_task_running?(event_definition_id) do
         false ->
           {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
@@ -624,7 +624,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     event_definition_id = notification_setting.event_definition_id
 
     try do
-      case EventDefinitionTaskMonitor.event_definition_task_running?(event_definition_id) do
+      case event_definition_task_running?(event_definition_id) do
         false ->
           {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
@@ -709,7 +709,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     event_definition_id = notification_setting.event_definition_id
 
     try do
-      case EventDefinitionTaskMonitor.event_definition_task_running?(event_definition_id) do
+      case event_definition_task_running?(event_definition_id) do
         false ->
           {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
@@ -789,7 +789,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   end
 
   defp delete_events(event_definition_id) do
-    case EventDefinitionTaskMonitor.event_definition_task_running?(event_definition_id) do
+    case event_definition_task_running?(event_definition_id) do
       false ->
         {:ok, consumer_state} = get_consumer_state(event_definition_id)
 
@@ -881,6 +881,19 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         )
 
         %{response: {:error, :internal_server_error}}
+    end
+  end
+
+  def event_definition_task_running?(event_definition_id) do
+    case Redis.hash_get("ts", event_definition_id) do
+      {:ok, nil} ->
+        false
+
+      {:error, _} ->
+        false
+
+      _ ->
+        true
     end
   end
 

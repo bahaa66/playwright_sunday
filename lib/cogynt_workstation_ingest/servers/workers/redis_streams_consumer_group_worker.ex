@@ -5,12 +5,11 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
   use GenServer
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
-  alias CogyntWorkstationIngest.Supervisors.DynamicTaskSupervisor
 
-  alias CogyntWorkstationIngest.Servers.{
-    DeploymentTaskMonitor,
-    DrilldownTaskMonitor,
-    EventDefinitionTaskMonitor
+  alias CogyntWorkstationIngest.Utils.JobQueue.Workers.{
+    DeleteDeploymentDataWorker,
+    DeleteDrilldownDataWorker,
+    DeleteEventDefinitionsAndTopicsWorker
   }
 
   @count 1
@@ -54,7 +53,6 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
               :delete_event_definition_events ->
                 ConsumerStateManager.manage_request(%{delete_event_definition_events: field_value})
 
-              # This does not use Exq Job Queue and kicks off Tasks
               :dev_delete ->
                 case field_value do
                   %{
@@ -70,33 +68,25 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
                   } ->
                     try do
                       if reset_deployment do
-                        if not DeploymentTaskMonitor.deployment_task_running?() do
-                          DynamicTaskSupervisor.start_child(%{delete_deployment_data: true})
-                        end
+                        create_job_queue_if_not_exists("DevDelete")
+                        Exq.enqueue(Exq, "DevDelete", DeleteDeploymentDataWorker, [])
                       else
                         if reset_drilldown do
-                          if not DrilldownTaskMonitor.drilldown_task_running?() do
-                            DynamicTaskSupervisor.start_child(%{
-                              delete_drilldown_data: delete_drilldown_topics
-                            })
-                          end
+                          create_job_queue_if_not_exists("DevDelete")
+                          Exq.enqueue(Exq, "DevDelete", DeleteDrilldownDataWorker, [
+                            delete_drilldown_topics
+                          ])
                         end
 
-                        event_definition_ids =
-                          Enum.reject(event_definition_ids, fn event_definition_id ->
-                            EventDefinitionTaskMonitor.event_definition_task_running?(
-                              event_definition_id
-                            )
-                          end)
-
                         if length(event_definition_ids) > 0 do
-                          DynamicTaskSupervisor.start_child(%{
-                            delete_event_definitions_and_topics: %{
+                          create_job_queue_if_not_exists("DevDelete")
+                          Exq.enqueue(Exq, "DevDelete", DeleteEventDefinitionsAndTopicsWorker, [
+                            %{
                               event_definition_ids: event_definition_ids,
                               hard_delete: false,
                               delete_topics: delete_topics
                             }
-                          })
+                          ])
                         end
                       end
                     rescue
@@ -132,5 +122,21 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
 
     Process.send_after(__MODULE__, :fetch_tasks, Config.ingest_task_worker_timer())
     {:noreply, state}
+  end
+
+  defp create_job_queue_if_not_exists(queue_name) do
+    case Exq.subscriptions(Exq) do
+      {:ok, subscriptions} ->
+        if !Enum.member?(subscriptions, queue_name) do
+          Exq.subscribe(Exq, queue_name, 1)
+          CogyntLogger.info("#{__MODULE__}", "Created Queue: #{queue_name}")
+        end
+
+        {:ok, queue_name}
+
+      _ ->
+        CogyntLogger.error("#{__MODULE__}", "Exq.Api.queues/1 failed to fetch queues")
+        {:error, :failed_to_fetch_queues}
+    end
   end
 end

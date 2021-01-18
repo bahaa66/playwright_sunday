@@ -19,7 +19,6 @@ defmodule CogyntWorkstationIngest.Application do
   alias CogyntWorkstationIngest.Supervisors.{
     ConsumerGroupSupervisor,
     ServerSupervisor,
-    DynamicTaskSupervisor,
     TaskSupervisor,
     TelemetrySupervisor
   }
@@ -42,8 +41,6 @@ defmodule CogyntWorkstationIngest.Application do
       child_spec_supervisor(ServerSupervisor, ServerSupervisor),
       # Start the DynamicSupervisor for Kafka ConsumerGroups
       ConsumerGroupSupervisor,
-      # The dynamic supervisor for all Task workers
-      DynamicTaskSupervisor,
       # The supervisor for all Task workers
       child_spec_supervisor(TaskSupervisor, TaskSupervisor)
     ]

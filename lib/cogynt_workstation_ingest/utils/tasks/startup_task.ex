@@ -63,7 +63,11 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
     case Exq.Api.queues(Exq.Api) do
       {:ok, queues} ->
         Enum.each(queues, fn queue_name ->
-          Exq.subscribe(Exq, queue_name, 5)
+          if queue_name == "DevDelete" do
+            Exq.subscribe(Exq, queue_name, 1)
+          else
+            Exq.subscribe(Exq, queue_name, 5)
+          end
         end)
 
       _ ->

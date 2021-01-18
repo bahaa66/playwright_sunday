@@ -1,34 +1,13 @@
-defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
+defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWorker do
   @moduledoc """
-  Task module that can bee called to execute the delete_drilldown_data_task work as a
-  async task.
   """
-  use Task
   alias CogyntWorkstationIngest.Config
   alias Models.Deployments.Deployment
   alias CogyntWorkstationIngest.Broadway.DrilldownPipeline
   alias CogyntWorkstationIngest.Drilldown.DrilldownContext
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
 
-  def start_link(arg) do
-    Task.start_link(__MODULE__, :run, [arg])
-  end
-
-  def run(delete_drilldown_topics) do
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "Running delete_drilldown_data_task with option delete_drilldown_topics: #{
-        delete_drilldown_topics
-      }"
-    )
-
-    delete_drilldown_data(delete_drilldown_topics)
-  end
-
-  # ----------------------- #
-  # --- Private Methods --- #
-  # ----------------------- #
-  defp delete_drilldown_data(delete_drilldown_topics) do
+  def perform(delete_drilldown_topics) do
     # First fetch all deployment records
     deployments = DeploymentsContext.list_deployments()
 
@@ -117,20 +96,33 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDrilldownDataTask do
     end)
   end
 
-  defp ensure_drilldown_pipeline_stopped(deployment) do
-    case DrilldownPipeline.drilldown_pipeline_running?(deployment) or
-           not DrilldownPipeline.drilldown_pipeline_finished_processing?(deployment) do
-      true ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "DrilldownPipeline still running... waiting for it to shutdown before resetting data"
-        )
+  # ----------------------- #
+  # --- Private Methods --- #
+  # ----------------------- #
+  defp ensure_drilldown_pipeline_stopped(deployment, count \\ 1) do
+    if count >= 30 do
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "ensure_drilldown_pipeline_stopped/1 exceeded number of attempts. Moving forward with DeleteDrilldownData"
+      )
+    else
+      case DrilldownPipeline.drilldown_pipeline_running?(deployment) or
+             not DrilldownPipeline.drilldown_pipeline_finished_processing?(deployment) do
+        true ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "DrilldownPipeline still running... waiting for it to shutdown before resetting data"
+          )
 
-        Process.sleep(500)
-        ensure_drilldown_pipeline_stopped(deployment)
+          Process.sleep(500)
+          ensure_drilldown_pipeline_stopped(deployment, count + 1)
 
-      false ->
-        nil
+        false ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "DrilldownPipeline stopped"
+          )
+      end
     end
   end
 

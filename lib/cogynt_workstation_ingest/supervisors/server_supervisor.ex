@@ -9,15 +9,12 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
     FailedMessagesRetryWorker,
     RedisStreamsConsumerGroupWorker
   }
+
   alias CogyntWorkstationIngest.Servers.PubSub.{
     IngestPubSub
   }
-  alias CogyntWorkstationIngest.Servers.{
-    ConsumerMonitor,
-    DeploymentTaskMonitor,
-    DrilldownTaskMonitor,
-    EventDefinitionTaskMonitor
-  }
+
+  alias CogyntWorkstationIngest.Servers.ConsumerMonitor
 
   def start_link do
     Supervisor.start_link(__MODULE__, [], name: __MODULE__)
@@ -33,9 +30,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
       child_spec(FailedMessagesRetryWorker),
       child_spec(RedisStreamsConsumerGroupWorker),
       child_spec(ConsumerMonitor, restart: :permanent),
-      child_spec(DeploymentTaskMonitor, restart: :permanent),
-      child_spec(DrilldownTaskMonitor, restart: :permanent),
-      child_spec(EventDefinitionTaskMonitor, restart: :permanent),
       child_spec(IngestPubSub, start_link_opts: [pubsub])
     ]
 
