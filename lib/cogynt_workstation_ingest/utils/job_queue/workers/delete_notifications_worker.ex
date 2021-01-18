@@ -109,20 +109,30 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
     end
   end
 
-  defp ensure_event_pipeline_stopped(event_definition_id) do
-    case EventPipeline.event_pipeline_running?(event_definition_id) or
-           not EventPipeline.event_pipeline_finished_processing?(event_definition_id) do
-      true ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before running delete of notifications"
-        )
+  defp ensure_event_pipeline_stopped(event_definition_id, count \\ 1) do
+    if count >= 30 do
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "ensure_event_pipeline_stopped/1 exceeded number of attempts. Moving forward with DeleteNotifications"
+      )
+    else
+      case EventPipeline.event_pipeline_running?(event_definition_id) or
+             not EventPipeline.event_pipeline_finished_processing?(event_definition_id) do
+        true ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before running delete of notifications"
+          )
 
-        Process.sleep(500)
-        ensure_event_pipeline_stopped(event_definition_id)
+          Process.sleep(500)
+          ensure_event_pipeline_stopped(event_definition_id, count + 1)
 
-      false ->
-        CogyntLogger.info("#{__MODULE__}", "EventPipeline #{event_definition_id} Stopped")
+        false ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "EventPipeline #{event_definition_id} Stopped"
+          )
+      end
     end
   end
 

@@ -1,38 +1,19 @@
-defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
+defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWorker do
   @moduledoc """
-  Task module that can bee called to execute the delete_deployment_data_task work as a
-  async task.
   """
-  use Task
   alias CogyntWorkstationIngest.Broadway.DeploymentPipeline
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
 
-  alias CogyntWorkstationIngest.Utils.Tasks.{
-    DeleteDrilldownDataTask,
-    DeleteEventDefinitionsAndTopicsTask
+  alias CogyntWorkstationIngest.Utils.JobQueue.Workers.{
+    DeleteDrilldownDataWorker,
+    DeleteEventDefinitionsAndTopicsWorker
   }
 
   alias CogyntWorkstationIngest.Config
 
-  def start_link(arg) do
-    Task.start_link(__MODULE__, :run, [arg])
-  end
-
-  def run(_arg) do
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "Running delete_deployment_data_task"
-    )
-
-    delete_deployment_data()
-  end
-
-  # ----------------------- #
-  # --- Private Methods --- #
-  # ----------------------- #
-  defp delete_deployment_data() do
+  def perform() do
     # First reset all DrilldownData passing true to delete topic data
-    DeleteDrilldownDataTask.run(true)
+    DeleteDrilldownDataWorker.perform(true)
 
     CogyntLogger.info("#{__MODULE__}", "Stopping the DeploymentPipeline")
     # Second stop the DeploymentPipeline
@@ -54,10 +35,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
     )
 
     # Fourth reset all the data for each event_definition
-    DeleteEventDefinitionsAndTopicsTask.run(%{
-      event_definition_ids: [],
-      hard_delete: true,
-      delete_topics: true
+    DeleteEventDefinitionsAndTopicsWorker.perform(%{
+      "event_definition_ids" => [],
+      "hard_delete" => true,
+      "delete_topics" => true
     })
 
     # Finally reset all the deployment data
@@ -65,20 +46,33 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
     reset_deployment_data()
   end
 
-  def ensure_deployment_pipeline_stopped() do
-    case DeploymentPipeline.deployment_pipeline_running?() or
-           not DeploymentPipeline.deployment_pipeline_finished_processing?() do
-      true ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "DeploymentPipeline still running... waiting for it to shutdown before resetting data"
-        )
+  # ----------------------- #
+  # --- Private Methods --- #
+  # ----------------------- #
+  defp ensure_deployment_pipeline_stopped(count \\ 1) do
+    if count >= 30 do
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "ensure_deployment_pipeline_stopped/1 exceeded number of attempts. Moving forward with DeleteDeploymentData"
+      )
+    else
+      case DeploymentPipeline.deployment_pipeline_running?() or
+             not DeploymentPipeline.deployment_pipeline_finished_processing?() do
+        true ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "DeploymentPipeline still running... waiting for it to shutdown before resetting data"
+          )
 
-        Process.sleep(500)
-        ensure_deployment_pipeline_stopped()
+          Process.sleep(500)
+          ensure_deployment_pipeline_stopped(count + 1)
 
-      false ->
-        nil
+        false ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "DeploymentPipeline stopped"
+          )
+      end
     end
   end
 
@@ -104,14 +98,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.DeleteDeploymentDataTask do
     rescue
       e ->
         CogyntLogger.error("#{__MODULE__}", "Failed to Reset JobQ data. Error: #{e}")
-    end
-
-    case Redis.keys_by_pattern("exq:*") do
-      {:ok, []} ->
-        nil
-
-      {:ok, job_q_keys} ->
-        Redis.key_delete_pipeline(job_q_keys)
     end
 
     Redis.key_delete("dpcgid")
