@@ -215,11 +215,11 @@ defmodule CogyntWorkstationIngest.Broadway.DrilldownPipeline do
   # ----------------------- #
   defp incr_total_fetched_message_count(group_id) do
     Redis.hash_increment_by("dmi:#{group_id}", "tmc", 1)
-    Redis.key_pexpire("dmi:#{group_id}", 10000)
+    Redis.key_pexpire("dmi:#{group_id}", 60000)
   end
 
   defp incr_total_processed_message_count(group_id, count \\ 1) do
     Redis.hash_increment_by("dmi:#{group_id}", "tmp", count)
-    Redis.key_pexpire("dmi:#{group_id}", 10000)
+    Redis.key_pexpire("dmi:#{group_id}", 60000)
   end
 end

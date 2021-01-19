@@ -247,21 +247,24 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
   @doc false
   def event_pipeline_finished_processing?(event_definition_id) do
-    consumer_group_id = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
+    case Redis.key_exists?("emi:#{event_definition_id}") do
+      {:ok, false} ->
+        true
 
-    if consumer_group_id == "" do
-      true
-    else
-      case Redis.key_exists?("emi:#{consumer_group_id}") do
-        {:ok, false} ->
+      {:ok, true} ->
+        {:ok, tmc} = Redis.hash_get("emi:#{event_definition_id}", "tmc")
+        {:ok, tmp} = Redis.hash_get("emi:#{event_definition_id}", "tmp")
+
+        if is_nil(tmc) or is_nil(tmp) do
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "TMC or TMP returned NIL, key has expired. EventDefinitionId: #{event_definition_id}"
+          )
+
           true
-
-        {:ok, true} ->
-          {:ok, tmc} = Redis.hash_get("emi:#{consumer_group_id}", "tmc")
-          {:ok, tmp} = Redis.hash_get("emi:#{consumer_group_id}", "tmp")
-
+        else
           String.to_integer(tmp) >= String.to_integer(tmc)
-      end
+        end
     end
   end
 
@@ -289,16 +292,23 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
   defp incr_total_fetched_message_count(event_definition_id) do
     Redis.hash_increment_by("emi:#{event_definition_id}", "tmp", 1)
-    Redis.key_pexpire("emi:#{event_definition_id}", 10000)
+    Redis.key_pexpire("emi:#{event_definition_id}", 60000)
   end
 
   defp incr_total_processed_message_count(event_definition_id, count) do
     {:ok, tmc} = Redis.hash_get("emi:#{event_definition_id}", "tmc")
     {:ok, tmp} = Redis.hash_increment_by("emi:#{event_definition_id}", "tmp", count)
-    Redis.key_pexpire("emi:#{event_definition_id}", 10000)
+    Redis.key_pexpire("emi:#{event_definition_id}", 60000)
 
-    if tmp >= String.to_integer(tmc) do
-      finished_processing(event_definition_id)
+    if is_nil(tmc) do
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "TMC returned NIL, key has expired. EventDefinitionId: #{event_definition_id}"
+      )
+    else
+      if tmp >= String.to_integer(tmc) do
+        finished_processing(event_definition_id)
+      end
     end
   end
 end
