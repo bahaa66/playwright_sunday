@@ -159,11 +159,11 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
   # ----------------------- #
   defp incr_total_fetched_message_count() do
     Redis.hash_increment_by("dpmi", "tmc", 1)
-    Redis.key_pexpire("dpmi", 10000)
+    Redis.key_pexpire("dpmi", 60000)
   end
 
   defp incr_total_processed_message_count(count \\ 1) do
     Redis.hash_increment_by("dpmi", "tmp", count)
-    Redis.key_pexpire("dpmi", 10000)
+    Redis.key_pexpire("dpmi", 60000)
   end
 end
