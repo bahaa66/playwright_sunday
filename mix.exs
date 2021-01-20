@@ -64,7 +64,7 @@ defmodule CogyntWorkstationIngest.MixProject do
        override: true},
       {
         :models,
-        tag: "v1.11.10-beta",
+        tag: "v1.11.11-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
