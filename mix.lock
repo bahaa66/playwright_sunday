@@ -3,7 +3,7 @@
   "artificery": {:hex, :artificery, "0.4.3", "0bc4260f988dcb9dda4b23f9fc3c6c8b99a6220a331534fdf5bf2fd0d4333b02", [:mix], [], "hexpm"},
   "audit": {:git, "git@github.com:cogility/cogynt-common.git", "b1032f402b61683aca7d78abd4a5723c51929283", [sparse: "audit"]},
   "broadway": {:hex, :broadway, "0.6.2", "ef8e0d257420c72f0e600958cf95556835d9921ad14be333493083226458791a", [:mix], [{:gen_stage, "~> 1.0", [hex: :gen_stage, repo: "hexpm", optional: false]}, {:telemetry, "~> 0.4.0", [hex: :telemetry, repo: "hexpm", optional: false]}], "hexpm"},
-  "broadway_kafka": {:hex, :broadway_kafka, "0.1.4", "d05313dc751b4c17e6258215595c47997721d098231adf1d5b6ab26ed00bd26d", [:mix], [{:broadway, "~> 0.6.0", [hex: :broadway, repo: "hexpm", optional: false]}, {:brod, "~> 3.10", [hex: :brod, repo: "hexpm", optional: false]}], "hexpm"},
+  "broadway_kafka": {:git, "git@github.com:dashbitco/broadway_kafka.git", "15465b9c52b64b9f2c71cdded0e0df1270a279a4", [branch: "master"]},
   "brod": {:hex, :brod, "3.15.1", "073b0e16f4193291a05e01ae36351ddba1bda85ad4f90f66566c8123a335150e", [:rebar3], [{:kafka_protocol, "2.3.6", [hex: :kafka_protocol, repo: "hexpm", optional: false]}, {:supervisor3, "1.1.11", [hex: :supervisor3, repo: "hexpm", optional: false]}], "hexpm"},
   "castore": {:hex, :castore, "0.1.8", "1b61eaba71bb755b756ac42d4741f4122f8beddb92456a84126d6177ec0af1fc", [:mix], [], "hexpm"},
   "certifi": {:hex, :certifi, "2.5.3", "70bdd7e7188c804f3a30ee0e7c99655bc35d8ac41c23e12325f36ab449b70651", [:rebar3], [{:parse_trans, "~>3.3", [hex: :parse_trans, repo: "hexpm", optional: false]}], "hexpm"},
