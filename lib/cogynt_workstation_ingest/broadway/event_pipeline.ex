@@ -291,7 +291,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   defp incr_total_fetched_message_count(event_definition_id) do
-    Redis.hash_increment_by("emi:#{event_definition_id}", "tmp", 1)
+    Redis.hash_increment_by("emi:#{event_definition_id}", "tmc", 1)
     Redis.key_pexpire("emi:#{event_definition_id}", 60000)
   end
 
