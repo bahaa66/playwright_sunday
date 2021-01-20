@@ -210,7 +210,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
 
     if child_pid != nil do
-      DynamicSupervisor.terminate_child(__MODULE__, child_pid)
+      GenServer.stop(child_pid)
+      #DynamicSupervisor.terminate_child(__MODULE__, child_pid)
       Process.sleep(1500)
       {:ok, :success}
     else
@@ -222,7 +223,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     child_pid = Process.whereis(:DeploymentPipeline)
 
     if child_pid != nil do
-      DynamicSupervisor.terminate_child(__MODULE__, child_pid)
+      GenServer.stop(child_pid)
+      #DynamicSupervisor.terminate_child(__MODULE__, child_pid)
       Process.sleep(1500)
       {:ok, :success}
     else
@@ -238,7 +240,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
 
         if child_pid != nil do
-          DynamicSupervisor.terminate_child(__MODULE__, child_pid)
+          GenServer.stop(child_pid)
+          #DynamicSupervisor.terminate_child(__MODULE__, child_pid)
         else
           {:ok, :success}
         end
@@ -249,7 +252,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
 
         if child_pid != nil do
-          DynamicSupervisor.terminate_child(__MODULE__, child_pid)
+          GenServer.stop(child_pid)
+          #DynamicSupervisor.terminate_child(__MODULE__, child_pid)
           Process.sleep(1500)
           {:ok, :success}
         else
