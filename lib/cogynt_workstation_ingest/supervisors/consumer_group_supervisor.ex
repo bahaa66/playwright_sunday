@@ -211,7 +211,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
     if child_pid != nil do
       GenServer.stop(child_pid)
-      #DynamicSupervisor.terminate_child(__MODULE__, child_pid)
       Process.sleep(1500)
       {:ok, :success}
     else
@@ -224,7 +223,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
     if child_pid != nil do
       GenServer.stop(child_pid)
-      #DynamicSupervisor.terminate_child(__MODULE__, child_pid)
       Process.sleep(1500)
       {:ok, :success}
     else
@@ -241,7 +239,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
         if child_pid != nil do
           GenServer.stop(child_pid)
-          #DynamicSupervisor.terminate_child(__MODULE__, child_pid)
+          {:ok, :success}
         else
           {:ok, :success}
         end
@@ -253,7 +251,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
         if child_pid != nil do
           GenServer.stop(child_pid)
-          #DynamicSupervisor.terminate_child(__MODULE__, child_pid)
           Process.sleep(1500)
           {:ok, :success}
         else
