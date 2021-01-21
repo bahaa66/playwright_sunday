@@ -295,7 +295,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
             "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before resetting data"
           )
 
-          Process.sleep(500)
+          Process.sleep(1000)
           ensure_event_pipeline_stopped(event_definition_id, count + 1)
 
         false ->

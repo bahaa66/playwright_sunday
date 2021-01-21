@@ -124,7 +124,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
             "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before running delete of notifications"
           )
 
-          Process.sleep(500)
+          Process.sleep(1000)
           ensure_event_pipeline_stopped(event_definition_id, count + 1)
 
         false ->

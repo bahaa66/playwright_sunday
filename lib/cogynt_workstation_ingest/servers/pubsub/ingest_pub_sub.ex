@@ -1,6 +1,6 @@
 defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
   @moduledoc """
-
+  Redis PubSub module. Recieves and handles messages published from other CogyntApps
   """
   use GenServer
   alias CogyntWorkstationIngest.Config

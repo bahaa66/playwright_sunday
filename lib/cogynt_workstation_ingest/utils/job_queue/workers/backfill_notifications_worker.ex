@@ -120,7 +120,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
             "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before running backfill of notifications"
           )
 
-          Process.sleep(500)
+          Process.sleep(1000)
           ensure_event_pipeline_stopped(event_definition_id, count + 1)
 
         false ->

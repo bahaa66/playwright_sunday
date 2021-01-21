@@ -114,7 +114,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
             "DrilldownPipeline still running... waiting for it to shutdown before resetting data"
           )
 
-          Process.sleep(500)
+          Process.sleep(1000)
           ensure_drilldown_pipeline_stopped(deployment, count + 1)
 
         false ->

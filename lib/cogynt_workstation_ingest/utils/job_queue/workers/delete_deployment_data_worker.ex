@@ -64,7 +64,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
             "DeploymentPipeline still running... waiting for it to shutdown before resetting data"
           )
 
-          Process.sleep(500)
+          Process.sleep(1000)
           ensure_deployment_pipeline_stopped(count + 1)
 
         false ->

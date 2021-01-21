@@ -35,7 +35,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              offset_reset_policy: :earliest,
              group_config: [
                session_timeout_seconds: 30,
-               rejoin_delay_seconds: 10
              ],
              client_config: [
                connect_timeout: 30000
