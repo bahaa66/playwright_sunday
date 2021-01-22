@@ -884,7 +884,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
-  def event_definition_task_running?(event_definition_id) do
+  defp event_definition_task_running?(event_definition_id) do
     case Redis.hash_get("ts", event_definition_id) do
       {:ok, nil} ->
         false
