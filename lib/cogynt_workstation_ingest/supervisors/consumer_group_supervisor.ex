@@ -206,25 +206,60 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
   def stop_child(event_definition_id) when is_binary(event_definition_id) do
     consumer_group_id = fetch_event_cgid(event_definition_id)
+    pipeline_name = String.to_atom(consumer_group_id <> "Pipeline")
 
-    child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
+    child_pid = Process.whereis(pipeline_name)
 
     if child_pid != nil do
-      GenServer.stop(child_pid)
-      Process.sleep(1500)
-      {:ok, :success}
+      case ensure_consumer_group_state(consumer_group_id, pipeline_name) do
+        {:ok, :stop_consumer} ->
+          GenServer.stop(child_pid)
+          Process.sleep(1500)
+          {:ok, :success}
+
+          {:error, :delete_consumer_group_id} ->
+            Redis.hash_delete("ecgid", "EventDefinition-#{event_definition_id}")
+            GenServer.stop(child_pid)
+            Process.sleep(1500)
+            {:ok, :success}
+
+          {:error, :delete_consumer_group_id_and_data} ->
+            Redis.hash_delete("ecgid", "EventDefinition-#{event_definition_id}")
+            # TODO: call job worker for soft deleting event_definition_id data
+            GenServer.stop(child_pid)
+            Process.sleep(1500)
+            {:ok, :success}
+      end
     else
       {:ok, :success}
     end
   end
 
   def stop_child(:deployment) do
-    child_pid = Process.whereis(:DeploymentPipeline)
+    consumer_group_id = fetch_deployment_cgid()
+    pipeline_name = :DeploymentPipeline
+    child_pid = Process.whereis(pipeline_name)
 
     if child_pid != nil do
-      GenServer.stop(child_pid)
-      Process.sleep(1500)
-      {:ok, :success}
+      case ensure_consumer_group_state(consumer_group_id, pipeline_name) do
+        {:ok, :stop_consumer} ->
+          GenServer.stop(child_pid)
+          Process.sleep(1500)
+          {:ok, :success}
+
+          {:error, :delete_consumer_group_id} ->
+            Redis.hash_delete("dpcgid", "Deployment")
+            GenServer.stop(child_pid)
+            Process.sleep(1500)
+            {:ok, :success}
+
+          {:error, :delete_consumer_group_id_and_data} ->
+            Redis.hash_delete("dpcgid", "Deployment")
+            # TODO: call job worker for hard deleting deplpoyment data ??
+            GenServer.stop(child_pid)
+            Process.sleep(1500)
+            {:ok, :success}
+      end
     else
       {:ok, :success}
     end
@@ -234,25 +269,64 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     case deployment do
       %Deployment{id: nil} ->
         consumer_group_id = fetch_drilldown_cgid()
+        pipeline_name = String.to_atom(consumer_group_id <> "Pipeline")
 
-        child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
+        child_pid = Process.whereis(pipeline_name)
 
         if child_pid != nil do
-          GenServer.stop(child_pid)
-          {:ok, :success}
+          case ensure_consumer_group_state(consumer_group_id, pipeline_name) do
+            {:ok, :stop_consumer} ->
+              GenServer.stop(child_pid)
+              Process.sleep(1500)
+              {:ok, :success}
+
+              {:error, :delete_consumer_group_id} ->
+                Redis.hash_delete("dcgid", "Drilldown")
+                GenServer.stop(child_pid)
+                Process.sleep(1500)
+                {:ok, :success}
+
+              {:error, :delete_consumer_group_id_and_data} ->
+                Redis.hash_delete("dcgid", "Drilldown")
+                # TODO: call job worker for soft deleting drilldown data
+                GenServer.stop(child_pid)
+                Process.sleep(1500)
+                {:ok, :success}
+          end
         else
           {:ok, :success}
         end
 
       %Deployment{id: deployment_id} ->
         consumer_group_id = fetch_drilldown_cgid(deployment_id)
+        pipeline_name = String.to_atom(consumer_group_id <> "Pipeline")
 
-        child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
+        child_pid = Process.whereis(pipeline_name)
 
         if child_pid != nil do
-          GenServer.stop(child_pid)
-          Process.sleep(1500)
-          {:ok, :success}
+          case ensure_consumer_group_state(consumer_group_id, pipeline_name) do
+            {:ok, :stop_consumer} ->
+              GenServer.stop(child_pid)
+              Process.sleep(1500)
+              {:ok, :success}
+
+              {:error, :delete_consumer_group_id} ->
+                {:ok, brokers} = DeploymentsContext.get_kafka_brokers(deployment_id)
+                hash_string = Integer.to_string(:erlang.phash2(brokers))
+                Redis.hash_delete("dcgid", "Drilldown-#{hash_string}")
+                GenServer.stop(child_pid)
+                Process.sleep(1500)
+                {:ok, :success}
+
+              {:error, :delete_consumer_group_id_and_data} ->
+                {:ok, brokers} = DeploymentsContext.get_kafka_brokers(deployment_id)
+                hash_string = Integer.to_string(:erlang.phash2(brokers))
+                Redis.hash_delete("dcgid", "Drilldown-#{hash_string}")
+                # TODO: call job worker for soft deleting drilldown data
+                GenServer.stop(child_pid)
+                Process.sleep(1500)
+                {:ok, :success}
+          end
         else
           {:ok, :success}
         end
@@ -299,6 +373,66 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
       {:ok, consumer_group_id} ->
         "EventDefinition-#{event_definition_id}" <> "-" <> consumer_group_id
+    end
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp ensure_consumer_group_state(consumer_group_id, pipeline_name, count \\ 1) do
+    if count >= 10 do
+      CogyntLogger.error("#{__MODULE__}", "ensure_consumer_group_state/3 Failed to fetch offsets from Kafka. Stopping Pipeline")
+      {:ok, :stop_consumer}
+    else
+      case Kafka.Api.ConsumerGroup.fetch_committed_offsets(consumer_group_id) do
+        {:ok, results} ->
+          consumer_group_topic_info = List.first(results)
+          topic = consumer_group_topic_info.topic
+          number_of_partitions_with_committed_offsets = Enum.count(consumer_group_topic_info.partition_responses)
+
+          if number_of_partitions_with_committed_offsets <= 0 do
+            # This means we are trying to stop a pipeline that never was started long enough
+            # to have sent committed offsets to its ConsumerGroup. The saftest thing here to
+            # do is to remove the ConsumerGroupId from Redis and stop the Pipeline. This way
+            # the next time the pipeline is started it will generate a brand new ConsumerGroupId
+            # for its Pipeline
+            {:error, :delete_consumer_group_id}
+          else
+
+            producer_name =
+              Broadway.producer_names(pipeline_name)
+              |> List.first()
+
+            brod_client_id = Module.concat([producer_name, Client])
+
+            partition_count =
+              case Kafka.Api.Topic.fetch_partition_count(brod_client_id, topic) do
+              {:ok, partition_count} ->
+                partition_count
+
+              {:error, _} ->
+                # The standard default for topics is 10.
+                # If we fail to fetch the partition count here we dont
+                # want to stop the process so we will just assume the default
+                # partition count
+                10
+            end
+
+            if number_of_partitions_with_committed_offsets < partition_count do
+              # This is an error state and we must remove the the ConsumerGroupId
+              # and any data that may have been ingested for this pipeline
+              {:error, :delete_consumer_group_id_and_data}
+            end
+
+            {:ok, :stop_consumer}
+
+          end
+
+        {:error, _} ->
+          Process.sleep(1000)
+          ensure_consumer_group_state(consumer_group_id, pipeline_name, count + 1)
+      end
+
     end
   end
 end
