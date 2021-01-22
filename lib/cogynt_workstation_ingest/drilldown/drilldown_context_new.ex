@@ -45,7 +45,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContextNew do
         iex> get_template_solution(id)
         %TemplateSolutions{}
         iex> get_template_solution(invalid_id)
-        nil
+        []
     """
     def get_template_solution(id) do
      from(t in TemplateSolution, where: t.id ==^id,
@@ -89,7 +89,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContextNew do
     """
     def get_template_solution_data(id) do
       case get_template_solution(id) do
-        nil ->
+        [] ->
           nil
 
         template_solution ->
@@ -105,7 +105,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContextNew do
     defp process_template_solution(data) do
       template_solution = data
       |> Map.from_struct()
-      |> Map.drop([:__meta__, :created_at, :updated_at])
+      |> Map.drop([:__meta__])
 
       outcomes = get_template_solution_outcomes(template_solution.id) |> process_template_solution_outcomes()
       events = get_template_solution_events(template_solution.id) |> process_template_solution_events()
@@ -120,14 +120,14 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContextNew do
         evt = Map.new(evt)
         key = evt.event_id <> "!" <> evt.aid
         event = evt.event |> Map.put("assertion_id", evt.aid)
-        acc = Map.put(acc, key, event)
+        Map.put(acc, key, event)
       end)
     end
 
     defp process_template_solution_outcomes(outcomes) do
       Enum.reduce(outcomes, [], fn outcome, acc ->
         outcome = Map.put(outcome, "assertion_id", nil)
-        acc = [outcome | acc]
+        [outcome | acc]
       end)
     end
 

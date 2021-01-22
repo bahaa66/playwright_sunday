@@ -48,7 +48,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
         # inst = DrilldownContext.get_template_solution_data(id)
         inst = DrilldownContextNew.get_template_solution_data(id)
         # inst
-        if info["id"] == inst["id"] or Enum.member?(info["#visited"], inst["id"]) do
+        if inst != nil and (info["id"] == inst["id"] or Enum.member?(info["#visited"], inst["id"]) ) do
           nil
         else
           inst
