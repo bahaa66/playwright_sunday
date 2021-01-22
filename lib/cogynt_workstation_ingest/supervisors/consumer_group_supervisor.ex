@@ -430,6 +430,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
         {:error, _} ->
           Process.sleep(1000)
+          CogyntLogger.warn("#{__MODULE__}", "Retrying ensure_consumer_group_state/3.... Count: #{count}")
           ensure_consumer_group_state(consumer_group_id, pipeline_name, count + 1)
       end
 

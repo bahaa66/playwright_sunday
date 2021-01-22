@@ -199,7 +199,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
               tag_id: notification_setting.tag_id,
               title: notification_setting.title,
               notification_setting_id: notification_setting.id,
-              created_at: DateTime.truncate(DateTime.utc_now(), :second),
+              created_at: event.created_at,
               updated_at: DateTime.truncate(DateTime.utc_now(), :second)
             }
           ]
