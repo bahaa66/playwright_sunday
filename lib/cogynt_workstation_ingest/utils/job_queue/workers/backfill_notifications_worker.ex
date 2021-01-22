@@ -34,7 +34,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
         EventsContext.get_page_of_events(
           %{
             filter: %{event_definition_id: event_definition.id},
-            select: [:id]
+            select: [:id, :created_at]
           },
           page_number: 1,
           page_size: @page_size,
@@ -165,7 +165,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
         EventsContext.get_page_of_events(
           %{
             filter: %{event_definition_id: event_definition_id},
-            select: [:id]
+            select: [:id, :created_at]
           },
           page_number: page_number + 1,
           page_size: @page_size,
