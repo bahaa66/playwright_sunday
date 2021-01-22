@@ -61,8 +61,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:kafka,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "kafka",
-       branch: "fix/CDST-857-stopping-broadway-pipeline",
-       #tag: "v1.10.10",
+       tag: "v1.11.12-beta",
        override: true},
       {
         :models,
