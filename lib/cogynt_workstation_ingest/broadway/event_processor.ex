@@ -269,8 +269,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       risk_history_doc: []
     }
 
-    IO.inspect(core_id_data_map, label: "******START*******", pretty: true)
-
     # First iterrate through each key in the map and for each event map that is stored for
     # its value, loop through and merge the maps. Result should be a new map with keys being
     # the core_id and the values being one map with all the combined values
@@ -333,8 +331,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
         Map.put(acc_0, key, new_data)
       end)
-
-    IO.inspect(core_id_data_map, label: "****** MIDDLE *******", pretty: true)
 
     # Second itterate through the new map now merging together each map stored for each key
     default_map = %{
@@ -431,7 +427,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
 
     if !Enum.empty?(bulk_transactional_data.risk_history_doc) do
-      IO.inspect(bulk_transactional_data.risk_history_doc, pretty: true, label: "****** END *******")
       {:ok, _} =
         Elasticsearch.bulk_upsert_document(
           Config.risk_history_index_alias(),
