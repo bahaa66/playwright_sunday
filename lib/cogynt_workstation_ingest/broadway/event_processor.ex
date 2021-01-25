@@ -344,8 +344,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         Map.put(acc_0, key, new_data)
       end)
 
-    IO.inspect(core_id_data_map, label: "****** MIDDLE ***** ")
-
     # Second itterate through the new map now merging together each map stored for each key
     default_map = %{
       event_doc: [],
