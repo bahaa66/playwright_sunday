@@ -320,7 +320,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                   if v2 == @defaults.risk_history_document or Enum.empty?(v2) do
                     v1
                   else
-                    v1 ++ [v2]
+                    if Enum.empty?(v1) do
+                      v1 ++ [v2]
+                    else
+                      temp_doc = List.first(v1)
+                      new_risk = temp_doc.risk_history ++ v2.risk_history
+
+                      [
+                        %{
+                          id: v2.id,
+                          risk_history: new_risk
+                        }
+                      ]
+                    end
                   end
 
                 _ ->
@@ -331,6 +343,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
         Map.put(acc_0, key, new_data)
       end)
+
+    IO.inspect(core_id_data_map, label: "****** MIDDLE ***** ")
 
     # Second itterate through the new map now merging together each map stored for each key
     default_map = %{
