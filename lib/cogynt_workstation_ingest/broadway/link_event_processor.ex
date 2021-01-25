@@ -170,7 +170,19 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                   if v2 == @defaults.risk_history_document or Enum.empty?(v2) do
                     v1
                   else
-                    v1 ++ [v2]
+                    if Enum.empty?(v1) do
+                      v1 ++ [v2]
+                    else
+                      temp_doc = List.first(v1)
+                      new_risk = temp_doc.risk_history ++ v2.risk_history
+
+                      [
+                        %{
+                          id: v2.id,
+                          risk_history: new_risk
+                        }
+                      ]
+                    end
                   end
 
                 _ ->
