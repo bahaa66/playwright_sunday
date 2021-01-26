@@ -130,9 +130,8 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContextNew do
       |> Map.from_struct()
       |> Map.drop([:__meta__])
 
-
-      events = get_template_solution_events(template_solution.id) |> process_template_solution_events()
       outcomes = get_template_solution_outcomes(template_solution.id) |> process_template_solution_outcomes()
+      events = get_template_solution_events(template_solution.id) |> process_template_solution_events()
 
       Map.put(template_solution, :events, events)
       |> Map.put(:outcomes, outcomes)
