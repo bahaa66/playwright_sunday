@@ -86,7 +86,7 @@ config :exq,
   heartbeat_enable: true,
   heartbeat_interval: 60_000,
   missed_heartbeats_allowed: 5,
-  # THIS SECTION IS MEANT FOR PROD/DEV CLUSTERS ONLY
+  # THIS SECTION IS MEANT FOR PROD/DEV CLUSTERS ONLY	  redis_options: redis_options
   redis_options: [
     sentinel: [
       sentinels: String.split(System.get_env("COGYNT_REDIS_SENTINELS") || "", ",", trim: true),
