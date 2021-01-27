@@ -38,7 +38,7 @@
   "kafka": {:git, "git@github.com:cogility/cogynt-common.git", "b0e6b5e09322ad79a7a175591848c49101454456", [sparse: "kafka", tag: "v1.11.12-beta"]},
   "kafka_protocol": {:hex, :kafka_protocol, "2.4.1", "9e89afc740f57d17bec33f0f21dc23e7cbfd8c9ed3b0d6b9fc3a6bd4a827c088", [:rebar, :rebar3], [{:crc32cer, "0.1.8", [hex: :crc32cer, repo: "hexpm", optional: false]}, {:snappyer, "1.2.6", [hex: :snappyer, repo: "hexpm", optional: false]}], "hexpm", "86c9e1c6496273a6d1a02dc0e6ef7479d70441d526970abe667e2cf4deb1df21"},
   "metrics": {:hex, :metrics, "1.0.1", "25f094dea2cda98213cecc3aeff09e940299d950904393b2a29d191c346a8486", [:rebar3], [], "hexpm", "69b09adddc4f74a40716ae54d140f93beb0fb8978d8636eaded0c31b6f099f16"},
-  "migrations": {:git, "git@github.com:cogility/cogynt-common.git", "3e6962add05411c9ddbddc49d474999727e9ec5c", [tag: "v1.11.10-beta", sparse: "migrations"]},
+  "migrations": {:git, "git@github.com:cogility/cogynt-common.git", "e0055d7acf5afca9905881ce5689ee520fa92fae", [tag: "v1.11.13-beta", sparse: "migrations"]},
   "mime": {:hex, :mime, "1.5.0", "203ef35ef3389aae6d361918bf3f952fa17a09e8e43b5aa592b93eba05d0fb8d", [:mix], [], "hexpm", "55a94c0f552249fc1a3dd9cd2d3ab9de9d3c89b559c2bd01121f824834f24746"},
   "mimerl": {:hex, :mimerl, "1.2.0", "67e2d3f571088d5cfd3e550c383094b47159f3eee8ffa08e64106cdf5e981be3", [:rebar3], [], "hexpm", "f278585650aa581986264638ebf698f8bb19df297f66ad91b18910dfc6e19323"},
   "models": {:git, "git@github.com:cogility/cogynt-common.git", "3418b658f375baff5e700fb222e30d4666988946", [tag: "v1.11.11-beta", sparse: "models"]},
