@@ -4,7 +4,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
   alias CogyntWorkstationIngest.Config
   alias Models.Deployments.Deployment
   alias CogyntWorkstationIngest.Broadway.DrilldownPipeline
-  alias CogyntWorkstationIngest.Drilldown.DrilldownContext
+  # alias CogyntWorkstationIngest.Drilldown.DrilldownContext
+  alias CogyntWorkstationIngest.Drilldown.DrilldownContextNew
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
 
   def perform(delete_drilldown_topics) do
@@ -100,28 +101,30 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
   # --- Private Methods --- #
   # ----------------------- #
   defp ensure_drilldown_pipeline_stopped(deployment, count \\ 1) do
-    if count >= 30 do
-      CogyntLogger.info(
-        "#{__MODULE__}",
-        "ensure_drilldown_pipeline_stopped/1 exceeded number of attempts. Moving forward with DeleteDrilldownData"
-      )
-    else
-      case DrilldownPipeline.drilldown_pipeline_running?(deployment) or
-             not DrilldownPipeline.drilldown_pipeline_finished_processing?(deployment) do
-        true ->
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "DrilldownPipeline still running... waiting for it to shutdown before resetting data"
-          )
+    if Config.drilldown_enabled() do
+      if count >= 30 do
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "ensure_drilldown_pipeline_stopped/1 exceeded number of attempts. Moving forward with DeleteDrilldownData"
+        )
+      else
+        case DrilldownPipeline.drilldown_pipeline_running?(deployment) or
+               not DrilldownPipeline.drilldown_pipeline_finished_processing?(deployment) do
+          true ->
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "DrilldownPipeline still running... waiting for it to shutdown before resetting data"
+            )
 
-          Process.sleep(1000)
-          ensure_drilldown_pipeline_stopped(deployment, count + 1)
+            Process.sleep(1000)
+            ensure_drilldown_pipeline_stopped(deployment, count + 1)
 
-        false ->
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "DrilldownPipeline stopped"
-          )
+          false ->
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "DrilldownPipeline stopped"
+            )
+        end
       end
     end
   end
@@ -149,6 +152,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
         Redis.key_delete_pipeline(message_info_keys)
     end
 
-    DrilldownContext.hard_delete_template_solutions_data()
+    DrilldownContextNew.hard_delete_template_solutions_data()
   end
 end

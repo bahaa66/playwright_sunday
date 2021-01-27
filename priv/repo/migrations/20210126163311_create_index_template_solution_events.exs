@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.CreateIndexTemplateSolutionEvents do
+  use Migrations.CreateTemplateSolutionEventsIndex
+end

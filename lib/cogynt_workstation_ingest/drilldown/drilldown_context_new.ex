@@ -97,6 +97,29 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContextNew do
       end
     end
 
+    @doc """
+    Truncates the template_solutions table.
+    ## Examples
+      iex> hard_delete_template_solutions_data()
+    """
+    def hard_delete_template_solutions_data() do
+      with {:ok, result_ts = %Postgrex.Result{}} <- Repo.query("TRUNCATE template_solution", []),
+        {:ok, result_tse = %Postgrex.Result{}} <- Repo.query("TRUNCATE template_solution_events", []) do
+
+        CogyntLogger.info(
+         "#{__MODULE__}",
+         "hard_delete_template_solutions_data completed with result: #{result_ts.connection_id}
+         and #{result_tse.connection_id}"
+        )
+      else
+        e  ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "hard_delete_template_solutions_data failed with reason: #{inspect(e)}"
+          )
+      end
+    end
+
 
     # ----------------------- #
     # --- private methods --- #

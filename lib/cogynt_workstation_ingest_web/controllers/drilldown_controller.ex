@@ -2,7 +2,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
   use CogyntWorkstationIngestWeb, :controller
 
   # alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
-  alias CogyntWorkstationIngest.Drilldown.DrilldownContext
+  # alias CogyntWorkstationIngest.Drilldown.DrilldownContext
   alias CogyntWorkstationIngest.Drilldown.DrilldownContextNew
 
   @doc """
