@@ -15,8 +15,14 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContextNew do
         iex> list_template_solutions()
         [%{"id" => 1234}, ...]
     """
-    def list_template_solutions() do
-      case Repo.all(TemplateSolution) do
+    def list_template_solutions(args \\ %{}) do
+      query = from(t in TemplateSolution)
+
+      Enum.reduce(args, query, fn
+        {:ids, ids}, q -> where(q, [t], t.id in ^ids)
+      end)
+      |> Repo.all()
+      |> case do
         nil ->
           []
 

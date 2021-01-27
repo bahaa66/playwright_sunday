@@ -38,26 +38,20 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   )
 
   def children(info, _conn) do
-    Map.values(info["events"])
+    solution_ids = Map.values(info["events"])
     |> Enum.filter(&(not (&1["$partial"] == true and &1["_confidence"] == 0.0)))
-    |> Enum.map(fn occ ->
-      id = occ["published_by"]
-
-      if id do
-        # {:ok, inst} = DrilldownCache.get(id)
-        # inst = DrilldownContext.get_template_solution_data(id)
-        inst = DrilldownContextNew.get_template_solution_data(id)
-        # inst
-        if info["id"] == inst["id"] or Enum.member?(info["#visited"], inst["id"]) do
-          nil
+    |> Enum.reduce(MapSet.new(), fn
+      %{"published_by" => id}, a ->
+        if info["id"] == id or Enum.member?(info["#visited"], id) do
+          MapSet.put(a, id)
         else
-          inst
+          a
         end
-      else
-        nil
-      end
+      _, a -> a
     end)
-    |> Enum.filter(&(&1 != nil))
+    |> MapSet.to_list()
+
+    DrilldownContextNew.list_template_solutions(%{ids: solution_ids})
     |> Enum.uniq()
     |> Enum.map(fn inst ->
       inst_id = inst["id"]
