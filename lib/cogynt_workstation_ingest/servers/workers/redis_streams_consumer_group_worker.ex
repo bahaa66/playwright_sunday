@@ -60,7 +60,10 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
                       reset_drilldown: reset_drilldown,
                       delete_drilldown_topics: delete_drilldown_topics
                     },
-                    deployment: reset_deployment,
+                    deployment: %{
+                      reset_deployment: reset_deployment,
+                      delete_topics: delete_topics_for_deployments
+                    },
                     event_definitions: %{
                       event_definition_ids: event_definition_ids,
                       delete_topics: delete_topics
@@ -69,10 +72,14 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
                     try do
                       if reset_deployment do
                         create_job_queue_if_not_exists("DevDelete")
-                        Exq.enqueue(Exq, "DevDelete", DeleteDeploymentDataWorker, [])
+
+                        Exq.enqueue(Exq, "DevDelete", DeleteDeploymentDataWorker, [
+                          delete_topics_for_deployments
+                        ])
                       else
                         if reset_drilldown do
                           create_job_queue_if_not_exists("DevDelete")
+
                           Exq.enqueue(Exq, "DevDelete", DeleteDrilldownDataWorker, [
                             delete_drilldown_topics
                           ])
@@ -80,6 +87,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
 
                         if length(event_definition_ids) > 0 do
                           create_job_queue_if_not_exists("DevDelete")
+
                           Exq.enqueue(Exq, "DevDelete", DeleteEventDefinitionsAndTopicsWorker, [
                             %{
                               event_definition_ids: event_definition_ids,
