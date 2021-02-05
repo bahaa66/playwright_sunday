@@ -13,8 +13,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   def run() do
     start_event_type_pipelines()
     start_deployment_pipeline()
-    start_drilldown_connector()
     resubscribe_to_job_queues()
+    start_drilldown_connector()
   end
 
   # ----------------------- #
