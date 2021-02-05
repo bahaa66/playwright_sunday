@@ -41,7 +41,8 @@ config :kafka, :application,
   replication_factor: (System.get_env("REPLICATION_FACTOR") || "3") |> String.to_integer(),
   replica_assignment: System.get_env("REPLICA_ASSIGNMENT") || [],
   config_entries: System.get_env("CONFIG_ENTRIES") || [],
-  session_timeout: (System.get_env("SESSION_TIMEOUT") || "10000") |> String.to_integer()
+  session_timeout: (System.get_env("SESSION_TIMEOUT") || "10000") |> String.to_integer(),
+  kafka_connect_host: System.get_env("KAFKA_CONNECT_URL") || "http://localhost:8083"
 
 # Elasticsearch configurations
 config :elasticsearch, :application,
@@ -111,13 +112,15 @@ config :cogynt_workstation_ingest, :event_pipeline,
   producer_stages:
     (System.get_env("EVENTPIPELINE_PRODUCER_STAGES") || "10") |> String.to_integer()
 
-config :cogynt_workstation_ingest, :drilldown_pipeline,
-  processor_stages: (System.get_env("DRILLDOWN_PROCESSOR_STAGES") || "20") |> String.to_integer(),
-  producer_stages: (System.get_env("DRILLDOWN_PRODUCER_STAGES") || "10") |> String.to_integer()
-
 config :cogynt_workstation_ingest, :deployment_pipeline,
   processor_stages: (System.get_env("DEPLOYMENT_PROCESSOR_STAGES") || "2") |> String.to_integer(),
   producer_stages: (System.get_env("DEPLOYMENT_PRODUCER_STAGES") || "2") |> String.to_integer()
+
+config :cogynt_workstation_ingest, :drilldown_connector,
+  ts_connector_name: System.get_env("TS_DRILLDOWN_CONNECTOR_NAME") || "ts_drilldown_connector",
+  tse_connector_name: System.get_env("TSE_DRILLDOWN_CONNECTOR_NAME") || "tse_drilldown_connector",
+  time_delay:
+    (System.get_env("SINK_CONNECTOR_RESTART_TIMEDELAY") || "600000") |> String.to_integer()
 
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.

@@ -4,7 +4,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   """
   use Task
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngest.Deployments.DeploymentsContext
+  alias CogyntWorkstationIngest.Drilldown.DrilldownSinkConnector
 
   def start_link(_arg \\ []) do
     Task.start_link(__MODULE__, :run, [])
@@ -13,7 +13,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   def run() do
     start_event_type_pipelines()
     start_deployment_pipeline()
-    start_drilldown_pipelines()
+    start_drilldown_connector()
     resubscribe_to_job_queues()
   end
 
@@ -42,20 +42,31 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
     Redis.publish_async("ingest_channel", %{start_deployment_pipeline: "deployment"})
   end
 
-  defp start_drilldown_pipelines() do
-    case DeploymentsContext.list_deployments() do
-      nil ->
-        nil
-
-      deployments ->
-        Enum.each(deployments, fn deployment ->
-          CogyntLogger.info(
+  # TODO: eventually need to do this for every deployment target. Connector needs
+  # to support multiple kafka brokers
+  defp start_drilldown_connector(count \\ 0) do
+    if count <= 5 do
+      # make sure rest port for connect is running
+      case DrilldownSinkConnector.kafka_connect_health() do
+        {:error, reason} ->
+          CogyntLogger.error(
             "#{__MODULE__}",
-            "Starting DrilldownPipeline for Deplpoyment_Id: #{deployment.id}"
+            "Failed to connect to KafkaConnect because:#{reason}. Sleeping and trying again."
           )
 
-          Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment.id})
-        end)
+          Process.sleep(25000)
+          start_drilldown_connector(count + 1)
+
+        {:ok, body} ->
+          CogyntLogger.info("#{__MODULE__}", "Connected to Kafka Connect. #{inspect(body)}")
+          # check if the connectors are present, then create or update
+          DrilldownSinkConnector.create_or_update()
+      end
+    else
+      CogyntLogger.error(
+        "#{__MODULE__}",
+        "Failed to connect to Kafka connect and exceeded retry attempts"
+      )
     end
   end
 

@@ -21,15 +21,12 @@ config :cogynt_workstation_ingest, :clients,
 # Kafka Configurations
 config :kafka, :application,
   kafka_client: :brod,
-  template_solutions_topic: "template_solutions",
-  template_solution_events_topic: "template_solution_events",
   deployment_topic: "deployment"
 
 # Elasticsearch Configurations
 config :elasticsearch, :application,
   elasticsearch_client: Elasticsearch,
   http_client: HTTPoison,
-  event_index_alias: "event",
   event_index_alias: "event",
   risk_history_index_alias: "risk_history",
   retry_on_conflict: 5,
@@ -51,8 +48,6 @@ config :cogynt_workstation_ingest, :core_keys,
   update: "update",
   delete: "delete",
   create: "create"
-
-config :cogynt_workstation_ingest, :drilldown_pipeline, enabled: false
 
 config :cogynt_workstation_ingest, :failed_messages,
   retry_timer: 600_000,
