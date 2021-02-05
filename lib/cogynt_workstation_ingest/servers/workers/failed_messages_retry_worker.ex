@@ -10,7 +10,6 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
   @demand 100
   @deployment_pipeline_name :DeploymentPipeline
   @deployment_pipeline_module CogyntWorkstationIngest.Broadway.DeploymentPipeline
-  @drilldown_pipeline_module CogyntWorkstationIngest.Broadway.DrilldownPipeline
   @event_pipeline_module CogyntWorkstationIngest.Broadway.EventPipeline
 
   # -------------------- #
@@ -55,44 +54,6 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
         CogyntLogger.error(
           "#{__MODULE__}",
           "Failed to push failed_messages to DeploymentPipeline"
-        )
-    end
-
-    try do
-      # poll for failed drilldown messages
-      {:ok, drilldown_failed_message_keys} = Redis.keys_by_pattern("fdm:*")
-
-      Enum.each(drilldown_failed_message_keys, fn key ->
-        broadway_pipeline_id =
-          String.split(key, ":")
-          |> List.last()
-
-        child_pid = Process.whereis(String.to_atom(broadway_pipeline_id <> "Pipeline"))
-
-        drilldown_pipeline_running =
-          case is_nil(child_pid) do
-            true ->
-              false
-
-            false ->
-              true
-          end
-
-        if drilldown_pipeline_running do
-          failed_drilldown_messages =
-            fetch_and_release_failed_messages(@demand, @drilldown_pipeline_module, key)
-
-          Broadway.push_messages(
-            String.to_atom(broadway_pipeline_id <> "Pipeline"),
-            failed_drilldown_messages
-          )
-        end
-      end)
-    rescue
-      _ ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Failed to push failed_messages to DrilldownPipeline"
         )
     end
 

@@ -114,7 +114,8 @@ defmodule CogyntWorkstationIngest.MixProject do
         "ecto.create",
         "ecto.migrate",
         "run priv/repo/seeds.exs",
-        "create_elastic_indexes"
+        "create_elastic_indexes",
+        "create_drilldown_sink_connector"
       ],
       "ecto.reset": ["drop_elastic_indexes", "flush_redis_db", "ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate", "test"]

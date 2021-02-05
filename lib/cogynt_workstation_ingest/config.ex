@@ -1,8 +1,4 @@
 defmodule CogyntWorkstationIngest.Config do
-  def drilldown_processor_stages(), do: drilldown_pipeline()[:processor_stages]
-  def drilldown_producer_stages(), do: drilldown_pipeline()[:producer_stages]
-  def drilldown_enabled(), do: drilldown_pipeline()[:enabled]
-
   def deployment_processor_stages(), do: deployment_pipeline()[:processor_stages]
   def deployment_producer_stages(), do: deployment_pipeline()[:producer_stages]
 
@@ -27,6 +23,7 @@ defmodule CogyntWorkstationIngest.Config do
   def config_entries, do: kafka()[:config_entries]
   def session_timeout, do: kafka()[:session_timeout]
   def deployment_topic(), do: kafka()[:deployment_topic]
+  def kafka_connect_host, do: kafka()[:kafka_connect_host]
 
   def redis_host(), do: redis()[:host]
   def redis_port(), do: redis()[:port]
@@ -51,6 +48,13 @@ defmodule CogyntWorkstationIngest.Config do
   def enable_dev_tools?(), do: Application.get_env(:cogynt_workstation_ingest, :enable_dev_tools)
 
   def postgres_username(), do: postgres()[:username]
+  def postgres_password(), do: postgres()[:password]
+  def postgres_hostname(), do: postgres()[:hostname]
+  def postgres_database(), do: postgres()[:database]
+
+  def ts_connector_name(), do: connector()[:ts_connector_name]
+  def tse_connector_name(), do: connector()[:tse_connector_name]
+  def connector_restart_time_delay(), do: connector()[:time_delay]
 
   # ----------------------- #
   # --- private methods --- #
@@ -61,9 +65,6 @@ defmodule CogyntWorkstationIngest.Config do
   defp kafka, do: Application.get_env(:kafka, :application)
 
   defp redis, do: Application.get_env(:redis, :application)
-
-  defp drilldown_pipeline(),
-    do: Application.get_env(:cogynt_workstation_ingest, :drilldown_pipeline)
 
   defp deployment_pipeline(),
     do: Application.get_env(:cogynt_workstation_ingest, :deployment_pipeline)
@@ -83,4 +84,6 @@ defmodule CogyntWorkstationIngest.Config do
   defp elasticsearch(), do: Application.get_env(:elasticsearch, :application)
 
   defp clients(), do: Application.get_env(:cogynt_workstation_ingest, :clients)
+
+  defp connector(), do: Application.get_env(:cogynt_workstation_ingest, :drilldown_connector)
 end

@@ -1,11 +1,10 @@
 defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   @moduledoc """
-  Module that acts as the Broadway Processor for the DrilldownPipeline.
+  Module that acts as the Broadway Processor for the DeploymentPipeline.
   """
 
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngest.Broadway.DrilldownPipeline
   alias Models.Deployments.Deployment
   alias Models.Enums.DeploymentStatusType
   alias Models.Events.EventDefinition
@@ -56,7 +55,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
 
       "deployment" ->
         # Upsert Deployments
-        {:ok, %Deployment{} = deployment} =
+        {:ok, %Deployment{} = _deployment} =
           DeploymentsContext.upsert_deployment(deployment_message)
 
         # Fetch all event_definitions that exists and are assosciated with
@@ -101,10 +100,8 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           end
         end)
 
-        # Start Drilldown Consumer for Deployment
-        if not DrilldownPipeline.drilldown_pipeline_running?(deployment) do
-          Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment.id})
-        end
+        # TODO: eventually we will need to start a Drilldown Connector for each new
+        # deployment target that is ingested
 
         message
 
