@@ -165,9 +165,13 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContextNew do
   end
 
   defp process_template_solution_outcomes(outcomes) do
-    Enum.reduce(outcomes, [], fn outcome, acc ->
-      outcome = Map.put(outcome, "assertion_id", nil)
-      [outcome | acc]
+    Enum.reduce(outcomes, [], fn %{"id" => id} = outcome, acc ->
+      if Enum.find(acc, fn %{"id" => a_id} -> a_id == id end) do
+        acc
+      else
+        outcome = Map.put(outcome, "assertion_id", nil)
+        [outcome | acc]
+      end
     end)
   end
 
