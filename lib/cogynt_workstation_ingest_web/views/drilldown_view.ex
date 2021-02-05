@@ -38,24 +38,28 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   )
 
   def children(info, _conn) do
-    solution_ids = Map.values(info["events"])
-    |> Enum.filter(&(not (&1["$partial"] == true and &1["_confidence"] == 0.0)))
-    |> Enum.reduce(MapSet.new(), fn
-      %{"published_by" => id}, a ->
-        if info["id"] == id or Enum.member?(info["#visited"], id) do
-          MapSet.put(a, id)
-        else
-          a
-        end
-      _, a -> a
-    end)
-    |> MapSet.to_list()
+    solution_ids =
+      Map.values(info["events"])
+      |> Enum.filter(&(not (&1["$partial"] == true and &1["_confidence"] == 0.0)))
+      |> Enum.reduce(MapSet.new(), fn
+        %{"published_by" => id}, a ->
+          if info["id"] == id or Enum.member?(info["#visited"], id) do
+            a
+          else
+            MapSet.put(a, id)
+          end
 
-    DrilldownContextNew.list_template_solutions(%{ids: solution_ids})
+        _, a ->
+          a
+      end)
+      |> MapSet.to_list()
+
+    DrilldownContextNew.list_template_solutions(%{ids: solution_ids, distinct: :id})
     |> Enum.uniq()
     |> Enum.map(fn inst ->
       inst_id = inst["id"]
       visited = [inst_id | info["#visited"]]
+
       # Convert id to a unique id combining parent and child ids
       # put original id in "key", only if the parent has key.  This
       # ensures drill down has unique ids for all nodes, but index and
