@@ -165,14 +165,21 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContextNew do
   end
 
   defp process_template_solution_outcomes(outcomes) do
-    Enum.reduce(outcomes, [], fn %{"id" => id} = outcome, acc ->
-      if Enum.find(acc, fn %{"id" => a_id} -> a_id == id end) do
-        acc
+    Enum.reduce(outcomes, %{}, fn outcome, acc ->
+      de = Map.get(acc, Map.get(outcome, "id"), %{})
+      outcome = Map.put(outcome, "assertion_id", nil)
+      epa = Map.get(de, "published_at", "1970-01-01T00:00:00Z")
+      npa = Map.get(outcome, "published_at", "1970-01-01T00:00:00Z")
+
+      # If the event doesn't already exists in our map or the published_at
+      # of this event is more recent than the one in our map we replace it.
+      if de == %{} or npa > epa do
+        Map.put(acc, Map.get(outcome, "id"), outcome)
       else
-        outcome = Map.put(outcome, "assertion_id", nil)
-        [outcome | acc]
+        acc
       end
     end)
+    |> Map.values()
   end
 
   defp process_template_solutions(data) when is_list(data) do
