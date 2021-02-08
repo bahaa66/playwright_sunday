@@ -45,22 +45,22 @@ defmodule CogyntWorkstationIngest.Servers.Monitors.DrilldownSinkConnectorMonitor
          {:ok, %{connector: %{state: _state}, tasks: [%{id: tse_id, state: tse_state}]}} <-
            DrilldownSinkConnector.connector_status?(tse_connector_name) do
       cond do
-        ts_state == "RUNNING" and tse_state == "RUNNING" ->
+        ts_state != "FAILED" and tse_state != "FAILED" ->
           CogyntLogger.info(
             "#{__MODULE__}",
-            "DrilldownSinkConnector task is running... do not restart task"
+            "DrilldownSinkConnector task is #{ts_state}... do not restart task"
           )
 
           schedule_status_check()
           {:noreply, state}
 
-        ts_state != "RUNNING" and tse_state != "RUNNING" ->
+        ts_state == "FAILED" and tse_state == "FAILED" ->
           DrilldownSinkConnector.restart_task(ts_connector_name, ts_id)
           DrilldownSinkConnector.restart_task(tse_connector_name, tse_id)
           schedule_status_check()
           {:noreply, state}
 
-        ts_state != "RUNNING" ->
+        ts_state == "FAILED" ->
           CogyntLogger.info(
             "#{__MODULE__}",
             "#{ts_connector_name} task is not running... state: #{ts_state} so, restarting task"
@@ -70,7 +70,7 @@ defmodule CogyntWorkstationIngest.Servers.Monitors.DrilldownSinkConnectorMonitor
           schedule_status_check()
           {:noreply, state}
 
-        tse_state != "RUNNING" ->
+        tse_state == "FAILED" ->
           CogyntLogger.info(
             "#{__MODULE__}",
             "#{tse_connector_name} task is not running... state: #{tse_state} so, restarting task"
