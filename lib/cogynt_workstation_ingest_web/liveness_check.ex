@@ -46,7 +46,23 @@ defmodule LivenessCheck do
 
   defp postgres_health?() do
     try do
-      Ecto.Adapters.SQL.query(CogyntWorkstationIngest.Repo, "select 1", [])
+      query = "SELECT tablename FROM pg_tables
+      WHERE tableowner = #{Config.postgres_username()} AND schemaname = 'public' AND tablename IN (
+        'collection_items',
+        'event_definition_details',
+        'event_detail_template_group_items',
+        'event_detail_template_groups',
+        'event_detail_templates',
+        'event_details',
+        'event_links',
+        'notification_system_tags',
+        'notifications',
+        'notification_settings',
+        'events',
+        'event_definitions'
+      );"
+
+      Ecto.Adapters.SQL.query(CogyntWorkstationIngest.Repo, query, [])
       true
     rescue
       DBConnection.ConnectionError ->
