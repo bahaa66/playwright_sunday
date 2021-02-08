@@ -197,6 +197,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownSinkConnector do
       "insert.mode" => "insert",
       "auto.create" => false,
       "auto.evolve" => true,
+      "batch.size" => 500,
       "value.converter" => "io.confluent.connect.avro.AvroConverter",
       "dialect.name" => "PostgreSqlDatabaseDialect",
       "key.converter" => "org.apache.kafka.connect.storage.StringConverter"
