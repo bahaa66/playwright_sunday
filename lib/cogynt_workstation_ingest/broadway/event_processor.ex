@@ -80,7 +80,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       true ->
         case EventsContext.create_event(%{
                event_definition_id: event_definition.id,
-               core_id: event["id"]
+               core_id: event["id"],
+               occurred_at: event["_timestamp"]
              }) do
           {:ok, %{id: event_id}} ->
             data =
@@ -699,7 +700,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:ok, nil} ->
         case EventsContext.create_event(%{
                event_definition_id: event_definition.id,
-               core_id: event["id"]
+               core_id: event["id"],
+               occurred_at: event["_timestamp"]
              }) do
           {:ok, %{id: event_id}} ->
             {:ok,
@@ -720,7 +722,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:ok, event_ids} ->
         case EventsContext.create_event(%{
                event_definition_id: event_definition.id,
-               core_id: event["id"]
+               core_id: event["id"],
+               occurred_at: event["_timestamp"]
              }) do
           {:ok, %{id: event_id}} ->
             {:ok,
@@ -754,7 +757,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:ok, event_ids} ->
         case EventsContext.create_event(%{
                event_definition_id: event_definition.id,
-               core_id: event["id"]
+               core_id: event["id"],
+               occurred_at: event["_timestamp"]
              }) do
           {:ok, %{id: event_id}} ->
             {:ok,
