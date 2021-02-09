@@ -10,11 +10,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
   alias CogyntWorkstationIngest.Broadway.{
     EventPipeline,
-    DeploymentPipeline,
-    DrilldownPipeline
+    DeploymentPipeline
   }
-
-  alias Models.Deployments.Deployment
 
   def start_link(arg) do
     DynamicSupervisor.start_link(__MODULE__, arg, name: __MODULE__)
@@ -111,99 +108,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def start_child(:drilldown, deployment \\ %Deployment{}) do
-    case deployment do
-      %Deployment{id: nil} ->
-        Kafka.Api.Topic.create_topics([
-          Config.template_solutions_topic(),
-          Config.template_solution_events_topic()
-        ])
-
-        cgid = "#{UUID.uuid1()}"
-
-        consumer_group_id =
-          case Redis.hash_set_if_not_exists("dcgid", "Drilldown", cgid) do
-            {:ok, 0} ->
-              {:ok, existing_id} = Redis.hash_get("dcgid", "Drilldown")
-              "Drilldown" <> "-" <> existing_id
-
-            {:ok, 1} ->
-              "Drilldown" <> "-" <> cgid
-          end
-
-        child_spec = %{
-          id: :DrillDown,
-          start: {
-            DrilldownPipeline,
-            :start_link,
-            [
-              %{
-                group_id: consumer_group_id,
-                topics: [
-                  Config.template_solutions_topic(),
-                  Config.template_solution_events_topic()
-                ],
-                hosts: Config.kafka_brokers()
-              }
-            ]
-          },
-          restart: :transient,
-          shutdown: 5000,
-          type: :supervisor
-        }
-
-        DynamicSupervisor.start_child(__MODULE__, child_spec)
-
-      %Deployment{id: id} ->
-        {:ok, brokers} = DeploymentsContext.get_kafka_brokers(id)
-
-        hash_string = Integer.to_string(:erlang.phash2(brokers))
-
-        cgid = "#{UUID.uuid1()}"
-
-        consumer_group_id =
-          case Redis.hash_set_if_not_exists("dcgid", "Drilldown-#{hash_string}", cgid) do
-            {:ok, 0} ->
-              {:ok, existing_id} = Redis.hash_get("dcgid", "Drilldown-#{hash_string}")
-              "Drilldown-#{hash_string}" <> "-" <> existing_id
-
-            {:ok, 1} ->
-              "Drilldown-#{hash_string}" <> "-" <> cgid
-          end
-
-        Kafka.Api.Topic.create_topics(
-          [
-            Config.template_solutions_topic(),
-            Config.template_solution_events_topic()
-          ],
-          brokers: brokers
-        )
-
-        child_spec = %{
-          id: :DrillDown,
-          start: {
-            DrilldownPipeline,
-            :start_link,
-            [
-              %{
-                group_id: consumer_group_id,
-                topics: [
-                  Config.template_solutions_topic(),
-                  Config.template_solution_events_topic()
-                ],
-                hosts: brokers
-              }
-            ]
-          },
-          restart: :transient,
-          shutdown: 5000,
-          type: :supervisor
-        }
-
-        DynamicSupervisor.start_child(__MODULE__, child_spec)
-    end
-  end
-
   def stop_child(event_definition_id) when is_binary(event_definition_id) do
     consumer_group_id = fetch_event_cgid(event_definition_id)
     pipeline_name = String.to_atom(consumer_group_id <> "Pipeline")
@@ -262,97 +166,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       end
     else
       {:ok, :success}
-    end
-  end
-
-  def stop_child(:drilldown, deployment \\ %Deployment{}) do
-    case deployment do
-      %Deployment{id: nil} ->
-        consumer_group_id = fetch_drilldown_cgid()
-        pipeline_name = String.to_atom(consumer_group_id <> "Pipeline")
-
-        child_pid = Process.whereis(pipeline_name)
-
-        if child_pid != nil do
-          case ensure_consumer_group_state(consumer_group_id, pipeline_name) do
-            {:ok, :stop_consumer} ->
-              GenServer.stop(child_pid)
-              Process.sleep(1500)
-              {:ok, :success}
-
-            {:error, :delete_consumer_group_id} ->
-              Redis.hash_delete("dcgid", "Drilldown")
-              GenServer.stop(child_pid)
-              Process.sleep(1500)
-              {:ok, :success}
-
-            {:error, :delete_consumer_group_id_and_data} ->
-              Redis.hash_delete("dcgid", "Drilldown")
-              # TODO: call job worker for soft deleting drilldown data
-              GenServer.stop(child_pid)
-              Process.sleep(1500)
-              {:ok, :success}
-          end
-        else
-          {:ok, :success}
-        end
-
-      %Deployment{id: deployment_id} ->
-        consumer_group_id = fetch_drilldown_cgid(deployment_id)
-        pipeline_name = String.to_atom(consumer_group_id <> "Pipeline")
-
-        child_pid = Process.whereis(pipeline_name)
-
-        if child_pid != nil do
-          case ensure_consumer_group_state(consumer_group_id, pipeline_name) do
-            {:ok, :stop_consumer} ->
-              GenServer.stop(child_pid)
-              Process.sleep(1500)
-              {:ok, :success}
-
-            {:error, :delete_consumer_group_id} ->
-              {:ok, brokers} = DeploymentsContext.get_kafka_brokers(deployment_id)
-              hash_string = Integer.to_string(:erlang.phash2(brokers))
-              Redis.hash_delete("dcgid", "Drilldown-#{hash_string}")
-              GenServer.stop(child_pid)
-              Process.sleep(1500)
-              {:ok, :success}
-
-            {:error, :delete_consumer_group_id_and_data} ->
-              {:ok, brokers} = DeploymentsContext.get_kafka_brokers(deployment_id)
-              hash_string = Integer.to_string(:erlang.phash2(brokers))
-              Redis.hash_delete("dcgid", "Drilldown-#{hash_string}")
-              # TODO: call job worker for soft deleting drilldown data
-              GenServer.stop(child_pid)
-              Process.sleep(1500)
-              {:ok, :success}
-          end
-        else
-          {:ok, :success}
-        end
-    end
-  end
-
-  def fetch_drilldown_cgid(deployment_id \\ nil) do
-    if is_nil(deployment_id) do
-      case Redis.hash_get("dcgid", "Drilldown") do
-        {:ok, nil} ->
-          ""
-
-        {:ok, consumer_group_id} ->
-          "Drilldown" <> "-" <> consumer_group_id
-      end
-    else
-      {:ok, brokers} = DeploymentsContext.get_kafka_brokers(deployment_id)
-      hash_string = Integer.to_string(:erlang.phash2(brokers))
-
-      case Redis.hash_get("dcgid", "Drilldown-#{hash_string}") do
-        {:ok, nil} ->
-          ""
-
-        {:ok, consumer_group_id} ->
-          "Drilldown-#{hash_string}" <> "-" <> consumer_group_id
-      end
     end
   end
 

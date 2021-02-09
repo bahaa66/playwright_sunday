@@ -4,10 +4,10 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
   """
   use GenServer
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngest.Broadway.{DrilldownPipeline, DeploymentPipeline}
+  alias CogyntWorkstationIngest.Broadway.DeploymentPipeline
+  alias CogyntWorkstationIngest.Servers.Monitors.DrilldownSinkConnectorMonitor
 
   # -------------------- #
   # --- client calls --- #
@@ -68,24 +68,6 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
         ConsumerStateManager.manage_request(%{start_consumer: event_definition})
 
-      {:ok, %{start_drilldown_pipeline: deployment_id} = request} ->
-        if Config.drilldown_enabled() do
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
-          )
-
-          # Fetch deployment object for deplpoyment_id
-          deployment = DeploymentsContext.get_deployment(deployment_id)
-
-          if not is_nil(deployment) do
-            # Ensure that DrilldownPipeline is not already running
-            if not DrilldownPipeline.drilldown_pipeline_running?(deployment) do
-              ConsumerGroupSupervisor.start_child(:drilldown, deployment)
-            end
-          end
-        end
-
       {:ok, %{start_deployment_pipeline: _args} = request} ->
         CogyntLogger.info(
           "#{__MODULE__}",
@@ -123,7 +105,9 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
           "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
         )
 
-        ConsumerStateManager.manage_request(%{stop_consumer_for_notification_tasks: event_definition})
+        ConsumerStateManager.manage_request(%{
+          stop_consumer_for_notification_tasks: event_definition
+        })
 
       {:ok, %{stop_deployment_pipeline: _args} = request} ->
         CogyntLogger.info(
@@ -133,20 +117,13 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
         ConsumerGroupSupervisor.stop_child(:deployment)
 
-      {:ok, %{stop_drilldown_pipeline: deployment_id} = request} ->
-        # Controls if Drilldown is enabled on Ingest
-        if Config.drilldown_enabled() do
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
-          )
+      {:ok, %{pause_drilldown_connector_monitor: paused} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
 
-          deployment = DeploymentsContext.get_deployment(deployment_id)
-
-          if not is_nil(deployment) do
-            ConsumerGroupSupervisor.stop_child(:drilldown, deployment)
-          end
-        end
+        DrilldownSinkConnectorMonitor.update_paused_state(paused)
 
       {:ok, _} ->
         CogyntLogger.warn(

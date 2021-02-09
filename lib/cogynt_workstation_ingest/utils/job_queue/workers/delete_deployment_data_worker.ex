@@ -11,9 +11,10 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
 
   alias CogyntWorkstationIngest.Config
 
-  def perform() do
+  def perform(delete_topics_for_deployments) do
     # First reset all DrilldownData passing true to delete topic data
-    DeleteDrilldownDataWorker.perform(true)
+
+    DeleteDrilldownDataWorker.perform(delete_topics_for_deployments)
 
     CogyntLogger.info("#{__MODULE__}", "Stopping the DeploymentPipeline")
     # Second stop the DeploymentPipeline
@@ -27,18 +28,20 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
     )
 
     # Third delete all data for the delployment topic
-    delete_topic_result = Kafka.Api.Topic.delete_topic(Config.deployment_topic())
+    if delete_topics_for_deployments do
+      delete_topic_result = Kafka.Api.Topic.delete_topic(Config.deployment_topic())
 
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "Deleted Deployment Topics result: #{inspect(delete_topic_result, pretty: true)}"
-    )
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "Deleted Deployment Topics result: #{inspect(delete_topic_result, pretty: true)}"
+      )
+    end
 
     # Fourth reset all the data for each event_definition
     DeleteEventDefinitionsAndTopicsWorker.perform(%{
       "event_definition_ids" => [],
       "hard_delete" => true,
-      "delete_topics" => true
+      "delete_topics" => delete_topics_for_deployments
     })
 
     # Finally reset all the deployment data
