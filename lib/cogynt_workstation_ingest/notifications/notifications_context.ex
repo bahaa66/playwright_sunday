@@ -315,7 +315,13 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
           |> select(^select)
 
         multi
-        |> Multi.update_all(multi_name, n_query, set: [event_id: event_id, deleted_at: deleted_at])
+        |> Multi.update_all(multi_name, n_query,
+          set: [
+            event_id: event_id,
+            updated_at: DateTime.truncate(DateTime.utc_now(), :second),
+            deleted_at: deleted_at
+          ]
+        )
     end
   end
 
