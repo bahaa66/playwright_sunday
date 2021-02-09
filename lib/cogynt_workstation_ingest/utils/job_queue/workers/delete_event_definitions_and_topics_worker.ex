@@ -264,10 +264,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
           filter: %{event_definition_id: event_definition_id}
         })
 
-      # Delete event detail templates
-      {_event_definition_details_count, _} =
-        EventsContext.hard_delete_event_definition_details(event_definition_id)
-
       new_events =
         EventsContext.query_events(%{
           filter: %{event_definition_id: event_definition_id},
