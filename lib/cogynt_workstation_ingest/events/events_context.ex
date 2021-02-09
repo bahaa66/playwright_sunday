@@ -708,7 +708,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         multi
 
       false ->
-        deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
+        now = DateTime.truncate(DateTime.utc_now(), :second)
 
         e_query =
           from(
@@ -717,7 +717,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           )
 
         multi
-        |> Multi.update_all(:update_events, e_query, set: [deleted_at: deleted_at])
+        |> Multi.update_all(:update_events, e_query, set: [updated_at: now, deleted_at: now])
     end
   end
 
@@ -727,7 +727,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         multi
 
       false ->
-        deleted_at = DateTime.truncate(DateTime.utc_now(), :second)
+        now = DateTime.truncate(DateTime.utc_now(), :second)
 
         l_query =
           from(
@@ -736,7 +736,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           )
 
         multi
-        |> Multi.update_all(:update_event_links, l_query, set: [deleted_at: deleted_at])
+        |> Multi.update_all(:update_event_links, l_query, set: [updated_at: now, deleted_at: now])
     end
   end
 
