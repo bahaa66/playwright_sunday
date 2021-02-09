@@ -65,16 +65,14 @@ defmodule CogyntWorkstationIngest.MixProject do
        override: true},
       {
         :models,
-        #tag: "v1.12.0",
-        branch: "feat/occurred-at-event-field",
+        tag: "v1.12.3",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        #tag: "v1.12.0",
-        branch: "feat/occurred-at-event-field",
+        tag: "v1.12.3",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
