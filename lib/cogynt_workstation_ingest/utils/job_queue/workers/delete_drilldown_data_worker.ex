@@ -14,7 +14,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
         "#{__MODULE__}",
         "Deleting the Drilldown Topics. #{Config.template_solutions_topic()}, #{
           Config.template_solution_events_topic()
-        }. Brokers: #{Config.kafka_brokers()}"
+        }. Brokers: #{inspect(Config.kafka_brokers())}"
       )
 
       # Delete topics for worker
