@@ -8,8 +8,6 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
 
   alias Models.Notifications.{NotificationSetting, Notification}
 
-  @delete Application.get_env(:cogynt_workstation_ingest, :core_keys)[:delete]
-
   # ------------------------------------ #
   # --- Notification Setting Methods --- #
   # ------------------------------------ #
@@ -43,6 +41,37 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   """
   def get_notification_setting_by(clauses),
     do: Repo.get_by(from(ns in NotificationSetting, where: is_nil(ns.deleted_at)), clauses)
+
+  @doc """
+  Querys NotificationSettings based on the filter args
+  ## Examples
+      iex> query_notification_settings(
+        %{
+          filter: %{
+            event_definition_id: "c1607818-7f32-11ea-bc55-0242ac130003"
+          }
+        }
+      )
+      [%NotificationSetting{}, %NotificationSetting{}]
+  """
+  def query_notification_settings(args) do
+    query =
+      Enum.reduce(args, from(ns in NotificationSetting), fn
+        {:filter, filter}, q ->
+          filter_notification_settings(filter, q)
+
+        {:select, select}, q ->
+          select(q, ^select)
+
+        {:order_by, order_by}, q ->
+          order_by(q, ^order_by)
+
+        {:limit, limit}, q ->
+          limit(q, ^limit)
+      end)
+
+    Repo.all(query)
+  end
 
   @doc """
   Hard deletes many notification settings and removes them from the database.
@@ -83,6 +112,29 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   # --- Notification Methods --- #
   # ---------------------------- #
   @doc """
+  Returns a Notification struct
+  %Notification{}
+  """
+  def generate_notification_struct(args) do
+    %Notification{
+      id: args.id,
+      title: args.title,
+      # description: args.description,
+      user_id: args.user_id,
+      archived_at: args.archived_at,
+      priority: args.priority,
+      assigned_to: args.assigned_to,
+      dismissed_at: args.dismissed_at,
+      deleted_at: args.deleted_at,
+      event_id: args.event_id,
+      notification_setting_id: args.notification_setting_id,
+      tag_id: args.tag_id,
+      created_at: args.created_at,
+      updated_at: args.updated_at
+    }
+  end
+
+  @doc """
   Returns a single Notification struct from the query
   ## Examples
       iex> get_notification_by(%{id: id})
@@ -92,6 +144,37 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   """
   def get_notification_by(clauses),
     do: Repo.get_by(Notification, clauses)
+
+  @doc """
+  Querys Notifications based on the filter args
+  ## Examples
+      iex> query_notifications(
+        %{
+          filter: %{
+            event_definition_id: "c1607818-7f32-11ea-bc55-0242ac130003"
+          }
+        }
+      )
+      [%Notifications{}, %Notifications{}]
+  """
+  def query_notifications(args) do
+    query =
+      Enum.reduce(args, from(n in Notification), fn
+        {:filter, filter}, q ->
+          filter_notifications(filter, q)
+
+        {:select, select}, q ->
+          select(q, ^select)
+
+        {:order_by, order_by}, q ->
+          order_by(q, ^order_by)
+
+        {:limit, limit}, q ->
+          limit(q, ^limit)
+      end)
+
+    Repo.all(query)
+  end
 
   @doc """
   Returns a list of the %Notification{} stucts that were inserted.
@@ -287,42 +370,14 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     |> Multi.insert_all(:insert_notifications, Notification, notifications, returning: returning)
   end
 
-  def update_all_notifications_multi(multi \\ Multi.new(), multi_name, %{
-        delete_event_ids: delete_event_ids,
-        action: action,
-        event_id: event_id
-      }) do
-    case is_nil(delete_event_ids) or Enum.empty?(delete_event_ids) do
-      true ->
-        multi
+  def upsert_all_notifications_multi(multi \\ Multi.new(), multi_name, notifications, opts \\ []) do
+    returning = Keyword.get(opts, :returning, [])
 
-      false ->
-        # If action is a delete we want to leave all notifications
-        # marked as deleted. Even the ones created for the most current event.
-        deleted_at =
-          if action == @delete do
-            DateTime.truncate(DateTime.utc_now(), :second)
-          else
-            nil
-          end
-
-        select = Notification.__schema__(:fields)
-
-        n_query =
-          from(n in Notification,
-            where: n.event_id in ^delete_event_ids
-          )
-          |> select(^select)
-
-        multi
-        |> Multi.update_all(multi_name, n_query,
-          set: [
-            event_id: event_id,
-            updated_at: DateTime.truncate(DateTime.utc_now(), :second),
-            deleted_at: deleted_at
-          ]
-        )
-    end
+    multi
+    |> Multi.insert_all(multi_name, Notification, notifications,
+      on_conflict: :replace_all,
+      returning: returning
+    )
   end
 
   def run_multi_transaction(multi) do
