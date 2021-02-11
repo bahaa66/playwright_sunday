@@ -7,6 +7,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
+  alias Models.Notifications.Notification
 
   alias Broadway.Message
   alias Ecto.Multi
@@ -226,6 +227,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   def process_notifications(%Message{data: %{event_id: nil}} = message), do: message
 
+  # Only need to create a notification if there is no previous events linked via its core_id. (crud data)
+  # This is because even whenever a notification setting is created in Admin console we first stop the
+  # corresponding event_pipeline and backfill all the notifications for all events that may have been ingested
+  # and when the pipleine is started again it will start creating notifications via this method again.
   def process_notifications(
         %Message{
           data:
@@ -265,6 +270,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       delete_event_ids: [],
       notifications: [],
       event_id: nil,
+      event: nil,
+      event_definition_id: nil,
       crud_action: nil,
       event_doc: [],
       risk_history_doc: []
@@ -279,9 +286,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           Enum.reduce(values, default_map, fn %Broadway.Message{data: data}, acc_1 ->
             data =
               Map.drop(data, [
-                :event,
                 :event_definition,
-                :event_definition_id,
                 :retry_count
               ])
 
@@ -303,6 +308,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                   else
                     v1 ++ v2
                   end
+
+                :event_definition_id ->
+                  v2
+
+                :event ->
+                  v2
 
                 :event_id ->
                   v2
@@ -405,18 +416,118 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       Enum.reduce(core_id_data_map, multi, fn {_key, data}, acc ->
         delete_event_ids = Map.get(data, :delete_event_ids)
         crud_action = Map.get(data, :crud_action)
+        event = Map.get(data, :event, %{})
+        event_risk_score = event["_confidence"]
+        event_definition_id = Map.get(data, :event_definition_id)
         event_id = Map.get(data, :event_id)
 
-        multi_name = String.to_atom("update_notifications" <> ":" <> "#{event_id}")
+        case is_nil(delete_event_ids) or Enum.empty?(delete_event_ids) do
+          true ->
+            multi
 
-        NotificationsContext.update_all_notifications_multi(acc, multi_name, %{
-          delete_event_ids: delete_event_ids,
-          action: crud_action,
-          event_id: event_id
-        })
+          false ->
+            start = Time.utc_now()
+
+            # First find fetch all the Notification_settings for the EventDefinitionId and
+            # filter out all invalid notification_settings. Only notification_settings that match the current
+            # events criteria
+            valid_notification_settings =
+              NotificationsContext.query_notification_settings(%{
+                filter: %{event_definition_id: event_definition_id}
+              })
+              |> Enum.filter(fn notification_setting ->
+                NotificationsContext.in_risk_range?(
+                  event_risk_score,
+                  notification_setting.risk_range
+                )
+              end)
+
+            # Second fetch all the Notifications that were created against the deleted_event_ids
+            # and create a new list of notifications to either be updated or deleted based on the
+            # list of valid_notification_settings
+            notifications =
+              NotificationsContext.query_notifications(%{
+                filter: %{event_ids: delete_event_ids},
+                select: [Notification.__schema__(:fields)]
+              })
+              |> Enum.reduce([], fn notification, acc ->
+                ns =
+                  Enum.find(valid_notification_settings, fn notification_setting ->
+                    notification.notification_setting_id == notification_setting.id
+                  end)
+
+                if is_nil(ns) do
+                  acc ++
+                    [
+                      NotificationsContext.generate_notification_struct(%{
+                        id: notification.id,
+                        title: notification.title,
+                        # description: notification.description,
+                        user_id: notification.user_id,
+                        archived_at: notification.archived_at,
+                        priority: notification.priority,
+                        assigned_to: notification.assigned_to,
+                        dismissed_at: notification.dismissed_at,
+                        deleted_at: DateTime.truncate(DateTime.utc_now(), :second),
+                        event_id: notification.event_id,
+                        notification_setting_id: notification.notification_setting_id,
+                        tag_id: notification.tag_id,
+                        created_at: notification.created_at,
+                        updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                      })
+                    ]
+                else
+                  deleted_at =
+                    if crud_action == @delete do
+                      DateTime.truncate(DateTime.utc_now(), :second)
+                    else
+                      nil
+                    end
+
+                  acc ++
+                    [
+                      NotificationsContext.generate_notification_struct(%{
+                        id: notification.id,
+                        title: ns.title,
+                        # description: notification.description,
+                        user_id: ns.user_id,
+                        archived_at: notification.archived_at,
+                        priority: notification.priority,
+                        assigned_to: ns.assigned_to,
+                        dismissed_at: notification.dismissed_at,
+                        deleted_at: deleted_at,
+                        event_id: event_id,
+                        notification_setting_id: ns.id,
+                        tag_id: ns.tag_id,
+                        created_at: notification.created_at,
+                        updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                      })
+                    ]
+                end
+              end)
+
+            finish = Time.utc_now()
+            diff = Time.diff(finish, start, :millisecond)
+            IO.puts("DURATION OF NEW NOTIFICATION LOGIC: #{diff}, PID: #{inspect(self())}")
+
+            NotificationsContext.upsert_all_notifications_multi(
+              acc,
+              String.to_atom("upsert_notifications" <> ":" <> "#{event_id}"),
+              notifications,
+              returning: [
+                :event_id,
+                :user_id,
+                :tag_id,
+                :id,
+                :title,
+                :notification_setting_id,
+                :created_at,
+                :updated_at,
+                :assigned_to
+              ]
+            )
+        end
       end)
-
-    # start = Time.utc_now()
 
     # elasticsearch updates
     # TODO: instead of creating all the documents and then in the next
@@ -462,7 +573,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         case transaction_result do
           {:ok, results} ->
             Enum.each(results, fn {key, {_count, items}} ->
-              if String.contains?(to_string(key), "update_notifications") do
+              if String.contains?(to_string(key), "upsert_notifications") do
                 SystemNotificationContext.bulk_update_system_notifications(items)
               end
             end)
@@ -508,7 +619,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
           {:ok, results} ->
             Enum.each(results, fn {key, {_count, items}} ->
-              if String.contains?(to_string(key), "update_notifications") do
+              if String.contains?(to_string(key), "upsert_notifications") do
                 SystemNotificationContext.bulk_update_system_notifications(items)
               end
 
@@ -528,10 +639,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             raise "execute_batch_transaction_for_crud/1 failed"
         end
     end
-
-    # finish = Time.utc_now()
-    # diff = Time.diff(finish, start, :millisecond)
-    # IO.puts("DURATION: #{diff}, PID: #{inspect(self())}")
   end
 
   @doc """
