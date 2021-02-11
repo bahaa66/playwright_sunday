@@ -298,7 +298,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
             notifications =
               NotificationsContext.query_notifications(%{
                 filter: %{event_ids: delete_event_ids},
-                select: [Notification.__schema__(:fields)]
+                select: Notification.__schema__(:fields)
               })
               |> Enum.reduce([], fn notification, acc ->
                 ns =
