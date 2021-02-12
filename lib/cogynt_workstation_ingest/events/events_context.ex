@@ -53,7 +53,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     preload_event_details = Keyword.get(opts, :preload_event_details, false)
 
     query =
-      Enum.reduce(args, from(ns in Event), fn
+      Enum.reduce(args, from(e in Event), fn
         {:filter, filter}, q ->
           filter_events(filter, q)
 
