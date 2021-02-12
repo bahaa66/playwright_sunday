@@ -442,6 +442,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                 )
               end)
 
+            IO.inspect(valid_notification_settings, label: "VALID NOTIFICATION SETTINGS:")
+
             # Second fetch all the Notifications that were created against the deleted_event_ids
             # and create a new list of notifications to either be updated or deleted based on the
             # list of valid_notification_settings
@@ -455,6 +457,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                   Enum.find(valid_notification_settings, fn notification_setting ->
                     notification.notification_setting_id == notification_setting.id
                   end)
+
+                IO.inspect(ns, label: "Notification matched Notification Setting")
 
                 if is_nil(ns) do
                   acc ++
