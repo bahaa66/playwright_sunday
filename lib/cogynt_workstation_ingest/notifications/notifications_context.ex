@@ -3,6 +3,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   The Notifications context: public interface for event related functionality.
   """
   import Ecto.Query, warn: false
+  import Ecto.Changeset, only: [cast: 3, apply_changes: 1]
   alias Ecto.Multi
   alias CogyntWorkstationIngest.Repo
 
@@ -116,22 +117,26 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   %Notification{}
   """
   def generate_notification_struct(args) do
-    %Notification{
-      id: args.id,
-      title: args.title,
-      # description: args.description,
-      user_id: args.user_id,
-      archived_at: args.archived_at,
-      priority: args.priority,
-      assigned_to: args.assigned_to,
-      dismissed_at: args.dismissed_at,
-      deleted_at: args.deleted_at,
-      event_id: args.event_id,
-      notification_setting_id: args.notification_setting_id,
-      tag_id: args.tag_id,
-      created_at: args.created_at,
-      updated_at: args.updated_at
-    }
+    %Notification{}
+    |> cast(args, Notification.__schema__(:fields))
+    |> apply_changes()
+
+    # %Notification{
+    #   id: args.id,
+    #   title: args.title,
+    #   # description: args.description,
+    #   user_id: args.user_id,
+    #   archived_at: args.archived_at,
+    #   priority: args.priority,
+    #   assigned_to: args.assigned_to,
+    #   dismissed_at: args.dismissed_at,
+    #   deleted_at: args.deleted_at,
+    #   event_id: args.event_id,
+    #   notification_setting_id: args.notification_setting_id,
+    #   tag_id: args.tag_id,
+    #   created_at: args.created_at,
+    #   updated_at: args.updated_at
+    # }
   end
 
   @doc """
