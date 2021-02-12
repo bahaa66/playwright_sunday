@@ -435,6 +435,12 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     Enum.reduce(filter, query, fn
       {:event_definition_id, event_definition_id}, q ->
         where(q, [ns], ns.event_definition_id == ^event_definition_id)
+
+      {:deleted_at, nil}, q ->
+        where(q, [ns], is_nil(ns.deleted_at))
+
+      {:deleted_at, _}, q ->
+        where(q, [ns], is_nil(ns.deleted_at) == false)
     end)
   end
 end
