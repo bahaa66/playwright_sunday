@@ -408,6 +408,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         end)
       end)
 
+    IO.inspect(bulk_transactional_data.notifications, label: "Created Notifications")
+
     # Third itterate over the map that still holds the key = core_id and values = combined event maps
     # and build a Multi transactional object for each Crud key for the method `update_all_notifications`
     multi = Multi.new()
@@ -433,7 +435,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             # events criteria
             valid_notification_settings =
               NotificationsContext.query_notification_settings(%{
-                filter: %{event_definition_id: event_definition_id}
+                filter: %{event_definition_id: event_definition_id, deleted_at: nil}
               })
               |> Enum.filter(fn notification_setting ->
                 NotificationsContext.in_risk_range?(
@@ -452,7 +454,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                 filter: %{event_ids: delete_event_ids},
                 select: Notification.__schema__(:fields)
               })
-              |> Enum.reduce([], fn notification, acc ->
+
+            IO.inspect(notifications, label: "Notifications From Query:")
+
+            notifications =
+              Enum.reduce(notifications, [], fn notification, acc ->
                 ns =
                   Enum.find(valid_notification_settings, fn notification_setting ->
                     notification.notification_setting_id == notification_setting.id
