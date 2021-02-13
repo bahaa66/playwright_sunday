@@ -408,7 +408,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         end)
       end)
 
-    IO.inspect(bulk_transactional_data.notifications, label: "Created Notifications")
+    Enum.group_by(bulk_transactional_data.notifications, fn notification ->
+      notification.notification_setting_id
+    end)
+    |> Enum.each(fn {k, v} ->
+      IO.puts("NotificationSettingId: #{k} has #{Enum.count(v)} notifications")
+    end)
 
     # Third itterate over the map that still holds the key = core_id and values = combined event maps
     # and build a Multi transactional object for each Crud key for the method `update_all_notifications`
@@ -444,7 +449,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                 )
               end)
 
-            IO.inspect(valid_notification_settings, label: "VALID NOTIFICATION SETTINGS:")
+            IO.inspect(delete_event_ids, label: "DELETE EVENT IDS")
+            IO.inspect(valid_notification_settings, label: "VALID NOTIFICATION SETTINGS")
 
             # Second fetch all the Notifications that were created against the deleted_event_ids
             # and create a new list of notifications to either be updated or deleted based on the
