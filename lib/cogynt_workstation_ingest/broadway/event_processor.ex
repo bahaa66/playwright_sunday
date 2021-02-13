@@ -242,6 +242,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             } = data
         } = message
       ) do
+    IO.puts(
+      "EventId: #{event_id}, Creating Notification w/ Risk Score: #{
+        inspect(Map.get(event, @risk_score, 0))
+      }"
+    )
+
     case NotificationsContext.process_notifications(%{
            event_definition: event_definition,
            event_id: event_id,
@@ -264,6 +270,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   bulk
   """
   def execute_batch_transaction_for_crud(core_id_data_map) do
+    IO.puts("Running execute_batch_transaction_for_crud")
     # build transactional data
     default_map = %{
       event_details: [],
