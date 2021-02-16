@@ -180,11 +180,16 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   def bulk_insert_notifications(notifications, opts \\ []) when is_list(notifications) do
     returning = Keyword.get(opts, :returning, [:id])
     on_conflict = Keyword.get(opts, :on_conflict, :nothing)
+    conflict_target = Keyword.get(opts, :conflict_target, :id)
 
     if Enum.empty?(notifications) do
       {0, []}
     else
-      Repo.insert_all(Notification, notifications, returning: returning, on_conflict: on_conflict)
+      Repo.insert_all(Notification, notifications,
+        returning: returning,
+        on_conflict: on_conflict,
+        conflict_target: conflict_target
+      )
     end
   end
 

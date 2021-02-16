@@ -609,6 +609,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         )
 
         raise "execute_batch_transaction_for_crud/1 failed"
+
+      _ ->
+        nil
     end
   end
 
