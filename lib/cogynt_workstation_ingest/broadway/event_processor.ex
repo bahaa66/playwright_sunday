@@ -342,25 +342,42 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             # from any of the current valid_notification_settings then we must mark the notification
             # as deleted
             if is_nil(ns_matched) do
-              acc ++
-                [
-                  NotificationsContext.generate_notification_struct(%{
-                    id: notification.id,
-                    title: notification.title,
-                    # description: notification.description,
-                    user_id: notification.user_id,
-                    archived_at: notification.archived_at,
-                    priority: notification.priority,
-                    assigned_to: notification.assigned_to,
-                    dismissed_at: notification.dismissed_at,
-                    deleted_at: DateTime.truncate(DateTime.utc_now(), :second),
-                    event_id: notification.event_id,
-                    notification_setting_id: notification.notification_setting_id,
-                    tag_id: notification.tag_id,
-                    created_at: notification.created_at,
-                    updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-                  })
-                ]
+              deleted_notification =
+                NotificationsContext.generate_notification_struct(%{
+                  id: notification.id,
+                  title: notification.title,
+                  # description: notification.description,
+                  user_id: notification.user_id,
+                  archived_at: notification.archived_at,
+                  priority: notification.priority,
+                  assigned_to: notification.assigned_to,
+                  dismissed_at: notification.dismissed_at,
+                  deleted_at: DateTime.truncate(DateTime.utc_now(), :second),
+                  event_id: notification.event_id,
+                  notification_setting_id: notification.notification_setting_id,
+                  tag_id: notification.tag_id,
+                  created_at: notification.created_at,
+                  updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                })
+
+              new_notifications =
+                Enum.reduce(valid_notification_settings, [], fn notification_setting, acc_0 ->
+                  acc_0 ++
+                    [
+                      %{
+                        event_id: event_id,
+                        user_id: notification_setting.user_id,
+                        assigned_to: notification_setting.assigned_to,
+                        tag_id: notification_setting.tag_id,
+                        title: notification_setting.title,
+                        notification_setting_id: notification_setting.id,
+                        created_at: DateTime.truncate(DateTime.utc_now(), :second),
+                        updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                      }
+                    ]
+                end)
+
+              acc ++ [deleted_notification] ++ new_notifications
             else
               deleted_at =
                 if crud_action == @delete do
