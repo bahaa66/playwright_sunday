@@ -6,7 +6,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
   alias CogyntWorkstationIngest.Config
-  #alias CogyntWorkstationIngest.System.SystemNotificationContext
+  # alias CogyntWorkstationIngest.System.SystemNotificationContext
   alias Models.Notifications.Notification
 
   alias Broadway.Message
@@ -197,7 +197,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end
 
     elasticsearch_risk_history_doc =
-      case RiskHistoryDocumentBuilder.build_document(event_id, core_id, confidence, timestamp) do
+      case RiskHistoryDocumentBuilder.build_document(
+             event_id,
+             event_definition_id,
+             core_id,
+             confidence,
+             timestamp
+           ) do
         {:ok, risk_history_doc} ->
           risk_history_doc
 
@@ -285,7 +291,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         message
 
       false ->
-        #start = Time.utc_now()
+        # start = Time.utc_now()
 
         risk_score = Map.get(event, @risk_score, 0)
         crud_action = Map.get(event, @crud, @defaults.crud_action)
@@ -483,6 +489,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                       [
                         %{
                           id: v2.id,
+                          event_definition_id: v2.event_definition_id,
                           risk_history: new_risk
                         }
                       ]
