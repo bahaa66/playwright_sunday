@@ -204,7 +204,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       {20, [%Notification{...}]}
   """
   def bulk_insert_notifications(notifications, opts \\ []) when is_list(notifications) do
-    returning = Keyword.get(opts, :returning, [])
+    returning = Keyword.get(opts, :returning, [:id])
     on_conflict = Keyword.get(opts, :on_conflict, :nothing)
 
     if Enum.empty?(notifications) do
