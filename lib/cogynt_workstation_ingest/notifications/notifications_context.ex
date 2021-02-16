@@ -8,8 +8,6 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
 
   alias Models.Notifications.{NotificationSetting, Notification}
 
-  @delete Application.get_env(:cogynt_workstation_ingest, :core_keys)[:delete]
-
   # ------------------------------------ #
   # --- Notification Setting Methods --- #
   # ------------------------------------ #
@@ -43,6 +41,53 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   """
   def get_notification_setting_by(clauses),
     do: Repo.get_by(from(ns in NotificationSetting, where: is_nil(ns.deleted_at)), clauses)
+
+  @doc """
+  Returns a list of NotificationSettings that passes the list of contraints passed in
+  """
+  def fetch_valid_notification_settings(filters, risk_score, event_definition) do
+    query_notification_settings(%{filter: filters})
+    |> Enum.filter(fn ns ->
+      has_event_definition_detail =
+        Enum.find(event_definition.event_definition_details, fn
+          %{field_name: name} ->
+            name == ns.title
+        end) != nil
+
+      has_event_definition_detail and in_risk_range?(risk_score, ns.risk_range)
+    end)
+  end
+
+  @doc """
+  Querys NotificationSettings based on the filter args
+  ## Examples
+      iex> query_notification_settings(
+        %{
+          filter: %{
+            event_definition_id: "c1607818-7f32-11ea-bc55-0242ac130003"
+          }
+        }
+      )
+      [%NotificationSetting{}, %NotificationSetting{}]
+  """
+  def query_notification_settings(args) do
+    query =
+      Enum.reduce(args, from(ns in NotificationSetting), fn
+        {:filter, filter}, q ->
+          filter_notification_settings(filter, q)
+
+        {:select, select}, q ->
+          select(q, ^select)
+
+        {:order_by, order_by}, q ->
+          order_by(q, ^order_by)
+
+        {:limit, limit}, q ->
+          limit(q, ^limit)
+      end)
+
+    Repo.all(query)
+  end
 
   @doc """
   Hard deletes many notification settings and removes them from the database.
@@ -82,6 +127,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   # ---------------------------- #
   # --- Notification Methods --- #
   # ---------------------------- #
+
   @doc """
   Returns a single Notification struct from the query
   ## Examples
@@ -94,15 +140,56 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     do: Repo.get_by(Notification, clauses)
 
   @doc """
+  Querys Notifications based on the filter args
+  ## Examples
+      iex> query_notifications(
+        %{
+          filter: %{
+            event_definition_id: "c1607818-7f32-11ea-bc55-0242ac130003"
+          }
+        }
+      )
+      [%Notifications{}, %Notifications{}]
+  """
+  def query_notifications(args) do
+    query =
+      Enum.reduce(args, from(n in Notification), fn
+        {:filter, filter}, q ->
+          filter_notifications(filter, q)
+
+        {:select, select}, q ->
+          select(q, ^select)
+
+        {:order_by, order_by}, q ->
+          order_by(q, ^order_by)
+
+        {:limit, limit}, q ->
+          limit(q, ^limit)
+      end)
+
+    Repo.all(query)
+  end
+
+  @doc """
   Returns a list of the %Notification{} stucts that were inserted.
   ## Examples
       iex> bulk_insert_notifications([%Notification{}, returning: [:id])
       {20, [%Notification{...}]}
   """
   def bulk_insert_notifications(notifications, opts \\ []) when is_list(notifications) do
-    returning = Keyword.get(opts, :returning, [])
+    returning = Keyword.get(opts, :returning, [:id])
+    on_conflict = Keyword.get(opts, :on_conflict, :nothing)
+    conflict_target = Keyword.get(opts, :conflict_target, :id)
 
-    Repo.insert_all(Notification, notifications, returning: returning)
+    if Enum.empty?(notifications) do
+      {0, []}
+    else
+      Repo.insert_all(Notification, notifications,
+        returning: returning,
+        on_conflict: on_conflict,
+        conflict_target: conflict_target
+      )
+    end
   end
 
   @doc """
@@ -226,103 +313,14 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     remove_notification_virtual_fields(tail)
   end
 
-  # ------------------------------- #
-  # --- Event Processor Methods --- #
-  # ------------------------------- #
-  @doc """
-  Formats a list of notifications to be created for an event_definition and event_id.
-  ## Examples
-      iex> process_notifications(%{event_definition: event_definition, event_id: event_id, risk_score: risk_score})
-      {:ok, [%{}, %{}]} || {:ok, nil}
-      iex> process_notifications(%{field: bad_value})
-      {:error, reason}
-  """
-  def process_notifications(%{
-        event_definition: event_definition,
-        event_id: event_id,
-        risk_score: risk_score
-      }) do
-    result =
-      from(ns in NotificationSetting,
-        where: ns.event_definition_id == type(^event_definition.id, :binary_id),
-        where: ns.active == true and is_nil(ns.deleted_at)
-      )
-      |> Repo.all()
-      |> Enum.map(fn ns ->
-        has_event_definition_detail =
-          Enum.find(event_definition.event_definition_details, fn
-            %{field_name: name} ->
-              name == ns.title
-          end) != nil
-
-        if in_risk_range?(risk_score, ns.risk_range) and has_event_definition_detail do
-          %{
-            event_id: event_id,
-            user_id: ns.user_id,
-            assigned_to: ns.assigned_to,
-            tag_id: ns.tag_id,
-            title: ns.title,
-            notification_setting_id: ns.id,
-            created_at: DateTime.truncate(DateTime.utc_now(), :second),
-            updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-          }
-        else
-          nil
-        end
-      end)
-      |> Enum.to_list()
-      |> Enum.filter(& &1)
-
-    if Enum.empty?(result) do
-      {:ok, nil}
-    else
-      {:ok, result}
-    end
-  end
-
+  # ------------------------------ #
+  # --- Event Pipeline Methods --- #
+  # ------------------------------ #
   def insert_all_notifications_multi(multi \\ Multi.new(), notifications, opts \\ []) do
     returning = Keyword.get(opts, :returning, [])
 
     multi
     |> Multi.insert_all(:insert_notifications, Notification, notifications, returning: returning)
-  end
-
-  def update_all_notifications_multi(multi \\ Multi.new(), multi_name, %{
-        delete_event_ids: delete_event_ids,
-        action: action,
-        event_id: event_id
-      }) do
-    case is_nil(delete_event_ids) or Enum.empty?(delete_event_ids) do
-      true ->
-        multi
-
-      false ->
-        # If action is a delete we want to leave all notifications
-        # marked as deleted. Even the ones created for the most current event.
-        deleted_at =
-          if action == @delete do
-            DateTime.truncate(DateTime.utc_now(), :second)
-          else
-            nil
-          end
-
-        select = Notification.__schema__(:fields)
-
-        n_query =
-          from(n in Notification,
-            where: n.event_id in ^delete_event_ids
-          )
-          |> select(^select)
-
-        multi
-        |> Multi.update_all(multi_name, n_query,
-          set: [
-            event_id: event_id,
-            updated_at: DateTime.truncate(DateTime.utc_now(), :second),
-            deleted_at: deleted_at
-          ]
-        )
-    end
   end
 
   def run_multi_transaction(multi) do
@@ -375,6 +373,15 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     Enum.reduce(filter, query, fn
       {:event_definition_id, event_definition_id}, q ->
         where(q, [ns], ns.event_definition_id == ^event_definition_id)
+
+      {:active, active}, q ->
+        where(q, [ns], ns.active == ^active)
+
+      {:deleted_at, nil}, q ->
+        where(q, [ns], is_nil(ns.deleted_at))
+
+      {:deleted_at, _}, q ->
+        where(q, [ns], is_nil(ns.deleted_at) == false)
     end)
   end
 end

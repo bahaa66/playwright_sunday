@@ -43,16 +43,10 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionEv
         value: event_definition_id
       })
 
-      case EventsContext.get_core_ids_for_event_definition_id(event_definition_id) do
-        [] ->
-          nil
-
-        core_ids ->
-          Elasticsearch.delete_by_query(Config.risk_history_index_alias(), %{
-            field: "id",
-            value: core_ids
-          })
-      end
+      Elasticsearch.delete_by_query(Config.risk_history_index_alias(), %{
+        field: "event_definition_id",
+        value: event_definition_id
+      })
 
       # Fourth paginate through all the events linked to the event_definition_id and
       # soft delete them

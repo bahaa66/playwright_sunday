@@ -53,7 +53,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     preload_event_details = Keyword.get(opts, :preload_event_details, false)
 
     query =
-      Enum.reduce(args, from(ns in Event), fn
+      Enum.reduce(args, from(e in Event), fn
         {:filter, filter}, q ->
           filter_events(filter, q)
 
@@ -387,24 +387,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       end
 
     Repo.all(query)
-  end
-
-  @doc """
-  Query EventDefinitions for core_id
-  ## Examples
-      iex> get_core_ids_for_event_definition_id("id")
-      [core_ids]
-  """
-  def get_core_ids_for_event_definition_id(event_definition_id) do
-    from(ed in EventDefinition)
-    |> join(:inner, [ed], e in Event, on: ed.id == e.event_definition_id)
-    |> where(
-      [ed, e],
-      ed.id == ^event_definition_id and is_nil(ed.deleted_at) and is_nil(e.deleted_at) and
-        is_nil(e.core_id) == false
-    )
-    |> select([_ed, e], e.core_id)
-    |> Repo.all()
   end
 
   @doc """

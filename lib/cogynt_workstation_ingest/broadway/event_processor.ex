@@ -7,9 +7,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
+  alias Models.Notifications.Notification
 
   alias Broadway.Message
-  alias Ecto.Multi
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -80,7 +80,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       true ->
         case EventsContext.create_event(%{
                event_definition_id: event_definition.id,
-               core_id: event["id"]
+               core_id: event["id"],
+               occurred_at: event["_timestamp"]
              }) do
           {:ok, %{id: event_id}} ->
             data =
@@ -196,7 +197,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end
 
     elasticsearch_risk_history_doc =
-      case RiskHistoryDocumentBuilder.build_document(event_id, core_id, confidence, timestamp) do
+      case RiskHistoryDocumentBuilder.build_document(
+             event_id,
+             event_definition_id,
+             core_id,
+             confidence,
+             timestamp
+           ) do
         {:ok, risk_history_doc} ->
           risk_history_doc
 
@@ -213,10 +220,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   @doc """
-  process_notifications/1 will stream all notification_settings that are linked to the
-  event_definition.id. On each notification_setting returned it will build a notification map.
-  Finally it will return a list notification maps. Returns an updated data map with the field
-  :notifications storing the list of notification maps.
+  process_notifications/1 will create the notifications for each event that comes through the pipeline
+  due to the nature of notification and CRUD events, the notifications must be created in the database at
+  this stage of the pipeline and not in the batch_execution stage.
   """
   def process_notifications(%Message{data: nil} = message) do
     CogyntLogger.warn("#{__MODULE__}", "process_notifications/1 failed. No message data")
@@ -233,24 +239,200 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               event_definition: event_definition,
               event_id: event_id,
               delete_event_ids: nil
-            } = data
+            } = _data
         } = message
       ) do
-    case NotificationsContext.process_notifications(%{
-           event_definition: event_definition,
-           event_id: event_id,
-           risk_score: Map.get(event, @risk_score, 0)
-         }) do
-      {:ok, nil} ->
-        message
+    risk_score = Map.get(event, @risk_score, 0)
 
-      {:ok, notifications} ->
-        data = Map.put(data, :notifications, notifications)
-        Map.put(message, :data, data)
-    end
+    {_count, notifications} =
+      NotificationsContext.fetch_valid_notification_settings(
+        %{
+          event_definition_id: event_definition.id,
+          deleted_at: nil,
+          active: true
+        },
+        risk_score,
+        event_definition
+      )
+      |> Enum.reduce([], fn ns, acc ->
+        acc ++
+          [
+            %{
+              event_id: event_id,
+              user_id: ns.user_id,
+              assigned_to: ns.assigned_to,
+              tag_id: ns.tag_id,
+              title: ns.title,
+              notification_setting_id: ns.id,
+              created_at: DateTime.truncate(DateTime.utc_now(), :second),
+              updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+            }
+          ]
+      end)
+      |> NotificationsContext.bulk_insert_notifications(
+        returning: [
+          :event_id,
+          :user_id,
+          :tag_id,
+          :id,
+          :title,
+          :notification_setting_id,
+          :created_at,
+          :updated_at,
+          :assigned_to
+        ]
+      )
+
+    SystemNotificationContext.bulk_insert_system_notifications(notifications)
+
+    message
   end
 
-  def process_notifications(%Message{} = message), do: message
+  def process_notifications(
+        %Message{
+          data:
+            %{
+              event: event,
+              event_definition: event_definition,
+              event_id: event_id,
+              delete_event_ids: delete_event_ids
+            } = _data
+        } = message
+      ) do
+    case Enum.empty?(delete_event_ids) do
+      true ->
+        message
+
+      false ->
+        # start = Time.utc_now()
+
+        risk_score = Map.get(event, @risk_score, 0)
+        crud_action = Map.get(event, @crud, @defaults.crud_action)
+
+        # First find fetch all the Notification_settings for the EventDefinitionId and
+        # filter out all invalid notification_settings. Only notification_settings that match the current
+        # events criteria
+        valid_notification_settings =
+          NotificationsContext.fetch_valid_notification_settings(
+            %{
+              event_definition_id: event_definition.id,
+              deleted_at: nil,
+              active: true
+            },
+            risk_score,
+            event_definition
+          )
+
+        # Second fetch all the Notifications that were created against the deleted_event_ids
+        # and create a new list of notifications to either be updated or deleted based on the
+        # list of valid_notification_settings
+        notifications =
+          NotificationsContext.query_notifications(%{
+            filter: %{event_ids: delete_event_ids},
+            select: Notification.__schema__(:fields)
+          })
+          |> Enum.reduce([], fn notification, acc ->
+            ns_matched =
+              Enum.find(valid_notification_settings, fn notification_setting ->
+                notification.notification_setting_id == notification_setting.id
+              end)
+
+            # If the notification's notification_setting_id does not match any of the ids
+            # from any of the current valid_notification_settings then we must mark the notification
+            # as deleted. Then create new notifications for all valid notification settings
+            # If there is a match we just update the notification to the new event_id
+            if is_nil(ns_matched) do
+              deleted_notification = %{
+                id: notification.id,
+                title: notification.title,
+                # description: notification.description,
+                user_id: notification.user_id,
+                archived_at: notification.archived_at,
+                priority: notification.priority,
+                assigned_to: notification.assigned_to,
+                dismissed_at: notification.dismissed_at,
+                deleted_at: DateTime.truncate(DateTime.utc_now(), :second),
+                event_id: notification.event_id,
+                notification_setting_id: notification.notification_setting_id,
+                tag_id: notification.tag_id,
+                created_at: notification.created_at,
+                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+              }
+
+              new_notifications =
+                Enum.reduce(valid_notification_settings, [], fn notification_setting, acc_0 ->
+                  acc_0 ++
+                    [
+                      %{
+                        event_id: event_id,
+                        user_id: notification_setting.user_id,
+                        assigned_to: notification_setting.assigned_to,
+                        tag_id: notification_setting.tag_id,
+                        title: notification_setting.title,
+                        notification_setting_id: notification_setting.id,
+                        created_at: DateTime.truncate(DateTime.utc_now(), :second),
+                        updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                      }
+                    ]
+                end)
+
+              acc ++ [deleted_notification] ++ new_notifications
+            else
+              deleted_at =
+                if crud_action == @delete do
+                  DateTime.truncate(DateTime.utc_now(), :second)
+                else
+                  nil
+                end
+
+              acc ++
+                [
+                  %{
+                    id: notification.id,
+                    title: ns_matched.title,
+                    # description: notification.description,
+                    user_id: ns_matched.user_id,
+                    archived_at: notification.archived_at,
+                    priority: notification.priority,
+                    assigned_to: ns_matched.assigned_to,
+                    dismissed_at: notification.dismissed_at,
+                    deleted_at: deleted_at,
+                    event_id: event_id,
+                    notification_setting_id: ns_matched.id,
+                    tag_id: ns_matched.tag_id,
+                    created_at: notification.created_at,
+                    updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                  }
+                ]
+            end
+          end)
+
+        # finish = Time.utc_now()
+        # diff = Time.diff(finish, start, :millisecond)
+        # IO.puts("DURATION OF NEW NOTIFICATION LOGIC: #{diff}, PID: #{inspect(self())}")
+
+        {_count, created_notifications} =
+          NotificationsContext.bulk_insert_notifications(
+            notifications,
+            returning: [
+              :event_id,
+              :user_id,
+              :tag_id,
+              :id,
+              :title,
+              :notification_setting_id,
+              :created_at,
+              :updated_at,
+              :assigned_to
+            ],
+            on_conflict: :replace_all
+          )
+
+        SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
+    end
+
+    message
+  end
 
   @doc """
   For datasets that have $CRUD keys present. This data needs
@@ -262,7 +444,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     default_map = %{
       event_details: [],
       delete_event_ids: [],
-      notifications: [],
       event_id: nil,
       crud_action: nil,
       event_doc: [],
@@ -279,8 +460,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             data =
               Map.drop(data, [
                 :event,
-                :event_definition,
                 :event_definition_id,
+                :event_definition,
                 :retry_count
               ])
 
@@ -294,13 +475,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                     v1
                   else
                     Enum.uniq(v1 ++ v2)
-                  end
-
-                :notifications ->
-                  if v2 == @defaults.notifications or Enum.empty?(v2) do
-                    v1
-                  else
-                    v1 ++ v2
                   end
 
                 :event_id ->
@@ -329,6 +503,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                       [
                         %{
                           id: v2.id,
+                          event_definition_id: v2.event_definition_id,
                           risk_history: new_risk
                         }
                       ]
@@ -349,8 +524,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       event_doc: [],
       risk_history_doc: [],
       delete_event_ids: [],
-      event_details: [],
-      notifications: []
+      event_details: []
     }
 
     bulk_transactional_data =
@@ -367,13 +541,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                 v1
               else
                 Enum.uniq(v1 ++ v2)
-              end
-
-            :notifications ->
-              if v2 == @defaults.notifications or Enum.empty?(v2) do
-                v1
-              else
-                v1 ++ v2
               end
 
             :event_doc ->
@@ -396,28 +563,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         end)
       end)
 
-    # Third itterate over the map that still holds the key = core_id and values = combined event maps
-    # and build a Multi transactional object for each Crud key for the method `update_all_notifications`
-    multi = Multi.new()
-
-    multi =
-      Enum.reduce(core_id_data_map, multi, fn {_key, data}, acc ->
-        delete_event_ids = Map.get(data, :delete_event_ids)
-        crud_action = Map.get(data, :crud_action)
-        event_id = Map.get(data, :event_id)
-
-        multi_name = String.to_atom("update_notifications" <> ":" <> "#{event_id}")
-
-        NotificationsContext.update_all_notifications_multi(acc, multi_name, %{
-          delete_event_ids: delete_event_ids,
-          action: crud_action,
-          event_id: event_id
-        })
-      end)
-
-    # start = Time.utc_now()
-
-    # elasticsearch updates
+    # Elasticsearch Updates
     # TODO: instead of creating all the documents and then in the next
     # step removing a subset of the documents you just created. Add a step
     # to just filter out those documents from the event_doc list so they are
@@ -447,90 +593,26 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
 
     # Build database transaction
-    case Enum.empty?(bulk_transactional_data.notifications) do
-      true ->
-        transaction_result =
-          EventsContext.insert_all_event_details_multi(
-            multi,
-            bulk_transactional_data.event_details
-          )
-          |> EventsContext.update_all_events_multi(bulk_transactional_data.delete_event_ids)
-          |> EventsContext.update_all_event_links_multi(bulk_transactional_data.delete_event_ids)
-          |> EventsContext.run_multi_transaction()
+    transaction_result =
+      EventsContext.insert_all_event_details_multi(bulk_transactional_data.event_details)
+      |> EventsContext.update_all_events_multi(bulk_transactional_data.delete_event_ids)
+      |> EventsContext.update_all_event_links_multi(bulk_transactional_data.delete_event_ids)
+      |> EventsContext.run_multi_transaction()
 
-        case transaction_result do
-          {:ok, results} ->
-            Enum.each(results, fn {key, {_count, items}} ->
-              if String.contains?(to_string(key), "update_notifications") do
-                SystemNotificationContext.bulk_update_system_notifications(items)
-              end
-            end)
+    case transaction_result do
+      {:error, reason} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "execute_batch_transaction_for_crud/1 failed with reason: #{
+            inspect(reason, pretty: true)
+          }"
+        )
 
-          {:error, reason} ->
-            CogyntLogger.error(
-              "#{__MODULE__}",
-              "execute_batch_transaction_for_crud/1 failed with reason: #{
-                inspect(reason, pretty: true)
-              }"
-            )
+        raise "execute_batch_transaction_for_crud/1 failed"
 
-            raise "execute_batch_transaction_for_crud/1 failed"
-        end
-
-      false ->
-        transaction_result =
-          EventsContext.insert_all_event_details_multi(
-            multi,
-            bulk_transactional_data.event_details
-          )
-          |> NotificationsContext.insert_all_notifications_multi(
-            bulk_transactional_data.notifications,
-            returning: [
-              :event_id,
-              :user_id,
-              :tag_id,
-              :id,
-              :title,
-              :notification_setting_id,
-              :created_at,
-              :updated_at,
-              :assigned_to
-            ]
-          )
-          |> EventsContext.update_all_events_multi(bulk_transactional_data.delete_event_ids)
-          |> EventsContext.update_all_event_links_multi(bulk_transactional_data.delete_event_ids)
-          |> EventsContext.run_multi_transaction()
-
-        case transaction_result do
-          {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
-            SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
-
-          {:ok, results} ->
-            Enum.each(results, fn {key, {_count, items}} ->
-              if String.contains?(to_string(key), "update_notifications") do
-                SystemNotificationContext.bulk_update_system_notifications(items)
-              end
-
-              if key == :insert_notifications do
-                SystemNotificationContext.bulk_insert_system_notifications(items)
-              end
-            end)
-
-          {:error, reason} ->
-            CogyntLogger.error(
-              "#{__MODULE__}",
-              "execute_batch_transaction_for_crud/1 failed with reason: #{
-                inspect(reason, pretty: true)
-              }"
-            )
-
-            raise "execute_batch_transaction_for_crud/1 failed"
-        end
+      _ ->
+        nil
     end
-
-    # finish = Time.utc_now()
-    # diff = Time.diff(finish, start, :millisecond)
-    # IO.puts("DURATION: #{diff}, PID: #{inspect(self())}")
   end
 
   @doc """
@@ -540,7 +622,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   def execute_batch_transaction(messages) do
     # build transactional data
     default_map = %{
-      notifications: [],
       event_details: [],
       event_doc: [],
       risk_history_doc: []
@@ -578,13 +659,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                 v1 ++ [v2]
               end
 
-            :notifications ->
-              if v2 == @defaults.notifications do
-                v1
-              else
-                v1 ++ v2
-              end
-
             _ ->
               v2
           end
@@ -608,49 +682,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         )
     end
 
-    # Run database transaction
-    case Enum.empty?(bulk_transactional_data.notifications) do
-      true ->
-        EventsContext.insert_all_event_details(bulk_transactional_data.event_details)
-
-      false ->
-        transaction_result =
-          EventsContext.insert_all_event_details_multi(bulk_transactional_data.event_details)
-          |> NotificationsContext.insert_all_notifications_multi(
-            bulk_transactional_data.notifications,
-            returning: [
-              :event_id,
-              :user_id,
-              :tag_id,
-              :id,
-              :title,
-              :notification_setting_id,
-              :created_at,
-              :updated_at,
-              :assigned_to
-            ]
-          )
-          |> EventsContext.run_multi_transaction()
-
-        case transaction_result do
-          {:ok,
-           %{
-             insert_notifications: {_count_created, created_notifications}
-           }} ->
-            SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
-
-          {:ok, _} ->
-            nil
-
-          {:error, reason} ->
-            CogyntLogger.error(
-              "#{__MODULE__}",
-              "execute_batch_transaction/1 failed with reason: #{inspect(reason, pretty: true)}"
-            )
-
-            raise "execute_batch_transaction/1 failed"
-        end
-    end
+    EventsContext.insert_all_event_details(bulk_transactional_data.event_details)
 
     messages
   end
@@ -699,7 +731,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:ok, nil} ->
         case EventsContext.create_event(%{
                event_definition_id: event_definition.id,
-               core_id: event["id"]
+               core_id: event["id"],
+               occurred_at: event["_timestamp"]
              }) do
           {:ok, %{id: event_id}} ->
             {:ok,
@@ -720,7 +753,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:ok, event_ids} ->
         case EventsContext.create_event(%{
                event_definition_id: event_definition.id,
-               core_id: event["id"]
+               core_id: event["id"],
+               occurred_at: event["_timestamp"]
              }) do
           {:ok, %{id: event_id}} ->
             {:ok,
@@ -754,7 +788,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:ok, event_ids} ->
         case EventsContext.create_event(%{
                event_definition_id: event_definition.id,
-               core_id: event["id"]
+               core_id: event["id"],
+               occurred_at: event["_timestamp"]
              }) do
           {:ok, %{id: event_id}} ->
             {:ok,
