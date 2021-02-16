@@ -128,32 +128,6 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   # ---------------------------- #
   # --- Notification Methods --- #
   # ---------------------------- #
-  @doc """
-  Returns a Notification struct
-  %Notification{}
-  """
-  def generate_notification_struct(args) do
-    %Notification{}
-    |> cast(args, Notification.__schema__(:fields))
-    |> apply_changes()
-
-    # %Notification{
-    #   id: args.id,
-    #   title: args.title,
-    #   # description: args.description,
-    #   user_id: args.user_id,
-    #   archived_at: args.archived_at,
-    #   priority: args.priority,
-    #   assigned_to: args.assigned_to,
-    #   dismissed_at: args.dismissed_at,
-    #   deleted_at: args.deleted_at,
-    #   event_id: args.event_id,
-    #   notification_setting_id: args.notification_setting_id,
-    #   tag_id: args.tag_id,
-    #   created_at: args.created_at,
-    #   updated_at: args.updated_at
-    # }
-  end
 
   @doc """
   Returns a single Notification struct from the query
