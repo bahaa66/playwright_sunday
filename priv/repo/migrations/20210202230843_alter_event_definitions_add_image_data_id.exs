@@ -1,0 +1,3 @@
+defmodule Cogynt.Repo.Migrations.AlterEventDefinitionsAddImageDataId do
+  use Migrations.AlterEventDefinitionsAddImageDataId
+end
