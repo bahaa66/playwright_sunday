@@ -167,6 +167,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                       [
                         %{
                           id: v2.id,
+                          event_definition_id: v2.event_definition_id,
                           risk_history: new_risk
                         }
                       ]

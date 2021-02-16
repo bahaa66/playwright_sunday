@@ -197,7 +197,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end
 
     elasticsearch_risk_history_doc =
-      case RiskHistoryDocumentBuilder.build_document(event_id, core_id, confidence, timestamp) do
+      case RiskHistoryDocumentBuilder.build_document(
+             event_id,
+             event_definition_id,
+             core_id,
+             confidence,
+             timestamp
+           ) do
         {:ok, risk_history_doc} ->
           risk_history_doc
 
@@ -497,6 +503,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                       [
                         %{
                           id: v2.id,
+                          event_definition_id: v2.event_definition_id,
                           risk_history: new_risk
                         }
                       ]
