@@ -6,7 +6,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
   alias CogyntWorkstationIngest.Config
-  #alias CogyntWorkstationIngest.System.SystemNotificationContext
+  alias CogyntWorkstationIngest.System.SystemNotificationContext
   alias Models.Notifications.Notification
 
   alias Broadway.Message
@@ -238,33 +238,46 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       ) do
     risk_score = Map.get(event, @risk_score, 0)
 
-    NotificationsContext.fetch_valid_notification_settings(
-      %{
-        event_definition_id: event_definition.id,
-        deleted_at: nil,
-        active: true
-      },
-      risk_score,
-      event_definition
-    )
-    |> Enum.reduce([], fn ns, acc ->
-      acc ++
-        [
-          %{
-            event_id: event_id,
-            user_id: ns.user_id,
-            assigned_to: ns.assigned_to,
-            tag_id: ns.tag_id,
-            title: ns.title,
-            notification_setting_id: ns.id,
-            created_at: DateTime.truncate(DateTime.utc_now(), :second),
-            updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-          }
+    {_count, notifications} =
+      NotificationsContext.fetch_valid_notification_settings(
+        %{
+          event_definition_id: event_definition.id,
+          deleted_at: nil,
+          active: true
+        },
+        risk_score,
+        event_definition
+      )
+      |> Enum.reduce([], fn ns, acc ->
+        acc ++
+          [
+            %{
+              event_id: event_id,
+              user_id: ns.user_id,
+              assigned_to: ns.assigned_to,
+              tag_id: ns.tag_id,
+              title: ns.title,
+              notification_setting_id: ns.id,
+              created_at: DateTime.truncate(DateTime.utc_now(), :second),
+              updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+            }
+          ]
+      end)
+      |> NotificationsContext.bulk_insert_notifications(
+        returning: [
+          :event_id,
+          :user_id,
+          :tag_id,
+          :id,
+          :title,
+          :notification_setting_id,
+          :created_at,
+          :updated_at,
+          :assigned_to
         ]
-    end)
-    |> NotificationsContext.bulk_insert_notifications()
+      )
 
-    # TODO: create system notifications
+    SystemNotificationContext.bulk_insert_system_notifications(notifications)
 
     message
   end
@@ -285,7 +298,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         message
 
       false ->
-        #start = Time.utc_now()
+        # start = Time.utc_now()
 
         risk_score = Map.get(event, @risk_score, 0)
         crud_action = Map.get(event, @crud, @defaults.crud_action)
@@ -392,24 +405,25 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         # diff = Time.diff(finish, start, :millisecond)
         # IO.puts("DURATION OF NEW NOTIFICATION LOGIC: #{diff}, PID: #{inspect(self())}")
 
-        NotificationsContext.bulk_insert_notifications(
-          notifications,
-          returning: [
-            :event_id,
-            :user_id,
-            :tag_id,
-            :id,
-            :title,
-            :notification_setting_id,
-            :created_at,
-            :updated_at,
-            :assigned_to
-          ],
-          on_conflict: :replace_all
-        )
-    end
+        {_count, created_notifications} =
+          NotificationsContext.bulk_insert_notifications(
+            notifications,
+            returning: [
+              :event_id,
+              :user_id,
+              :tag_id,
+              :id,
+              :title,
+              :notification_setting_id,
+              :created_at,
+              :updated_at,
+              :assigned_to
+            ],
+            on_conflict: :replace_all
+          )
 
-    # TODO: create system notifications
+        SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
+    end
 
     message
   end
