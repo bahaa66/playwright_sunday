@@ -344,23 +344,22 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             # from any of the current valid_notification_settings then we must mark the notification
             # as deleted
             if is_nil(ns_matched) do
-              deleted_notification =
-                NotificationsContext.generate_notification_struct(%{
-                  id: notification.id,
-                  title: notification.title,
-                  # description: notification.description,
-                  user_id: notification.user_id,
-                  archived_at: notification.archived_at,
-                  priority: notification.priority,
-                  assigned_to: notification.assigned_to,
-                  dismissed_at: notification.dismissed_at,
-                  deleted_at: DateTime.truncate(DateTime.utc_now(), :second),
-                  event_id: notification.event_id,
-                  notification_setting_id: notification.notification_setting_id,
-                  tag_id: notification.tag_id,
-                  created_at: notification.created_at,
-                  updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-                })
+              deleted_notification = %{
+                id: notification.id,
+                title: notification.title,
+                # description: notification.description,
+                user_id: notification.user_id,
+                archived_at: notification.archived_at,
+                priority: notification.priority,
+                assigned_to: notification.assigned_to,
+                dismissed_at: notification.dismissed_at,
+                deleted_at: DateTime.truncate(DateTime.utc_now(), :second),
+                event_id: notification.event_id,
+                notification_setting_id: notification.notification_setting_id,
+                tag_id: notification.tag_id,
+                created_at: notification.created_at,
+                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+              }
 
               new_notifications =
                 Enum.reduce(valid_notification_settings, [], fn notification_setting, acc_0 ->
@@ -390,7 +389,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
               acc ++
                 [
-                  NotificationsContext.generate_notification_struct(%{
+                  %{
                     id: notification.id,
                     title: ns_matched.title,
                     # description: notification.description,
@@ -405,7 +404,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                     tag_id: ns_matched.tag_id,
                     created_at: notification.created_at,
                     updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-                  })
+                  }
                 ]
             end
           end)
