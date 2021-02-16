@@ -6,11 +6,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.System.SystemNotificationContext
+  #alias CogyntWorkstationIngest.System.SystemNotificationContext
   alias Models.Notifications.Notification
 
   alias Broadway.Message
-  alias Ecto.Multi
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
@@ -237,12 +236,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             } = _data
         } = message
       ) do
-    IO.puts(
-      "EventId: #{event_id}, Creating Notification w/ Risk Score: #{
-        inspect(Map.get(event, @risk_score, 0))
-      }"
-    )
-
     risk_score = Map.get(event, @risk_score, 0)
 
     NotificationsContext.fetch_valid_notification_settings(
@@ -287,18 +280,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             } = _data
         } = message
       ) do
-    IO.puts(
-      "EventId: #{event_id}, Delete_event_ids: #{inspect(delete_event_ids)} Creating Notification w/ Risk Score: #{
-        inspect(Map.get(event, @risk_score, 0))
-      }"
-    )
-
     case Enum.empty?(delete_event_ids) do
       true ->
         message
 
       false ->
-        start = Time.utc_now()
+        #start = Time.utc_now()
 
         risk_score = Map.get(event, @risk_score, 0)
         crud_action = Map.get(event, @crud, @defaults.crud_action)
@@ -317,9 +304,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             event_definition
           )
 
-        IO.inspect(delete_event_ids, label: "DELETE EVENT IDS")
-        IO.inspect(valid_notification_settings, label: "VALID NOTIFICATION SETTINGS")
-
         # Second fetch all the Notifications that were created against the deleted_event_ids
         # and create a new list of notifications to either be updated or deleted based on the
         # list of valid_notification_settings
@@ -328,21 +312,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             filter: %{event_ids: delete_event_ids},
             select: Notification.__schema__(:fields)
           })
-
-        IO.inspect(notifications, label: "Notifications From Query")
-
-        notifications =
-          Enum.reduce(notifications, [], fn notification, acc ->
+          |> Enum.reduce([], fn notification, acc ->
             ns_matched =
               Enum.find(valid_notification_settings, fn notification_setting ->
                 notification.notification_setting_id == notification_setting.id
               end)
 
-            IO.inspect(ns_matched, label: "A Notification matched this NotificationSetting")
-
             # If the notification's notification_setting_id does not match any of the ids
             # from any of the current valid_notification_settings then we must mark the notification
-            # as deleted
+            # as deleted. Then create new notifications for all valid notification settings
+            # If there is a match we just update the notification to the new event_id
             if is_nil(ns_matched) do
               deleted_notification = %{
                 id: notification.id,
@@ -409,9 +388,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             end
           end)
 
-        finish = Time.utc_now()
-        diff = Time.diff(finish, start, :millisecond)
-        IO.puts("DURATION OF NEW NOTIFICATION LOGIC: #{diff}, PID: #{inspect(self())}")
+        # finish = Time.utc_now()
+        # diff = Time.diff(finish, start, :millisecond)
+        # IO.puts("DURATION OF NEW NOTIFICATION LOGIC: #{diff}, PID: #{inspect(self())}")
 
         NotificationsContext.bulk_insert_notifications(
           notifications,
