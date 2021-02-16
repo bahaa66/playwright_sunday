@@ -3,6 +3,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   The Notifications context: public interface for event related functionality.
   """
   import Ecto.Query, warn: false
+  alias Ecto.Multi
   alias CogyntWorkstationIngest.Repo
 
   alias Models.Notifications.{NotificationSetting, Notification}
