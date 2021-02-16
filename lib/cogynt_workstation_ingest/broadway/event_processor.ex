@@ -247,11 +247,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     NotificationsContext.fetch_valid_notification_settings(
       %{
-        event_definition: event_definition,
+        event_definition_id: event_definition.id,
         deleted_at: nil,
         active: true
       },
-      risk_score
+      risk_score,
+      event_definition
     )
     |> Enum.reduce([], fn ns, acc ->
       acc ++
@@ -308,11 +309,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         valid_notification_settings =
           NotificationsContext.fetch_valid_notification_settings(
             %{
-              event_definition: event_definition,
+              event_definition_id: event_definition.id,
               deleted_at: nil,
               active: true
             },
-            risk_score
+            risk_score,
+            event_definition
           )
 
         IO.inspect(delete_event_ids, label: "DELETE EVENT IDS")

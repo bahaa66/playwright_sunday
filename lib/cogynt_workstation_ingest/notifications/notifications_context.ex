@@ -46,10 +46,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   @doc """
   Returns a list of NotificationSettings that passes the list of contraints passed in
   """
-  def fetch_valid_notification_settings(
-        %{event_definition: event_definition} = filters,
-        risk_score
-      ) do
+  def fetch_valid_notification_settings(filters, risk_score, event_definition) do
     query_notification_settings(%{filter: filters})
     |> Enum.filter(fn ns ->
       has_event_definition_detail =
