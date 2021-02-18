@@ -260,10 +260,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
               %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
 
-            consumer_state.status == ConsumerStatusTypeEnum.status()[:topic_does_not_exist] ->
-              Redis.hash_set_async("crw", event_definition.id, "et")
-              %{response: {:ok, consumer_state.status}}
-
             true ->
               case ConsumerGroupSupervisor.start_child(event_definition) do
                 {:error, nil} ->
