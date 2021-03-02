@@ -3,10 +3,11 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   The Notifications context: public interface for event related functionality.
   """
   import Ecto.Query, warn: false
-  alias Ecto.Multi
   alias CogyntWorkstationIngest.Repo
 
   alias Models.Notifications.{NotificationSetting, Notification}
+
+  @insert_batch_size 65535
 
   # ------------------------------------ #
   # --- Notification Setting Methods --- #
@@ -184,11 +185,18 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     if Enum.empty?(notifications) do
       {0, []}
     else
-      Repo.insert_all(Notification, notifications,
-        returning: returning,
-        on_conflict: on_conflict,
-        conflict_target: conflict_target
-      )
+      # Postgresql protocol has a limit of maximum parameters (65535)
+      Enum.chunk_every(notifications, @insert_batch_size)
+      |> Enum.reduce({0, []}, fn rows, {acc_count, acc_notifications} ->
+        {count, result} =
+          Repo.insert_all(Notification, rows,
+            returning: returning,
+            on_conflict: on_conflict,
+            conflict_target: conflict_target
+          )
+
+        {acc_count ++ count, acc_notifications ++ result}
+      end)
     end
   end
 
@@ -316,13 +324,6 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   # ------------------------------ #
   # --- Event Pipeline Methods --- #
   # ------------------------------ #
-  def insert_all_notifications_multi(multi \\ Multi.new(), notifications, opts \\ []) do
-    returning = Keyword.get(opts, :returning, [])
-
-    multi
-    |> Multi.insert_all(:insert_notifications, Notification, notifications, returning: returning)
-  end
-
   def run_multi_transaction(multi) do
     Repo.transaction(multi, timeout: 120_000)
   end
