@@ -14,6 +14,8 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
 
   alias CogyntWorkstationIngest.Repo
 
+  @insert_batch_size 65535
+
   # ------------------------------------------ #
   # --- System Notification Schema Nethods --- #
   # ------------------------------------------ #
@@ -26,13 +28,20 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
       {:error, %Ecto.Changeset{}}
   """
   def bulk_insert_system_notifications(notifications) when is_list(notifications) do
-    notifications =
-      notifications
-      |> build_system_notifications(SystemNotificationTypeIds.BulkNotificationAssignment.value())
-
-    Repo.insert_all(SystemNotification, notifications,
-      returning: [:id, :created_at, :updated_at, :assigned_to, :details]
+    # Postgresql protocol has a limit of maximum parameters (65535)
+    build_system_notifications(
+      notifications,
+      SystemNotificationTypeIds.BulkNotificationAssignment.value()
     )
+    |> Enum.chunk_every(@insert_batch_size)
+    |> Enum.reduce({0, []}, fn rows, {acc_count, acc_sys_notifications} ->
+      {count, result} =
+        Repo.insert_all(SystemNotification, rows,
+          returning: [:id, :created_at, :updated_at, :assigned_to, :details]
+        )
+
+      {acc_count ++ count, acc_sys_notifications ++ result}
+    end)
   end
 
   @doc """
@@ -58,15 +67,20 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
 
         case Enum.empty?(deleted_notifications) do
           false ->
-            deleted_notifications =
-              deleted_notifications
-              |> build_system_notifications(
-                SystemNotificationTypeIds.BulkNotificationRetraction.value()
-              )
-
-            Repo.insert_all(SystemNotification, deleted_notifications,
-              returning: [:id, :created_at, :updated_at, :assigned_to, :details]
+            # Postgresql protocol has a limit of maximum parameters (65535)
+            build_system_notifications(
+              deleted_notifications,
+              SystemNotificationTypeIds.BulkNotificationRetraction.value()
             )
+            |> Enum.chunk_every(@insert_batch_size)
+            |> Enum.reduce({0, []}, fn rows, {acc_count, acc_sys_notifications} ->
+              {count, result} =
+                Repo.insert_all(SystemNotification, rows,
+                  returning: [:id, :created_at, :updated_at, :assigned_to, :details]
+                )
+
+              {acc_count ++ count, acc_sys_notifications ++ result}
+            end)
 
           true ->
             nil

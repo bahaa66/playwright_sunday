@@ -20,6 +20,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     EventDetailTemplateGroupItem
   }
 
+  @insert_batch_size 65535
+
   # ---------------------------- #
   # --- Event Schema Methods --- #
   # ---------------------------- #
@@ -209,7 +211,11 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   def insert_all_event_details(event_details) do
-    Repo.insert_all(EventDetail, event_details)
+    # Postgresql protocol has a limit of maximum parameters (65535)
+    Enum.chunk_every(event_details, @insert_batch_size)
+    |> Enum.each(fn rows ->
+      Repo.insert_all(EventDetail, rows)
+    end)
   end
 
   # -------------------------------------- #
@@ -674,11 +680,15 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # ------------------------------------ #
   # --- Pipeline Transaction Methods --- #
   # ------------------------------------ #
+  # TODO: implement enum.chunk_every() to cap amount of records
+  # that can be inserted at one time
   def insert_all_event_details_multi(multi \\ Multi.new(), event_details) do
     multi
     |> Multi.insert_all(:insert_event_details, EventDetail, event_details)
   end
 
+  # TODO: implement enum.chunk_every() to cap amount of records
+  # that can be inserted at one time
   def insert_all_event_links_multi(multi \\ Multi.new(), link_events) do
     multi
     |> Multi.insert_all(:insert_event_links, EventLink, link_events)
