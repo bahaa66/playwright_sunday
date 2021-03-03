@@ -40,7 +40,11 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
           returning: [:id, :created_at, :updated_at, :assigned_to, :details]
         )
 
-      {acc_count ++ count, acc_sys_notifications ++ result}
+      if is_nil(result) do
+        {acc_count + count, acc_sys_notifications}
+      else
+        {acc_count + count, acc_sys_notifications ++ result}
+      end
     end)
   end
 
@@ -79,7 +83,11 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
                   returning: [:id, :created_at, :updated_at, :assigned_to, :details]
                 )
 
-              {acc_count ++ count, acc_sys_notifications ++ result}
+              if is_nil(result) do
+                {acc_count + count, acc_sys_notifications}
+              else
+                {acc_count + count, acc_sys_notifications ++ result}
+              end
             end)
 
           true ->

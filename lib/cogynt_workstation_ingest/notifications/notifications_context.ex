@@ -195,7 +195,11 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
             conflict_target: conflict_target
           )
 
-        {acc_count ++ count, acc_notifications ++ result}
+        if is_nil(result) do
+          {acc_count + count, acc_notifications}
+        else
+          {acc_count + count, acc_notifications ++ result}
+        end
       end)
     end
   end
