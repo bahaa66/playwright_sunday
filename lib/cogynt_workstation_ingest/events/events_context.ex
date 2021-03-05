@@ -682,30 +682,36 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # ------------------------------------ #
   def insert_all_event_details_multi(multi \\ Multi.new(), event_details) do
     # Postgresql protocol has a limit of maximum parameters (65535)
-    Enum.chunk_every(event_details, @insert_batch_size)
-    |> Enum.reduce({multi, 0}, fn rows, {acc_multi, acc_count} ->
-      multi_name = String.to_atom("insert_event_details-#{acc_count}")
+    {multi, _} =
+      Enum.chunk_every(event_details, @insert_batch_size)
+      |> Enum.reduce({multi, 0}, fn rows, {acc_multi, acc_count} ->
+        multi_name = String.to_atom("insert_event_details-#{acc_count}")
 
-      acc_multi =
-        acc_multi
-        |> Multi.insert_all(multi_name, EventDetail, rows)
+        acc_multi =
+          acc_multi
+          |> Multi.insert_all(multi_name, EventDetail, rows)
 
-      {acc_multi, acc_count + 1}
-    end)
+        {acc_multi, acc_count + 1}
+      end)
+
+    multi
   end
 
   def insert_all_event_links_multi(multi \\ Multi.new(), link_events) do
     # Postgresql protocol has a limit of maximum parameters (65535)
-    Enum.chunk_every(link_events, @insert_batch_size)
-    |> Enum.reduce({multi, 0}, fn rows, {acc_multi, acc_count} ->
-      multi_name = String.to_atom("insert_event_links-#{acc_count}")
+    {multi, _} =
+      Enum.chunk_every(link_events, @insert_batch_size)
+      |> Enum.reduce({multi, 0}, fn rows, {acc_multi, acc_count} ->
+        multi_name = String.to_atom("insert_event_links-#{acc_count}")
 
-      acc_multi =
-        acc_multi
-        |> Multi.insert_all(multi_name, EventLink, rows)
+        acc_multi =
+          acc_multi
+          |> Multi.insert_all(multi_name, EventLink, rows)
 
-      {acc_multi, acc_count + 1}
-    end)
+        {acc_multi, acc_count + 1}
+      end)
+
+    multi
   end
 
   def update_all_events_multi(multi \\ Multi.new(), delete_event_ids) do
