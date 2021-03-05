@@ -14,7 +14,7 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
 
   alias CogyntWorkstationIngest.Repo
 
-  @insert_batch_size 65535
+  @insert_batch_size 1500
 
   # ------------------------------------------ #
   # --- System Notification Schema Nethods --- #
@@ -37,7 +37,8 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
     |> Enum.reduce({0, []}, fn rows, {acc_count, acc_sys_notifications} ->
       {count, result} =
         Repo.insert_all(SystemNotification, rows,
-          returning: [:id, :created_at, :updated_at, :assigned_to, :details]
+          returning: [:id, :created_at, :updated_at, :assigned_to, :details],
+          timeout: 120_000
         )
 
       if is_nil(result) do
@@ -80,7 +81,8 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
             |> Enum.reduce({0, []}, fn rows, {acc_count, acc_sys_notifications} ->
               {count, result} =
                 Repo.insert_all(SystemNotification, rows,
-                  returning: [:id, :created_at, :updated_at, :assigned_to, :details]
+                  returning: [:id, :created_at, :updated_at, :assigned_to, :details],
+                  timeout: 120_000
                 )
 
               if is_nil(result) do
