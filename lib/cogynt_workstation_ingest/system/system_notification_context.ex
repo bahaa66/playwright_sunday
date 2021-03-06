@@ -14,7 +14,7 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
 
   alias CogyntWorkstationIngest.Repo
 
-  @insert_batch_size 30_000
+  @insert_batch_size 1500
 
   # ------------------------------------------ #
   # --- System Notification Schema Nethods --- #
@@ -38,7 +38,7 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
       {count, result} =
         Repo.insert_all(SystemNotification, rows,
           returning: [:id, :created_at, :updated_at, :assigned_to, :details],
-          timeout: 60_000
+          timeout: 120_000
         )
 
       if is_nil(result) do
@@ -82,7 +82,7 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
               {count, result} =
                 Repo.insert_all(SystemNotification, rows,
                   returning: [:id, :created_at, :updated_at, :assigned_to, :details],
-                  timeout: 60_000
+                  timeout: 120_000
                 )
 
               if is_nil(result) do

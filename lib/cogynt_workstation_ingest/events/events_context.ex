@@ -20,7 +20,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     EventDetailTemplateGroupItem
   }
 
-  @insert_batch_size 30_000
+  @insert_batch_size 1500
 
   # ---------------------------- #
   # --- Event Schema Methods --- #
@@ -214,7 +214,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     # Postgresql protocol has a limit of maximum parameters (65535)
     Enum.chunk_every(event_details, @insert_batch_size)
     |> Enum.each(fn rows ->
-      Repo.insert_all(EventDetail, rows, timeout: 60_000)
+      Repo.insert_all(EventDetail, rows, timeout: 120_000)
     end)
   end
 
@@ -689,7 +689,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
         acc_multi =
           acc_multi
-          |> Multi.insert_all(multi_name, EventDetail, rows, timeout: 60_000)
+          |> Multi.insert_all(multi_name, EventDetail, rows, timeout: 120_000)
 
         {acc_multi, acc_count + 1}
       end)
@@ -706,7 +706,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
         acc_multi =
           acc_multi
-          |> Multi.insert_all(multi_name, EventLink, rows, timeout: 60_000)
+          |> Multi.insert_all(multi_name, EventLink, rows, timeout: 120_000)
 
         {acc_multi, acc_count + 1}
       end)
