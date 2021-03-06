@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
 
   alias Models.Notifications.{NotificationSetting, Notification}
 
-  @insert_batch_size 1500
+  @insert_batch_size 30_000
 
   # ------------------------------------ #
   # --- Notification Setting Methods --- #
@@ -193,7 +193,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
             returning: returning,
             on_conflict: on_conflict,
             conflict_target: conflict_target,
-            timeout: 120_000
+            timeout: 60_000
           )
 
         if is_nil(result) do
