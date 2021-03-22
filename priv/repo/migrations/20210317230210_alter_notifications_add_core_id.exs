@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterNotificationsAddCoreId do
+  use Migrations.AlterNotificationsAddCoreId
+end

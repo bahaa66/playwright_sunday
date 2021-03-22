@@ -8,7 +8,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
   @defaults %{
-    delete_event_ids: nil,
+    deleted_event_ids: nil,
     crud_action: nil,
     risk_history_document: nil,
     event_document: nil,
@@ -44,8 +44,10 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
             )
 
             Map.put(data, :validated, false)
+            |> Map.put(:pipeline_state, :validate_link_event)
           else
             Map.put(data, :validated, true)
+            |> Map.put(:pipeline_state, :validate_link_event)
           end
 
         Map.put(message, :data, data)
@@ -89,7 +91,10 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         acc_0 ++ objects_links
       end)
 
-    data = Map.put(data, :link_events, entity_links)
+    data =
+      Map.put(data, :link_events, entity_links)
+      |> Map.put(:pipeline_state, :process_entities)
+
     Map.put(message, :data, data)
   end
 
@@ -103,7 +108,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
     default_map = %{
       event_details: [],
       link_events: [],
-      delete_event_ids: [],
+      deleted_event_ids: [],
       event_id: nil,
       crud_action: nil,
       event_doc: [],
@@ -134,8 +139,8 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                 :link_events ->
                   v1 ++ v2
 
-                :delete_event_ids ->
-                  if v2 == @defaults.delete_event_ids or Enum.empty?(v2) do
+                :deleted_event_ids ->
+                  if v2 == @defaults.deleted_event_ids or Enum.empty?(v2) do
                     v1
                   else
                     Enum.uniq(v1 ++ v2)
@@ -187,7 +192,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
     default_map = %{
       event_doc: [],
       risk_history_doc: [],
-      delete_event_ids: [],
+      deleted_event_ids: [],
       event_details: [],
       link_events: []
     }
@@ -204,8 +209,8 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
             :link_events ->
               v1 ++ v2
 
-            :delete_event_ids ->
-              if v2 == @defaults.delete_event_ids or Enum.empty?(v2) do
+            :deleted_event_ids ->
+              if v2 == @defaults.deleted_event_ids or Enum.empty?(v2) do
                 v1
               else
                 Enum.uniq(v1 ++ v2)
@@ -244,11 +249,11 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         )
     end
 
-    if !Enum.empty?(bulk_transactional_data.delete_event_ids) do
+    if !Enum.empty?(bulk_transactional_data.deleted_event_ids) do
       {:ok, _result} =
         Elasticsearch.bulk_delete_document(
           Config.event_index_alias(),
-          bulk_transactional_data.delete_event_ids
+          bulk_transactional_data.deleted_event_ids
         )
     end
 
@@ -264,7 +269,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
     transaction_result =
       EventsContext.insert_all_event_details_multi(bulk_transactional_data.event_details)
       |> EventsContext.insert_all_event_links_multi(bulk_transactional_data.link_events)
-      |> EventsContext.update_all_events_multi(bulk_transactional_data.delete_event_ids)
       |> EventsContext.update_all_event_links_multi(bulk_transactional_data.delete_event_ids)
       |> EventsContext.run_multi_transaction()
 
@@ -303,7 +307,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         data =
           Map.drop(data, [
             :crud_action,
-            :delete_event_ids,
+            :deleted_event_ids,
             :event,
             :event_definition,
             :event_definition_id,

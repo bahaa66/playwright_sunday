@@ -25,16 +25,14 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
 
       # Second once the pipeline has been stopped and the finished processing start the pagination
       # of events and delete of notifications
-      page =
-        NotificationsContext.get_page_of_notifications(
-          %{
-            filter: %{notification_setting_id: notification_setting_id},
-            select: [:id]
-          },
-          page_size: @page_size
-        )
-
-      process_page(page, notification_setting)
+      NotificationsContext.get_page_of_notifications(
+        %{
+          filter: %{notification_setting_id: notification_setting_id},
+          select: [:id]
+        },
+        page_size: @page_size
+      )
+      |> process_notifications(notification_setting.id)
 
       # Finally check to see if consumer should be started back up again
       start_event_pipeline(event_definition)
@@ -136,42 +134,40 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
     end
   end
 
-  defp process_page(
-         %{entries: entries, page_number: page_number, total_pages: total_pages},
-         %{deleted_at: deleted_at} = notification_setting
+  defp process_notifications(
+         %{entries: notifications, page_number: page_number, total_pages: total_pages},
+         notification_setting_id
        ) do
-    notification_ids = Enum.map(entries, fn e -> e.id end)
+    notification_ids = Enum.map(notifications, fn n -> n.id end)
 
     case NotificationsContext.update_notifcations(
            %{
              filter: %{notification_ids: notification_ids},
              select: [:id, :deleted_at]
            },
-           set: [deleted_at: deleted_at]
+           set: [deleted_at: DateTime.truncate(DateTime.utc_now(), :second)]
          ) do
       {_count, []} ->
         nil
 
       {_count, _deleted_notifications} ->
         Redis.publish_async("notification_settings_subscription", %{
-          updated: notification_setting.id
+          updated: notification_setting_id
         })
     end
 
     if page_number >= total_pages do
       {:ok, :success}
     else
-      next_page =
-        NotificationsContext.get_page_of_notifications(
-          %{
-            filter: %{notification_setting_id: notification_setting.id},
-            select: [:id]
-          },
-          page_number: page_number + 1,
-          page_size: @page_size
-        )
-
-      process_page(next_page, notification_setting)
+      NotificationsContext.get_page_of_notifications(
+        %{
+          filter: %{notification_setting_id: notification_setting_id},
+          select: [:id]
+        },
+        page_number: page_number + 1,
+        page_size: @page_size
+      )
+      |> process_notifications(notification_setting_id)
     end
   end
 

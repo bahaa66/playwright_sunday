@@ -11,7 +11,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
   alias CogyntWorkstationIngest.Broadway.EventPipeline
 
   alias Models.Enums.ConsumerStatusTypeEnum
-  alias Models.Notifications.{Notification, NotificationSetting}
+  alias Models.Notifications.NotificationSetting
   alias Models.Events.EventDefinition
 
   @page_size 2000
@@ -30,18 +30,16 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
 
       # Second once the pipeline has been stopped and the finished processing start the pagination
       # of events and backfill of notifications
-      page =
-        EventsContext.get_page_of_events(
-          %{
-            filter: %{event_definition_id: event_definition.id},
-            select: [:id, :created_at]
-          },
-          page_number: 1,
-          page_size: @page_size,
-          preload_details: true
-        )
-
-      process_page(page, event_definition, notification_setting)
+      EventsContext.get_page_of_events(
+        %{
+          filter: %{event_definition_id: event_definition.id},
+          select: [:id, :created_at]
+        },
+        page_number: 1,
+        page_size: @page_size,
+        preload_details: true
+      )
+      |> process_notifications_for_events(notification_setting.id, event_definition)
 
       # Finally check to see if consumer should be started back up again
       start_event_pipeline(event_definition)
@@ -132,109 +130,135 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
     end
   end
 
-  defp process_page(
-         %{entries: entries, page_number: page_number, total_pages: total_pages},
-         %{id: event_definition_id, event_definition_details: event_definition_details} =
-           event_definition,
-         notification_setting
+  defp process_notifications_for_events(
+         %{entries: events, page_number: page_number, total_pages: total_pages},
+         notification_setting_id,
+         event_definition
        ) do
-    case build_notifications(entries, event_definition_details, notification_setting)
-         |> NotificationsContext.bulk_insert_notifications(
-           returning: Notification.__schema__(:fields)
-         ) do
-      {_count, []} ->
+    notifications =
+      Enum.reduce(events, [], fn event, acc ->
+        risk_score = fetch_risk_score_from_event_details(event.event_details)
+
+        valid_notification_setting =
+          NotificationsContext.fetch_valid_notification_settings(
+            %{
+              event_definition_id: event_definition.id,
+              deleted_at: nil,
+              active: true
+            },
+            risk_score,
+            event_definition
+          )
+          |> Enum.find(nil, fn ns -> ns.id == notification_setting_id end)
+
+        # Ensure that there is a ValidNotificationSetting AND that there was not already a Notification
+        # created during Ingest for that notification_setting_id
+        notification =
+          if !is_nil(valid_notification_setting) do
+            if is_nil(
+                 NotificationsContext.get_notification_by(
+                   event_id: event.id,
+                   notification_setting_id: notification_setting_id
+                 )
+               ) do
+              # Set fields for Stream_input
+              id = Ecto.UUID.generate()
+              title = valid_notification_setting.title || 'null'
+              description = 'null'
+              user_id = valid_notification_setting.user_id || 'null'
+              archived_at = 'null'
+              priority = 'null'
+              assigned_to = valid_notification_setting.assigned_to || 'null'
+              dismissed_at = 'null'
+              deleted_at = 'null'
+              core_id = event.core_id || 'null'
+              now = DateTime.truncate(DateTime.utc_now(), :second)
+
+              [
+                "#{id};#{title};#{description};#{user_id};#{archived_at};#{priority};#{
+                  assigned_to
+                };#{dismissed_at};#{deleted_at};#{event.id};#{valid_notification_setting.id};#{
+                  valid_notification_setting.tag_id
+                };#{core_id};#{now};#{now}\n"
+              ]
+            else
+              []
+            end
+          else
+            []
+          end
+
+        acc ++ notification
+      end)
+
+    case NotificationsContext.insert_all_notifications_with_copy(notifications) do
+      {:ok, %Postgrex.Result{rows: []}} ->
         nil
 
-      {_count, updated_notifications} ->
+      {:ok, %Postgrex.Result{rows: results}} ->
+        notifications_enum = NotificationsContext.map_postgres_results(results)
+
         # only want to publish the notifications that are not deleted
         %{true: publish_notifications} =
-          NotificationsContext.remove_notification_virtual_fields(updated_notifications)
-          |> Enum.group_by(fn n -> is_nil(n.deleted_at) end)
+          Enum.group_by(notifications_enum, fn n -> is_nil(n.deleted_at) end)
 
         Redis.publish_async("notification_settings_subscription", %{
-          updated: notification_setting.id
+          updated: notification_setting_id
         })
 
         SystemNotificationContext.bulk_insert_system_notifications(publish_notifications)
+
+      {:error, %Postgrex.Error{postgres: %{message: error}}} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "process_notifications failed with Error: #{inspect(error)}"
+        )
+
+      _ ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "process_notifications failed"
+        )
     end
 
     if page_number >= total_pages do
       {:ok, :success}
     else
-      next_page =
-        EventsContext.get_page_of_events(
-          %{
-            filter: %{event_definition_id: event_definition_id},
-            select: [:id, :created_at]
-          },
-          page_number: page_number + 1,
-          page_size: @page_size,
-          preload_details: true
-        )
-
-      process_page(next_page, event_definition, notification_setting)
+      EventsContext.get_page_of_events(
+        %{
+          filter: %{event_definition_id: event_definition.id},
+          select: [:id, :created_at]
+        },
+        page_number: page_number + 1,
+        page_size: @page_size,
+        preload_details: true
+      )
+      |> process_notifications_for_events(notification_setting_id, event_definition)
     end
   end
 
-  defp build_notifications(page_entries, event_definition_details, notification_setting) do
-    Enum.reduce(page_entries, [], fn event, acc ->
-      with true <- publish_notification?(event.event_details, notification_setting.risk_range),
-           true <-
-             !is_nil(
-               Enum.find(event_definition_details, nil, fn d ->
-                 d.field_name == notification_setting.title
-               end)
-             ),
-           nil <-
-             NotificationsContext.get_notification_by(
-               event_id: event.id,
-               notification_setting_id: notification_setting.id
-             ) do
-        acc ++
-          [
-            %{
-              event_id: event.id,
-              user_id: notification_setting.user_id,
-              assigned_to: notification_setting.assigned_to,
-              tag_id: notification_setting.tag_id,
-              title: notification_setting.title,
-              notification_setting_id: notification_setting.id,
-              created_at: event.created_at,
-              updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-            }
-          ]
-      else
-        _ ->
-          acc
-      end
-    end)
-  end
-
-  defp publish_notification?(event_details, risk_range) do
+  defp fetch_risk_score_from_event_details(event_details) do
     risk_score =
       Enum.find(event_details, 0, fn detail ->
         detail.field_name == @risk_score and detail.field_value != nil
       end)
 
-    risk_score =
-      if risk_score != 0 do
-        case Float.parse(risk_score.field_value) do
-          :error ->
-            CogyntLogger.warn(
-              "#{__MODULE__}",
-              "Failed to parse risk_score as a float. Defaulting to 0"
-            )
+    if risk_score != 0 do
+      case Float.parse(risk_score.field_value) do
+        :error ->
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "Failed to parse risk_score as a float. Defaulting to 0"
+          )
 
-            0
+          0
 
-          {score, _extra} ->
-            score
-        end
-      else
-        risk_score
+        {score, _extra} ->
+          score
       end
-
-    NotificationsContext.in_risk_range?(risk_score, risk_range)
+    else
+      risk_score
+    end
   end
 
   defp is_job_queue_finished?(id) do

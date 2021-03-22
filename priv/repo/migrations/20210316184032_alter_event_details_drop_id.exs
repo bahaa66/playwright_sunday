@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterEventDetailsDropId do
+  use Migrations.AlterEventDetailsDropId
+end

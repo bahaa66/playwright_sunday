@@ -50,10 +50,10 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
         Broadway.push_messages(@deployment_pipeline_name, failed_deployment_messages)
       end
     rescue
-      _ ->
+      error ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Failed to push failed_messages to DeploymentPipeline"
+          "Failed to push failed_messages to DeploymentPipeline. Error: #{inspect(error)}"
         )
     end
 
@@ -79,10 +79,10 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
         end
       end)
     rescue
-      _ ->
+      error ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Failed to push failed_messages to EventPipeline"
+          "Failed to push failed_messages to EventPipeline. Error: #{inspect(error)}"
         )
     end
 

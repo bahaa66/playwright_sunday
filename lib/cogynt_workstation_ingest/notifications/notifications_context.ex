@@ -3,11 +3,29 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   The Notifications context: public interface for event related functionality.
   """
   import Ecto.Query, warn: false
+  alias Ecto.Adapters.SQL
   alias CogyntWorkstationIngest.Repo
 
   alias Models.Notifications.{NotificationSetting, Notification}
 
-  @insert_batch_size 30_000
+  @insert_batch_size 3_000
+  @notification_table_keys [
+    :id,
+    :title,
+    :description,
+    :user_id,
+    :archived_at,
+    :priority,
+    :assigned_to,
+    :dismissed_at,
+    :deleted_at,
+    :event_id,
+    :notification_setting_id,
+    :tag_id,
+    :core_id,
+    :created_at,
+    :updated_at
+  ]
 
   # ------------------------------------ #
   # --- Notification Setting Methods --- #
@@ -174,10 +192,10 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   @doc """
   Returns a list of the %Notification{} stucts that were inserted.
   ## Examples
-      iex> bulk_insert_notifications([%Notification{}, returning: [:id])
+      iex> insert_all_notifications([%Notification{}, returning: [:id])
       {20, [%Notification{...}]}
   """
-  def bulk_insert_notifications(notifications, opts \\ []) when is_list(notifications) do
+  def insert_all_notifications(notifications, opts \\ []) when is_list(notifications) do
     returning = Keyword.get(opts, :returning, [:id])
     on_conflict = Keyword.get(opts, :on_conflict, :nothing)
     conflict_target = Keyword.get(opts, :conflict_target, :id)
@@ -324,6 +342,161 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
 
   def remove_notification_virtual_fields([_ | tail]) do
     remove_notification_virtual_fields(tail)
+  end
+
+  # ---------------------- #
+  # --- PSQL Functions --- #
+  # ---------------------- #
+  def insert_all_notifications_with_copy(stream_input) do
+    # 1) Create Temp Table
+    temp_table_name = "notifications_#{Ecto.UUID.generate()}"
+
+    try do
+      case Repo.query(
+             "SELECT create_unlogged_notifications_table(CAST('#{temp_table_name}' as TEXT))"
+           ) do
+        {:ok, _result} ->
+          # 2) Copy data into temp table
+          statement = "COPY public.\"#{temp_table_name}\"(
+            id,
+            title,
+            description,
+            user_id,
+            archived_at,
+            priority,
+            assigned_to,
+            dismissed_at,
+            deleted_at,
+            event_id,
+            notification_setting_id,
+            tag_id,
+            core_id,
+            created_at,
+            updated_at
+          )
+          FROM STDIN CSV DELIMITER ';' NULL AS 'null'"
+
+          stream = SQL.stream(Repo, statement)
+
+          case Repo.transaction(fn ->
+                 Enum.into(stream_input, stream)
+               end) do
+            {:ok, _changes} ->
+              # 3) Merge temp table into notifications table, handle conflicts, drop temp table
+              try do
+                case Repo.query("SELECT merge_notifications_from_unlogged_table(
+                CAST('#{temp_table_name}' as TEXT)
+              )") do
+                  {:ok, result} ->
+                    Repo.query(
+                      "SELECT drop_unlogged_notifications_table(CAST('#{temp_table_name}' as TEXT))"
+                    )
+
+                    # 4) This is the Final return object if all is success
+                    {:ok, result}
+
+                  {:error, error} ->
+                    CogyntLogger.error(
+                      "#{__MODULE__}",
+                      "insert_all_notifications_with_copy/1 Failed to merge Unlogged and Actual notification tables. Error: #{
+                        inspect(error)
+                      }"
+                    )
+
+                    Repo.query(
+                      "SELECT drop_unlogged_notifications_table(CAST('#{temp_table_name}' as TEXT))"
+                    )
+
+                    {:error, error}
+                end
+              rescue
+                error ->
+                  CogyntLogger.error(
+                    "#{__MODULE__}",
+                    "insert_all_notifications_with_copy/1 Failed to merge Unlogged and Actual notification tables. Error: #{
+                      inspect(error)
+                    }"
+                  )
+
+                  Repo.query(
+                    "SELECT drop_unlogged_notifications_table(CAST('#{temp_table_name}' as TEXT))"
+                  )
+
+                  {:error, :internal_server_error}
+              end
+
+            {:error, error} ->
+              CogyntLogger.error(
+                "#{__MODULE__}",
+                "insert_all_notifications_with_copy/1 Failed at the COPY step. Error: #{
+                  inspect(error)
+                }"
+              )
+
+              {:error, :internal_server_error}
+          end
+
+        {:error, error} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "insert_all_notifications_with_copy/1 Failed to create unlogged table #{
+              temp_table_name
+            } Error: #{inspect(error)} "
+          )
+
+          Repo.query(
+            "SELECT drop_unlogged_notifications_table(CAST('#{temp_table_name}' as TEXT))"
+          )
+
+          {:error, error}
+      end
+    rescue
+      error ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "insert_all_notifications_with_copy/1 Failed to create unlogged table #{temp_table_name}. Error: #{
+            inspect(error)
+          }"
+        )
+
+        Repo.query("SELECT drop_unlogged_notifications_table(CAST('#{temp_table_name}' as TEXT))")
+        {:error, :internal_server_error}
+    end
+  end
+
+  def map_postgres_results(postgres_results) do
+    result =
+      Enum.reduce(postgres_results, [], fn rows, acc_0 ->
+        rows_result =
+          Enum.reduce(rows, [], fn row, acc_1 ->
+            keys = @notification_table_keys
+
+            values =
+              if is_tuple(row) do
+                Tuple.to_list(row)
+              else
+                row
+              end
+              |> Enum.reduce([], fn column, acc ->
+                case Ecto.UUID.cast(column) do
+                  {:ok, uuid} ->
+                    acc ++ [uuid]
+
+                  _ ->
+                    acc ++ [column]
+                end
+              end)
+
+            notifications_enum = Enum.zip(keys, values) |> Enum.into(%{})
+
+            acc_1 ++ [notifications_enum]
+          end)
+
+        acc_0 ++ rows_result
+      end)
+
+    # IO.inspect(result, label: "map_postgres_results RESULTS")
+    result
   end
 
   # ------------------------------ #
