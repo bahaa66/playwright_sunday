@@ -255,19 +255,28 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         event_definition
       )
       |> Enum.reduce([], fn ns, acc ->
-        acc ++
-          [
-            %{
-              event_id: event_id,
-              user_id: ns.user_id,
-              assigned_to: ns.assigned_to,
-              tag_id: ns.tag_id,
-              title: ns.title,
-              notification_setting_id: ns.id,
-              created_at: DateTime.truncate(DateTime.utc_now(), :second),
-              updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-            }
-          ]
+        if is_nil(
+             NotificationsContext.get_notification_by(
+               event_id: event_id,
+               notification_setting_id: ns.id
+             )
+           ) do
+          acc ++
+            [
+              %{
+                event_id: event_id,
+                user_id: ns.user_id,
+                assigned_to: ns.assigned_to,
+                tag_id: ns.tag_id,
+                title: ns.title,
+                notification_setting_id: ns.id,
+                created_at: DateTime.truncate(DateTime.utc_now(), :second),
+                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+              }
+            ]
+        else
+          acc
+        end
       end)
       |> NotificationsContext.bulk_insert_notifications(
         returning: [
@@ -361,49 +370,67 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
               new_notifications =
                 Enum.reduce(valid_notification_settings, [], fn notification_setting, acc_0 ->
-                  acc_0 ++
-                    [
-                      %{
-                        event_id: event_id,
-                        user_id: notification_setting.user_id,
-                        assigned_to: notification_setting.assigned_to,
-                        tag_id: notification_setting.tag_id,
-                        title: notification_setting.title,
-                        notification_setting_id: notification_setting.id,
-                        created_at: DateTime.truncate(DateTime.utc_now(), :second),
-                        updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-                      }
-                    ]
+                  if is_nil(
+                       NotificationsContext.get_notification_by(
+                         event_id: event_id,
+                         notification_setting_id: notification_setting.id
+                       )
+                     ) do
+                    acc_0 ++
+                      [
+                        %{
+                          event_id: event_id,
+                          user_id: notification_setting.user_id,
+                          assigned_to: notification_setting.assigned_to,
+                          tag_id: notification_setting.tag_id,
+                          title: notification_setting.title,
+                          notification_setting_id: notification_setting.id,
+                          created_at: DateTime.truncate(DateTime.utc_now(), :second),
+                          updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                        }
+                      ]
+                  else
+                    acc_0
+                  end
                 end)
 
               acc ++ [deleted_notification] ++ new_notifications
             else
-              deleted_at =
-                if crud_action == @delete do
-                  DateTime.truncate(DateTime.utc_now(), :second)
-                else
-                  nil
-                end
+              if is_nil(
+                   NotificationsContext.get_notification_by(
+                     event_id: event_id,
+                     notification_setting_id: ns_matched.id
+                   )
+                 ) do
+                deleted_at =
+                  if crud_action == @delete do
+                    DateTime.truncate(DateTime.utc_now(), :second)
+                  else
+                    nil
+                  end
 
-              acc ++
-                [
-                  %{
-                    id: notification.id,
-                    title: ns_matched.title,
-                    # description: notification.description,
-                    user_id: ns_matched.user_id,
-                    archived_at: notification.archived_at,
-                    priority: notification.priority,
-                    assigned_to: ns_matched.assigned_to,
-                    dismissed_at: notification.dismissed_at,
-                    deleted_at: deleted_at,
-                    event_id: event_id,
-                    notification_setting_id: ns_matched.id,
-                    tag_id: ns_matched.tag_id,
-                    created_at: notification.created_at,
-                    updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-                  }
-                ]
+                acc ++
+                  [
+                    %{
+                      id: notification.id,
+                      title: ns_matched.title,
+                      # description: notification.description,
+                      user_id: ns_matched.user_id,
+                      archived_at: notification.archived_at,
+                      priority: notification.priority,
+                      assigned_to: ns_matched.assigned_to,
+                      dismissed_at: notification.dismissed_at,
+                      deleted_at: deleted_at,
+                      event_id: event_id,
+                      notification_setting_id: ns_matched.id,
+                      tag_id: ns_matched.tag_id,
+                      created_at: notification.created_at,
+                      updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                    }
+                  ]
+              else
+                acc
+              end
             end
           end)
 
