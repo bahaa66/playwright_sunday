@@ -14,7 +14,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
   alias Models.Notifications.NotificationSetting
   alias Models.Events.EventDefinition
 
-  @page_size 2000
+  @page_size 5000
   @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
 
   def perform(notification_setting_id) do
@@ -139,6 +139,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
       Enum.reduce(events, [], fn event, acc ->
         risk_score = fetch_risk_score_from_event_details(event.event_details)
 
+        # 1) Fetch all valid_notification_settings for each event
         valid_notification_setting =
           NotificationsContext.fetch_valid_notification_settings(
             %{
@@ -151,8 +152,35 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
           )
           |> Enum.find(nil, fn ns -> ns.id == notification_setting_id end)
 
-        # Ensure that there is a ValidNotificationSetting AND that there was not already a Notification
-        # created during Ingest for that notification_setting_id
+        # 2) Update all notifications that match invalid_notification_settings to be deleted
+        invalid_notification_setting_ids =
+          NotificationsContext.fetch_invalid_notification_settings(
+            %{
+              event_definition_id: event_definition.id,
+              deleted_at: nil,
+              active: true
+            },
+            risk_score,
+            event_definition
+          )
+          |> Enum.map(fn ns -> ns.id end)
+
+        if !Enum.empty?(invalid_notification_setting_ids) do
+          NotificationsContext.update_notifcations(
+            %{
+              filter: %{
+                notification_setting_ids: invalid_notification_setting_ids,
+                deleted_at: nil,
+                core_id: event.core_id
+              }
+            },
+            set: [deleted_at: DateTime.truncate(DateTime.utc_now(), :second)]
+          )
+        end
+
+        # 3) Ensure that there is a ValidNotificationSetting AND that there was not already a Notification
+        # created during Ingest for that notification_setting_id and build a list of notifications to
+        # create for each
         notification =
           if !is_nil(valid_notification_setting) do
             if is_nil(
@@ -191,12 +219,18 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
         acc ++ notification
       end)
 
+    IO.inspect(length(notifications), label: "NOTIFICATIONS TO BE CREATED")
+
+    # 4) Insert notifications for valid_notification_settings
     case NotificationsContext.insert_all_notifications_with_copy(notifications) do
       {:ok, %Postgrex.Result{rows: []}} ->
         nil
 
       {:ok, %Postgrex.Result{rows: results}} ->
         notifications_enum = NotificationsContext.map_postgres_results(results)
+
+        IO.inspect(Enum.count(events), label: "EVENTS COUNT")
+        IO.inspect(results, label: "NOTIFICATIONS CREATED")
 
         # only want to publish the notifications that are not deleted
         %{true: publish_notifications} =

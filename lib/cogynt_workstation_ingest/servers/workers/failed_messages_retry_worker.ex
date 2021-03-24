@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Broadway.{EventPipeline, DeploymentPipeline}
 
-  @demand 100
+  @demand 5000
   @deployment_pipeline_name :DeploymentPipeline
   @deployment_pipeline_module CogyntWorkstationIngest.Broadway.DeploymentPipeline
   @event_pipeline_module CogyntWorkstationIngest.Broadway.EventPipeline

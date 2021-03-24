@@ -660,6 +660,58 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     end
   end
 
+  @doc """
+  Calls the psql Function for inserting link_events for
+  a given event_id
+  ## Examples
+      iex> call_insert_event_links_function(
+        "ec9b2f65-3fa0-4415-8c9a-9047328cb8a3",
+        ["a1f76663-27b4-46b3-bad4-71b46f32eb3c"],
+        ~U[2021-03-10 19:07:14Z]
+      )
+      {:ok, %Postgrex.Result{}}
+      iex> call_insert_event_links_function(
+        "ec9b2f65-3fa0-4415-8c9a-9047328cb8a3",
+        ["a1f76663-27b4-46b3-bad4-71b46f32eb3c"],
+        nil
+      )
+      {:error, %Postgrex.Error{}}
+  """
+  def call_insert_event_links_function(
+        event_id,
+        core_ids,
+        deleted_at
+      ) do
+    deleted_at_cast =
+      if is_nil(deleted_at) do
+        "NULL"
+      else
+        "CAST('#{deleted_at}' as TIMESTAMP)"
+      end
+
+    try do
+      case Repo.query("SELECT insert_event_links(
+            CAST('#{event_id}' as UUID),
+            CAST('#{core_ids}'::UUID[]),
+            #{deleted_at_cast}
+            )") do
+        {:ok, result} ->
+          {:ok, result}
+
+        {:error, error} ->
+          {:error, error}
+      end
+    rescue
+      error ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "call_insert_event_links_function/1 failed with Error: #{inspect(error)}"
+        )
+
+        {:error, :internal_server_error}
+    end
+  end
+
   def hard_delete_by_event_definition_id(event_definition_id, limit \\ 50000) do
     try do
       case Repo.query(
@@ -724,66 +776,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
         {:error, :internal_server_error}
     end
-  end
-
-  # ------------------------------------ #
-  # --- Pipeline Transaction Methods --- #
-  # ------------------------------------ #
-  def insert_all_event_details_multi(multi \\ Multi.new(), event_details) do
-    # Postgresql protocol has a limit of maximum parameters (65535)
-    {multi, _} =
-      Enum.chunk_every(event_details, @insert_batch_size)
-      |> Enum.reduce({multi, 0}, fn rows, {acc_multi, acc_count} ->
-        multi_name = String.to_atom("insert_event_details-#{acc_count}")
-
-        acc_multi =
-          acc_multi
-          |> Multi.insert_all(multi_name, EventDetail, rows, timeout: 60_000)
-
-        {acc_multi, acc_count + 1}
-      end)
-
-    multi
-  end
-
-  def insert_all_event_links_multi(multi \\ Multi.new(), link_events) do
-    # Postgresql protocol has a limit of maximum parameters (65535)
-    {multi, _} =
-      Enum.chunk_every(link_events, @insert_batch_size)
-      |> Enum.reduce({multi, 0}, fn rows, {acc_multi, acc_count} ->
-        multi_name = String.to_atom("insert_event_links-#{acc_count}")
-
-        acc_multi =
-          acc_multi
-          |> Multi.insert_all(multi_name, EventLink, rows, timeout: 60_000)
-
-        {acc_multi, acc_count + 1}
-      end)
-
-    multi
-  end
-
-  def update_all_event_links_multi(multi \\ Multi.new(), delete_event_ids) do
-    case is_nil(delete_event_ids) or Enum.empty?(delete_event_ids) do
-      true ->
-        multi
-
-      false ->
-        now = DateTime.truncate(DateTime.utc_now(), :second)
-
-        l_query =
-          from(
-            l in EventLink,
-            where: l.linkage_event_id in ^delete_event_ids
-          )
-
-        multi
-        |> Multi.update_all(:update_event_links, l_query, set: [updated_at: now, deleted_at: now])
-    end
-  end
-
-  def run_multi_transaction(multi) do
-    Repo.transaction(multi, timeout: 120_000)
   end
 
   # ----------------------- #

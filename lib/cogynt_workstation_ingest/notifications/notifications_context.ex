@@ -77,6 +77,19 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     end)
   end
 
+  def fetch_invalid_notification_settings(filters, risk_score, event_definition) do
+    query_notification_settings(%{filter: filters})
+    |> Enum.filter(fn ns ->
+      has_event_definition_detail =
+        Enum.find(event_definition.event_definition_details, fn
+          %{field_name: name} ->
+            name == ns.title
+        end) != nil
+
+      !has_event_definition_detail or !in_risk_range?(risk_score, ns.risk_range)
+    end)
+  end
+
   @doc """
   Querys NotificationSettings based on the filter args
   ## Examples
@@ -106,26 +119,6 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       end)
 
     Repo.all(query)
-  end
-
-  @doc """
-  Hard deletes many notification settings and removes them from the database.
-
-  ## Examples
-      iex> hard_delete_notification_settings(%{
-        filter: %{event_ids: ["9a9055f1-98b6-42a9-8145-7a4ca09cab23"]}
-      })
-      {1, nil | [%Notification{}]}
-  """
-  def hard_delete_notification_settings(args) do
-    Enum.reduce(args, from(ns in NotificationSetting), fn
-      {:filter, filter}, q ->
-        filter_notification_settings(filter, q)
-
-      {:select, select}, q ->
-        select(q, ^select)
-    end)
-    |> Repo.delete_all(timeout: 120_000)
   end
 
   @doc """
@@ -307,27 +300,6 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   end
 
   @doc """
-  Hard deletes many notifications and removes them from the database.
-  ## Examples
-      iex> hard_delete_notifications(%{
-          filter: %{
-            event_ids: ["9a9055f1-98b6-42a9-8145-7a4ca09cab23"]
-          }
-        })
-      {1, nil | [%Notification{}]}
-  """
-  def hard_delete_notifications(args) do
-    Enum.reduce(args, from(n in Notification), fn
-      {:filter, filter}, q ->
-        filter_notifications(filter, q)
-
-      {:select, select}, q ->
-        select(q, ^select)
-    end)
-    |> Repo.delete_all(timeout: 120_000)
-  end
-
-  @doc """
   Takes a list of Notification Structs and returns a list of maps with
   the Metadata and Timestamp fields dropped
   """
@@ -465,48 +437,40 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   end
 
   def map_postgres_results(postgres_results) do
-    result =
-      Enum.reduce(postgres_results, [], fn rows, acc_0 ->
-        rows_result =
-          Enum.reduce(rows, [], fn row, acc_1 ->
-            keys = @notification_table_keys
+    Enum.reduce(postgres_results, [], fn rows, acc_0 ->
+      rows_result =
+        Enum.reduce(rows, [], fn row, acc_1 ->
+          keys = @notification_table_keys
 
-            values =
-              if is_tuple(row) do
-                Tuple.to_list(row)
-              else
-                row
+          values =
+            if is_tuple(row) do
+              Tuple.to_list(row)
+            else
+              row
+            end
+            |> Enum.reduce([], fn column, acc ->
+              case Ecto.UUID.cast(column) do
+                {:ok, uuid} ->
+                  acc ++ [uuid]
+
+                _ ->
+                  acc ++ [column]
               end
-              |> Enum.reduce([], fn column, acc ->
-                case Ecto.UUID.cast(column) do
-                  {:ok, uuid} ->
-                    acc ++ [uuid]
+            end)
 
-                  _ ->
-                    acc ++ [column]
-                end
-              end)
+          notifications_enum = Enum.zip(keys, values) |> Enum.into(%{})
 
-            notifications_enum = Enum.zip(keys, values) |> Enum.into(%{})
+          acc_1 ++ [notifications_enum]
+        end)
 
-            acc_1 ++ [notifications_enum]
-          end)
-
-        acc_0 ++ rows_result
-      end)
-
-    # IO.inspect(result, label: "map_postgres_results RESULTS")
-    result
+      acc_0 ++ rows_result
+    end)
   end
 
-  # ------------------------------ #
-  # --- Event Pipeline Methods --- #
-  # ------------------------------ #
-  def run_multi_transaction(multi) do
-    Repo.transaction(multi, timeout: 120_000)
-  end
-
-  def in_risk_range?(risk_score, risk_range) do
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp in_risk_range?(risk_score, risk_range) do
     with true <- risk_score > 0,
          converted_risk_score <- trunc(Float.round(risk_score * 100)),
          min_risk_range <- Enum.min(risk_range),
@@ -532,9 +496,6 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     end
   end
 
-  # ----------------------- #
-  # --- private methods --- #
-  # ----------------------- #
   defp filter_notifications(filter, query) do
     Enum.reduce(filter, query, fn
       {:notification_ids, notification_ids}, q ->
@@ -543,8 +504,20 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       {:notification_setting_id, notification_setting_id}, q ->
         where(q, [n], n.notification_setting_id == ^notification_setting_id)
 
+      {:notification_setting_ids, notification_setting_ids}, q ->
+        where(q, [n], n.notification_setting_id in ^notification_setting_ids)
+
+      {:core_id, core_id}, q ->
+        where(q, [n], n.core_id == ^core_id)
+
       {:event_ids, event_ids}, q ->
         where(q, [n], n.event_id in ^event_ids)
+
+      {:deleted_at, nil}, q ->
+        where(q, [n], is_nil(n.deleted_at))
+
+      {:deleted_at, _}, q ->
+        where(q, [n], is_nil(n.deleted_at) == false)
     end)
   end
 
