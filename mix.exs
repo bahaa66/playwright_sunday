@@ -66,16 +66,14 @@ defmodule CogyntWorkstationIngest.MixProject do
        override: true},
       {
         :models,
-        # tag: "v1.12.3",
-        branch: "feat/CDST-914-db-transactions",
+        tag: "v1.12.9-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        # tag: "v1.12.3",
-        branch: "feat/CDST-914-db-transactions",
+        tag: "v1.12.9-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
@@ -89,8 +87,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :elasticsearch,
-        #tag: "v1.12.5-beta",
-        branch: "feat/CDST-914-db-transactions",
+        tag: "v1.12.9-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
         override: true
