@@ -140,21 +140,13 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
        ) do
     notification_ids = Enum.map(notifications, fn n -> n.id end)
 
-    case NotificationsContext.update_notifcations(
-           %{
-             filter: %{notification_ids: notification_ids},
-             select: [:id, :deleted_at]
-           },
-           set: [deleted_at: DateTime.truncate(DateTime.utc_now(), :second)]
-         ) do
-      {_count, []} ->
-        nil
-
-      {_count, _deleted_notifications} ->
-        Redis.publish_async("notification_settings_subscription", %{
-          updated: notification_setting_id
-        })
-    end
+    NotificationsContext.update_notifcations(
+      %{
+        filter: %{notification_ids: notification_ids},
+        select: [:id, :deleted_at]
+      },
+      set: [deleted_at: DateTime.truncate(DateTime.utc_now(), :second)]
+    )
 
     if page_number >= total_pages do
       {:ok, :success}

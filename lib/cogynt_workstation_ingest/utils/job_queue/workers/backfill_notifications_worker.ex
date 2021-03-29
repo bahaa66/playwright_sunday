@@ -232,9 +232,9 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
         %{true: publish_notifications} =
           Enum.group_by(notifications_enum, fn n -> is_nil(n.deleted_at) end)
 
-        Redis.publish_async("notification_settings_subscription", %{
-          updated: notification_setting_id
-        })
+        # Redis.publish_async("notification_settings_subscription", %{
+        #   updated: notification_setting_id
+        # })
 
         SystemNotificationContext.bulk_insert_system_notifications(publish_notifications)
 
