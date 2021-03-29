@@ -357,7 +357,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
               # 3) Merge temp table into notifications table, handle conflicts, drop temp table
               try do
                 case Repo.query("SELECT merge_notifications_from_unlogged_table(
-                CAST('#{temp_table_name}' as TEXT)
+                CAST('#{temp_table_name}' as regclass)
               )") do
                   {:ok, result} ->
                     Repo.query(

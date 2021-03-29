@@ -190,8 +190,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             acc_pg_event_details =
               acc_pg_event_details ++
                 [
-                  "\"#{field_name}\";\"#{field_value}\";\"#{field_type}\";#{event_id}\n"
+                  %{
+                    event_id: event_id,
+                    field_name: field_name,
+                    field_type: field_type,
+                    field_value: field_value
+                  }
                 ]
+
+            # acc_pg_event_details ++
+            #   [
+            #     "\"#{field_name}\";\"#{field_value}\";\"#{field_type}\";#{event_id}\n"
+            #   ]
 
             acc_elastic_event_document =
               if not is_nil(field_type) do
@@ -475,8 +485,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               {:unsafe_fragment, "(core_id, notification_setting_id) WHERE core_id IS NOT NULL"}
           )
 
-        IO.inspect(length(created_notifications), label: "NOTIFICATIONS CREATED IN PIPELINE")
-
         if !Enum.empty?(created_notifications) do
           SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
         end
@@ -618,11 +626,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     bulk_upsert_risk_history_with_transaction(bulk_transactional_data)
 
     # EventDetails Transactional Inserts
-    case EventsContext.insert_all_event_details_with_copy(bulk_transactional_data.event_details) do
-      {:ok, _} ->
-        :ok
-
-      {:error, _} ->
+    try do
+      EventsContext.insert_all_event_details(bulk_transactional_data.event_details)
+    rescue
+      _ ->
         rollback_all_elastic_index_data(bulk_transactional_data)
         raise "execute_batch_transaction_for_crud/1 failed"
     end
@@ -683,11 +690,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     bulk_upsert_risk_history_with_transaction(bulk_transactional_data)
 
     # EventDetails Transactional Inserts
-    case EventsContext.insert_all_event_details_with_copy(bulk_transactional_data.event_details) do
-      {:ok, _} ->
-        messages
-
-      {:error, _} ->
+    try do
+      EventsContext.insert_all_event_details(bulk_transactional_data.event_details)
+    rescue
+      _ ->
         rollback_all_elastic_index_data(bulk_transactional_data)
         raise "execute_batch_transaction/1 failed"
     end

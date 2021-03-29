@@ -33,7 +33,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
       EventsContext.get_page_of_events(
         %{
           filter: %{event_definition_id: event_definition.id},
-          select: [:id, :created_at]
+          select: [:id, :core_id, :created_at]
         },
         page_number: 1,
         page_size: @page_size,
@@ -201,13 +201,14 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
               deleted_at = 'null'
               core_id = event.core_id || 'null'
               now = DateTime.truncate(DateTime.utc_now(), :second)
+              created_at = event.created_at || now
 
               [
                 "#{id};#{title};#{description};#{user_id};#{archived_at};#{priority};#{
                   assigned_to
                 };#{dismissed_at};#{deleted_at};#{event.id};#{valid_notification_setting.id};#{
                   valid_notification_setting.tag_id
-                };#{core_id};#{now};#{now}\n"
+                };#{core_id};#{created_at};#{now}\n"
               ]
             else
               []
@@ -219,8 +220,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
         acc ++ notification
       end)
 
-    IO.inspect(length(notifications), label: "NOTIFICATIONS TO BE CREATED")
-
     # 4) Insert notifications for valid_notification_settings
     case NotificationsContext.insert_all_notifications_with_copy(notifications) do
       {:ok, %Postgrex.Result{rows: []}} ->
@@ -228,9 +227,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
 
       {:ok, %Postgrex.Result{rows: results}} ->
         notifications_enum = NotificationsContext.map_postgres_results(results)
-
-        IO.inspect(Enum.count(events), label: "EVENTS COUNT")
-        IO.inspect(results, label: "NOTIFICATIONS CREATED")
 
         # only want to publish the notifications that are not deleted
         %{true: publish_notifications} =
@@ -261,7 +257,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
       EventsContext.get_page_of_events(
         %{
           filter: %{event_definition_id: event_definition.id},
-          select: [:id, :created_at]
+          select: [:id, :core_id, :created_at]
         },
         page_number: page_number + 1,
         page_size: @page_size,
