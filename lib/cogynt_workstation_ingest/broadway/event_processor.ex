@@ -306,9 +306,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       |> Enum.reduce([], fn ns, acc ->
         now = DateTime.truncate(DateTime.utc_now(), :second)
 
-        # Message coming through pipeline can be a failed retry message
-        # need to ensure Notifications may not already have been created since
-        # they were removed from the transactional step
         acc ++
           [
             %{
