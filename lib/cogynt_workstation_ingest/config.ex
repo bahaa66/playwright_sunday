@@ -16,7 +16,7 @@ defmodule CogyntWorkstationIngest.Config do
 
   def ingest_task_worker_timer(), do: ingest_task_worker()[:timer]
 
-  def kafka_brokers, do: kafka()[:brokers]
+  def kafka_brokers, do: parse_kafka_brokers()
   def kafka_client, do: kafka()[:kafka_client]
   def partition_strategy, do: kafka()[:partition_strategy]
   def template_solutions_topic, do: kafka()[:template_solutions_topic]
@@ -83,4 +83,20 @@ defmodule CogyntWorkstationIngest.Config do
   defp elasticsearch(), do: Application.get_env(:elasticsearch, :application)
 
   defp clients(), do: Application.get_env(:cogynt_workstation_ingest, :clients)
+
+  defp parse_kafka_brokers() do
+    String.split(kafka()[:brokers], ",", trim: true)
+    |> Enum.chunk_every(2)
+    |> Enum.reduce([], fn x, acc ->
+      broker = List.to_tuple(x)
+
+      port =
+        elem(broker, 1)
+        |> String.to_integer()
+
+      broker = put_elem(broker, 1, port)
+
+      acc ++ [broker]
+    end)
+  end
 end

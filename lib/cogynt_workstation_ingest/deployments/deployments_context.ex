@@ -121,6 +121,7 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
     Responses:
     {:ok, [{host, port}, {host, port}, {host, port}]} | {:error, :does_not_exist}
   """
+  # TODO: change parsing of deployment data once i have an example of what the data looks like
   def get_kafka_brokers(id) do
     case get_deployment(id) do
       nil ->

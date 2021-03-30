@@ -30,12 +30,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
 
 # Kafka Configurations
 config :kafka, :application,
-  brokers: [
-    {
-      System.get_env("KAFKA_BROKER") || "127.0.0.1",
-      (System.get_env("KAFKA_PORT") || "9092") |> String.to_integer()
-    }
-  ],
+  brokers: System.get_env("KAFKA_BROKERS") || "127.0.0.1,9092",
   partition_strategy: (System.get_env("PARTITION_STRATEGY") || "random") |> String.to_atom(),
   partitions: (System.get_env("PARTITIONS") || "10") |> String.to_integer(),
   replication_factor: (System.get_env("REPLICATION_FACTOR") || "3") |> String.to_integer(),
