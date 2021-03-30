@@ -84,11 +84,12 @@ defmodule CogyntWorkstationIngest.Config do
 
   defp clients(), do: Application.get_env(:cogynt_workstation_ingest, :clients)
 
-  defp parse_kafka_brokers() do
+  def parse_kafka_brokers() do
     String.split(kafka()[:brokers], ",", trim: true)
-    |> Enum.chunk_every(2)
     |> Enum.reduce([], fn x, acc ->
-      broker = List.to_tuple(x)
+      broker =
+        String.split(x, ":", trim: true)
+        |> List.to_tuple()
 
       port =
         elem(broker, 1)
