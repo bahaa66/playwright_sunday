@@ -34,7 +34,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              offset_commit_on_ack: true,
              offset_reset_policy: :earliest,
              group_config: [
-               session_timeout_seconds: 30,
+               session_timeout_seconds: 30
              ],
              client_config: [
                connect_timeout: 30000
@@ -50,7 +50,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       ],
       batchers: [
         default: [
-          batch_size: 1000,
+          batch_size: 1_000,
           concurrency: 10
         ]
       ],
@@ -82,6 +82,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
             event: decoded_data,
             event_definition_id: event_definition_id,
             event_id: nil,
+            pipeline_state: nil,
             retry_count: 0,
             event_definition:
               EventsContext.get_event_definition(event_definition_id, preload_details: true)
@@ -174,29 +175,80 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   process_notifications/1 and execute_transaction/1.
   """
   @impl true
+  def handle_message(_processor, %Message{data: nil} = message, _context), do: message
+
+  @impl true
   def handle_message(
         _processor,
         %Message{
           data: %{
-            event_definition: %{event_type: :linkage}
+            event_definition: %{event_type: :linkage},
+            pipeline_state: pipeline_state
           }
         } = message,
         _context
       ) do
+    message =
+      case pipeline_state do
+        :process_event ->
+          message
+          |> EventProcessor.process_event_details_and_elasticsearch_docs()
+          |> EventProcessor.process_notifications()
+          |> LinkEventProcessor.validate_link_event()
+          |> LinkEventProcessor.process_entities()
+
+        :process_event_details_and_elasticsearch_docs ->
+          message
+          |> EventProcessor.process_notifications()
+          |> LinkEventProcessor.validate_link_event()
+          |> LinkEventProcessor.process_entities()
+
+        :process_notifications ->
+          message
+          |> LinkEventProcessor.validate_link_event()
+          |> LinkEventProcessor.process_entities()
+
+        :validate_link_event ->
+          message
+          |> LinkEventProcessor.process_entities()
+
+        _ ->
+          message
+          |> EventProcessor.process_event()
+          |> EventProcessor.process_event_details_and_elasticsearch_docs()
+          |> EventProcessor.process_notifications()
+          |> LinkEventProcessor.validate_link_event()
+          |> LinkEventProcessor.process_entities()
+      end
+
     message
-    |> EventProcessor.process_event()
-    |> EventProcessor.process_event_details_and_elasticsearch_docs()
-    |> EventProcessor.process_notifications()
-    |> LinkEventProcessor.validate_link_event()
-    |> LinkEventProcessor.process_entities()
   end
 
   @impl true
-  def handle_message(_processor, message, _context) do
+  def handle_message(
+        _processor,
+        %Message{data: %{pipeline_state: pipeline_state}} = message,
+        _context
+      ) do
+    message =
+      case pipeline_state do
+        :process_event ->
+          message
+          |> EventProcessor.process_event_details_and_elasticsearch_docs()
+          |> EventProcessor.process_notifications()
+
+        :process_event_details_and_elasticsearch_docs ->
+          message
+          |> EventProcessor.process_notifications()
+
+        _ ->
+          message
+          |> EventProcessor.process_event()
+          |> EventProcessor.process_event_details_and_elasticsearch_docs()
+          |> EventProcessor.process_notifications()
+      end
+
     message
-    |> EventProcessor.process_event()
-    |> EventProcessor.process_event_details_and_elasticsearch_docs()
-    |> EventProcessor.process_notifications()
   end
 
   @impl true
@@ -205,16 +257,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     List.first(messages)
     |> case do
-      %Message{data: %{event_definition: %{event_type: :linkage}, event: %{@crud => _action}}} ->
-        messages
-        |> Enum.group_by(fn message -> message.data.event["id"] end)
-        |> LinkEventProcessor.execute_batch_transaction_for_crud()
-
-      %Message{data: %{event_definition: %{event_type: :linkage}}} ->
-        messages
-        |> Enum.map(fn message -> message.data end)
-        |> LinkEventProcessor.execute_batch_transaction()
-
       %Message{data: %{event: %{@crud => _action}}} ->
         messages
         |> Enum.group_by(fn message -> message.data.event["id"] end)

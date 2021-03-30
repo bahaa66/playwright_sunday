@@ -2,7 +2,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   @moduledoc """
   Module that acts as the Broadway Processor for the DeploymentPipeline.
   """
-
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Models.Deployments.Deployment
@@ -102,7 +101,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
 
         # TODO: eventually we will need to start a Drilldown Connector for each new
         # deployment target that is ingested
-
         message
 
       _ ->

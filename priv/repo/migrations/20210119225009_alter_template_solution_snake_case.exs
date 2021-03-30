@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterTemplateSolutionSnakeCase do
+  use Migrations.AlterTemplateSolutionsSnakeCase
+end

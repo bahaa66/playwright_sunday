@@ -2,11 +2,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   @moduledoc """
   """
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Repo
   alias CogyntWorkstationIngest.Broadway.EventPipeline
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngest.Notifications.NotificationsContext
-  alias CogyntWorkstationIngest.Collections.CollectionsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
 
@@ -37,7 +34,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         )
       end)
 
-      truncate_all_tables()
+      EventsContext.truncate_all_tables()
 
       CogyntLogger.info(
         "#{__MODULE__}",
@@ -49,7 +46,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
           nil ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "Event definition not found for event_definition_id: #{event_definition_id}"
+              "EventDefinition not found for event_definition_id: #{event_definition_id}"
             )
 
           event_definition ->
@@ -121,13 +118,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
 
     # Sixth delete all event_definition_data. Anything linked to the
     # event_definition_id
-    EventsContext.query_events(%{
-      filter: %{event_definition_id: event_definition.id},
-      select: [:id],
-      order_by: :created_at,
-      limit: 2000
-    })
-    |> delete_event_definition_data(event_definition.id)
+    EventsContext.hard_delete_by_event_definition_id(event_definition.id)
 
     # Finally update the EventDefintion to be inactive
     case EventsContext.update_event_definition(event_definition, %{
@@ -185,91 +176,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
     })
   end
 
-  defp delete_event_definition_data(events, event_definition_id) do
-    if Enum.empty?(events) do
-      CogyntLogger.info(
-        "#{__MODULE__}",
-        "Finished Removing All EventDefinitionData For DevDelete Action"
-      )
-    else
-      CogyntLogger.info(
-        "#{__MODULE__}",
-        "Removing Events and Associated Data W/ EventCount: #{Enum.count(events)}"
-      )
-
-      event_ids = Enum.map(events, fn e -> e.id end)
-
-      # Delete notifications
-      {_notification_count, notifications} =
-        NotificationsContext.hard_delete_notifications(%{
-          filter: %{event_ids: event_ids},
-          select: [:id]
-        })
-
-      notification_ids = Enum.map(notifications, fn n -> n.id end)
-
-      # Delete notification_settings
-      {_notification_settings_count, _notification_settings} =
-        NotificationsContext.hard_delete_notification_settings(%{
-          filter: %{
-            event_definition_id: event_definition_id
-          }
-        })
-
-      # Delete notification collection items
-      {_notification_item_count, _} =
-        CollectionsContext.hard_delete_collection_items(%{
-          filter: %{
-            item_ids: notification_ids,
-            item_type: "notification"
-          }
-        })
-
-      # Delete event details
-      {_event_detail_count, _} =
-        EventsContext.hard_delete_event_details(%{
-          filter: %{event_ids: event_ids}
-        })
-
-      # Delete event links
-      {_event_link_count, _} =
-        EventsContext.hard_delete_event_links(%{
-          filter: %{linkage_event_ids: event_ids}
-        })
-
-      # Delete event collection items
-      {_event_item_count, _} =
-        CollectionsContext.hard_delete_collection_items(%{
-          filter: %{
-            item_ids: event_ids,
-            item_type: "event"
-          }
-        })
-
-      # Delete events
-      {_event_count, _} =
-        EventsContext.hard_delete_events(%{
-          filter: %{event_ids: event_ids}
-        })
-
-      # Delete event detail templates
-      {_event_detail_template_count, _} =
-        EventsContext.hard_delete_event_detail_templates(%{
-          filter: %{event_definition_id: event_definition_id}
-        })
-
-      new_events =
-        EventsContext.query_events(%{
-          filter: %{event_definition_id: event_definition_id},
-          select: [:id],
-          order_by: :created_at,
-          limit: 2000
-        })
-
-      delete_event_definition_data(new_events, event_definition_id)
-    end
-  end
-
   defp ensure_event_pipeline_stopped(event_definition_id, count \\ 1) do
     if count >= 30 do
       CogyntLogger.info(
@@ -294,27 +200,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
             "EventPipeline #{event_definition_id} Stopped"
           )
       end
-    end
-  end
-
-  def truncate_all_tables() do
-    try do
-      {:ok, result = %Postgrex.Result{}} =
-        Repo.query(
-          "SELECT truncate_tables('#{Config.postgres_username()}')",
-          []
-        )
-
-      CogyntLogger.info(
-        "#{__MODULE__}",
-        "truncate_all_tables completed with result: #{result.connection_id}"
-      )
-    rescue
-      _ ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "truncate_all_tables failed"
-        )
     end
   end
 end

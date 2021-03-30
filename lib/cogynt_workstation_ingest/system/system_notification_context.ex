@@ -14,7 +14,7 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
 
   alias CogyntWorkstationIngest.Repo
 
-  @insert_batch_size 30_000
+  @insert_batch_size 3_000
 
   # ------------------------------------------ #
   # --- System Notification Schema Nethods --- #

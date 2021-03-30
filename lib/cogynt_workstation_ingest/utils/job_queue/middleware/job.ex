@@ -92,10 +92,10 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
             )
         end
 
-        Redis.publish_async("notification_settings_subscription", %{
-          id: args,
-          status: "running"
-        })
+      # Redis.publish_async("notification_settings_subscription", %{
+      #   id: args,
+      #   status: "running"
+      # })
 
       worker_module == to_string(UpdateNotificationsWorker) ->
         case Redis.hash_get("ts", "un") do
@@ -114,10 +114,10 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
             )
         end
 
-        Redis.publish_async("notification_settings_subscription", %{
-          id: args,
-          status: "running"
-        })
+      # Redis.publish_async("notification_settings_subscription", %{
+      #   id: args,
+      #   status: "running"
+      # })
 
       worker_module == to_string(DeleteNotificationsWorker) ->
         case Redis.hash_get("ts", "dn") do
@@ -136,10 +136,10 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
             )
         end
 
-        Redis.publish_async("notification_settings_subscription", %{
-          id: args,
-          status: "running"
-        })
+      # Redis.publish_async("notification_settings_subscription", %{
+      #   id: args,
+      #   status: "running"
+      # })
 
       worker_module == to_string(DeleteEventDefinitionEventsWorker) ->
         Redis.hash_set_async("ts", args, %{

@@ -5,6 +5,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   import Ecto.Query, warn: false
   alias Ecto.Multi
   alias CogyntWorkstationIngest.Repo
+  alias CogyntWorkstationIngest.Config
 
   alias Models.Events.{
     Event,
@@ -20,7 +21,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     EventDetailTemplateGroupItem
   }
 
-  @insert_batch_size 30_000
+  @insert_batch_size 3_000
 
   # ---------------------------- #
   # --- Event Schema Methods --- #
@@ -78,25 +79,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       end
 
     Repo.all(query)
-  end
-
-  @doc """
-  Returns all event_ids that have records that match for the core_id
-  and are not deleted
-  ## Examples
-      iex> get_events_by_core_id(core_id, event_definition_id)
-      [%{}]
-      iex> get_events_by_core_id("invalid_id")
-      []
-  """
-  def get_events_by_core_id(core_id, event_definition_id) do
-    from(e in Event,
-      join: ed in EventDefinition,
-      on: ed.id == e.event_definition_id,
-      where: e.core_id == ^core_id and ed.id == ^event_definition_id and is_nil(e.deleted_at),
-      select: e.id
-    )
-    |> Repo.all()
   end
 
   @doc """
@@ -175,41 +157,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.update_all(set: set)
   end
 
-  @doc """
-  Deletes Event and removes their rows from the database.
-  ## Examples
-      iex> hard_delete_events(%{
-        filter: %{ids: "73c3c043-73ff-4d09-b206-029641880cf5"}
-      })
-      {3, nil}
-  """
-  def hard_delete_events(args) do
-    Enum.reduce(args, from(e in Event), fn
-      {:filter, filter}, q ->
-        filter_events(filter, q)
-    end)
-    |> Repo.delete_all(timeout: 120_000)
-  end
-
   # ---------------------------------- #
   # --- EventDetail Schema Methods --- #
   # ---------------------------------- #
-  @doc """
-  Deletes EventDetails and removes their rows from the database.
-  ## Examples
-      ex> hard_delete_event_details(%{
-        filter: %{event_ids: "73c3c043-73ff-4d09-b206-029641880cf5"}
-      })
-      {3, nil}
-  """
-  def hard_delete_event_details(args) do
-    Enum.reduce(args, from(e in EventDetail), fn
-      {:filter, filter}, q ->
-        filter_event_details(filter, q)
-    end)
-    |> Repo.delete_all(timeout: 120_000)
-  end
-
   def insert_all_event_details(event_details) do
     # Postgresql protocol has a limit of maximum parameters (65535)
     Enum.chunk_every(event_details, @insert_batch_size)
@@ -419,30 +369,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   @doc """
-  Hard deletes an event definition by removing it's from the database.
-  ## Examples
-      iex> hard_delete_event_definition(event_definition)
-      {:ok, %EventDefinition{}}
-  """
-  def hard_delete_event_definition(%EventDefinition{} = event_definition) do
-    Repo.delete(event_definition, timeout: 120_000)
-  end
-
-  @doc """
-  Removes all the records in the EventDefinitions table.
-  It returns a tuple containing the number of entries
-  and any returned result as second element. The second
-  element is nil by default unless a select is supplied
-  in the delete query
-    ## Examples
-      iex> hard_delete_event_definitions()
-      {10, nil}
-  """
-  def hard_delete_event_definitions() do
-    Repo.delete_all(EventDefinition, timeout: 120_000)
-  end
-
-  @doc """
   Converts an EventDefinition struct into a dropping the metadata and timestamp related fields
   """
   def remove_event_definition_virtual_fields(a, b \\ [])
@@ -499,21 +425,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # ------------------------------------------ #
   # --- EventDetailTemplate Schema Methods --- #
   # ------------------------------------------ #
-  @doc """
-  Deletes EventDetailTemplates and removes their rows from the database.
-  ## Examples
-      iex> hard_delete_event_detail_templates(%{
-        filter: %{ids: "73c3c043-73ff-4d09-b206-029641880cf5"}
-      })
-      {3, nil}
-  """
-  def hard_delete_event_detail_templates(args) do
-    Enum.reduce(args, from(edt in EventDetailTemplate), fn
-      {:filter, filter}, q ->
-        filter_event_detail_templates(filter, q)
-    end)
-    |> Repo.delete_all(timeout: 120_000)
-  end
 
   @doc """
   Updates the deleted_at values for all EventDetailTemplate
@@ -647,7 +558,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # -------------------------------- #
   # --- EventLink Schema Methods --- #
   # -------------------------------- #
-
   def update_event_links(args, set: set) do
     query = from(e in EventLink)
 
@@ -661,99 +571,211 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.update_all(set: set)
   end
 
-  @doc """
-  Deletes EventLinks and removes their rows from the database.
-  ## Examples
-      ex> hard_delete_event_links(%{
-        filter: %{event_ids: "73c3c043-73ff-4d09-b206-029641880cf5"}
-      })
-      {3, nil}
-  """
-  def hard_delete_event_links(args) do
-    Enum.reduce(args, from(el in EventLink), fn
-      {:filter, filter}, q ->
-        filter_event_links(filter, q)
+  # ---------------------- #
+  # --- PSQL Functions --- #
+  # ---------------------- #
+  def insert_all_event_details_with_copy(stream_input) do
+    stream =
+      Ecto.Adapters.SQL.stream(
+        Repo,
+        "COPY event_details(field_name,field_value,field_type,event_id) FROM STDIN CSV DELIMITER ';'"
+      )
+
+    Repo.transaction(fn ->
+      Enum.into(stream_input, stream)
     end)
-    |> Repo.delete_all(timeout: 120_000)
   end
 
-  # ------------------------------------ #
-  # --- Pipeline Transaction Methods --- #
-  # ------------------------------------ #
-  def insert_all_event_details_multi(multi \\ Multi.new(), event_details) do
-    # Postgresql protocol has a limit of maximum parameters (65535)
-    {multi, _} =
-      Enum.chunk_every(event_details, @insert_batch_size)
-      |> Enum.reduce({multi, 0}, fn rows, {acc_multi, acc_count} ->
-        multi_name = String.to_atom("insert_event_details-#{acc_count}")
+  @doc """
+  Calls the psql Function for inserting an event that has a
+  core_id field set (crud actions)
+  ## Examples
+      iex> call_insert_crud_event_function(
+        "ec9b2f65-3fa0-4415-8c9a-9047328cb8a3",
+        "a1f76663-27b4-46b3-bad4-71b46f32eb3c",
+        "39e4d640-2061-41fd-8ed5-bed579272aef",
+        ~U[2021-03-10 19:07:14Z],
+        nil
+      )
+      {:ok, %Postgrex.Result{}}
+      iex> call_insert_crud_event_function(
+        "ec9b2f65-3fa0-4415-8c9a-9047328cb8a3",
+        "a1f76663-27b4-46b3-bad4-71b46f32eb3c",
+        "39e4d640-2061-41fd-8ed5-bed579272aef",
+        ~U[2021-03-10 19:07:14Z],
+        nil
+      )
+      {:error, %Postgrex.Error{}}
+  """
+  def call_insert_crud_event_function(
+        event_id,
+        event_definition_id,
+        core_id,
+        occurred_at,
+        deleted_at
+      ) do
+    core_id_cast =
+      if is_nil(core_id) do
+        "NULL"
+      else
+        "CAST('#{core_id}' as UUID)"
+      end
 
-        acc_multi =
-          acc_multi
-          |> Multi.insert_all(multi_name, EventDetail, rows, timeout: 60_000)
+    occurred_at_cast =
+      if is_nil(occurred_at) do
+        "NULL"
+      else
+        "CAST('#{occurred_at}' as TIMESTAMP)"
+      end
 
-        {acc_multi, acc_count + 1}
-      end)
+    deleted_at_cast =
+      if is_nil(deleted_at) do
+        "NULL"
+      else
+        "CAST('#{deleted_at}' as TIMESTAMP)"
+      end
 
-    multi
-  end
+    try do
+      case Repo.query("SELECT insert_crud_event(
+            CAST('#{event_id}' as UUID),
+            CAST('#{event_definition_id}' as UUID),
+            #{core_id_cast},
+            #{occurred_at_cast},
+            #{deleted_at_cast}
+            )") do
+        {:ok, result} ->
+          {:ok, result}
 
-  def insert_all_event_links_multi(multi \\ Multi.new(), link_events) do
-    # Postgresql protocol has a limit of maximum parameters (65535)
-    {multi, _} =
-      Enum.chunk_every(link_events, @insert_batch_size)
-      |> Enum.reduce({multi, 0}, fn rows, {acc_multi, acc_count} ->
-        multi_name = String.to_atom("insert_event_links-#{acc_count}")
+        {:error, error} ->
+          {:error, error}
+      end
+    rescue
+      error ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "call_insert_crud_event_function/1 failed with Error: #{inspect(error)}"
+        )
 
-        acc_multi =
-          acc_multi
-          |> Multi.insert_all(multi_name, EventLink, rows, timeout: 60_000)
-
-        {acc_multi, acc_count + 1}
-      end)
-
-    multi
-  end
-
-  def update_all_events_multi(multi \\ Multi.new(), delete_event_ids) do
-    case is_nil(delete_event_ids) or Enum.empty?(delete_event_ids) do
-      true ->
-        multi
-
-      false ->
-        now = DateTime.truncate(DateTime.utc_now(), :second)
-
-        e_query =
-          from(
-            e in Event,
-            where: e.id in ^delete_event_ids
-          )
-
-        multi
-        |> Multi.update_all(:update_events, e_query, set: [updated_at: now, deleted_at: now])
+        {:error, :internal_server_error}
     end
   end
 
-  def update_all_event_links_multi(multi \\ Multi.new(), delete_event_ids) do
-    case is_nil(delete_event_ids) or Enum.empty?(delete_event_ids) do
-      true ->
-        multi
+  @doc """
+  Calls the psql Function for inserting link_events for
+  a given event_id
+  ## Examples
+      iex> call_insert_event_links_function(
+        "ec9b2f65-3fa0-4415-8c9a-9047328cb8a3",
+        ["a1f76663-27b4-46b3-bad4-71b46f32eb3c"],
+        ~U[2021-03-10 19:07:14Z]
+      )
+      {:ok, %Postgrex.Result{}}
+      iex> call_insert_event_links_function(
+        "ec9b2f65-3fa0-4415-8c9a-9047328cb8a3",
+        ["a1f76663-27b4-46b3-bad4-71b46f32eb3c"],
+        nil
+      )
+      {:error, %Postgrex.Error{}}
+  """
+  def call_insert_event_links_function(
+        event_id,
+        core_ids,
+        deleted_at
+      ) do
+    deleted_at_cast =
+      if is_nil(deleted_at) do
+        "NULL"
+      else
+        "CAST('#{deleted_at}' as TIMESTAMP)"
+      end
 
-      false ->
-        now = DateTime.truncate(DateTime.utc_now(), :second)
+    try do
+      case Repo.query("SELECT insert_event_links(
+            CAST('#{event_id}' as UUID),
+            CAST('#{core_ids}'::UUID[]),
+            #{deleted_at_cast}
+            )") do
+        {:ok, result} ->
+          {:ok, result}
 
-        l_query =
-          from(
-            l in EventLink,
-            where: l.linkage_event_id in ^delete_event_ids
-          )
+        {:error, error} ->
+          {:error, error}
+      end
+    rescue
+      error ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "call_insert_event_links_function/1 failed with Error: #{inspect(error)}"
+        )
 
-        multi
-        |> Multi.update_all(:update_event_links, l_query, set: [updated_at: now, deleted_at: now])
+        {:error, :internal_server_error}
     end
   end
 
-  def run_multi_transaction(multi) do
-    Repo.transaction(multi, timeout: 120_000)
+  def hard_delete_by_event_definition_id(event_definition_id, limit \\ 50000) do
+    try do
+      case Repo.query(
+             "SELECT hard_delete_by_event_definition_id(
+        CAST('#{event_definition_id}' as UUID),
+        CAST('#{limit}' as INT)
+      )",
+             [],
+             timeout: 120_000
+           ) do
+        {:ok, %Postgrex.Result{rows: rows}} ->
+          if Enum.empty?(List.flatten(rows)) do
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Finished deleting data linked to #{event_definition_id}."
+            )
+
+            {:ok, :success}
+          else
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Deleting data linked to EventDefinitionId: #{event_definition_id}. Limit: #{limit}"
+            )
+
+            hard_delete_by_event_definition_id(event_definition_id, limit)
+          end
+
+        {:error, error} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "hard_delete_by_event_definition_id/2 failed with Error: #{inspect(error)}"
+          )
+
+          {:error, error}
+      end
+    rescue
+      error ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "hard_delete_by_event_definition_id/2 failed with Error: #{inspect(error)}"
+        )
+
+        {:error, :internal_server_error}
+    end
+  end
+
+  def truncate_all_tables() do
+    try do
+      case Repo.query("SELECT truncate_tables('#{Config.postgres_username()}')") do
+        {:ok, result} ->
+          {:ok, result}
+
+        {:error, error} ->
+          {:error, error}
+      end
+    rescue
+      error ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "truncate_all_tables/0 failed with Error: #{inspect(error)}"
+        )
+
+        {:error, :internal_server_error}
+    end
   end
 
   # ----------------------- #
