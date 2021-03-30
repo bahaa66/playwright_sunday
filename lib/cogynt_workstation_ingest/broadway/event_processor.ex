@@ -187,21 +187,22 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           false ->
             field_value = encode_json(field_value)
 
+            # acc_pg_event_details =
+            #   acc_pg_event_details ++
+            #     [
+            #       %{
+            #         event_id: event_id,
+            #         field_name: field_name,
+            #         field_type: field_type,
+            #         field_value: field_value
+            #       }
+            #     ]
+
             acc_pg_event_details =
               acc_pg_event_details ++
                 [
-                  %{
-                    event_id: event_id,
-                    field_name: field_name,
-                    field_type: field_type,
-                    field_value: field_value
-                  }
+                  "\"#{field_name}\";\"#{field_value}\";\"#{field_type}\";#{event_id}\n"
                 ]
-
-            # acc_pg_event_details ++
-            #   [
-            #     "\"#{field_name}\";\"#{field_value}\";\"#{field_type}\";#{event_id}\n"
-            #   ]
 
             acc_elastic_event_document =
               if not is_nil(field_type) do
@@ -346,6 +347,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         ]
       )
 
+    # TODO: create system notifications in bulk step
     SystemNotificationContext.bulk_insert_system_notifications(notifications)
 
     data = Map.put(data, :pipeline_state, :process_notifications)
@@ -483,6 +485,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           )
 
         if !Enum.empty?(created_notifications) do
+          # TODO: create system notifications in bulk step
           SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
         end
 
@@ -622,14 +625,23 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     bulk_upsert_event_documents_with_transaction(bulk_transactional_data)
     bulk_upsert_risk_history_with_transaction(bulk_transactional_data)
 
-    # EventDetails Transactional Inserts
-    try do
-      EventsContext.insert_all_event_details(bulk_transactional_data.event_details)
-    rescue
+    case EventsContext.insert_all_event_details_with_copy(bulk_transactional_data.event_details) do
+      {:ok, _} ->
+        nil
+
       _ ->
         rollback_all_elastic_index_data(bulk_transactional_data)
         raise "execute_batch_transaction_for_crud/1 failed"
     end
+
+    # EventDetails Transactional Inserts
+    # try do
+    #   EventsContext.insert_all_event_details(bulk_transactional_data.event_details)
+    # rescue
+    #   _ ->
+    #     rollback_all_elastic_index_data(bulk_transactional_data)
+    #     raise "execute_batch_transaction_for_crud/1 failed"
+    # end
   end
 
   @doc """
@@ -686,14 +698,23 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     bulk_upsert_event_documents_with_transaction(bulk_transactional_data)
     bulk_upsert_risk_history_with_transaction(bulk_transactional_data)
 
-    # EventDetails Transactional Inserts
-    try do
-      EventsContext.insert_all_event_details(bulk_transactional_data.event_details)
-    rescue
+    case EventsContext.insert_all_event_details_with_copy(bulk_transactional_data.event_details) do
+      {:ok, _} ->
+        nil
+
       _ ->
         rollback_all_elastic_index_data(bulk_transactional_data)
         raise "execute_batch_transaction/1 failed"
     end
+
+    # EventDetails Transactional Inserts
+    # try do
+    #   EventsContext.insert_all_event_details(bulk_transactional_data.event_details)
+    # rescue
+    #   _ ->
+    #     rollback_all_elastic_index_data(bulk_transactional_data)
+    #     raise "execute_batch_transaction/1 failed"
+    # end
   end
 
   # ----------------------- #
