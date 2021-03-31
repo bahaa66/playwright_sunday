@@ -292,6 +292,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             } = data
         } = message
       ) do
+    IO.puts("HERE NO CRUD")
     risk_score = Map.get(event, @risk_score, 0)
 
     {_count, notifications} =
@@ -347,7 +348,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         ]
       )
 
-      IO.inspect(length(notifications), label: "COUNT OF NOTIFICATIONS CREATED NO CRUD")
+    IO.inspect(length(notifications), label: "COUNT OF NOTIFICATIONS CREATED NO CRUD")
 
     # TODO: create system notifications in bulk step
     SystemNotificationContext.bulk_insert_system_notifications(notifications)
@@ -368,6 +369,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             } = data
         } = message
       ) do
+    IO.puts("HERE")
+
     case Enum.empty?(deleted_event_ids) do
       true ->
         data = Map.put(data, :pipeline_state, :process_notifications)
