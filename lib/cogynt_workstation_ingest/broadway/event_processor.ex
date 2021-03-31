@@ -347,6 +347,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         ]
       )
 
+      IO.inspect(length(notifications), label: "COUNT OF NOTIFICATIONS CREATED NO CRUD")
+
     # TODO: create system notifications in bulk step
     SystemNotificationContext.bulk_insert_system_notifications(notifications)
 
@@ -483,6 +485,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             conflict_target:
               {:unsafe_fragment, "(core_id, notification_setting_id) WHERE core_id IS NOT NULL"}
           )
+
+        IO.inspect(length(created_notifications), label: "COUNT OF NOTIFICATIONS CREATED")
 
         if !Enum.empty?(created_notifications) do
           # TODO: create system notifications in bulk step
