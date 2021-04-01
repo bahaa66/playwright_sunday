@@ -15,7 +15,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @delete Application.get_env(:cogynt_workstation_ingest, :core_keys)[:delete]
   @lexicons Application.get_env(:cogynt_workstation_ingest, :core_keys)[:lexicons]
   @defaults %{
-    deleted_event_ids: nil,
+    deleted_event_ids: [],
     crud_action: nil,
     risk_history_document: nil,
     event_document: nil,
@@ -288,11 +288,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               event: event,
               event_definition: event_definition,
               event_id: event_id,
-              deleted_event_ids: nil
+              deleted_event_ids: []
             } = data
         } = message
       ) do
-    IO.puts("HERE NO CRUD")
     risk_score = Map.get(event, @risk_score, 0)
 
     {_count, notifications} =
@@ -369,9 +368,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             } = data
         } = message
       ) do
-    IO.puts("HERE")
-    IO.inspect(deleted_event_ids, label: "DELETED_EVENT_IDS")
-
     case Enum.empty?(deleted_event_ids) do
       true ->
         data = Map.put(data, :pipeline_state, :process_notifications)
