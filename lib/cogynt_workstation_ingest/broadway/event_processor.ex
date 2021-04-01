@@ -370,6 +370,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         } = message
       ) do
     IO.puts("HERE")
+    IO.inspect(deleted_event_ids, label: "DELETED_EVENT_IDS")
 
     case Enum.empty?(deleted_event_ids) do
       true ->
