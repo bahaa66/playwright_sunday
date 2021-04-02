@@ -335,6 +335,32 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     Repo.transaction(multi, timeout: 120_000)
   end
 
+  def in_risk_range?(risk_score, risk_range) do
+    with true <- risk_score > 0,
+         converted_risk_score <- trunc(Float.round(risk_score * 100)),
+         min_risk_range <- Enum.min(risk_range),
+         max_risk_range <- Enum.max(risk_range) do
+      if converted_risk_score >= min_risk_range and converted_risk_score <= max_risk_range do
+        true
+      else
+        false
+      end
+    else
+      # risk_score == 0
+      false ->
+        if Enum.min(risk_range) > 0 do
+          false
+        else
+          # risk_score == 0 and min_range == 0
+          true
+        end
+
+      _ ->
+        CogyntLogger.warn("#{__MODULE__}", "Risk Range validation failed")
+        false
+    end
+  end
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
