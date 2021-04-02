@@ -2,140 +2,97 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
   @moduledoc """
   """
   alias CogyntWorkstationIngest.Config
-  alias Models.Deployments.Deployment
-  alias CogyntWorkstationIngest.Broadway.DrilldownPipeline
-  # alias CogyntWorkstationIngest.Drilldown.DrilldownContext
-  alias CogyntWorkstationIngest.Drilldown.DrilldownContextNew
-  alias CogyntWorkstationIngest.Deployments.DeploymentsContext
+  alias CogyntWorkstationIngest.Drilldown.{DrilldownContextNew, DrilldownSinkConnector}
 
   def perform(delete_drilldown_topics) do
-    # First fetch all deployment records
-    deployments = DeploymentsContext.list_deployments()
+    # TODO: eventually need to run this against all deployment targets
 
-    # Second for each deployment stop its corresponding DrilldownPipeline
-    # and delete any topic data if the options specify to do so
-    Enum.each(deployments, fn %Deployment{id: deployment_id} = deployment ->
+    # If delete_drilldown_topics is true delete the drilldown topics for the
+    # kafka broker assosciated with the deployment_id
+    if delete_drilldown_topics do
       CogyntLogger.info(
         "#{__MODULE__}",
-        "Stopping the DrilldownPipeline for with DeploymentId: #{deployment_id}"
+        "Deleting the Drilldown Topics. #{Config.template_solutions_topic()}, #{
+          Config.template_solution_events_topic()
+        }. Brokers: #{inspect(Config.kafka_brokers())}"
       )
 
-      Redis.publish_async("ingest_channel", %{stop_drilldown_pipeline: deployment_id})
+      # Delete topics for worker
+      delete_topic_result =
+        Kafka.Api.Topic.delete_topics([
+          Config.template_solutions_topic(),
+          Config.template_solution_events_topic()
+        ])
 
-      # make sure the drilldownPipeline has stopped before moving forward
-      ensure_drilldown_pipeline_stopped(deployment)
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "Deleted Drilldown Topics result: #{inspect(delete_topic_result, pretty: true)}"
+      )
+    end
 
-      case DeploymentsContext.get_kafka_brokers(deployment_id) do
-        {:error, :does_not_exist} ->
-          CogyntLogger.error(
-            "#{__MODULE__}",
-            "Failed to fetch brokers for DeploymentId: #{deployment_id}"
-          )
+    CogyntLogger.info("#{__MODULE__}", "Starting resetting of drilldown data")
+    # TODO: Delete drilldown connectors
+    # 1.) Stop Checks
+    Redis.publish_async("ingest_channel", %{pause_drilldown_connector_monitor: true})
+    # 2.) Delete Connector
+    ts_connector =
+      DrilldownSinkConnector.fetch_drilldown_connector_cgid(Config.ts_connector_name())
 
-          # Third if delete_drilldown_topics is true delete the drilldown topics for the
-          # kafka broker assosciated with the deployment_id
-          if delete_drilldown_topics do
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Deleting the Drilldown Topics. #{Config.template_solutions_topic()}, #{
-                Config.template_solution_events_topic()
-              }. Brokers: #{Config.kafka_brokers()}"
-            )
+    DrilldownSinkConnector.delete_connector(ts_connector)
 
-            # Delete topics for worker
-            delete_topic_result =
-              Kafka.Api.Topic.delete_topics([
-                Config.template_solutions_topic(),
-                Config.template_solution_events_topic()
-              ])
+    ensure_drilldown_connector_stopped(ts_connector)
 
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Deleted Drilldown Topics result: #{inspect(delete_topic_result, pretty: true)}"
-            )
-          end
+    tse_connector =
+      DrilldownSinkConnector.fetch_drilldown_connector_cgid(Config.tse_connector_name())
 
-          CogyntLogger.info("#{__MODULE__}", "Starting resetting of drilldown data")
+    DrilldownSinkConnector.delete_connector(tse_connector)
 
-          # Fourth reset all the drilldown data
-          reset_drilldown_data()
-          # Finally start the drilldownPipeline again
-          Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment_id})
+    ensure_drilldown_connector_stopped(tse_connector)
 
-        {:ok, brokers} ->
-          hashed_brokers = Integer.to_string(:erlang.phash2(brokers))
-          # Third if delete_drilldown_topics is true delete the drilldown topics for the
-          # kafka broker assosciated with the deployment_id
-          if delete_drilldown_topics do
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Deleting the Drilldown Topics. #{Config.template_solutions_topic()}, #{
-                Config.template_solution_events_topic()
-              }. Brokers: #{inspect(brokers)}"
-            )
-
-            # Delete topics for worker
-            delete_topic_result =
-              Kafka.Api.Topic.delete_topics(
-                [Config.template_solutions_topic(), Config.template_solution_events_topic()],
-                brokers
-              )
-
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "Deleted Drilldown Topics result: #{inspect(delete_topic_result, pretty: true)}"
-            )
-          end
-
-          CogyntLogger.info("#{__MODULE__}", "Starting resetting of drilldown data")
-
-          # Fourth reset all the drilldown data
-          reset_drilldown_data(hashed_brokers)
-          # Finally start the drilldownPipeline again
-          Redis.publish_async("ingest_channel", %{start_drilldown_pipeline: deployment_id})
-      end
-    end)
+    # 3.) Delete Everything
+    reset_drilldown_data()
+    # 4.) Reenable checks (should recreate connector)
+    Redis.publish_async("ingest_channel", %{pause_drilldown_connector_monitor: false})
   end
 
   # ----------------------- #
   # --- Private Methods --- #
   # ----------------------- #
-  defp ensure_drilldown_pipeline_stopped(deployment, count \\ 1) do
-    if Config.drilldown_enabled() do
-      if count >= 30 do
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "ensure_drilldown_pipeline_stopped/1 exceeded number of attempts. Moving forward with DeleteDrilldownData"
-        )
-      else
-        case DrilldownPipeline.drilldown_pipeline_running?(deployment) or
-               not DrilldownPipeline.drilldown_pipeline_finished_processing?(deployment) do
-          true ->
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "DrilldownPipeline still running... waiting for it to shutdown before resetting data"
-            )
 
-            Process.sleep(1000)
-            ensure_drilldown_pipeline_stopped(deployment, count + 1)
+  defp ensure_drilldown_connector_stopped(connector_name, count \\ 0) do
+    if count >= 5 do
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "ensure_drilldown_connector_stopped/2, has ran 5 times and is now returning..."
+      )
+    else
+      case DrilldownSinkConnector.connector_status?(connector_name) do
+        {:ok, %{connector: %{state: _state}, tasks: [%{id: _id, state: state}]} = _} ->
+          if state == "RUNNING" do
+            ensure_drilldown_connector_stopped(connector_name, count + 1)
+          end
 
-          false ->
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "DrilldownPipeline stopped"
-            )
-        end
+        {:error, reason} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "ensure_drilldown_connector_stopped/2 failed to check connector status. Reason: #{
+              inspect(reason)
+            }"
+          )
       end
     end
   end
 
   defp reset_drilldown_data(hashed_brokers \\ nil) do
     if is_nil(hashed_brokers) do
-      Redis.hash_delete("dcgid", "Drilldown")
+      Redis.hash_delete("dcgid", Config.ts_connector_name())
+      Redis.hash_delete("dcgid", Config.tse_connector_name())
     else
-      Redis.hash_delete("dcgid", "Drilldown-#{hashed_brokers}")
+      Redis.hash_delete("dcgid", "#{Config.ts_connector_name()}-#{hashed_brokers}")
+      Redis.hash_delete("dcgid", "#{Config.tse_connector_name()}-#{hashed_brokers}")
     end
 
+    # TODO: can remove over time
     case Redis.keys_by_pattern("fdm:*") do
       {:ok, []} ->
         nil
@@ -144,6 +101,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
         Redis.key_delete_pipeline(failed_message_keys)
     end
 
+    # TODO: can remove over time
     case Redis.keys_by_pattern("dmi:*") do
       {:ok, []} ->
         nil
