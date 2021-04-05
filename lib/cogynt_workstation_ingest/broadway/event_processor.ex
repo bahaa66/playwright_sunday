@@ -255,12 +255,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         event_definition
       )
       |> Enum.reduce([], fn ns, acc ->
+        now = DateTime.truncate(DateTime.utc_now(), :second)
+
         if is_nil(
              NotificationsContext.get_notification_by(
                event_id: event_id,
                notification_setting_id: ns.id
              )
            ) do
+          IO.puts("CREATING NOTIFICATION NO CRUD")
+
           acc ++
             [
               %{
@@ -270,11 +274,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                 tag_id: ns.tag_id,
                 title: ns.title,
                 notification_setting_id: ns.id,
-                created_at: DateTime.truncate(DateTime.utc_now(), :second),
-                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                created_at: now,
+                updated_at: now
               }
             ]
         else
+          IO.puts("SKIPPING CREATING NOTIFICATION NO CRUD")
           acc
         end
       end)
@@ -310,6 +315,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       ) do
     case Enum.empty?(delete_event_ids) do
       true ->
+        IO.inspect(delete_event_ids, label: "Delete_event_ids")
         message
 
       false ->
@@ -429,6 +435,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                     }
                   ]
               else
+                IO.puts("Notification already exists for event_id/notification_setting_id")
                 acc
               end
             end
@@ -437,6 +444,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         # finish = Time.utc_now()
         # diff = Time.diff(finish, start, :millisecond)
         # IO.puts("DURATION OF NEW NOTIFICATION LOGIC: #{diff}, PID: #{inspect(self())}")
+
+        IO.inspect(Enum.count(notifications), label: "Notifications To Be Created 4 CRUD")
 
         {_count, created_notifications} =
           NotificationsContext.bulk_insert_notifications(
