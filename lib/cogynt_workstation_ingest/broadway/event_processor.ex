@@ -312,7 +312,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       ) do
     case Enum.empty?(delete_event_ids) do
       true ->
-        IO.inspect(delete_event_ids, label: "Delete_event_ids")
         message
 
       false ->
@@ -359,121 +358,151 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         end
 
         notifications =
-          Enum.reduce(old_notifications, [], fn notification, acc ->
-            ns_matched =
-              Enum.find(valid_notification_settings, fn notification_setting ->
-                notification.notification_setting_id == notification_setting.id
-              end)
-
-            # If the notification's notification_setting_id does not match any of the ids
-            # from any of the current valid_notification_settings then we must mark the notification
-            # as deleted. Then create new notifications for all valid notification settings
-            # If there is a match we just update the notification to the new event_id
-            if is_nil(ns_matched) do
-              if risk_score > 0 do
-                IO.puts("Valid NS did not match old notification. PID: #{inspect(self)}")
-              end
-
-              deleted_notification = %{
-                id: notification.id,
-                title: notification.title,
-                # description: notification.description,
-                user_id: notification.user_id,
-                archived_at: notification.archived_at,
-                priority: notification.priority,
-                assigned_to: notification.assigned_to,
-                dismissed_at: notification.dismissed_at,
-                deleted_at: DateTime.truncate(DateTime.utc_now(), :second),
-                event_id: notification.event_id,
-                notification_setting_id: notification.notification_setting_id,
-                tag_id: notification.tag_id,
-                created_at: notification.created_at,
-                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-              }
-
-              new_notifications =
-                Enum.reduce(valid_notification_settings, [], fn notification_setting, acc_0 ->
-                  if is_nil(
-                       NotificationsContext.get_notification_by(
-                         event_id: event_id,
-                         notification_setting_id: notification_setting.id
-                       )
-                     ) do
-                    acc_0 ++
-                      [
-                        %{
-                          event_id: event_id,
-                          user_id: notification_setting.user_id,
-                          assigned_to: notification_setting.assigned_to,
-                          tag_id: notification_setting.tag_id,
-                          title: notification_setting.title,
-                          notification_setting_id: notification_setting.id,
-                          created_at: DateTime.truncate(DateTime.utc_now(), :second),
-                          updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-                        }
-                      ]
-                  else
-                    IO.puts("Notification already exists for event_id/notification_setting_id")
-                    acc_0
-                  end
-                end)
-
-              if risk_score > 0 do
-                IO.puts(
-                  "Deleted Notification #{Enum.count([deleted_notification])}. PID: #{
-                    inspect(self)
-                  }"
-                )
-
-                IO.puts(
-                  "New Notifications #{Enum.count(new_notifications)}. PID: #{inspect(self)}"
-                )
-              end
-
-              acc ++ [deleted_notification] ++ new_notifications
-            else
+          if Enum.empty?(old_notifications) do
+            # A Valid Notification Setting Exists and this event has old_events, however those events never
+            # had notifications generated for them. Generate the notifications for the first time here.
+            Enum.reduce(valid_notification_settings, [], fn notification_setting, acc ->
               if is_nil(
                    NotificationsContext.get_notification_by(
                      event_id: event_id,
-                     notification_setting_id: ns_matched.id
+                     notification_setting_id: notification_setting.id
                    )
                  ) do
-                deleted_at =
-                  if crud_action == @delete do
-                    DateTime.truncate(DateTime.utc_now(), :second)
-                  else
-                    nil
-                  end
-
-                if risk_score > 0 do
-                  IO.puts("Creating Notification for matched NS. PID: #{inspect(self)}")
-                end
-
                 acc ++
                   [
                     %{
-                      id: notification.id,
-                      title: ns_matched.title,
-                      # description: notification.description,
-                      user_id: ns_matched.user_id,
-                      archived_at: notification.archived_at,
-                      priority: notification.priority,
-                      assigned_to: ns_matched.assigned_to,
-                      dismissed_at: notification.dismissed_at,
-                      deleted_at: deleted_at,
                       event_id: event_id,
-                      notification_setting_id: ns_matched.id,
-                      tag_id: ns_matched.tag_id,
-                      created_at: notification.created_at,
+                      user_id: notification_setting.user_id,
+                      assigned_to: notification_setting.assigned_to,
+                      tag_id: notification_setting.tag_id,
+                      title: notification_setting.title,
+                      notification_setting_id: notification_setting.id,
+                      created_at: DateTime.truncate(DateTime.utc_now(), :second),
                       updated_at: DateTime.truncate(DateTime.utc_now(), :second)
                     }
                   ]
               else
-                IO.puts("Notification already exists for event_id/notification_setting_id")
                 acc
               end
-            end
-          end)
+            end)
+          else
+            Enum.reduce(old_notifications, [], fn notification, acc ->
+              ns_matched =
+                Enum.find(valid_notification_settings, fn notification_setting ->
+                  notification.notification_setting_id == notification_setting.id
+                end)
+
+              # If the notification's notification_setting_id does not match any of the ids
+              # from any of the current valid_notification_settings then we must mark the notification
+              # as deleted. Then create new notifications for all valid notification settings
+              # If there is a match we just update the notification to the new event_id
+              if is_nil(ns_matched) do
+                if risk_score > 0 do
+                  IO.puts("Valid NS did not match old notification. PID: #{inspect(self)}")
+                end
+
+                deleted_notification = %{
+                  id: notification.id,
+                  title: notification.title,
+                  # description: notification.description,
+                  user_id: notification.user_id,
+                  archived_at: notification.archived_at,
+                  priority: notification.priority,
+                  assigned_to: notification.assigned_to,
+                  dismissed_at: notification.dismissed_at,
+                  deleted_at: DateTime.truncate(DateTime.utc_now(), :second),
+                  event_id: notification.event_id,
+                  notification_setting_id: notification.notification_setting_id,
+                  tag_id: notification.tag_id,
+                  created_at: notification.created_at,
+                  updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                }
+
+                new_notifications =
+                  Enum.reduce(valid_notification_settings, [], fn notification_setting, acc_0 ->
+                    if is_nil(
+                         NotificationsContext.get_notification_by(
+                           event_id: event_id,
+                           notification_setting_id: notification_setting.id
+                         )
+                       ) do
+                      acc_0 ++
+                        [
+                          %{
+                            event_id: event_id,
+                            user_id: notification_setting.user_id,
+                            assigned_to: notification_setting.assigned_to,
+                            tag_id: notification_setting.tag_id,
+                            title: notification_setting.title,
+                            notification_setting_id: notification_setting.id,
+                            created_at: DateTime.truncate(DateTime.utc_now(), :second),
+                            updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                          }
+                        ]
+                    else
+                      IO.puts("Notification already exists for event_id/notification_setting_id")
+
+                      acc_0
+                    end
+                  end)
+
+                if risk_score > 0 do
+                  IO.puts(
+                    "Deleted Notification #{Enum.count([deleted_notification])}. PID: #{
+                      inspect(self)
+                    }"
+                  )
+
+                  IO.puts(
+                    "New Notifications #{Enum.count(new_notifications)}. PID: #{inspect(self)}"
+                  )
+                end
+
+                acc ++ [deleted_notification] ++ new_notifications
+              else
+                if is_nil(
+                     NotificationsContext.get_notification_by(
+                       event_id: event_id,
+                       notification_setting_id: ns_matched.id
+                     )
+                   ) do
+                  deleted_at =
+                    if crud_action == @delete do
+                      DateTime.truncate(DateTime.utc_now(), :second)
+                    else
+                      nil
+                    end
+
+                  if risk_score > 0 do
+                    IO.puts("Creating Notification for matched NS. PID: #{inspect(self)}")
+                  end
+
+                  acc ++
+                    [
+                      %{
+                        id: notification.id,
+                        title: ns_matched.title,
+                        # description: notification.description,
+                        user_id: ns_matched.user_id,
+                        archived_at: notification.archived_at,
+                        priority: notification.priority,
+                        assigned_to: ns_matched.assigned_to,
+                        dismissed_at: notification.dismissed_at,
+                        deleted_at: deleted_at,
+                        event_id: event_id,
+                        notification_setting_id: ns_matched.id,
+                        tag_id: ns_matched.tag_id,
+                        created_at: notification.created_at,
+                        updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                      }
+                    ]
+                else
+                  IO.puts("Notification already exists for event_id/notification_setting_id")
+                  acc
+                end
+              end
+            end)
+          end
 
         # finish = Time.utc_now()
         # diff = Time.diff(finish, start, :millisecond)
