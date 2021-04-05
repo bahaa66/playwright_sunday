@@ -263,8 +263,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                notification_setting_id: ns.id
              )
            ) do
-          IO.puts("CREATING NOTIFICATION NO CRUD")
-
           acc ++
             [
               %{
@@ -279,7 +277,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               }
             ]
         else
-          IO.puts("SKIPPING CREATING NOTIFICATION NO CRUD")
           acc
         end
       end)
@@ -324,7 +321,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         risk_score = Map.get(event, @risk_score, 0)
         crud_action = Map.get(event, @crud, @defaults.crud_action)
 
-        IO.inspect(risk_score, label: "risk_score")
+        if risk_score > 0 do
+          IO.puts("RiskScore: #{risk_score}, PID: #{inspect(self)}")
+        end
 
         # First find fetch all the Notification_settings for the EventDefinitionId and
         # filter out all invalid notification_settings. Only notification_settings that match the current
@@ -340,7 +339,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             event_definition
           )
 
-        IO.inspect(Enum.count(valid_notification_settings), label: "valid settings")
+        if risk_score > 0 do
+          IO.puts(
+            "ValidSettings: #{Enum.count(valid_notification_settings)}, PID: #{inspect(self)}"
+          )
+        end
 
         # Second fetch all the Notifications that were created against the deleted_event_ids
         # and create a new list of notifications to either be updated or deleted based on the
@@ -450,7 +453,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         # diff = Time.diff(finish, start, :millisecond)
         # IO.puts("DURATION OF NEW NOTIFICATION LOGIC: #{diff}, PID: #{inspect(self())}")
 
-        IO.inspect(Enum.count(notifications), label: "Notifications To Be Created 4 CRUD")
+        if risk_score > 0 do
+          IO.puts(
+            "Notifications To Be Created 4 CRUD: #{Enum.count(notifications)}, PID: #{
+              inspect(self)
+            }"
+          )
+        end
 
         {_count, created_notifications} =
           NotificationsContext.bulk_insert_notifications(
