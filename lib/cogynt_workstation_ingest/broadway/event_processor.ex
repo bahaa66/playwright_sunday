@@ -320,10 +320,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         risk_score = Map.get(event, @risk_score, 0)
         crud_action = Map.get(event, @crud, @defaults.crud_action)
 
-        if risk_score > 0 do
-          IO.puts("RiskScore: #{risk_score}, PID: #{inspect(self)}")
-        end
-
         # First find fetch all the Notification_settings for the EventDefinitionId and
         # filter out all invalid notification_settings. Only notification_settings that match the current
         # events criteria
@@ -338,12 +334,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             event_definition
           )
 
-        if risk_score > 0 do
-          IO.puts(
-            "ValidSettings: #{Enum.count(valid_notification_settings)}, PID: #{inspect(self)}"
-          )
-        end
-
         # Second fetch all the Notifications that were created against the deleted_event_ids
         # and create a new list of notifications to either be updated or deleted based on the
         # list of valid_notification_settings
@@ -352,10 +342,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             filter: %{event_ids: delete_event_ids},
             select: Notification.__schema__(:fields)
           })
-
-        if risk_score > 0 do
-          IO.puts("Old_Notifications: #{Enum.count(old_notifications)}, PID: #{inspect(self)}")
-        end
 
         notifications =
           if Enum.empty?(old_notifications) do
@@ -397,10 +383,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               # as deleted. Then create new notifications for all valid notification settings
               # If there is a match we just update the notification to the new event_id
               if is_nil(ns_matched) do
-                if risk_score > 0 do
-                  IO.puts("Valid NS did not match old notification. PID: #{inspect(self)}")
-                end
-
                 deleted_notification = %{
                   id: notification.id,
                   title: notification.title,
@@ -440,23 +422,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                           }
                         ]
                     else
-                      IO.puts("Notification already exists for event_id/notification_setting_id")
-
                       acc_0
                     end
                   end)
-
-                if risk_score > 0 do
-                  IO.puts(
-                    "Deleted Notification #{Enum.count([deleted_notification])}. PID: #{
-                      inspect(self)
-                    }"
-                  )
-
-                  IO.puts(
-                    "New Notifications #{Enum.count(new_notifications)}. PID: #{inspect(self)}"
-                  )
-                end
 
                 acc ++ [deleted_notification] ++ new_notifications
               else
@@ -472,10 +440,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                     else
                       nil
                     end
-
-                  if risk_score > 0 do
-                    IO.puts("Creating Notification for matched NS. PID: #{inspect(self)}")
-                  end
 
                   acc ++
                     [
@@ -497,7 +461,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                       }
                     ]
                 else
-                  IO.puts("Notification already exists for event_id/notification_setting_id")
                   acc
                 end
               end
@@ -507,14 +470,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         # finish = Time.utc_now()
         # diff = Time.diff(finish, start, :millisecond)
         # IO.puts("DURATION OF NEW NOTIFICATION LOGIC: #{diff}, PID: #{inspect(self())}")
-
-        if risk_score > 0 do
-          IO.puts(
-            "Notifications To Be Created 4 CRUD: #{Enum.count(notifications)}, PID: #{
-              inspect(self)
-            }"
-          )
-        end
 
         {_count, created_notifications} =
           NotificationsContext.bulk_insert_notifications(
