@@ -348,12 +348,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         # Second fetch all the Notifications that were created against the deleted_event_ids
         # and create a new list of notifications to either be updated or deleted based on the
         # list of valid_notification_settings
-        notifications =
+        old_notifications =
           NotificationsContext.query_notifications(%{
             filter: %{event_ids: delete_event_ids},
             select: Notification.__schema__(:fields)
           })
-          |> Enum.reduce([], fn notification, acc ->
+
+        if risk_score > 0 do
+          IO.puts("Old_Notifications: #{Enum.count(old_notifications)}, PID: #{inspect(self)}")
+        end
+
+        notifications =
+          Enum.reduce(old_notifications, [], fn notification, acc ->
             ns_matched =
               Enum.find(valid_notification_settings, fn notification_setting ->
                 notification.notification_setting_id == notification_setting.id
@@ -364,6 +370,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             # as deleted. Then create new notifications for all valid notification settings
             # If there is a match we just update the notification to the new event_id
             if is_nil(ns_matched) do
+              if risk_score > 0 do
+                IO.puts("Valid NS did not match old notification. PID: #{inspect(self)}")
+              end
+
               deleted_notification = %{
                 id: notification.id,
                 title: notification.title,
@@ -408,6 +418,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                   end
                 end)
 
+              if risk_score > 0 do
+                IO.puts(
+                  "Deleted Notification #{Enum.count([deleted_notification])}. PID: #{
+                    inspect(self)
+                  }"
+                )
+
+                IO.puts(
+                  "New Notifications #{Enum.count(new_notifications)}. PID: #{inspect(self)}"
+                )
+              end
+
               acc ++ [deleted_notification] ++ new_notifications
             else
               if is_nil(
@@ -422,6 +444,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                   else
                     nil
                   end
+
+                if risk_score > 0 do
+                  IO.puts("Creating Notification for matched NS. PID: #{inspect(self)}")
+                end
 
                 acc ++
                   [
