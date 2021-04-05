@@ -575,11 +575,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # --- PSQL Functions --- #
   # ---------------------- #
   def insert_all_event_details_with_copy(stream_input) do
-    stream =
-      Ecto.Adapters.SQL.stream(
-        Repo,
-        "COPY event_details(field_name,field_value,field_type,event_id) FROM STDIN CSV DELIMITER ';'"
-      )
+    sql = """
+      COPY event_details(field_name,field_value,field_type,event_id)
+      FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01')
+    """
+
+    stream = Ecto.Adapters.SQL.stream(Repo, sql)
 
     Repo.transaction(fn ->
       Enum.into(stream_input, stream)

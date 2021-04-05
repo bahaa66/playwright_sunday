@@ -185,23 +185,20 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
         case is_null_or_empty?(field_value) do
           false ->
-            field_value = encode_json(field_value)
+            # convert Geo and Lexicon data to json
+            field_value =
+              case String.valid?(field_value) do
+                true ->
+                  field_value
 
-            # acc_pg_event_details =
-            #   acc_pg_event_details ++
-            #     [
-            #       %{
-            #         event_id: event_id,
-            #         field_name: field_name,
-            #         field_type: field_type,
-            #         field_value: field_value
-            #       }
-            #     ]
+                false ->
+                  Jason.encode!(field_value)
+              end
 
             acc_pg_event_details =
               acc_pg_event_details ++
                 [
-                  "\"#{field_name}\";\"#{field_value}\";\"#{field_type}\";#{event_id}\n"
+                  "#{field_name};#{field_value};#{field_type};#{event_id}\n"
                 ]
 
             acc_elastic_event_document =
@@ -552,20 +549,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                   if v2 == @defaults.risk_history_document or Enum.empty?(v2) do
                     v1
                   else
-                    if Enum.empty?(v1) do
-                      v1 ++ [v2]
-                    else
-                      temp_doc = List.first(v1)
-                      new_risk = temp_doc.risk_history ++ v2.risk_history
-
-                      [
-                        %{
-                          id: v2.id,
-                          event_definition_id: v2.event_definition_id,
-                          risk_history: new_risk
-                        }
-                      ]
-                    end
+                    v1 ++ [v2]
                   end
 
                 _ ->
@@ -816,16 +800,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             CogyntLogger.error("#{__MODULE__}", "Lexicon value incorrect format #{lexicon_val}")
             Map.delete(event, @lexicons)
         end
-    end
-  end
-
-  defp encode_json(value) do
-    case String.valid?(value) do
-      true ->
-        value
-
-      false ->
-        Jason.encode!(value)
     end
   end
 
