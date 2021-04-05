@@ -324,6 +324,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         risk_score = Map.get(event, @risk_score, 0)
         crud_action = Map.get(event, @crud, @defaults.crud_action)
 
+        IO.inspect(risk_score, label: "risk_score")
+
         # First find fetch all the Notification_settings for the EventDefinitionId and
         # filter out all invalid notification_settings. Only notification_settings that match the current
         # events criteria
@@ -337,6 +339,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             risk_score,
             event_definition
           )
+
+        IO.inspect(Enum.count(valid_notification_settings), label: "valid settings")
 
         # Second fetch all the Notifications that were created against the deleted_event_ids
         # and create a new list of notifications to either be updated or deleted based on the
@@ -396,6 +400,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                         }
                       ]
                   else
+                    IO.puts("Notification already exists for event_id/notification_setting_id")
                     acc_0
                   end
                 end)
