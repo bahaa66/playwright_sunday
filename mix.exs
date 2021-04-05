@@ -87,8 +87,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :elasticsearch,
-        #tag: "v1.12.9-beta",
-        branch: "feat/CDST-932-rework-risk-history-index",
+        tag: "v1.12.9-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
         override: true
