@@ -98,6 +98,13 @@ defmodule CogyntWorkstationIngest.MixProject do
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true
+      },
+      {
+        :druid,
+        #  tag: "v1.12.8-beta",
+        #  git: "git@github.com:cogility/cogynt-common.git",
+        #  sparse: "druid",
+        path: "../cogynt-common/druid", override: true
       }
     ]
   end
