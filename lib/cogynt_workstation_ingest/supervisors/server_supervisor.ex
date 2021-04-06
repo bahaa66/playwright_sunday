@@ -15,7 +15,11 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   }
 
   alias CogyntWorkstationIngest.Servers.ConsumerMonitor
-  alias CogyntWorkstationIngest.Servers.Monitors.DrilldownSinkConnectorMonitor
+
+  alias CogyntWorkstationIngest.Servers.Monitors.{
+    DrilldownSinkConnectorMonitor,
+    TemplateSolutionsMonitor
+  }
 
   def start_link do
     Supervisor.start_link(__MODULE__, [], name: __MODULE__)
@@ -32,7 +36,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
       child_spec(RedisStreamsConsumerGroupWorker),
       child_spec(ConsumerMonitor, restart: :permanent),
       child_spec(DrilldownSinkConnectorMonitor, restart: :permanent),
-      child_spec(IngestPubSub, start_link_opts: [pubsub])
+      child_spec(IngestPubSub, start_link_opts: [pubsub]),
+      child_spec(TemplateSolutionsMonitor, restart: :permanent)
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

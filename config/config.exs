@@ -21,7 +21,9 @@ config :cogynt_workstation_ingest, :clients,
 # Kafka Configurations
 config :kafka, :application,
   kafka_client: :brod,
-  deployment_topic: "deployment"
+  deployment_topic: "deployment",
+  template_solutions_topic: "template_solutions",
+  template_solution_events_topic: "template_solution_events"
 
 # Elasticsearch Configurations
 config :elasticsearch, :application,
