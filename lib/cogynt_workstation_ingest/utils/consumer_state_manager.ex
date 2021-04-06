@@ -141,9 +141,14 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
       {:ok, values} when is_list(values) ->
         if Enum.member?(values, event_definition_id) do
           values = List.delete(values, event_definition_id)
-          Redis.set("dd", Enum.uniq(values))
-          # 7 mins
-          Redis.key_pexpire("dd", 420_000)
+
+          if Enum.empty?(values) do
+            Redis.key_delete("dd")
+          else
+            Redis.set("dd", Enum.uniq(values))
+            # 7 mins
+            Redis.key_pexpire("dd", 420_000)
+          end
         end
 
       _ ->
