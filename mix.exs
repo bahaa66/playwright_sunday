@@ -62,8 +62,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:kafka,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "kafka",
-       #tag: "v1.12.0",
-       branch: "hotfix/new-kafka-brokers-config",
+       tag: "v1.12.10-hotfix",
        override: true},
       {
         :models,
