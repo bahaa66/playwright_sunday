@@ -14,6 +14,11 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     DeleteEventDefinitionsAndTopicsWorker
   }
 
+  alias CogyntWorkstationIngest.Events.EventsContext
+
+  @template_solutions_temp_id 1
+  @template_solution_events_temp_id 2
+
   def before_work(pipeline) do
     job = Exq.Support.Job.decode(pipeline.assigns.job_serialized)
     target = String.replace(job.class, "::", ".")
@@ -95,22 +100,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     end
   end
 
-  defp remove_from_dev_delete_key(value) when is_nil(value) do
-    case Redis.key_exists?("dd") do
-      {:ok, true} ->
-        case Redis.get("dd") do
-          {:ok, []} ->
-            Redis.key_delete("dd")
-
-          _ ->
-            nil
-        end
-
-      {:ok, false} ->
-        nil
-    end
-  end
-
   defp remove_from_dev_delete_key(value) when is_list(value) do
     case Redis.key_exists?("dd") do
       {:ok, true} ->
@@ -170,6 +159,12 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     )
 
     pipeline
+  end
+
+  defp fetch_all_event_definition_ids() do
+    EventsContext.list_event_definitions()
+    |> Enum.group_by(fn ed -> ed.id end)
+    |> Map.keys()
   end
 
   defp monitor_job(pipeline) do
@@ -234,12 +229,17 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
         Redis.publish_async("dev_delete_subscription", %{ids: [args], action: "start"})
 
       worker_module == to_string(DeleteDeploymentDataWorker) ->
-        update_dev_delete_key([])
-        Redis.publish_async("dev_delete_subscription", %{ids: [], action: "start"})
+        ids = fetch_all_event_definition_ids()
+        update_dev_delete_key(ids)
+        Redis.publish_async("dev_delete_subscription", %{ids: ids, action: "start"})
 
       worker_module == to_string(DeleteDrilldownDataWorker) ->
-        update_dev_delete_key([])
-        Redis.publish_async("dev_delete_subscription", %{ids: [], action: "start"})
+        update_dev_delete_key([@template_solutions_temp_id, @template_solution_events_temp_id])
+
+        Redis.publish_async("dev_delete_subscription", %{
+          ids: [@template_solutions_temp_id, @template_solution_events_temp_id],
+          action: "start"
+        })
 
       worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
         %{
@@ -321,12 +321,20 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
         Redis.publish_async("dev_delete_subscription", %{ids: [args], action: "stop"})
 
       worker_module == to_string(DeleteDeploymentDataWorker) ->
-        remove_from_dev_delete_key(nil)
-        Redis.publish_async("dev_delete_subscription", %{ids: [], action: "stop"})
+        ids = fetch_all_event_definition_ids()
+        remove_from_dev_delete_key(ids)
+        Redis.publish_async("dev_delete_subscription", %{ids: [ids], action: "stop"})
 
       worker_module == to_string(DeleteDrilldownDataWorker) ->
-        remove_from_dev_delete_key(nil)
-        Redis.publish_async("dev_delete_subscription", %{ids: [], action: "stop"})
+        remove_from_dev_delete_key([
+          @template_solutions_temp_id,
+          @template_solution_events_temp_id
+        ])
+
+        Redis.publish_async("dev_delete_subscription", %{
+          ids: [@template_solutions_temp_id, @template_solution_events_temp_id],
+          action: "stop"
+        })
 
       worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
         %{
