@@ -195,7 +195,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
               description = 'null'
               user_id = valid_notification_setting.user_id || 'null'
               archived_at = 'null'
-              priority = 'null'
+              priority = 3
               assigned_to = valid_notification_setting.assigned_to || 'null'
               dismissed_at = 'null'
               deleted_at = 'null'
