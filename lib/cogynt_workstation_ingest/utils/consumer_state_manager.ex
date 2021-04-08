@@ -904,11 +904,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         false
 
       {:ok, values} ->
-        if Enum.member?(values, event_definition_id) do
-          true
-        else
-          false
-        end
+        Enum.member?(values, event_definition_id)
 
       {:error, _} ->
         false

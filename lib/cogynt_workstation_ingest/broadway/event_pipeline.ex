@@ -159,10 +159,24 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         end
       end)
 
-    if is_nil(event_definition_id) do
-      Redis.list_append_pipeline("fem:", failed_messages)
-    else
-      Redis.list_append_pipeline("fem:#{event_definition_id}", failed_messages)
+    key =
+      if is_nil(event_definition_id) do
+        "fem:"
+      else
+        "fem:#{event_definition_id}"
+      end
+
+    case Redis.list_length(key) do
+      {:ok, length} when length >= 50_000 ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Failed Event messages for key #{key} have reached the limit of 50_000 in Redis. Dropping future messages from getting queued"
+        )
+
+      _ ->
+        Redis.list_append_pipeline(key, failed_messages)
+        # 30 min TTL
+        Redis.key_pexpire(key, 1_800_000)
     end
 
     messages
