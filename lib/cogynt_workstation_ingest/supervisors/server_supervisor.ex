@@ -4,6 +4,9 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   """
   use Supervisor
 
+  alias CogyntWorkstationIngest.Servers.Druid.{
+    TemplateSolutions
+  }
   alias CogyntWorkstationIngest.Servers.Workers.{
     ConsumerRetryWorker,
     FailedMessagesRetryWorker,
@@ -15,11 +18,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   }
 
   alias CogyntWorkstationIngest.Servers.ConsumerMonitor
-
-  alias CogyntWorkstationIngest.Servers.Monitors.{
-    DrilldownSinkConnectorMonitor,
-    TemplateSolutionsMonitor
-  }
+  alias CogyntWorkstationIngest.Servers.Monitors.DrilldownSinkConnectorMonitor
 
   def start_link do
     Supervisor.start_link(__MODULE__, [], name: __MODULE__)

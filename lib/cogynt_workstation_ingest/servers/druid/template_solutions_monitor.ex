@@ -1,4 +1,4 @@
-defmodule CogyntWorkstationIngest.Servers.Monitors.TemplateSolutionsMonitor do
+defmodule CogyntWorkstationIngest.Servers.Druid.TemplateSolutions do
   use GenServer
   alias CogyntWorkstationIngest.Config
 
