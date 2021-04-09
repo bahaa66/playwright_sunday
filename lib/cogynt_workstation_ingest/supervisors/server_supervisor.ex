@@ -5,8 +5,10 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   use Supervisor
 
   alias CogyntWorkstationIngest.Servers.Druid.{
-    TemplateSolutions
+    TemplateSolutions,
+    TemplateSolutionEvents
   }
+
   alias CogyntWorkstationIngest.Servers.Workers.{
     ConsumerRetryWorker,
     FailedMessagesRetryWorker,
@@ -36,7 +38,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
       child_spec(ConsumerMonitor, restart: :permanent),
       child_spec(DrilldownSinkConnectorMonitor, restart: :permanent),
       child_spec(IngestPubSub, start_link_opts: [pubsub]),
-      child_spec(TemplateSolutionsMonitor, restart: :permanent)
+      child_spec(TemplateSolutions, restart: :permanent),
+      child_spec(TemplateSolutionEvents, restart: :permanent)
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
