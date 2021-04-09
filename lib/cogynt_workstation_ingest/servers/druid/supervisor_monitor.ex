@@ -35,7 +35,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
         |> case do
           {:ok, true} ->
             {:ok, %{supervisor_status: %{"state" => "LOADING"}},
-             {:continue, {:load_supervisor, unquote(supervisor_id)}}}
+             {:continue, {:create_or_update_supervisor, unquote(supervisor_id)}}}
 
           {:ok, false} ->
             CogyntLogger.error(
@@ -56,28 +56,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       end
 
       @impl true
-      def handle_continue({:load_supervisor, id}, state) do
-        Druid.get_supervisor_status(id)
-        |> case do
-          {:ok, %{"payload" => payload}} ->
-            {:noreply, %{state | supervisor_status: payload}}
-
-          {:error, %{code: 400, error: "Cannot find any supervisor with id:" <> __}} ->
-            {:noreply, %{state | supervisor_status: %{"state" => "CREATING"}},
-             {:continue, {:create_supervisor, id}}}
-
-          {:error, error} ->
-            CogyntLogger.error(
-              "#{__MODULE__}",
-              "Unable to load supervisor: #{inspect(error)}"
-            )
-
-            {:noreply, %{state | supervisor_status: {:error, error}}}
-        end
-      end
-
-      @impl true
-      def handle_continue({:create_supervisor, id}, state) do
+      def handle_continue({:create_or_update_supervisor, id}, state) do
         brokers = unquote(brokers)
         dimensions = unquote(dimensions)
         supervisor_spec = Druid.Utils.base_kafka_supervisor(id, brokers, dimensions: dimensions)
