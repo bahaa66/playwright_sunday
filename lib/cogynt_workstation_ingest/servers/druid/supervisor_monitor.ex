@@ -40,6 +40,10 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
         GenServer.call(__MODULE__, :state)
       end
 
+      def reset_data do
+        GenServer.call(__MODULE__, :restart)
+      end
+
       # ------------------------ #
       # --- server callbacks --- #
       # ------------------------ #
@@ -82,6 +86,44 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       @impl true
       def handle_call(:state, _from, %{supervisor_status: status} = state) do
         {:reply, Map.get(status, "state", "UNKNOWN"), state}
+      end
+
+      @impl true
+      def handle_call(:reset_data, _from, %{id: id} = state) do
+        Druid.delete_datasource(id)
+        |> case do
+          {:ok, response} ->
+            IO.inspect(response)
+
+            Druid.reset_supervisor(id)
+            |> case do
+              {:ok, response} ->
+                IO.inspect(response)
+
+                with {:ok, %{"id" => id}} <- Druid.reset_supervisor(id),
+                     {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
+                  {:reply, payload, %{state | supervisor_status: payload}}
+                else
+                  {:error, error} ->
+                    CogyntLogger.error(
+                      "#{__MODULE__}",
+                      "Unable to create and get supervisor information for #{id}: #{
+                        inspect(error)
+                      }"
+                    )
+
+                    {:reply, {:error, error}, state}
+                end
+            end
+
+          {:error, error} ->
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "Unable to delete datasource do to error: #{inspect(error)}"
+            )
+
+            {:reply, {:error, error}, state}
+        end
       end
 
       @impl true
