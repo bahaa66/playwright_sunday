@@ -183,8 +183,11 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         "ensure_event_pipeline_stopped/1 exceeded number of attempts. Moving forward with DeleteEventDefinitionsAndTopics"
       )
     else
+      {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition_id)
+
       case EventPipeline.event_pipeline_running?(event_definition_id) or
-             not EventPipeline.event_pipeline_finished_processing?(event_definition_id) do
+             not EventPipeline.event_pipeline_finished_processing?(event_definition_id) or
+             consumer_state.status != ConsumerStatusTypeEnum.status()[:paused_and_finished] do
         true ->
           CogyntLogger.info(
             "#{__MODULE__}",
