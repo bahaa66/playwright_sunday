@@ -66,9 +66,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         } = message
       ) do
     entity_links_core_ids =
-      Enum.reduce(entities, [], fn {_key, link_object_list}, acc_0 ->
+      Enum.reduce(entities, "", fn {_key, link_object_list}, acc_0 ->
         objects_links =
-          Enum.reduce(link_object_list, [], fn link_object, acc_1 ->
+          Enum.reduce(link_object_list, "", fn link_object, acc_1 ->
             case link_object["id"] do
               nil ->
                 CogyntLogger.warn(
@@ -79,12 +79,24 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                 acc_1
 
               core_id ->
-                acc_1 ++ [core_id]
+                acc_1 =
+                  if acc_1 == "" do
+                    acc_1 <> core_id
+                  else
+                    acc_1 <> "," <> core_id
+                  end
             end
           end)
 
-        acc_0 ++ objects_links
+        acc_0 =
+          if acc_0 == "" do
+            acc_0 <> objects_links
+          else
+            acc_0 <> "," <> objects_links
+          end
       end)
+
+    entity_links_core_ids = String.to_charlist(entity_links_core_ids)
 
     deleted_at =
       if action == @delete do

@@ -73,7 +73,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :migrations,
-        tag: "v1.12.9-beta",
+        tag: "v1.12.11-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true

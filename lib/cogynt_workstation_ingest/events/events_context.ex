@@ -693,7 +693,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     try do
       case Repo.query("SELECT insert_event_links(
             CAST('#{event_id}' as UUID),
-            CAST('#{core_ids}'::UUID[]),
+            CAST(#{inspect(core_ids)} as TEXT),
             #{deleted_at_cast}
             )") do
         {:ok, result} ->
