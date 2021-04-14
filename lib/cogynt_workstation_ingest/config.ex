@@ -52,6 +52,40 @@ defmodule CogyntWorkstationIngest.Config do
 
   def postgres_username(), do: postgres()[:username]
 
+  def parse_kafka_brokers() do
+    String.split(kafka()[:brokers], ",", trim: true)
+    |> Enum.reduce([], fn x, acc ->
+      broker =
+        String.split(x, ":", trim: true)
+        |> List.to_tuple()
+
+      port =
+        elem(broker, 1)
+        |> String.to_integer()
+
+      broker = put_elem(broker, 1, port)
+
+      acc ++ [broker]
+    end)
+  end
+
+  def parse_kafka_brokers(brokers) do
+    String.split(brokers, ",", trim: true)
+    |> Enum.reduce([], fn x, acc ->
+      broker =
+        String.split(x, ":", trim: true)
+        |> List.to_tuple()
+
+      port =
+        elem(broker, 1)
+        |> String.to_integer()
+
+      broker = put_elem(broker, 1, port)
+
+      acc ++ [broker]
+    end)
+  end
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
@@ -83,21 +117,4 @@ defmodule CogyntWorkstationIngest.Config do
   defp elasticsearch(), do: Application.get_env(:elasticsearch, :application)
 
   defp clients(), do: Application.get_env(:cogynt_workstation_ingest, :clients)
-
-  def parse_kafka_brokers() do
-    String.split(kafka()[:brokers], ",", trim: true)
-    |> Enum.reduce([], fn x, acc ->
-      broker =
-        String.split(x, ":", trim: true)
-        |> List.to_tuple()
-
-      port =
-        elem(broker, 1)
-        |> String.to_integer()
-
-      broker = put_elem(broker, 1, port)
-
-      acc ++ [broker]
-    end)
-  end
 end
