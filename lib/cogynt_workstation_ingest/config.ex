@@ -12,7 +12,7 @@ defmodule CogyntWorkstationIngest.Config do
 
   def ingest_task_worker_timer(), do: ingest_task_worker()[:timer]
 
-  def kafka_brokers, do: kafka()[:brokers]
+  def kafka_brokers, do: parse_kafka_brokers()
   def kafka_client, do: kafka()[:kafka_client]
   def partition_strategy, do: kafka()[:partition_strategy]
   def template_solutions_topic, do: kafka()[:template_solutions_topic]
@@ -55,6 +55,40 @@ defmodule CogyntWorkstationIngest.Config do
   def ts_connector_name(), do: connector()[:ts_connector_name]
   def tse_connector_name(), do: connector()[:tse_connector_name]
   def connector_restart_time_delay(), do: connector()[:time_delay]
+
+  def parse_kafka_brokers() do
+    String.split(kafka()[:brokers], ",", trim: true)
+    |> Enum.reduce([], fn x, acc ->
+      broker =
+        String.split(x, ":", trim: true)
+        |> List.to_tuple()
+
+      port =
+        elem(broker, 1)
+        |> String.to_integer()
+
+      broker = put_elem(broker, 1, port)
+
+      acc ++ [broker]
+    end)
+  end
+
+  def parse_kafka_brokers(brokers) do
+    String.split(brokers, ",", trim: true)
+    |> Enum.reduce([], fn x, acc ->
+      broker =
+        String.split(x, ":", trim: true)
+        |> List.to_tuple()
+
+      port =
+        elem(broker, 1)
+        |> String.to_integer()
+
+      broker = put_elem(broker, 1, port)
+
+      acc ++ [broker]
+    end)
+  end
 
   # ----------------------- #
   # --- private methods --- #
