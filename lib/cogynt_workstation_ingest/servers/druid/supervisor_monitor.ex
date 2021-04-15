@@ -3,6 +3,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     supervisor_id = Keyword.get(opts, :supervisor_id)
     dimensions = Keyword.get(opts, :dimensions)
     brokers = Keyword.get(opts, :brokers)
+    flattened_fields = Keyword.get(opts, :flattened_fields)
 
     if is_nil(supervisor_id) do
       raise "You must provide a supervisor_id:\n\n  use CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor,\n    supervisor_id: \"test_id\"\n\n"
@@ -41,7 +42,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       end
 
       def reset_data do
-        GenServer.call(__MODULE__, :restart)
+        GenServer.call(__MODULE__, :reset_data)
       end
 
       # ------------------------ #
@@ -93,13 +94,9 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
         Druid.delete_datasource(id)
         |> case do
           {:ok, response} ->
-            IO.inspect(response)
-
             Druid.reset_supervisor(id)
             |> case do
               {:ok, response} ->
-                IO.inspect(response)
-
                 with {:ok, %{"id" => id}} <- Druid.reset_supervisor(id),
                      {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
                   {:reply, payload, %{state | supervisor_status: payload}}
@@ -130,7 +127,13 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       def handle_continue(:create_or_update_supervisor, %{id: id} = state) do
         brokers = unquote(brokers)
         dimensions = unquote(dimensions)
-        supervisor_spec = Druid.Utils.base_kafka_supervisor(id, brokers, dimensions: dimensions)
+        flattened_fields = unquote(flattened_fields)
+
+        supervisor_spec =
+          Druid.Utils.base_kafka_supervisor(id, brokers,
+            dimensions: dimensions,
+            flattened_fields: flattened_fields
+          )
 
         with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
              {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
