@@ -49,8 +49,6 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:health_checkup, "~> 0.1.0"},
       {:ecto_enum, "~> 1.4"},
       {:broadway_kafka, "~> 0.2.0 ", override: true},
-      # {:broadway_kafka,
-      #  git: "git@github.com:dashbitco/broadway_kafka.git", branch: "master", override: true},
       {:httpoison, "~> 1.7"},
       {:junit_formatter, "~> 3.0"},
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
@@ -62,18 +60,18 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:kafka,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "kafka",
-       tag: "v1.12.0",
+       tag: "v1.13.0",
        override: true},
       {
         :models,
-        tag: "v1.12.9-beta",
+        tag: "v1.13.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.12.11-beta",
+        tag: "v1.13.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
@@ -87,14 +85,14 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :elasticsearch,
-        tag: "v1.12.12-beta",
+        tag: "v1.13.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
         override: true
       },
       {
         :redis,
-        tag: "v1.12.7-beta",
+        tag: "v1.13.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true
