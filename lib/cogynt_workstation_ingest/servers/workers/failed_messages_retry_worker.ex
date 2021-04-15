@@ -93,14 +93,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
   # --- private methods --- #
   # ----------------------- #
   defp fetch_and_release_failed_messages(demand, pipeline_module, key) do
-    {:ok, list_length} =
-      case Redis.key_exists?(key) do
-        {:ok, false} ->
-          {:ok, 0}
-
-        {:ok, true} ->
-          Redis.list_length(key)
-      end
+    {:ok, list_length} = Redis.list_length(key)
 
     list_items =
       case list_length >= demand do
@@ -110,6 +103,8 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
 
           # Trim List Range by demand
           Redis.list_trim(key, demand, 100_000_000)
+          # 30 min TTL
+          Redis.key_pexpire(key, 1_800_000)
 
           list_items
 
@@ -120,6 +115,8 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
 
             # Trim List Range by list_length
             Redis.list_trim(key, list_length, -1)
+            # 30 min TTL
+            Redis.key_pexpire(key, 1_800_000)
 
             list_items
           else

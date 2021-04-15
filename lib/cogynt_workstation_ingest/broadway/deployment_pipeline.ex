@@ -109,7 +109,19 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
         end
       end)
 
-    Redis.list_append_pipeline("fdpm", failed_messages)
+    case Redis.list_length("fdpm") do
+      {:ok, length} when length >= 50_000 ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Failed Deployments messages have reached the limit of 50_000 in Redis. Dropping future messages from getting queued"
+        )
+
+      _ ->
+        Redis.list_append_pipeline("fdpm", failed_messages)
+        # 30 min TTL
+        Redis.key_pexpire("fdpm", 1_800_000)
+    end
+
     messages
   end
 

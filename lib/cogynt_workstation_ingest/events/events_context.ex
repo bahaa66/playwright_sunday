@@ -579,7 +579,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       COPY event_details(field_name,field_value,field_type,event_id)
       FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01')
     """
-
+    
     stream = Ecto.Adapters.SQL.stream(Repo, sql)
 
     Repo.transaction(fn ->
@@ -621,7 +621,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       else
         "CAST('#{core_id}' as UUID)"
       end
-
+      
     occurred_at_cast =
       if is_nil(occurred_at) do
         "NULL"
@@ -693,7 +693,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     try do
       case Repo.query("SELECT insert_event_links(
             CAST('#{event_id}' as UUID),
-            CAST('#{core_ids}'::UUID[]),
+            CAST(#{inspect(core_ids)} as TEXT),
             #{deleted_at_cast}
             )") do
         {:ok, result} ->
