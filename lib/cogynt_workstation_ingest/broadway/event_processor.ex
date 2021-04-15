@@ -7,7 +7,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
-  alias Models.Notifications.Notification
 
   alias Broadway.Message
 
@@ -386,7 +385,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             event_definition
           )
           |> Enum.reduce([], fn valid_ns, acc ->
-            # Set fields for Stream_input
             deleted_at =
               if crud_action == @delete do
                 DateTime.truncate(DateTime.utc_now(), :second)
@@ -494,6 +492,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         data = Map.put(data, :pipeline_state, :process_notifications)
         Map.put(message, :data, data)
     end
+  end
 
   @doc """
   For datasets that have $CRUD keys present. This data needs

@@ -79,21 +79,19 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                 acc_1
 
               core_id ->
-                acc_1 =
-                  if acc_1 == "" do
-                    acc_1 <> core_id
-                  else
-                    acc_1 <> "," <> core_id
-                  end
+                if acc_1 == "" do
+                  acc_1 <> core_id
+                else
+                  acc_1 <> "," <> core_id
+                end
             end
           end)
 
-        acc_0 =
-          if acc_0 == "" do
-            acc_0 <> objects_links
-          else
-            acc_0 <> "," <> objects_links
-          end
+        if acc_0 == "" do
+          acc_0 <> objects_links
+        else
+          acc_0 <> "," <> objects_links
+        end
       end)
 
     entity_links_core_ids = String.to_charlist(entity_links_core_ids)
@@ -119,6 +117,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           "#{__MODULE__}",
           "Failed to insert link_events. Error: #{inspect(error)}"
         )
+
         raise "process_entities/1 failed"
     end
   end
