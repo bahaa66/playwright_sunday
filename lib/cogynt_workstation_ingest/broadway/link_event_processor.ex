@@ -119,7 +119,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           "#{__MODULE__}",
           "Failed to insert link_events. Error: #{inspect(error)}"
         )
-
         raise "process_entities/1 failed"
     end
   end

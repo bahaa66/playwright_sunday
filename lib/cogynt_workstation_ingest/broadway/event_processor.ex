@@ -7,6 +7,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
+  alias Models.Notifications.Notification
 
   alias Broadway.Message
 
@@ -493,7 +494,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         data = Map.put(data, :pipeline_state, :process_notifications)
         Map.put(message, :data, data)
     end
-  end
 
   @doc """
   For datasets that have $CRUD keys present. This data needs
