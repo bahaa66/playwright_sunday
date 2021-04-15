@@ -9,7 +9,15 @@ defmodule CogyntWorkstationIngest.Servers.Druid.TemplateSolutionEvents do
       "template_type_id",
       "event",
       "aid",
-      "assertion_name"
+      "assertion_name",
+      "event.id"
+    ],
+    flattened_fields: [
+      %{
+        type: "path",
+        name: "event.id",
+        expr: "$.event.id"
+      }
     ],
     brokers:
       Config.kafka_brokers()
