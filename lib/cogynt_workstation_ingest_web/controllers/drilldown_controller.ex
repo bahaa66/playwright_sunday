@@ -1,19 +1,13 @@
 defmodule CogyntWorkstationIngestWeb.DrilldownController do
   use CogyntWorkstationIngestWeb, :controller
-
-  # alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
-  # alias CogyntWorkstationIngest.Drilldown.DrilldownContext
-  alias CogyntWorkstationIngest.Drilldown.DrilldownContextNew
+  alias CogyntWorkstationIngest.Drilldown.{DrilldownContext, DrilldownContextDruid}
+  alias CogyntWorkstationIngest.Config
 
   @doc """
   Return a list of the info on all template instances for the given type
   """
   def index(conn, %{"id" => id}) do
-    # case is_authorized?(conn) do
-    #   true ->
-    # {:ok, data} = DrilldownCache.list()
-    # data = DrilldownContext.list_template_solutions()
-    data = DrilldownContextNew.list_template_solutions()
+    data = DrilldownContext.list_template_solutions()
 
     data =
       data
@@ -23,20 +17,20 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
       |> Enum.map(&Map.put(Map.put(&1, "key", &1["id"]), "#visited", []))
 
     render(conn, "index.json-api", data: data)
-
-    #   false ->
-    #     render(conn, "401.json-api")
-    # end
   end
 
   @doc """
   Respond to a show request for a specific template
   """
   def show(conn, %{"id" => id}) do
-    # case is_authorized?(conn) do
-    #   true ->
-    # {:ok, data} = DrilldownCache.get(id)
-    data = DrilldownContextNew.get_template_solution_data(id)
+    # HERE
+    data =
+      if Config.druid_enabled?() do
+        DrilldownContextDruid.get_template_solution(id)
+        |> DrilldownContextDruid.process_template_solution()
+      else
+        DrilldownContext.get_template_solution_data(id)
+      end
 
     if data == nil do
       render(conn, "404.json")
@@ -48,25 +42,5 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
 
       render(conn, "show.json-api", data: data)
     end
-
-    #   false ->
-    #     render(conn, "401.json-api")
-    # end
   end
-
-  # ---------------------- #
-  # -- private methods --- #
-  # ---------------------- #
-  # defp is_authorized?(_conn) do
-  #   true
-  #   # conn = fetch_session(conn)
-
-  #   # case get_session(conn, :current_user) do
-  #   #   nil ->
-  #   #     false
-
-  #   #   _user ->
-  #   #     true
-  #   # end
-  # end
 end

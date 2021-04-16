@@ -90,6 +90,8 @@ defmodule CogyntWorkstationIngest.Config do
     end)
   end
 
+  def druid_enabled?(), do: druid() != nil
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
@@ -120,4 +122,6 @@ defmodule CogyntWorkstationIngest.Config do
   defp clients(), do: Application.get_env(:cogynt_workstation_ingest, :clients)
 
   defp connector(), do: Application.get_env(:cogynt_workstation_ingest, :drilldown_connector)
+
+  defp druid(), do: Application.get_env(:druid, :broker_profiles)
 end

@@ -2,7 +2,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
   @moduledoc """
   """
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Drilldown.{DrilldownContextNew, DrilldownSinkConnector}
+  alias CogyntWorkstationIngest.Drilldown.{DrilldownContext, DrilldownSinkConnector}
 
   def perform(delete_drilldown_topics) do
     # TODO: eventually need to run this against all deployment targets
@@ -109,6 +109,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
         Redis.key_delete_pipeline(message_info_keys)
     end
 
-    DrilldownContextNew.hard_delete_template_solutions_data()
+    DrilldownContext.hard_delete_template_solutions_data()
   end
 end
