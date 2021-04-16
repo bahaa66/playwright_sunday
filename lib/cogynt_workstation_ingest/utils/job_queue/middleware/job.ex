@@ -14,6 +14,11 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     DeleteEventDefinitionsAndTopicsWorker
   }
 
+  alias CogyntWorkstationIngest.Events.EventsContext
+
+  @template_solutions_temp_id 1
+  @template_solution_events_temp_id 2
+
   def before_work(pipeline) do
     job = Exq.Support.Job.decode(pipeline.assigns.job_serialized)
     target = String.replace(job.class, "::", ".")
@@ -57,6 +62,93 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     pipeline
   end
 
+  defp update_dev_delete_key(value) when is_list(value) do
+    case Redis.get("dd") do
+      {:ok, nil} ->
+        Redis.set("dd", Enum.uniq(value))
+        # 7 mins
+        Redis.key_pexpire("dd", 420_000)
+
+      {:ok, values} ->
+        Redis.set("dd", Enum.uniq(values ++ value))
+        # 7 mins
+        Redis.key_pexpire("dd", 420_000)
+
+      _ ->
+        Redis.set("dd", Enum.uniq(value))
+        # 7 mins
+        Redis.key_pexpire("dd", 420_000)
+    end
+  end
+
+  defp update_dev_delete_key(value) do
+    case Redis.get("dd") do
+      {:ok, nil} ->
+        Redis.set("dd", [value])
+        # 7 mins
+        Redis.key_pexpire("dd", 420_000)
+
+      {:ok, values} ->
+        Redis.set("dd", Enum.uniq(values ++ [value]))
+        # 7 mins
+        Redis.key_pexpire("dd", 420_000)
+
+      _ ->
+        Redis.set("dd", [value])
+        # 7 mins
+        Redis.key_pexpire("dd", 420_000)
+    end
+  end
+
+  defp remove_from_dev_delete_key(value) when is_list(value) do
+    case Redis.key_exists?("dd") do
+      {:ok, true} ->
+        case Redis.get("dd") do
+          {:ok, nil} ->
+            Redis.key_delete("dd")
+
+          {:ok, values} ->
+            values = Enum.reject(values, fn x -> x in value end)
+
+            if Enum.empty?(values) do
+              Redis.key_delete("dd")
+            else
+              Redis.set("dd", Enum.uniq(values))
+              # 7 mins
+              Redis.key_pexpire("dd", 420_000)
+            end
+
+          _ ->
+            Redis.key_delete("dd")
+        end
+
+      {:ok, false} ->
+        nil
+    end
+  end
+
+  defp remove_from_dev_delete_key(value) do
+    case Redis.key_exists?("dd") do
+      {:ok, true} ->
+        case Redis.get("dd") do
+          {:ok, nil} ->
+            Redis.key_delete("dd")
+
+          {:ok, values} ->
+            values = List.delete(values, value)
+            Redis.set("dd", Enum.uniq(values))
+            # 7 mins
+            Redis.key_pexpire("dd", 420_000)
+
+          _ ->
+            Redis.key_delete("dd")
+        end
+
+      {:ok, false} ->
+        nil
+    end
+  end
+
   defp remove_job_from_backup(%Pipeline{assigns: assigns} = pipeline) do
     JobQueue.remove_job_from_backup(
       assigns.redis,
@@ -67,6 +159,12 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     )
 
     pipeline
+  end
+
+  defp fetch_all_event_definition_ids() do
+    EventsContext.list_event_definitions()
+    |> Enum.group_by(fn ed -> ed.id end)
+    |> Map.keys()
   end
 
   defp monitor_job(pipeline) do
@@ -92,11 +190,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
             )
         end
 
-        Redis.publish_async("notification_settings_subscription", %{
-          id: args,
-          status: "running"
-        })
-
       worker_module == to_string(UpdateNotificationsWorker) ->
         case Redis.hash_get("ts", "un") do
           {:ok, nil} ->
@@ -113,11 +206,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
               Enum.uniq(notification_setting_ids ++ [args])
             )
         end
-
-        Redis.publish_async("notification_settings_subscription", %{
-          id: args,
-          status: "running"
-        })
 
       worker_module == to_string(DeleteNotificationsWorker) ->
         case Redis.hash_get("ts", "dn") do
@@ -136,34 +224,22 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
             )
         end
 
-        Redis.publish_async("notification_settings_subscription", %{
-          id: args,
-          status: "running"
-        })
-
       worker_module == to_string(DeleteEventDefinitionEventsWorker) ->
-        Redis.hash_set_async("ts", args, %{
-          status: "running",
-          hard_delete: false
-        })
-
-      # TODO: implement handler in pub/sub on OTP
-      # Redis.publish_async("event_definitions_subscription", %{
-      #   event_definition_ids: [id],
-      #   deleting: true
-      # })
+        update_dev_delete_key(args)
+        Redis.publish_async("dev_delete_subscription", %{ids: [args], action: "start"})
 
       worker_module == to_string(DeleteDeploymentDataWorker) ->
-        Redis.hash_set("ts", "dptr", "running")
-
-      # TODO: implement handler for this on cogynt-otp
-      # Redis.publish_async("deployment_task_status_subscription", %{deleting: true})
+        ids = fetch_all_event_definition_ids()
+        update_dev_delete_key(ids)
+        Redis.publish_async("dev_delete_subscription", %{ids: ids, action: "start"})
 
       worker_module == to_string(DeleteDrilldownDataWorker) ->
-        Redis.hash_set("ts", "dtr", "running")
+        update_dev_delete_key([@template_solutions_temp_id, @template_solution_events_temp_id])
 
-      # TODO: implement handler for this on cogynt-otp
-      # Redis.publish_async("drilldown_task_status_subscription", %{deleting: true})
+        Redis.publish_async("dev_delete_subscription", %{
+          ids: [@template_solutions_temp_id, @template_solution_events_temp_id],
+          action: "start"
+        })
 
       worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
         %{
@@ -172,30 +248,20 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
 
         case is_list(event_definition_ids) do
           true ->
-            Enum.each(event_definition_ids, fn event_definition_id ->
-              Redis.hash_set_async("ts", event_definition_id, %{
-                status: "running",
-                hard_delete: false
-              })
-            end)
+            update_dev_delete_key(event_definition_ids)
 
-          # TODO: implement handler for this on cogynt-otp
-          # Redis.publish_async("event_definitions_subscription", %{
-          #   event_definition_ids: event_definition_ids,
-          #   deleting: true
-          # })
-
-          false ->
-            Redis.hash_set_async("ts", event_definition_ids, %{
-              status: "running",
-              hard_delete: false
+            Redis.publish_async("dev_delete_subscription", %{
+              ids: event_definition_ids,
+              action: "start"
             })
 
-            # TODO: implement handler for this on cogynt-otp
-            # Redis.publish_async("event_definitions_subscription", %{
-            #   event_definition_ids: [event_definition_ids],
-            #   deleting: true
-            # })
+          false ->
+            update_dev_delete_key([event_definition_ids])
+
+            Redis.publish_async("dev_delete_subscription", %{
+              ids: [event_definition_ids],
+              action: "start"
+            })
         end
 
       true ->
@@ -224,12 +290,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
             )
         end
 
-      # TODO: implement pub/sub handler for status: finished on OTP
-      # Redis.publish_async("notification_settings_subscription", %{
-      #   id: id,
-      #   status: "finished"
-      # })
-
       worker_module == to_string(UpdateNotificationsWorker) ->
         case Redis.hash_get("ts", "un") do
           {:ok, nil} ->
@@ -242,12 +302,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
               List.delete(notification_setting_ids, args)
             )
         end
-
-      # TODO: implement pub/sub handler for status: finished on OTP
-      # Redis.publish_async("notification_settings_subscription", %{
-      #   id: id,
-      #   status: "finished"
-      # })
 
       worker_module == to_string(DeleteNotificationsWorker) ->
         case Redis.hash_get("ts", "dn") do
@@ -262,58 +316,45 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
             )
         end
 
-      # TODO: implement pub/sub handler for status: finished on OTP
-      # Redis.publish_async("notification_settings_subscription", %{
-      #   id: id,
-      #   status: "finished"
-      # })
-
       worker_module == to_string(DeleteEventDefinitionEventsWorker) ->
-        Redis.hash_delete("ts", args)
-
-      # TODO: implement handler in pub/sub on OTP
-      # Redis.publish_async("event_definitions_subscription", %{
-      #   event_definition_ids: [id],
-      #   deleting: false
-      # })
+        remove_from_dev_delete_key(args)
+        Redis.publish_async("dev_delete_subscription", %{ids: [args], action: "stop"})
 
       worker_module == to_string(DeleteDeploymentDataWorker) ->
-        Redis.hash_delete("ts", "dptr")
-
-      # TODO: implement handler for this on cogynt-otp
-      # Redis.publish_async("deployment_task_status_subscription", %{deleting: false})
+        ids = fetch_all_event_definition_ids()
+        remove_from_dev_delete_key(ids)
+        Redis.publish_async("dev_delete_subscription", %{ids: [ids], action: "stop"})
 
       worker_module == to_string(DeleteDrilldownDataWorker) ->
-        Redis.hash_delete("ts", "dtr")
+        remove_from_dev_delete_key([
+          @template_solutions_temp_id,
+          @template_solution_events_temp_id
+        ])
 
-      # TODO: implement handler for this on cogynt-otp
-      # Redis.publish_async("drilldown_task_status_subscription", %{deleting: false})
+        Redis.publish_async("dev_delete_subscription", %{
+          ids: [@template_solutions_temp_id, @template_solution_events_temp_id],
+          action: "stop"
+        })
 
       worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
         %{
           "event_definition_ids" => event_definition_ids
         } = args
 
+        remove_from_dev_delete_key(event_definition_ids)
+
         case is_list(event_definition_ids) do
           true ->
-            Enum.each(event_definition_ids, fn event_definition_id ->
-              Redis.hash_delete("ts", event_definition_id)
-            end)
-
-          # TODO: implement handler for this on cogynt-otp
-          # Redis.publish_async("event_definitions_subscription", %{
-          #   event_definition_ids: event_definition_id,
-          #   deleting: false
-          # })
+            Redis.publish_async("dev_delete_subscription", %{
+              ids: event_definition_ids,
+              action: "stop"
+            })
 
           false ->
-            Redis.hash_delete("ts", event_definition_ids)
-
-            # TODO: implement handler for this on cogynt-otp
-            # Redis.publish_async("event_definitions_subscription", %{
-            #   event_definition_ids: [event_definition_ids],
-            #   deleting: false
-            # })
+            Redis.publish_async("dev_delete_subscription", %{
+              ids: [event_definition_ids],
+              action: "stop"
+            })
         end
 
       true ->

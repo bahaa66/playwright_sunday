@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Broadway.{EventPipeline, DeploymentPipeline}
 
-  @demand 100
+  @demand 5000
   @deployment_pipeline_name :DeploymentPipeline
   @deployment_pipeline_module CogyntWorkstationIngest.Broadway.DeploymentPipeline
   @event_pipeline_module CogyntWorkstationIngest.Broadway.EventPipeline
@@ -50,10 +50,10 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
         Broadway.push_messages(@deployment_pipeline_name, failed_deployment_messages)
       end
     rescue
-      _ ->
+      error ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Failed to push failed_messages to DeploymentPipeline"
+          "Failed to push failed_messages to DeploymentPipeline. Error: #{inspect(error)}"
         )
     end
 
@@ -79,10 +79,10 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
         end
       end)
     rescue
-      _ ->
+      error ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Failed to push failed_messages to EventPipeline"
+          "Failed to push failed_messages to EventPipeline. Error: #{inspect(error)}"
         )
     end
 
@@ -93,14 +93,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
   # --- private methods --- #
   # ----------------------- #
   defp fetch_and_release_failed_messages(demand, pipeline_module, key) do
-    {:ok, list_length} =
-      case Redis.key_exists?(key) do
-        {:ok, false} ->
-          {:ok, 0}
-
-        {:ok, true} ->
-          Redis.list_length(key)
-      end
+    {:ok, list_length} = Redis.list_length(key)
 
     list_items =
       case list_length >= demand do
@@ -110,6 +103,8 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
 
           # Trim List Range by demand
           Redis.list_trim(key, demand, 100_000_000)
+          # 30 min TTL
+          Redis.key_pexpire(key, 1_800_000)
 
           list_items
 
@@ -120,6 +115,8 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
 
             # Trim List Range by list_length
             Redis.list_trim(key, list_length, -1)
+            # 30 min TTL
+            Redis.key_pexpire(key, 1_800_000)
 
             list_items
           else

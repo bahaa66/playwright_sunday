@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AddCreateUnloggedNotificationsTableFunction do
+  use Migrations.AddCreateUnloggedNotificationsTableFunction
+end

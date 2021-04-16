@@ -31,7 +31,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
     end
 
     CogyntLogger.info("#{__MODULE__}", "Starting resetting of drilldown data")
-    # TODO: Delete drilldown connectors
     # 1.) Stop Checks
     Redis.publish_async("ingest_channel", %{pause_drilldown_connector_monitor: true})
     # 2.) Delete Connector

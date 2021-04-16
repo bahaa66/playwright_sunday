@@ -3,12 +3,29 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   The Notifications context: public interface for event related functionality.
   """
   import Ecto.Query, warn: false
-  alias Ecto.Multi
+  alias Ecto.Adapters.SQL
   alias CogyntWorkstationIngest.Repo
 
   alias Models.Notifications.{NotificationSetting, Notification}
 
-  @insert_batch_size 1500
+  @insert_batch_size 3_000
+  @notification_table_keys [
+    :id,
+    :title,
+    :description,
+    :user_id,
+    :archived_at,
+    :priority,
+    :assigned_to,
+    :dismissed_at,
+    :deleted_at,
+    :event_id,
+    :notification_setting_id,
+    :tag_id,
+    :core_id,
+    :created_at,
+    :updated_at
+  ]
 
   # ------------------------------------ #
   # --- Notification Setting Methods --- #
@@ -60,6 +77,19 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     end)
   end
 
+  def fetch_invalid_notification_settings(filters, risk_score, event_definition) do
+    query_notification_settings(%{filter: filters})
+    |> Enum.filter(fn ns ->
+      has_event_definition_detail =
+        Enum.find(event_definition.event_definition_details, fn
+          %{field_name: name} ->
+            name == ns.title
+        end) != nil
+
+      !has_event_definition_detail or !in_risk_range?(risk_score, ns.risk_range)
+    end)
+  end
+
   @doc """
   Querys NotificationSettings based on the filter args
   ## Examples
@@ -89,26 +119,6 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       end)
 
     Repo.all(query)
-  end
-
-  @doc """
-  Hard deletes many notification settings and removes them from the database.
-
-  ## Examples
-      iex> hard_delete_notification_settings(%{
-        filter: %{event_ids: ["9a9055f1-98b6-42a9-8145-7a4ca09cab23"]}
-      })
-      {1, nil | [%Notification{}]}
-  """
-  def hard_delete_notification_settings(args) do
-    Enum.reduce(args, from(ns in NotificationSetting), fn
-      {:filter, filter}, q ->
-        filter_notification_settings(filter, q)
-
-      {:select, select}, q ->
-        select(q, ^select)
-    end)
-    |> Repo.delete_all(timeout: 120_000)
   end
 
   @doc """
@@ -175,10 +185,10 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   @doc """
   Returns a list of the %Notification{} stucts that were inserted.
   ## Examples
-      iex> bulk_insert_notifications([%Notification{}, returning: [:id])
+      iex> insert_all_notifications([%Notification{}, returning: [:id])
       {20, [%Notification{...}]}
   """
-  def bulk_insert_notifications(notifications, opts \\ []) when is_list(notifications) do
+  def insert_all_notifications(notifications, opts \\ []) when is_list(notifications) do
     returning = Keyword.get(opts, :returning, [:id])
     on_conflict = Keyword.get(opts, :on_conflict, :nothing)
     conflict_target = Keyword.get(opts, :conflict_target, :id)
@@ -194,7 +204,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
             returning: returning,
             on_conflict: on_conflict,
             conflict_target: conflict_target,
-            timeout: 120_000
+            timeout: 60_000
           )
 
         if is_nil(result) do
@@ -290,27 +300,6 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   end
 
   @doc """
-  Hard deletes many notifications and removes them from the database.
-  ## Examples
-      iex> hard_delete_notifications(%{
-          filter: %{
-            event_ids: ["9a9055f1-98b6-42a9-8145-7a4ca09cab23"]
-          }
-        })
-      {1, nil | [%Notification{}]}
-  """
-  def hard_delete_notifications(args) do
-    Enum.reduce(args, from(n in Notification), fn
-      {:filter, filter}, q ->
-        filter_notifications(filter, q)
-
-      {:select, select}, q ->
-        select(q, ^select)
-    end)
-    |> Repo.delete_all(timeout: 120_000)
-  end
-
-  @doc """
   Takes a list of Notification Structs and returns a list of maps with
   the Metadata and Timestamp fields dropped
   """
@@ -327,15 +316,161 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     remove_notification_virtual_fields(tail)
   end
 
-  # ------------------------------ #
-  # --- Event Pipeline Methods --- #
-  # ------------------------------ #
+  # ---------------------- #
+  # --- PSQL Functions --- #
+  # ---------------------- #
+  def insert_all_notifications_with_copy(stream_input) do
+    # 1) Create Temp Table
+    temp_table_name = "notifications_#{Ecto.UUID.generate()}"
 
-  def run_multi_transaction(multi) do
-    Repo.transaction(multi, timeout: 120_000)
+    try do
+      case Repo.query(
+             "SELECT create_unlogged_notifications_table(CAST('#{temp_table_name}' as TEXT))"
+           ) do
+        {:ok, _result} ->
+          # 2) Copy data into temp table
+          statement = "COPY public.\"#{temp_table_name}\"(
+            id,
+            title,
+            description,
+            user_id,
+            archived_at,
+            priority,
+            assigned_to,
+            dismissed_at,
+            deleted_at,
+            event_id,
+            notification_setting_id,
+            tag_id,
+            core_id,
+            created_at,
+            updated_at
+          )
+          FROM STDIN CSV DELIMITER ';' NULL AS 'null'"
+
+          stream = SQL.stream(Repo, statement)
+
+          case Repo.transaction(fn ->
+                 Enum.into(stream_input, stream)
+               end) do
+            {:ok, _changes} ->
+              # 3) Merge temp table into notifications table, handle conflicts, drop temp table
+              try do
+                case Repo.query("SELECT merge_notifications_from_unlogged_table(
+                CAST('#{temp_table_name}' as regclass)
+              )") do
+                  {:ok, result} ->
+                    Repo.query(
+                      "SELECT drop_unlogged_notifications_table(CAST('#{temp_table_name}' as TEXT))"
+                    )
+
+                    # 4) This is the Final return object if all is success
+                    {:ok, result}
+
+                  {:error, error} ->
+                    CogyntLogger.error(
+                      "#{__MODULE__}",
+                      "insert_all_notifications_with_copy/1 Failed to merge Unlogged and Actual notification tables. Error: #{
+                        inspect(error)
+                      }"
+                    )
+
+                    Repo.query(
+                      "SELECT drop_unlogged_notifications_table(CAST('#{temp_table_name}' as TEXT))"
+                    )
+
+                    {:error, error}
+                end
+              rescue
+                error ->
+                  CogyntLogger.error(
+                    "#{__MODULE__}",
+                    "insert_all_notifications_with_copy/1 Failed to merge Unlogged and Actual notification tables. Error: #{
+                      inspect(error)
+                    }"
+                  )
+
+                  Repo.query(
+                    "SELECT drop_unlogged_notifications_table(CAST('#{temp_table_name}' as TEXT))"
+                  )
+
+                  {:error, :internal_server_error}
+              end
+
+            {:error, error} ->
+              CogyntLogger.error(
+                "#{__MODULE__}",
+                "insert_all_notifications_with_copy/1 Failed at the COPY step. Error: #{
+                  inspect(error)
+                }"
+              )
+
+              {:error, :internal_server_error}
+          end
+
+        {:error, error} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "insert_all_notifications_with_copy/1 Failed to create unlogged table #{
+              temp_table_name
+            } Error: #{inspect(error)} "
+          )
+
+          Repo.query(
+            "SELECT drop_unlogged_notifications_table(CAST('#{temp_table_name}' as TEXT))"
+          )
+
+          {:error, error}
+      end
+    rescue
+      error ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "insert_all_notifications_with_copy/1 Failed to create unlogged table #{temp_table_name}. Error: #{
+            inspect(error)
+          }"
+        )
+
+        Repo.query("SELECT drop_unlogged_notifications_table(CAST('#{temp_table_name}' as TEXT))")
+        {:error, :internal_server_error}
+    end
   end
 
-  def in_risk_range?(risk_score, risk_range) do
+  def map_postgres_results(postgres_results) do
+    Enum.reduce(postgres_results, [], fn rows, acc_0 ->
+      rows_result =
+        Enum.reduce(rows, [], fn row, acc_1 ->
+          keys = @notification_table_keys
+
+          values =
+            if is_tuple(row) do
+              Tuple.to_list(row)
+            else
+              row
+            end
+            |> Enum.reduce([], fn column, acc ->
+              case Ecto.UUID.cast(column) do
+                {:ok, uuid} ->
+                  acc ++ [uuid]
+
+                _ ->
+                  acc ++ [column]
+              end
+            end)
+
+          notifications_enum = Enum.zip(keys, values) |> Enum.into(%{})
+
+          acc_1 ++ [notifications_enum]
+        end)
+
+      acc_0 ++ rows_result
+    end)
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp in_risk_range?(risk_score, risk_range) do
     with true <- risk_score > 0,
          converted_risk_score <- trunc(Float.round(risk_score * 100)),
          min_risk_range <- Enum.min(risk_range),
@@ -361,9 +496,6 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     end
   end
 
-  # ----------------------- #
-  # --- private methods --- #
-  # ----------------------- #
   defp filter_notifications(filter, query) do
     Enum.reduce(filter, query, fn
       {:notification_ids, notification_ids}, q ->
@@ -372,8 +504,20 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       {:notification_setting_id, notification_setting_id}, q ->
         where(q, [n], n.notification_setting_id == ^notification_setting_id)
 
+      {:notification_setting_ids, notification_setting_ids}, q ->
+        where(q, [n], n.notification_setting_id in ^notification_setting_ids)
+
+      {:core_id, core_id}, q ->
+        where(q, [n], n.core_id == ^core_id)
+
       {:event_ids, event_ids}, q ->
         where(q, [n], n.event_id in ^event_ids)
+
+      {:deleted_at, nil}, q ->
+        where(q, [n], is_nil(n.deleted_at))
+
+      {:deleted_at, _}, q ->
+        where(q, [n], is_nil(n.deleted_at) == false)
     end)
   end
 

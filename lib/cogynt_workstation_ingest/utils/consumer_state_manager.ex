@@ -136,7 +136,25 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     for x <- ["fem", "emi", "cs"], do: Redis.key_delete("#{x}:#{event_definition_id}")
 
     Redis.hash_delete("ecgid", "EventDefinition-#{event_definition_id}")
-    Redis.hash_delete("ts", event_definition_id)
+
+    case Redis.get("dd") do
+      {:ok, values} when is_list(values) ->
+        if Enum.member?(values, event_definition_id) do
+          values = List.delete(values, event_definition_id)
+
+          if Enum.empty?(values) do
+            Redis.key_delete("dd")
+          else
+            Redis.set("dd", Enum.uniq(values))
+            # 7 mins
+            Redis.key_pexpire("dd", 420_000)
+          end
+        end
+
+      _ ->
+        nil
+    end
+
     Redis.hash_delete("crw", event_definition_id)
     # Reset JobQs
     Exq.unsubscribe(Exq, "events-#{event_definition_id}")
@@ -881,15 +899,18 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   end
 
   defp event_definition_task_running?(event_definition_id) do
-    case Redis.hash_get("ts", event_definition_id) do
+    case Redis.get("dd") do
       {:ok, nil} ->
         false
+
+      {:ok, values} ->
+        Enum.member?(values, event_definition_id)
 
       {:error, _} ->
         false
 
       _ ->
-        true
+        false
     end
   end
 
