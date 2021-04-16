@@ -1,19 +1,17 @@
 defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   defmacro __using__(opts) do
     supervisor_id = Keyword.get(opts, :supervisor_id)
-    dimensions = Keyword.get(opts, :dimensions)
+    dimensions_spec = Keyword.get(opts, :dimensions_spec)
     brokers = Keyword.get(opts, :brokers)
-    flattened_fields = Keyword.get(opts, :flattened_fields)
+    io_config = Keyword.get(opts, :io_config)
+    granularity_spec = Keyword.get(opts, :granularity_spec)
+    timestamp_spec = Keyword.get(opts, :timestamp_spec)
 
     if is_nil(supervisor_id) do
       raise "You must provide a supervisor_id:\n\n  use CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor,\n    supervisor_id: \"test_id\"\n\n"
     end
 
-    if is_nil(dimensions) do
-      raise "You must provide a list of dimensions:\n\n  use CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor,\n    dimensions: [\"id\", \"test_dimension\"]\n\n"
-    end
-
-    if is_nil(dimensions) do
+    if is_nil(brokers) do
       raise "You must provide a brokers string:\n\n  use CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor,\n    brokers: \"localhost:9092,localhost:9093\"\n\n"
     end
 
@@ -126,13 +124,17 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       @impl true
       def handle_continue(:create_or_update_supervisor, %{id: id} = state) do
         brokers = unquote(brokers)
-        dimensions = unquote(dimensions)
-        flattened_fields = unquote(flattened_fields)
+        dimensions_spec = unquote(dimensions_spec)
+        io_config = unquote(io_config)
+        granularity_spec = unquote(granularity_spec)
+        timestamp_spec = unquote(timestamp_spec)
 
         supervisor_spec =
-          Druid.Utils.base_kafka_supervisor(id, brokers,
-            dimensions: dimensions,
-            flattened_fields: flattened_fields
+          Druid.Utils.build_kafka_supervisor(id, brokers,
+            dimensions_spec: dimensions_spec,
+            io_config: io_config,
+            granularity_spec: granularity_spec,
+            timestamp_spec: timestamp_spec
           )
 
         with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
