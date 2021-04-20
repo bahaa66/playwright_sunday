@@ -1,7 +1,6 @@
 defmodule CogyntWorkstationIngestWeb.DrilldownController do
   use CogyntWorkstationIngestWeb, :controller
   alias CogyntWorkstationIngest.Drilldown.DrilldownContext
-  alias CogyntWorkstationIngest.Config
 
   @doc """
   Return a list of the info on all template instances for the given type
