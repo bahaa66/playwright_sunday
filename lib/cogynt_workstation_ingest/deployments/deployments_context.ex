@@ -132,7 +132,18 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
           Enum.reduce(data_sources, [], fn data_source, acc ->
             case data_source["kind"] == "kafka" do
               true ->
-                acc ++ Config.parse_kafka_brokers(data_source["spec"]["brokers"])
+                if is_list(data_source["spec"]["brokers"]) do
+                  acc ++
+                    Enum.reduce(data_source["spec"]["brokers"], [], fn %{
+                                                                         "host" => host,
+                                                                         "port" => port
+                                                                       },
+                                                                       acc_1 ->
+                      acc_1 ++ [{host, String.to_integer(port)}]
+                    end)
+                else
+                  acc ++ Config.parse_kafka_brokers(data_source["spec"]["brokers"])
+                end
 
               false ->
                 acc

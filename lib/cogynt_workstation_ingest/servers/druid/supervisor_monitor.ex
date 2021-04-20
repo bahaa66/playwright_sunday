@@ -39,8 +39,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
         GenServer.call(__MODULE__, :state)
       end
 
-      def reset_data do
-        GenServer.call(__MODULE__, :reset_data)
+      def delete_data_and_reset_supervisor do
+        GenServer.call(__MODULE__, :delete_data_and_reset_supervisor)
       end
 
       # ------------------------ #
@@ -88,28 +88,12 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       end
 
       @impl true
-      def handle_call(:reset_data, _from, %{id: id} = state) do
+      def handle_call(:delete_data_and_reset_supervisor, _from, %{id: id} = state) do
         Druid.delete_datasource(id)
         |> case do
           {:ok, response} ->
-            Druid.reset_supervisor(id)
-            |> case do
-              {:ok, response} ->
-                with {:ok, %{"id" => id}} <- Druid.reset_supervisor(id),
-                     {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
-                  {:reply, payload, %{state | supervisor_status: payload}}
-                else
-                  {:error, error} ->
-                    CogyntLogger.error(
-                      "#{__MODULE__}",
-                      "Unable to create and get supervisor information for #{id}: #{
-                        inspect(error)
-                      }"
-                    )
-
-                    {:reply, {:error, error}, state}
-                end
-            end
+            {:reply, response, %{state | supervisor_status: %{"state" => "DELETING"}},
+             {:continue, :reset_and_get_supervisor}}
 
           {:error, error} ->
             CogyntLogger.error(
@@ -153,9 +137,28 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       end
 
       @impl true
+      def handle_continue(:reset_and_get_supervisor, %{id: id} = state) do
+        with {:ok, %{"id" => id}} <- Druid.reset_supervisor(id),
+             {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
+          {:noreply, %{state | supervisor_status: payload}}
+        else
+          {:error, error} ->
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "Unable to reset and get supervisor information for #{id}: #{inspect(error)}"
+            )
+
+            {:noreply, state}
+        end
+      end
+
+      @impl true
       def handle_info(:update_status, %{id: id} = state) do
         Druid.get_supervisor_status(id)
         |> case do
+          {:ok, %{"payload" => %{"detailedState" => "LOST_CONTACT_WITH_STREAM"} = p}} ->
+            {:noreply, state, {:continue, :reset_and_get_supervisor}}
+
           {:ok, %{"payload" => payload} = s} ->
             Process.send_after(__MODULE__, :update_status, @status_check_interval)
             {:noreply, %{state | supervisor_status: payload}}

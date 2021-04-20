@@ -7,7 +7,6 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Broadway.DeploymentPipeline
-  alias CogyntWorkstationIngest.Servers.Monitors.DrilldownSinkConnectorMonitor
 
   # -------------------- #
   # --- client calls --- #
@@ -116,14 +115,6 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
         )
 
         ConsumerGroupSupervisor.stop_child(:deployment)
-
-      {:ok, %{pause_drilldown_connector_monitor: paused} = request} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
-        )
-
-        DrilldownSinkConnectorMonitor.update_paused_state(paused)
 
       {:ok, _} ->
         CogyntLogger.warn(

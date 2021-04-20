@@ -1,15 +1,38 @@
 defmodule CogyntWorkstationIngest.Drilldown.DrilldownContextDruid do
-  def list_template_solutions(ids) do
+  def list_template_solutions(%{ids: ids}) do
     sql_query = %{
       query: """
-        SELECT *
+        SELECT DISTINCT id, *
         FROM druid.template_solutions
-        WHERE id=ANY(?)
-      """,
-      parameters: [%{type: "OTHER", value: ids}]
+        WHERE id=ANY('#{Enum.join(ids, "','")}')
+      """
     }
 
-    Druid.sql_query(sql_query) |> IO.inspect()
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, template_solutions} ->
+        template_solutions
+
+      {:error, _error} ->
+        {:error, "Could not query druid for template solutions: #{inspect(ids)}"}
+    end
+  end
+
+  def list_template_solutions!(%{ids: ids}) do
+    sql_query = %{
+      query: """
+        SELECT DISTINCT id, *
+        FROM druid.template_solutions
+        WHERE id=ANY('#{Enum.join(ids, "','")}')
+        GROUP BY id
+      """
+    }
+
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, template_solutions} -> template_solutions
+      {:error, _error} -> raise "Could not query druid for template solutions: #{inspect(ids)}"
+    end
   end
 
   def list_template_solutions() do
@@ -20,10 +43,47 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContextDruid do
       """
     }
 
-    Druid.sql_query(sql_query) |> IO.inspect()
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, template_solutions} -> template_solutions
+      {:error, _error} -> {:error, "Could not query druid for template solutions"}
+    end
+  end
+
+  def list_template_solutions!() do
+    sql_query = %{
+      query: """
+        SELECT *
+        FROM druid.template_solutions
+      """
+    }
+
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, template_solutions} -> template_solutions
+      {:error, _error} -> raise "Could not query druid for template solutions"
+    end
   end
 
   def get_template_solution(id) do
+    sql_query = %{
+      query: """
+        SELECT *
+        FROM druid.template_solutions
+        WHERE id=?
+        LIMIT 1
+      """,
+      parameters: [%{type: "VARCHAR", value: id}]
+    }
+
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, [template_solution]} -> template_solution
+      {:error, _error} -> {:error, "Could not query druid for template solution #{id}"}
+    end
+  end
+
+  def get_template_solution!(id) do
     sql_query = %{
       query: """
         SELECT *
@@ -54,6 +114,23 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContextDruid do
     Druid.sql_query(sql_query)
     |> case do
       {:ok, template_solutions} -> template_solutions
+      {:error, _error} -> {:error, "Could not query druid for outcomes"}
+    end
+  end
+
+  def get_template_solution_outcomes!(id) do
+    sql_query = %{
+      query: """
+        SELECT event
+        FROM druid.template_solution_events
+        WHERE id=? and aid IS NULL
+      """,
+      parameters: [%{type: "VARCHAR", value: id}]
+    }
+
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, template_solutions} -> template_solutions
       {:error, _error} -> raise "Could not query druid for outcomes"
     end
   end
@@ -71,23 +148,44 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContextDruid do
     Druid.sql_query(sql_query)
     |> case do
       {:ok, template_solutions} -> template_solutions
+      {:error, _error} -> {:error, "Could not query druid for events"}
+    end
+  end
+
+  def get_template_solution_events!(id) do
+    sql_query = %{
+      query: """
+        SELECT *
+        FROM druid.template_solution_events
+        WHERE id=? and aid IS NOT NULL
+      """,
+      parameters: [%{type: "VARCHAR", value: id}]
+    }
+
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, template_solutions} -> template_solutions
       {:error, _error} -> raise "Could not query druid for events"
     end
+  end
+
+  def process_template_solutions(data) when is_list(data) do
+    Enum.reduce(data, [], fn d, acc ->
+      acc ++ [process_template_solution(d)]
+    end)
   end
 
   def process_template_solution(data) do
     outcomes =
       get_template_solution_outcomes(data["id"])
-      |> IO.inspect(label: "OUTCOMES")
       |> process_template_solution_outcomes()
 
     events =
       get_template_solution_events(data["id"])
       |> process_template_solution_events()
 
-    Map.put(data, :events, events)
-    |> Map.put(:outcomes, outcomes)
-    |> stringify_map()
+    Map.put(data, "events", events)
+    |> Map.put("outcomes", outcomes)
   end
 
   # ------------------------- #
@@ -149,12 +247,5 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContextDruid do
       end
     end)
     |> Map.values()
-  end
-
-  defp stringify_map(atom_map) do
-    Enum.reduce(atom_map, %{}, fn
-      {key, val}, a when is_atom(key) -> Map.put(a, Atom.to_string(key), val)
-      {key, val}, a when is_binary(key) -> Map.put(a, key, val)
-    end)
   end
 end

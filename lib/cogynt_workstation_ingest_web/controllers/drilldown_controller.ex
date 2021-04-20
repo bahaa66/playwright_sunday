@@ -1,13 +1,15 @@
 defmodule CogyntWorkstationIngestWeb.DrilldownController do
   use CogyntWorkstationIngestWeb, :controller
-  alias CogyntWorkstationIngest.Drilldown.{DrilldownContext, DrilldownContextDruid}
+  alias CogyntWorkstationIngest.Drilldown.DrilldownContextDruid
   alias CogyntWorkstationIngest.Config
 
   @doc """
   Return a list of the info on all template instances for the given type
   """
   def index(conn, %{"id" => id}) do
-    data = DrilldownContext.list_template_solutions()
+    data =
+      DrilldownContextDruid.list_template_solutions()
+      |> DrilldownContextDruid.process_template_solutions()
 
     data =
       data
@@ -23,14 +25,9 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
   Respond to a show request for a specific template
   """
   def show(conn, %{"id" => id}) do
-    # HERE
     data =
-      if Config.druid_enabled?() do
-        DrilldownContextDruid.get_template_solution(id)
-        |> DrilldownContextDruid.process_template_solution()
-      else
-        DrilldownContext.get_template_solution_data(id)
-      end
+      DrilldownContextDruid.get_template_solution(id)
+      |> DrilldownContextDruid.process_template_solution()
 
     if data == nil do
       render(conn, "404.json")
