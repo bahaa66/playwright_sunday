@@ -1,4 +1,4 @@
-defmodule CogyntWorkstationIngest.Drilldown.DrilldownContextDruid do
+defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   def list_template_solutions(%{ids: ids}) do
     sql_query = %{
       query: """

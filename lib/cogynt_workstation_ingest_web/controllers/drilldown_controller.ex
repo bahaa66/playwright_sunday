@@ -1,6 +1,6 @@
 defmodule CogyntWorkstationIngestWeb.DrilldownController do
   use CogyntWorkstationIngestWeb, :controller
-  alias CogyntWorkstationIngest.Drilldown.DrilldownContextDruid
+  alias CogyntWorkstationIngest.Drilldown.DrilldownContext
   alias CogyntWorkstationIngest.Config
 
   @doc """
@@ -8,8 +8,8 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
   """
   def index(conn, %{"id" => id}) do
     data =
-      DrilldownContextDruid.list_template_solutions()
-      |> DrilldownContextDruid.process_template_solutions()
+      DrilldownContext.list_template_solutions()
+      |> DrilldownContext.process_template_solutions()
 
     data =
       data
@@ -26,8 +26,8 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
   """
   def show(conn, %{"id" => id}) do
     data =
-      DrilldownContextDruid.get_template_solution(id)
-      |> DrilldownContextDruid.process_template_solution()
+      DrilldownContext.get_template_solution(id)
+      |> DrilldownContext.process_template_solution()
 
     if data == nil do
       render(conn, "404.json")
