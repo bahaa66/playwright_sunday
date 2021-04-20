@@ -133,3 +133,15 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   hostname: System.get_env("POSTGRESQL_HOST") || "localhost",
   pool_size: (System.get_env("POSTGRESQL_POOL_SIZE") || "20") |> String.to_integer(),
   telemetry_prefix: [:cogynt_workstation_ingest, :repo]
+
+config :druid,
+  request_timeout: (System.get_env("DRUID_REQUEST_TIMEOUT") || "120_000") |> String.to_integer(),
+  query_priority: (System.get_env("DRUID_QUERY_PRIORITY") || "0") |> String.to_integer(),
+  broker_profiles: [
+    default: [
+      base_url: System.get_env("DRUID_BASE_URL") || "http://localhost:8888",
+      cacertfile: System.get_env("DRUID_CERT_FILE_PATH") || "path/to/druid-certificate.crt",
+      http_username: System.get_env("DRUID_HTTP_USERNAME") || "username",
+      http_password: System.get_env("DRUID_HTTP_PASSWORD") || "password"
+    ]
+  ]
