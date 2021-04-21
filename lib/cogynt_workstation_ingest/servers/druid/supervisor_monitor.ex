@@ -123,7 +123,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
         with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
              {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
-          Process.send_after(__MODULE__, :update_status, @status_check_interval)
+          Process.send_after(__MODULE__, :get_status, @status_check_interval)
           {:noreply, %{state | supervisor_status: payload}}
         else
           {:error, error} ->
@@ -153,14 +153,14 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       end
 
       @impl true
-      def handle_info(:update_status, %{id: id} = state) do
+      def handle_info(:get_status, %{id: id} = state) do
         Druid.get_supervisor_status(id)
         |> case do
           {:ok, %{"payload" => %{"detailedState" => "LOST_CONTACT_WITH_STREAM"} = p}} ->
             {:noreply, state, {:continue, :reset_and_get_supervisor}}
 
           {:ok, %{"payload" => payload} = s} ->
-            Process.send_after(__MODULE__, :update_status, @status_check_interval)
+            Process.send_after(__MODULE__, :get_status, @status_check_interval)
             {:noreply, %{state | supervisor_status: payload}}
 
           {:error, error} ->
