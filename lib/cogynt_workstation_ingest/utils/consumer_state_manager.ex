@@ -901,7 +901,19 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   defp event_definition_task_running?(event_definition_id) do
     case Redis.get("dd") do
       {:ok, nil} ->
-        false
+        case Redis.hash_get("ts", "de") do
+          {:ok, nil} ->
+            false
+
+          {:ok, values} ->
+            Enum.member?(values, event_definition_id)
+
+          {:error, _} ->
+            false
+
+          _ ->
+            false
+        end
 
       {:ok, values} ->
         Enum.member?(values, event_definition_id)

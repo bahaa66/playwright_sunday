@@ -225,8 +225,21 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
         end
 
       worker_module == to_string(DeleteEventDefinitionEventsWorker) ->
-        update_dev_delete_key(args)
-        Redis.publish_async("dev_delete_subscription", %{ids: [args], action: "start"})
+        case Redis.hash_get("ts", "de") do
+          {:ok, nil} ->
+            Redis.hash_set(
+              "ts",
+              "de",
+              [args]
+            )
+
+          {:ok, event_definition_ids} ->
+            Redis.hash_set(
+              "ts",
+              "de",
+              Enum.uniq(event_definition_ids ++ [args])
+            )
+        end
 
       worker_module == to_string(DeleteDeploymentDataWorker) ->
         ids = fetch_all_event_definition_ids()
@@ -317,8 +330,17 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
         end
 
       worker_module == to_string(DeleteEventDefinitionEventsWorker) ->
-        remove_from_dev_delete_key(args)
-        Redis.publish_async("dev_delete_subscription", %{ids: [args], action: "stop"})
+        case Redis.hash_get("ts", "de") do
+          {:ok, nil} ->
+            nil
+
+          {:ok, event_definition_ids} ->
+            Redis.hash_set(
+              "ts",
+              "de",
+              List.delete(event_definition_ids, args)
+            )
+        end
 
       worker_module == to_string(DeleteDeploymentDataWorker) ->
         ids = fetch_all_event_definition_ids()
