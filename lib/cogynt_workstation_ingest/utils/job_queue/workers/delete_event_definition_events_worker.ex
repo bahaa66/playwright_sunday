@@ -178,24 +178,36 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionEv
     else
       {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition_id)
 
-      case EventPipeline.event_pipeline_running?(event_definition_id) or
-             not EventPipeline.event_pipeline_finished_processing?(event_definition_id) or
-             consumer_state.status != ConsumerStatusTypeEnum.status()[:paused_and_finished] or
-             consumer_state.status != ConsumerStatusTypeEnum.status()[:unknown] do
-        true ->
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before resetting data"
-          )
+      %{
+        topic: nil,
+        status: ConsumerStatusTypeEnum.status()[:unknown],
+        prev_status: nil
+      }
 
-          Process.sleep(1000)
-          ensure_event_pipeline_stopped(event_definition_id, count + 1)
+      if consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] do
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "EventPipeline #{event_definition_id} Stopped"
+        )
+      else
+        case EventPipeline.event_pipeline_running?(event_definition_id) or
+               not EventPipeline.event_pipeline_finished_processing?(event_definition_id) or
+               consumer_state.status != ConsumerStatusTypeEnum.status()[:paused_and_finished] do
+          true ->
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before resetting data"
+            )
 
-        false ->
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "EventPipeline #{event_definition_id} Stopped"
-          )
+            Process.sleep(1000)
+            ensure_event_pipeline_stopped(event_definition_id, count + 1)
+
+          false ->
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "EventPipeline #{event_definition_id} Stopped"
+            )
+        end
       end
     end
   end
