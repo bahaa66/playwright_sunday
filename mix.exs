@@ -64,14 +64,14 @@ defmodule CogyntWorkstationIngest.MixProject do
        override: true},
       {
         :models,
-        tag: "v1.13.0",
+        tag: "v1.13.2-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.13.0",
+        tag: "v1.13.2-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
@@ -96,6 +96,13 @@ defmodule CogyntWorkstationIngest.MixProject do
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true
+      },
+      {
+        :druid,
+        tag: "v1.13.2-beta",
+        git: "git@github.com:cogility/cogynt-common.git",
+        sparse: "druid",
+        override: true
       }
     ]
   end
@@ -112,8 +119,7 @@ defmodule CogyntWorkstationIngest.MixProject do
         "ecto.create",
         "ecto.migrate",
         "run priv/repo/seeds.exs",
-        "create_elastic_indexes",
-        "create_drilldown_sink_connector"
+        "create_elastic_indexes"
       ],
       "ecto.reset": ["drop_elastic_indexes", "flush_redis_db", "ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate", "test"]

@@ -2,9 +2,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
   use CogyntWorkstationIngestWeb, :view
   use JaSerializer.PhoenixView
   alias CogyntWorkstationIngestWeb.JA_Keys
-  # alias CogyntWorkstationIngest.Servers.Caches.DrilldownCache
-  # alias CogyntWorkstationIngest.Drilldown.DrilldownContext
-  alias CogyntWorkstationIngest.Drilldown.DrilldownContextNew
+  alias CogyntWorkstationIngest.Drilldown.DrilldownContext
   alias CogyntWorkstationIngestWeb.EventView
 
   def render("401.json-api", _) do
@@ -54,7 +52,8 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
       end)
       |> MapSet.to_list()
 
-    DrilldownContextNew.list_template_solutions(%{ids: solution_ids, distinct: :id})
+    DrilldownContext.list_template_solutions(%{ids: solution_ids})
+    |> DrilldownContext.process_template_solutions()
     |> Enum.uniq()
     |> Enum.map(fn inst ->
       inst_id = inst["id"]
