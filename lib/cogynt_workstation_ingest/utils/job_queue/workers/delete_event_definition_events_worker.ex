@@ -11,7 +11,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionEv
   alias Ecto.Multi
 
   alias Models.Events.EventDefinition
-  alias Models.Enums.ConsumerStatusTypeEnum
+  alias Models.Enums.{ConsumerStatusTypeEnum, DeletedByValue}
 
   @page_size 2000
 
@@ -112,7 +112,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionEv
     |> Multi.run(:delete_event_links, fn _repo, %{create_temp_view: view_name} ->
       Ecto.Adapters.SQL.query(Repo, """
         UPDATE event_links el
-        SET deleted_at=now()
+        SET deleted_at=now(), deleted_by='#{DeletedByValue.Manual.value()}'
         FROM #{view_name} d
         WHERE d.id = el.linkage_event_id;
       """)
@@ -120,7 +120,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionEv
     |> Multi.run(:delete_events, fn _repo, %{create_temp_view: view_name} ->
       Ecto.Adapters.SQL.query(Repo, """
         UPDATE events e
-        SET deleted_at=now()
+        SET deleted_at=now(), deleted_by='#{DeletedByValue.Manual.value()}'
         FROM #{view_name} d
         WHERE d.id = e.id;
       """)

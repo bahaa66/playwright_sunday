@@ -7,6 +7,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
+  alias Models.Enums.DeletedByValue
 
   alias Broadway.Message
 
@@ -47,11 +48,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         # If Crud action is Delete, then we need to set the deleted_at column
         # of the event we are creating and add the event_id into the list
         # of deleted_event_ids
-        deleted_at =
+        {deleted_at, deleted_by} =
           if action == @delete do
-            DateTime.truncate(DateTime.utc_now(), :second)
+            {DateTime.truncate(DateTime.utc_now(), :second), DeletedByValue.Crud.value()}
           else
-            nil
+            {nil, nil}
           end
 
         case EventsContext.call_insert_crud_event_function(
@@ -59,7 +60,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                event_definition_id,
                core_id,
                occurred_at,
-               deleted_at
+               deleted_at,
+               deleted_by
              ) do
           {:ok, %Postgrex.Result{rows: rows}} ->
             deleted_event_ids =
