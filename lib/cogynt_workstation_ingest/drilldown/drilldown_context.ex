@@ -1,204 +1,251 @@
 defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
-  alias Models.Drilldown.TemplateSolutions
-  alias CogyntWorkstationIngest.Repo
+  def list_template_solutions(%{ids: ids}) do
+    sql_query = %{
+      query: """
+        SELECT DISTINCT id, *
+        FROM druid.template_solutions
+        WHERE id=ANY('#{Enum.join(ids, "','")}')
+      """
+    }
 
-  # -------------------------------- #
-  # --- Drilldown Schema Methods --- #
-  # -------------------------------- #
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, template_solutions} ->
+        template_solutions
 
-  @doc """
-  Lists all the TemplateSolutions stored in the database
-  ## Examples
-      iex> list_template_solutions()
-      [%{"id" => 1234}, ...]
-  """
+      {:error, _error} ->
+        {:error, "Could not query druid for template solutions: #{inspect(ids)}"}
+    end
+  end
+
+  def list_template_solutions!(%{ids: ids}) do
+    sql_query = %{
+      query: """
+        SELECT DISTINCT id, *
+        FROM druid.template_solutions
+        WHERE id=ANY('#{Enum.join(ids, "','")}')
+        GROUP BY id
+      """
+    }
+
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, template_solutions} -> template_solutions
+      {:error, _error} -> raise "Could not query druid for template solutions: #{inspect(ids)}"
+    end
+  end
+
   def list_template_solutions() do
-    case Repo.all(TemplateSolutions) do
-      nil ->
-        []
+    sql_query = %{
+      query: """
+        SELECT *
+        FROM druid.template_solutions
+      """
+    }
 
-      template_solutions ->
-        process_template_solutions(template_solutions)
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, template_solutions} -> template_solutions
+      {:error, _error} -> {:error, "Could not query druid for template solutions"}
     end
   end
 
-  @doc """
-  Returns the TemplateSolution for id
-  ## Examples
-      iex> get_template_solution(id)
-      %TemplateSolutions{}
-      iex> get_template_solution(invalid_id)
-      nil
-  """
-  def get_template_solution(id), do: Repo.get(TemplateSolutions, id)
+  def list_template_solutions!() do
+    sql_query = %{
+      query: """
+        SELECT *
+        FROM druid.template_solutions
+      """
+    }
 
-  @doc """
-  Fetches the TemplateSolution and returns the data as a map with
-  string keys
-  """
-  def get_template_solution_data(id) do
-    case get_template_solution(id) do
-      nil ->
-        nil
-
-      template_solution ->
-        process_template_solution(template_solution)
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, template_solutions} -> template_solutions
+      {:error, _error} -> raise "Could not query druid for template solutions"
     end
   end
 
-  @doc """
-  Creates an TemplateSolutions.
-  ## Examples
-      iex> create_template_solution(%{field: value})
-      {:ok, %TemplateSolutions{}}
-      iex> create_template_solution(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-  """
-  def create_template_solution(attrs \\ %{}) do
-    %TemplateSolutions{}
-    |> TemplateSolutions.changeset(attrs)
-    |> Repo.insert()
-  end
+  def get_template_solution(id) do
+    sql_query = %{
+      query: """
+        SELECT *
+        FROM druid.template_solutions
+        WHERE id=?
+        LIMIT 1
+      """,
+      parameters: [%{type: "VARCHAR", value: id}]
+    }
 
-  @doc """
-  Updates an TemplateSolutions.
-  ## Examples
-      iex> update_template_solution(template_solution, %{field: new_value})
-      {:ok, %TemplateSolutions{}}
-      iex> update_template_solution(template_solution, %{field: bad_value})
-      {:error, ...}
-  """
-  def update_template_solution(%TemplateSolutions{} = template_solution, attrs) do
-    template_solution
-    |> TemplateSolutions.changeset(attrs)
-    |> Repo.update()
-  end
-
-  @doc """
-  Will create the TemplateSolution if no record is found for the solution_id.
-  If a record is found it updates the record with the new attrs.
-  ## Examples
-      iex> upsert_template_solutions(%{field: value})
-      {:ok, %TemplateSolutions{}}
-      iex> upsert_template_solutions(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-  """
-  def upsert_template_solutions(
-        %{solution_id: solution_id, solution: _solution, solution_event: _solution_event} = attrs
-      ) do
-    case get_template_solution(solution_id) do
-      nil ->
-        build_attrs(nil, attrs)
-        |> atomize_map()
-        |> create_template_solution()
-
-      template_solution ->
-        attrs =
-          template_solution
-          |> Map.from_struct()
-          |> Map.drop([:__meta__])
-          |> stringify_map()
-          |> build_attrs(attrs)
-          |> atomize_map()
-
-        update_template_solution(template_solution, attrs)
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, [template_solution]} -> template_solution
+      {:error, _error} -> {:error, "Could not query druid for template solution #{id}"}
     end
   end
 
-  def upsert_template_solutions(%{solution_id: solution_id, solution: solution} = attrs) do
-    case get_template_solution(solution_id) do
-      nil ->
-        %{"events" => %{}, "outcomes" => []}
-        |> Map.merge(solution)
-        |> atomize_map()
-        |> create_template_solution
+  def get_template_solution!(id) do
+    sql_query = %{
+      query: """
+        SELECT *
+        FROM druid.template_solutions
+        WHERE id=?
+        LIMIT 1
+      """,
+      parameters: [%{type: "VARCHAR", value: id}]
+    }
 
-      template_solution ->
-        attrs =
-          template_solution
-          |> Map.from_struct()
-          |> Map.drop([:__meta__])
-          |> stringify_map()
-          |> build_attrs(attrs)
-
-        update_template_solution(template_solution, attrs)
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, [template_solution]} -> template_solution
+      {:error, _error} -> raise "Could not query druid for template solution #{id}"
     end
   end
 
-  @doc """
-  Truncates the template_solutions table.
-    ## Examples
-      iex> hard_delete_template_solutions_data()
-  """
-  def hard_delete_template_solutions_data() do
-    try do
-      {:ok, result = %Postgrex.Result{}} = Repo.query("TRUNCATE template_solutions", [])
+  def get_template_solution_outcomes(id) do
+    sql_query = %{
+      query: """
+        SELECT event
+        FROM druid.template_solution_events
+        WHERE id=? and aid IS NULL
+      """,
+      parameters: [%{type: "VARCHAR", value: id}]
+    }
 
-      CogyntLogger.info(
-        "#{__MODULE__}",
-        "hard_delete_template_solutions_data completed with result: #{result.connection_id}"
-      )
-    rescue
-      e in Postgrex.Error ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "hard_delete_template_solutions_data failed with reason: #{inspect(e)}"
-        )
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, template_solutions} -> template_solutions
+      {:error, _error} -> {:error, "Could not query druid for outcomes"}
     end
   end
 
-  # ----------------------- #
-  # --- private methods --- #
-  # ----------------------- #
-  defp build_attrs(
-         template_solution,
-         %{solution_id: _solution_id, solution: solution, solution_event: solution_event} = data
-       ) do
-    solution = (template_solution || %{"events" => %{}, "outcomes" => []}) |> Map.merge(solution)
+  def get_template_solution_outcomes!(id) do
+    sql_query = %{
+      query: """
+        SELECT event
+        FROM druid.template_solution_events
+        WHERE id=? and aid IS NULL
+      """,
+      parameters: [%{type: "VARCHAR", value: id}]
+    }
 
-    cond do
-      Map.has_key?(data, :event) and not Map.has_key?(data.event, "aid") ->
-        solution
-        |> Map.put("outcomes", [solution_event | solution["outcomes"]])
-
-      Map.has_key?(solution_event, "published_by") and
-          solution["id"] == solution_event["published_by"] ->
-        # event is input and published by same instance
-        template_solution
-
-      Map.has_key?(data, :event) and Map.has_key?(data.event, "aid") ->
-        key = solution_event["id"] <> "!" <> solution_event["assertion_id"]
-
-        solution
-        |> Map.put("events", Map.put(solution["events"], key, solution_event))
-
-      true ->
-        data
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, template_solutions} -> template_solutions
+      {:error, _error} -> raise "Could not query druid for outcomes"
     end
   end
 
-  defp build_attrs(_template_solution, data) do
-    data
+  def get_template_solution_events(id) do
+    sql_query = %{
+      query: """
+        SELECT *
+        FROM druid.template_solution_events
+        WHERE id=? and aid IS NOT NULL
+      """,
+      parameters: [%{type: "VARCHAR", value: id}]
+    }
+
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, template_solutions} -> template_solutions
+      {:error, _error} -> {:error, "Could not query druid for events"}
+    end
   end
 
-  defp process_template_solution(data) do
-    data
-    |> Map.from_struct()
-    |> Map.drop([:__meta__, :created_at, :updated_at])
-    |> stringify_map()
+  def get_template_solution_events!(id) do
+    sql_query = %{
+      query: """
+        SELECT *
+        FROM druid.template_solution_events
+        WHERE id=? and aid IS NOT NULL
+      """,
+      parameters: [%{type: "VARCHAR", value: id}]
+    }
+
+    Druid.sql_query(sql_query)
+    |> case do
+      {:ok, template_solutions} -> template_solutions
+      {:error, _error} -> raise "Could not query druid for events"
+    end
   end
 
-  defp process_template_solutions(data) when is_list(data) do
+  def process_template_solutions(data) when is_list(data) do
     Enum.reduce(data, [], fn d, acc ->
       acc ++ [process_template_solution(d)]
     end)
   end
 
-  defp stringify_map(atom_map) do
-    for {key, val} <- atom_map, into: %{}, do: {Atom.to_string(key), val}
+  def process_template_solution(data) do
+    outcomes =
+      get_template_solution_outcomes(data["id"])
+      |> process_template_solution_outcomes()
+
+    events =
+      get_template_solution_events(data["id"])
+      |> process_template_solution_events()
+
+    Map.put(data, "events", events)
+    |> Map.put("outcomes", outcomes)
   end
 
-  defp atomize_map(string_map) do
-    for {key, val} <- string_map, into: %{}, do: {String.to_atom(key), val}
+  # ------------------------- #
+  # --- private functions --- #
+  # ------------------------- #
+
+  defp process_template_solution_events(events) do
+    Enum.reduce(events, %{}, fn evt, acc ->
+      key = evt["event_id"] <> "!" <> evt["aid"]
+
+      evt["event"]
+      |> Jason.decode()
+      |> case do
+        {:ok, event} ->
+          event = Map.put(event, "assertion_id", evt["aid"])
+          Map.put(acc, key, event)
+
+        {:error, error} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "Unable to decode template solution event stored in druid #{evt["event"]}, Error: #{
+              inspect(error)
+            }"
+          )
+
+          acc
+      end
+    end)
+  end
+
+  defp process_template_solution_outcomes(outcomes) do
+    Enum.reduce(outcomes, %{}, fn %{"event" => event}, acc ->
+      event
+      |> Jason.decode()
+      |> case do
+        {:ok, event} ->
+          de = Map.get(acc, Map.get(event, "id"), %{})
+          outcome = Map.put(event, "assertion_id", nil)
+          epa = Map.get(de, "published_at", "1970-01-01T00:00:00Z")
+          npa = Map.get(outcome, "published_at", "1970-01-01T00:00:00Z")
+
+          # If the event doesn't already exists in our map or the published_at
+          # of this event is more recent than the one in our map we replace it.
+          if de == %{} or npa > epa do
+            Map.put(acc, Map.get(outcome, "id"), outcome)
+          else
+            acc
+          end
+
+        {:error, error} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "Unable to decode template solution event outcome stored in druid #{event}, Error: #{
+              inspect(error)
+            }"
+          )
+
+          acc
+      end
+    end)
+    |> Map.values()
   end
 end

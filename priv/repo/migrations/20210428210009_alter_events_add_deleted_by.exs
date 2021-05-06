@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterEventsAddDeletedBy do
+  use Migrations.AlterEventsAddDeletedBy
+end
