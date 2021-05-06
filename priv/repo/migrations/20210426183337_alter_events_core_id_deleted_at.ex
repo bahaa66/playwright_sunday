@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterEventsCoreIdDeletedAt do
+  use Migrations.AlterEventsCoreIdDeletedAtIndex
+end
