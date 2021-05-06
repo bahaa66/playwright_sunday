@@ -98,7 +98,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionEv
           SELECT id
           FROM events
           WHERE event_definition_id='#{event_definition_id}'
-          AND deleted_at IS NULL
+          AND (deleted_at IS NULL OR deleted_by='#{DeletedByValue.Crud.value()}'
           LIMIT #{@page_size};
       """)
       |> case do

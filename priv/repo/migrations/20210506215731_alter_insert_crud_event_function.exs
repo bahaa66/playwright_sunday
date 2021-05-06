@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterInsertCrudEventFunction do
+  use Migrations.AlterInsertCrudEventFunction
+end
