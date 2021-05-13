@@ -1,7 +1,8 @@
 defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   @moduledoc """
-  Genserver that keeps track of the State of each Consumer. Acts as a FSM
-  that will move ConsumerStatus from one state to another
+  Genserver that keeps track of the State of each Consumer. Acts as a State Machine
+  that will move ConsumerStatus from one state to another based on the current consumer status
+  or previous consumer status at the time of the request
   """
   alias CogyntWorkstationIngest.Broadway.EventPipeline
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
@@ -16,7 +17,10 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     DeleteEventDefinitionEventsWorker
   }
 
+  alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
+
   alias Models.Enums.ConsumerStatusTypeEnum
+  alias Models.Events.EventDefinition
 
   @default_state %{
     topic: nil,
@@ -157,10 +161,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
     Redis.hash_delete("crw", event_definition_id)
     # Reset JobQs
-    Exq.unsubscribe(Exq, "events-#{event_definition_id}")
-    Exq.unsubscribe(Exq, "notifications-#{event_definition_id}")
-    Exq.Api.remove_queue(Exq.Api, "events-#{event_definition_id}")
-    Exq.Api.remove_queue(Exq.Api, "notifications-#{event_definition_id}")
+    ExqHelpers.unubscribe_and_remove("events-#{event_definition_id}")
+    ExqHelpers.unubscribe_and_remove("notifications-#{event_definition_id}")
   end
 
   def manage_request(args) do
@@ -174,6 +176,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
         {:stop_consumer_for_notification_tasks, event_definition}, _acc ->
           stop_consumer_for_notification_tasks(event_definition)
+
+        {:shutdown_consumer, event_definition}, _acc ->
+          shutdown_consumer(event_definition)
 
         {:backfill_notifications, notification_setting_id}, _acc ->
           backfill_notifications(notification_setting_id)
@@ -208,61 +213,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           {:ok, consumer_state} = get_consumer_state(event_definition.id)
 
           cond do
-            consumer_state.status == ConsumerStatusTypeEnum.status()[:running] ->
-              case EventPipeline.event_pipeline_running?(event_definition.id) do
-                true ->
-                  %{response: {:ok, consumer_state.status}}
-
-                false ->
-                  case ConsumerGroupSupervisor.start_child(event_definition) do
-                    {:error, nil} ->
-                      Redis.hash_set_async("crw", event_definition.id, "et")
-
-                      upsert_consumer_state(
-                        event_definition.id,
-                        topic: event_definition.topic,
-                        status: ConsumerStatusTypeEnum.status()[:topic_does_not_exist],
-                        prev_status: consumer_state.status
-                      )
-
-                      %{response: {:ok, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}}
-
-                    {:error, {:already_started, _pid}} ->
-                      # subscribe/resubscribe to JobQs
-                      create_job_queue_if_not_exists("events", event_definition.id)
-                      create_job_queue_if_not_exists("notifications", event_definition.id)
-
-                      upsert_consumer_state(
-                        event_definition.id,
-                        topic: event_definition.topic,
-                        status: ConsumerStatusTypeEnum.status()[:running],
-                        prev_status: consumer_state.status
-                      )
-
-                      %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
-
-                    {:ok, pid} ->
-                      ConsumerMonitor.monitor(
-                        pid,
-                        event_definition.id,
-                        event_definition.topic
-                      )
-
-                      # subscribe/resubscribe to JobQs
-                      create_job_queue_if_not_exists("events", event_definition.id)
-                      create_job_queue_if_not_exists("notifications", event_definition.id)
-
-                      upsert_consumer_state(
-                        event_definition.id,
-                        topic: event_definition.topic,
-                        status: ConsumerStatusTypeEnum.status()[:running],
-                        prev_status: consumer_state.status
-                      )
-
-                      %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
-                  end
-              end
-
             consumer_state.status ==
               ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
               consumer_state.status ==
@@ -279,52 +229,42 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
               %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
 
             true ->
-              case ConsumerGroupSupervisor.start_child(event_definition) do
-                {:error, nil} ->
-                  Redis.hash_set_async("crw", event_definition.id, "et")
+              # Ensure that it is indeed started and running on the pod that recieved the pub_sub
+              case EventPipeline.pipeline_started?(event_definition.id) do
+                true ->
+                  case EventPipeline.pipeline_running?(event_definition.id) do
+                    true ->
+                      nil
+
+                    false ->
+                      EventPipeline.resume_pipeline(event_definition.id)
+                  end
+
+                  if consumer_state.status !=
+                       ConsumerStatusTypeEnum.status()[:running] do
+                    upsert_consumer_state(
+                      event_definition.id,
+                      topic: event_definition.topic,
+                      status: ConsumerStatusTypeEnum.status()[:running],
+                      prev_status: consumer_state.status
+                    )
+
+                    %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
+                  else
+                    %{response: {:ok, consumer_state.status}}
+                  end
+
+                false ->
+                  {:ok, current_consumer_status} = start_pipeline(event_definition)
 
                   upsert_consumer_state(
                     event_definition.id,
                     topic: event_definition.topic,
-                    status: ConsumerStatusTypeEnum.status()[:topic_does_not_exist],
+                    status: current_consumer_status,
                     prev_status: consumer_state.status
                   )
 
-                  %{response: {:ok, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}}
-
-                {:error, {:already_started, _pid}} ->
-                  # subscribe/resubscribe to JobQs
-                  create_job_queue_if_not_exists("events", event_definition.id)
-                  create_job_queue_if_not_exists("notifications", event_definition.id)
-
-                  upsert_consumer_state(
-                    event_definition.id,
-                    topic: event_definition.topic,
-                    status: ConsumerStatusTypeEnum.status()[:running],
-                    prev_status: consumer_state.status
-                  )
-
-                  %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
-
-                {:ok, pid} ->
-                  ConsumerMonitor.monitor(
-                    pid,
-                    event_definition.id,
-                    event_definition.topic
-                  )
-
-                  # subscribe/resubscribe to JobQs
-                  create_job_queue_if_not_exists("events", event_definition.id)
-                  create_job_queue_if_not_exists("notifications", event_definition.id)
-
-                  upsert_consumer_state(
-                    event_definition.id,
-                    topic: event_definition.topic,
-                    status: ConsumerStatusTypeEnum.status()[:running],
-                    prev_status: consumer_state.status
-                  )
-
-                  %{response: {:ok, ConsumerStatusTypeEnum.status()[:running]}}
+                  %{response: {:ok, current_consumer_status}}
               end
           end
 
@@ -355,98 +295,53 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] ->
           handle_unknown_status(event_definition.id)
 
-        consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_processing] or
-            consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
-          case EventPipeline.event_pipeline_running?(event_definition.id) do
-            true ->
-              ConsumerGroupSupervisor.stop_child(event_definition.id)
-
-              consumer_status =
-                case EventPipeline.event_pipeline_finished_processing?(event_definition.id) do
-                  true ->
-                    ConsumerStatusTypeEnum.status()[:paused_and_finished]
-
-                  false ->
-                    ConsumerStatusTypeEnum.status()[:paused_and_processing]
-                end
-
-              # unsubscribe to JobQs
-              Exq.unsubscribe(Exq, "events-#{event_definition.id}")
-              Exq.unsubscribe(Exq, "notifications-#{event_definition.id}")
-
-              upsert_consumer_state(
-                event_definition.id,
-                topic: event_definition.topic,
-                status: consumer_status,
-                prev_status: consumer_state.status
-              )
-
-              %{response: {:ok, consumer_status}}
-
-            false ->
-              %{response: {:ok, consumer_state.status}}
-          end
-
         consumer_state.status ==
           ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
           consumer_state.status ==
             ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
             consumer_state.status ==
               ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
-          case EventPipeline.event_pipeline_running?(event_definition.id) do
+          case EventPipeline.pipeline_running?(event_definition.id) do
             true ->
-              ConsumerGroupSupervisor.stop_child(event_definition.id)
-
-              consumer_status =
-                case EventPipeline.event_pipeline_finished_processing?(event_definition.id) do
-                  true ->
-                    ConsumerStatusTypeEnum.status()[:paused_and_finished]
-
-                  false ->
-                    ConsumerStatusTypeEnum.status()[:paused_and_processing]
-                end
-
-              # unsubscribe to JobQs
-              Exq.unsubscribe(Exq, "events-#{event_definition.id}")
-              Exq.unsubscribe(Exq, "notifications-#{event_definition.id}")
+              {:ok, current_consumer_status} = suspend_pipeline(event_definition)
 
               upsert_consumer_state(
                 event_definition.id,
                 topic: event_definition.topic,
                 status: consumer_state.status,
-                prev_status: consumer_status
+                prev_status: current_consumer_status
               )
 
-              %{response: {:ok, consumer_status}}
+              %{response: {:ok, current_consumer_status}}
 
             false ->
               %{response: {:ok, consumer_state.status}}
           end
 
         true ->
-          ConsumerGroupSupervisor.stop_child(event_definition.id)
-
-          consumer_status =
-            case EventPipeline.event_pipeline_finished_processing?(event_definition.id) do
+          {:ok, current_consumer_status} =
+            case EventPipeline.pipeline_running?(event_definition.id) do
               true ->
-                ConsumerStatusTypeEnum.status()[:paused_and_finished]
+                suspend_pipeline(event_definition)
 
               false ->
-                ConsumerStatusTypeEnum.status()[:paused_and_processing]
-            end
+                case EventPipeline.pipeline_finished_processing?(event_definition.id) do
+                  true ->
+                    {:ok, ConsumerStatusTypeEnum.status()[:paused_and_finished]}
 
-          # unsubscribe to JobQs
-          Exq.unsubscribe(Exq, "events-#{event_definition.id}")
-          Exq.unsubscribe(Exq, "notifications-#{event_definition.id}")
+                  false ->
+                    {:ok, ConsumerStatusTypeEnum.status()[:paused_and_processing]}
+                end
+            end
 
           upsert_consumer_state(
             event_definition.id,
             topic: event_definition.topic,
-            status: consumer_status,
+            status: current_consumer_status,
             prev_status: consumer_state.status
           )
 
-          %{response: {:ok, consumer_status}}
+          %{response: {:ok, current_consumer_status}}
       end
     rescue
       error ->
@@ -469,70 +364,45 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] ->
           handle_unknown_status(event_definition.id)
 
-        consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_processing] or
-            consumer_state.status == ConsumerStatusTypeEnum.status()[:paused_and_finished] ->
-          case EventPipeline.event_pipeline_running?(event_definition.id) do
-            true ->
-              ConsumerGroupSupervisor.stop_child(event_definition.id)
-
-              consumer_status =
-                case EventPipeline.event_pipeline_finished_processing?(event_definition.id) do
-                  true ->
-                    ConsumerStatusTypeEnum.status()[:paused_and_finished]
-
-                  false ->
-                    ConsumerStatusTypeEnum.status()[:paused_and_processing]
-                end
-
-              upsert_consumer_state(
-                event_definition.id,
-                topic: event_definition.topic,
-                status: consumer_status,
-                prev_status: consumer_state.status
-              )
-
-              %{response: {:ok, consumer_status}}
-
-            false ->
-              %{response: {:ok, consumer_state.status}}
-          end
-
         consumer_state.status ==
           ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
           consumer_state.status ==
             ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
             consumer_state.status ==
               ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
-          case EventPipeline.event_pipeline_running?(event_definition.id) do
+          case EventPipeline.pipeline_running?(event_definition.id) do
             true ->
-              ConsumerGroupSupervisor.stop_child(event_definition.id)
-
-              %{response: {:ok, consumer_state.status}}
+              {:ok, current_consumer_status} = suspend_pipeline(event_definition)
+              %{response: {:ok, current_consumer_status}}
 
             false ->
               %{response: {:ok, consumer_state.status}}
           end
 
         true ->
-          ConsumerGroupSupervisor.stop_child(event_definition.id)
-
-          consumer_status =
-            case EventPipeline.event_pipeline_finished_processing?(event_definition.id) do
+          {:ok, current_consumer_status} =
+            case EventPipeline.pipeline_running?(event_definition.id) do
               true ->
-                ConsumerStatusTypeEnum.status()[:paused_and_finished]
+                suspend_pipeline(event_definition)
 
               false ->
-                ConsumerStatusTypeEnum.status()[:paused_and_processing]
+                case EventPipeline.pipeline_finished_processing?(event_definition.id) do
+                  true ->
+                    {:ok, ConsumerStatusTypeEnum.status()[:paused_and_finished]}
+
+                  false ->
+                    {:ok, ConsumerStatusTypeEnum.status()[:paused_and_processing]}
+                end
             end
 
           upsert_consumer_state(
             event_definition.id,
             topic: event_definition.topic,
-            status: consumer_status,
+            status: current_consumer_status,
             prev_status: consumer_state.status
           )
 
-          %{response: {:ok, consumer_status}}
+          %{response: {:ok, current_consumer_status}}
       end
     rescue
       error ->
@@ -541,6 +411,29 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           "stop_consumer_for_notification_tasks/1 failed with error: #{
             inspect(error, pretty: true)
           }"
+        )
+
+        internal_error_state(event_definition.id)
+    end
+  end
+
+  defp shutdown_consumer(event_definition) do
+    try do
+      {:ok, consumer_state} = get_consumer_state(event_definition.id)
+
+      cond do
+        consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] ->
+          handle_unknown_status(event_definition.id)
+
+        true ->
+          ConsumerGroupSupervisor.stop_child(event_definition.id)
+          %{response: {:ok, ConsumerStatusTypeEnum.status()[:unknown]}}
+      end
+    rescue
+      error ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "shutdown_consumer/1 failed with error: #{inspect(error, pretty: true)}"
         )
 
         internal_error_state(event_definition.id)
@@ -567,16 +460,12 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
                 consumer_state.status ==
                   ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
-              case create_job_queue_if_not_exists("notifications", event_definition_id) do
-                {:ok, queue_name} ->
-                  {:ok, _job_id} =
-                    Exq.enqueue(Exq, queue_name, BackfillNotificationsWorker, [
-                      notification_setting.id
-                    ])
-
-                _ ->
-                  nil
-              end
+              ExqHelpers.create_and_enqueue(
+                "notifications",
+                event_definition_id,
+                BackfillNotificationsWorker,
+                notification_setting.id
+              )
 
               %{
                 response: {:ok, consumer_state.status}
@@ -590,12 +479,17 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 prev_status: consumer_state.status
               )
 
-              case create_job_queue_if_not_exists("notifications", event_definition_id) do
-                {:ok, queue_name} ->
-                  {:ok, _job_id} =
-                    Exq.enqueue(Exq, queue_name, BackfillNotificationsWorker, [
-                      notification_setting.id
-                    ])
+              case ExqHelpers.create_and_enqueue(
+                     "notifications",
+                     event_definition_id,
+                     BackfillNotificationsWorker,
+                     notification_setting.id
+                   ) do
+                {:ok, _} ->
+                  %{
+                    response:
+                      {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
+                  }
 
                 _ ->
                   # Something failed when queueing the job. Reset the consumer_state
@@ -605,12 +499,12 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     status: consumer_state.status,
                     prev_status: consumer_state.prev_status
                   )
-              end
 
-              %{
-                response:
-                  {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
-              }
+                  %{
+                    response:
+                      {:ok, ConsumerStatusTypeEnum.status()[:backfill_notification_task_running]}
+                  }
+              end
           end
 
         true ->
@@ -652,16 +546,12 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
                 consumer_state.status ==
                   ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
-              case create_job_queue_if_not_exists("notifications", event_definition_id) do
-                {:ok, queue_name} ->
-                  {:ok, _job_id} =
-                    Exq.enqueue(Exq, queue_name, UpdateNotificationsWorker, [
-                      notification_setting.id
-                    ])
-
-                _ ->
-                  nil
-              end
+              ExqHelpers.create_and_enqueue(
+                "notifications",
+                event_definition_id,
+                UpdateNotificationsWorker,
+                notification_setting.id
+              )
 
               %{
                 response: {:ok, consumer_state.status}
@@ -675,12 +565,17 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 prev_status: consumer_state.status
               )
 
-              case create_job_queue_if_not_exists("notifications", event_definition_id) do
-                {:ok, queue_name} ->
-                  {:ok, _job_id} =
-                    Exq.enqueue(Exq, queue_name, UpdateNotificationsWorker, [
-                      notification_setting.id
-                    ])
+              case ExqHelpers.create_and_enqueue(
+                     "notifications",
+                     event_definition_id,
+                     UpdateNotificationsWorker,
+                     notification_setting.id
+                   ) do
+                {:ok, _} ->
+                  %{
+                    response:
+                      {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
+                  }
 
                 _ ->
                   # Something failed when queueing the job. Reset the consumer_state
@@ -690,12 +585,12 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     status: consumer_state.status,
                     prev_status: consumer_state.prev_status
                   )
-              end
 
-              %{
-                response:
-                  {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
-              }
+                  %{
+                    response:
+                      {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
+                  }
+              end
           end
 
         true ->
@@ -737,16 +632,12 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
                 consumer_state.status ==
                   ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
-              case create_job_queue_if_not_exists("notifications", event_definition_id) do
-                {:ok, queue_name} ->
-                  {:ok, _job_id} =
-                    Exq.enqueue(Exq, queue_name, DeleteNotificationsWorker, [
-                      notification_setting.id
-                    ])
-
-                _ ->
-                  nil
-              end
+              ExqHelpers.create_and_enqueue(
+                "notifications",
+                event_definition_id,
+                DeleteNotificationsWorker,
+                notification_setting.id
+              )
 
               %{
                 response: {:ok, consumer_state.status}
@@ -760,12 +651,17 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 prev_status: consumer_state.status
               )
 
-              case create_job_queue_if_not_exists("notifications", event_definition_id) do
-                {:ok, queue_name} ->
-                  {:ok, _job_id} =
-                    Exq.enqueue(Exq, queue_name, DeleteNotificationsWorker, [
-                      notification_setting.id
-                    ])
+              case ExqHelpers.create_and_enqueue(
+                     "notifications",
+                     event_definition_id,
+                     DeleteNotificationsWorker,
+                     notification_setting.id
+                   ) do
+                {:ok, _} ->
+                  %{
+                    response:
+                      {:ok, ConsumerStatusTypeEnum.status()[:delete_notification_task_running]}
+                  }
 
                 _ ->
                   # Something failed when queueing the job. Reset the consumer_state
@@ -775,12 +671,12 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                     status: consumer_state.status,
                     prev_status: consumer_state.prev_status
                   )
-              end
 
-              %{
-                response:
-                  {:ok, ConsumerStatusTypeEnum.status()[:delete_notification_task_running]}
-              }
+                  %{
+                    response:
+                      {:ok, ConsumerStatusTypeEnum.status()[:delete_notification_task_running]}
+                  }
+              end
           end
 
         true ->
@@ -827,16 +723,12 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
             %{response: {:error, consumer_state.status}}
 
           true ->
-            case create_job_queue_if_not_exists("events", event_definition_id) do
-              {:ok, queue_name} ->
-                {:ok, _job_id} =
-                  Exq.enqueue(Exq, queue_name, DeleteEventDefinitionEventsWorker, [
-                    event_definition_id
-                  ])
-
-              _ ->
-                nil
-            end
+            ExqHelpers.create_and_enqueue(
+              "events",
+              event_definition_id,
+              DeleteEventDefinitionEventsWorker,
+              event_definition_id
+            )
 
             %{response: {:ok, :success}}
         end
@@ -851,31 +743,95 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
+  # ---------------------- #
+  # --- Helper Methods --- #
+  # ---------------------- #
+
+  defp start_pipeline(event_definition) do
+    case ConsumerGroupSupervisor.start_child(event_definition) do
+      {:error, nil} ->
+        Redis.hash_set_async("crw", event_definition.id, "et")
+
+        {:ok, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}
+
+      {:error, {:already_started, _pid}} ->
+        # subscribe/resubscribe to JobQs
+        ExqHelpers.create_job_queue_if_not_exists("events", event_definition.id)
+        ExqHelpers.create_job_queue_if_not_exists("notifications", event_definition.id)
+
+        {:ok, ConsumerStatusTypeEnum.status()[:running]}
+
+      {:ok, pid} ->
+        ConsumerMonitor.monitor(
+          pid,
+          event_definition.id,
+          event_definition.topic
+        )
+
+        # subscribe/resubscribe to JobQs
+        ExqHelpers.create_job_queue_if_not_exists("events", event_definition.id)
+        ExqHelpers.create_job_queue_if_not_exists("notifications", event_definition.id)
+
+        {:ok, ConsumerStatusTypeEnum.status()[:running]}
+    end
+  end
+
+  defp suspend_pipeline(event_definition) do
+    EventPipeline.suspend_pipeline(event_definition.id)
+
+    consumer_status =
+      case EventPipeline.pipeline_finished_processing?(event_definition.id) do
+        true ->
+          ConsumerStatusTypeEnum.status()[:paused_and_finished]
+
+        false ->
+          ConsumerStatusTypeEnum.status()[:paused_and_processing]
+      end
+
+    {:ok, consumer_status}
+  end
+
   defp handle_unknown_status(event_definition_id) do
-    event_definition = EventsContext.get_event_definition(event_definition_id)
+    case EventsContext.get_event_definition(event_definition_id) do
+      nil ->
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "handle_unknown_status/1 no event_definition found for id: #{event_definition_id}"
+        )
 
-    if event_definition.active == true do
-      # update event_definition to be active false
-      EventsContext.update_event_definition(event_definition, %{active: false, deleted_at: nil})
+        # check if there is a consumer running
+        if EventPipeline.pipeline_started?(event_definition_id) do
+          ConsumerGroupSupervisor.stop_child(event_definition_id)
+        end
+
+        remove_consumer_state(event_definition_id)
+
+        %{response: {:ok, nil}}
+
+      %EventDefinition{active: true} = event_definition ->
+        # update event_definition to be active false
+        EventsContext.update_event_definition(event_definition, %{active: false, deleted_at: nil})
+
+        # check if there is a consumer running
+        if EventPipeline.pipeline_started?(event_definition_id) do
+          ConsumerGroupSupervisor.stop_child(event_definition_id)
+        end
+
+        # remove the ConsumerStatus Redis key
+        Redis.key_delete("cs:#{event_definition_id}")
+
+        # set the consumer status
+        upsert_consumer_state(event_definition_id,
+          status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
+          prev_status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
+          topic: event_definition.topic
+        )
+
+        %{response: {:ok, ConsumerStatusTypeEnum.status()[:paused_and_finished]}}
+
+      _ ->
+        %{response: {:ok, nil}}
     end
-
-    # check if there is a consumer running
-    if EventPipeline.event_pipeline_running?(event_definition_id) do
-      # Stop Consumer
-      ConsumerGroupSupervisor.stop_child(event_definition_id)
-    end
-
-    # remove the ConsumerStatus Redis key
-    Redis.key_delete("cs:#{event_definition_id}")
-
-    # set the consumer status
-    upsert_consumer_state(event_definition_id,
-      status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
-      prev_status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
-      topic: event_definition.topic
-    )
-
-    %{response: {:ok, ConsumerStatusTypeEnum.status()[:paused_and_finished]}}
   end
 
   defp internal_error_state(event_definition_id) do
@@ -923,24 +879,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
       _ ->
         false
-    end
-  end
-
-  defp create_job_queue_if_not_exists(queue_prefix, id) do
-    case Exq.subscriptions(Exq) do
-      {:ok, subscriptions} ->
-        queue_name = queue_prefix <> "-" <> "#{id}"
-
-        if !Enum.member?(subscriptions, queue_name) do
-          Exq.subscribe(Exq, queue_name, 5)
-          CogyntLogger.info("#{__MODULE__}", "Created Queue: #{queue_name}")
-        end
-
-        {:ok, queue_name}
-
-      _ ->
-        CogyntLogger.error("#{__MODULE__}", "Exq.Api.queues/1 failed to fetch queues")
-        {:error, :failed_to_fetch_queues}
     end
   end
 end

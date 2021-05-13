@@ -12,6 +12,8 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
     DeleteEventDefinitionsAndTopicsWorker
   }
 
+  alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
+
   @count 1
 
   # -------------------- #
@@ -71,30 +73,36 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
                   } ->
                     try do
                       if reset_deployment do
-                        create_job_queue_if_not_exists("DevDelete")
-
-                        Exq.enqueue(Exq, "DevDelete", DeleteDeploymentDataWorker, [
-                          delete_topics_for_deployments
-                        ])
+                        ExqHelpers.create_and_enqueue(
+                          "DevDelete",
+                          nil,
+                          DeleteDeploymentDataWorker,
+                          delete_topics_for_deployments,
+                          1
+                        )
                       else
                         if reset_drilldown do
-                          create_job_queue_if_not_exists("DevDelete")
-
-                          Exq.enqueue(Exq, "DevDelete", DeleteDrilldownDataWorker, [
-                            delete_drilldown_topics
-                          ])
+                          ExqHelpers.create_and_enqueue(
+                            "DevDelete",
+                            nil,
+                            DeleteDrilldownDataWorker,
+                            delete_drilldown_topics,
+                            1
+                          )
                         end
 
                         if length(event_definition_ids) > 0 do
-                          create_job_queue_if_not_exists("DevDelete")
-
-                          Exq.enqueue(Exq, "DevDelete", DeleteEventDefinitionsAndTopicsWorker, [
+                          ExqHelpers.create_and_enqueue(
+                            "DevDelete",
+                            nil,
+                            DeleteEventDefinitionsAndTopicsWorker,
                             %{
                               event_definition_ids: event_definition_ids,
                               hard_delete: false,
                               delete_topics: delete_topics
-                            }
-                          ])
+                            },
+                            1
+                          )
                         end
                       end
                     rescue
@@ -130,21 +138,5 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
 
     Process.send_after(__MODULE__, :fetch_tasks, Config.ingest_task_worker_timer())
     {:noreply, state}
-  end
-
-  defp create_job_queue_if_not_exists(queue_name) do
-    case Exq.subscriptions(Exq) do
-      {:ok, subscriptions} ->
-        if !Enum.member?(subscriptions, queue_name) do
-          Exq.subscribe(Exq, queue_name, 1)
-          CogyntLogger.info("#{__MODULE__}", "Created Queue: #{queue_name}")
-        end
-
-        {:ok, queue_name}
-
-      _ ->
-        CogyntLogger.error("#{__MODULE__}", "Exq.Api.queues/1 failed to fetch queues")
-        {:error, :failed_to_fetch_queues}
-    end
   end
 end

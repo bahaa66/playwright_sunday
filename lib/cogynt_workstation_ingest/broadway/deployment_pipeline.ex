@@ -140,20 +140,39 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
   end
 
   @doc false
-  def deployment_pipeline_running?() do
-    child_pid = Process.whereis(:DeploymentPipeline)
-
-    case is_nil(child_pid) do
-      true ->
+  def pipeline_started?() do
+    Process.whereis(:DeploymentPipeline)
+    |> case do
+      nil ->
         false
 
-      false ->
+      _ ->
         true
     end
   end
 
   @doc false
-  def deployment_pipeline_finished_processing?() do
+  def pipeline_running?() do
+    if pipeline_started?() do
+      Broadway.producer_names(:DeploymentPipeline)
+      |> Enum.reduce(true, fn producer, acc ->
+        case GenStage.demand(producer) do
+          :forward ->
+            acc and true
+
+          :accumulate ->
+            acc and false
+        end
+      end)
+    else
+      false
+    end
+  end
+
+  @doc false
+  # TODO: look into GenStage.estimate_buffered_count(stage, timeout \\ 5000)
+  # to see if we can replace the redis message_info key with this.
+  def pipeline_finished_processing?() do
     case Redis.key_exists?("dpmi") do
       {:ok, false} ->
         true
@@ -164,6 +183,30 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
 
         String.to_integer(tmp) >= String.to_integer(tmc)
     end
+  end
+
+  @doc false
+  def suspend_pipeline() do
+    Broadway.producer_names(:DeploymentPipeline)
+    |> Enum.each(fn producer ->
+      GenStage.demand(producer, :accumulate)
+    end)
+  end
+
+  @doc false
+  def resume_pipeline() do
+    Broadway.producer_names(:DeploymentPipeline)
+    |> Enum.each(fn producer ->
+      GenStage.demand(producer, :forward)
+    end)
+  end
+
+  @doc false
+  def estimated_buffer_count() do
+    Broadway.producer_names(:DeploymentPipeline)
+    |> Enum.reduce(0, fn producer, acc ->
+      acc + GenStage.estimate_buffered_count(producer)
+    end)
   end
 
   # ----------------------- #

@@ -287,21 +287,43 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   @doc false
-  def event_pipeline_running?(event_definition_id) do
-    consumer_group_id = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
-    child_pid = Process.whereis(String.to_atom(consumer_group_id <> "Pipeline"))
-
-    case is_nil(child_pid) do
-      true ->
+  def pipeline_started?(event_definition_id) do
+    (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline")
+    |> String.to_atom()
+    |> Process.whereis()
+    |> case do
+      nil ->
         false
 
-      false ->
+      _ ->
         true
     end
   end
 
   @doc false
-  def event_pipeline_finished_processing?(event_definition_id) do
+  def pipeline_running?(event_definition_id) do
+    if pipeline_started?(event_definition_id) do
+      (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline")
+      |> String.to_atom()
+      |> Broadway.producer_names()
+      |> Enum.reduce(true, fn producer, acc ->
+        case GenStage.demand(producer) do
+          :forward ->
+            acc and true
+
+          :accumulate ->
+            acc and false
+        end
+      end)
+    else
+      false
+    end
+  end
+
+  @doc false
+  # TODO: look into GenStage.estimate_buffered_count(stage, timeout \\ 5000)
+  # to see if we can replace the redis message_info key with this.
+  def pipeline_finished_processing?(event_definition_id) do
     case Redis.key_exists?("emi:#{event_definition_id}") do
       {:ok, false} ->
         true
@@ -321,6 +343,36 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           String.to_integer(tmp) >= String.to_integer(tmc)
         end
     end
+  end
+
+  @doc false
+  def suspend_pipeline(event_definition_id) do
+    (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline")
+    |> String.to_atom()
+    |> Broadway.producer_names()
+    |> Enum.each(fn producer ->
+      GenStage.demand(producer, :accumulate)
+    end)
+  end
+
+  @doc false
+  def resume_pipeline(event_definition_id) do
+    (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline")
+    |> String.to_atom()
+    |> Broadway.producer_names()
+    |> Enum.each(fn producer ->
+      GenStage.demand(producer, :forward)
+    end)
+  end
+
+  @doc false
+  def estimated_buffer_count(event_definition_id) do
+    (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline")
+    |> String.to_atom()
+    |> Broadway.producer_names()
+    |> Enum.reduce(0, fn producer, acc ->
+      acc + GenStage.estimate_buffered_count(producer)
+    end)
   end
 
   # ----------------------- #
