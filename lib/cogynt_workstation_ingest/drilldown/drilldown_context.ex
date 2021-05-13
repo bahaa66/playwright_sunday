@@ -9,13 +9,6 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     }
 
     Druid.sql_query(sql_query)
-    |> case do
-      {:ok, template_solutions} ->
-        template_solutions
-
-      {:error, _error} ->
-        {:error, "Could not query druid for template solutions: #{inspect(ids)}"}
-    end
   end
 
   def list_template_solutions!(%{ids: ids}) do
@@ -30,8 +23,8 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
 
     Druid.sql_query(sql_query)
     |> case do
-      {:ok, template_solutions} -> template_solutions
-      {:error, _error} -> raise "Could not query druid for template solutions: #{inspect(ids)}"
+      {:ok, template_solutions} -> {:ok, template_solutions}
+      {:error, error} -> raise "Error querying for template solutions: #{inspect(error)}"
     end
   end
 
@@ -44,10 +37,6 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     }
 
     Druid.sql_query(sql_query)
-    |> case do
-      {:ok, template_solutions} -> template_solutions
-      {:error, _error} -> {:error, "Could not query druid for template solutions"}
-    end
   end
 
   def list_template_solutions!() do
@@ -61,7 +50,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     Druid.sql_query(sql_query)
     |> case do
       {:ok, template_solutions} -> template_solutions
-      {:error, _error} -> raise "Could not query druid for template solutions"
+      {:error, error} -> raise "Error querying for template solutions: #{inspect(error)}"
     end
   end
 
@@ -78,8 +67,9 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
 
     Druid.sql_query(sql_query)
     |> case do
-      {:ok, [template_solution]} -> template_solution
-      {:error, _error} -> {:error, "Could not query druid for template solution #{id}"}
+      {:ok, []} -> {:ok, nil}
+      {:ok, [template_solution]} -> {:ok, template_solution}
+      {:error, error} -> {:error, error}
     end
   end
 
@@ -97,7 +87,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     Druid.sql_query(sql_query)
     |> case do
       {:ok, [template_solution]} -> template_solution
-      {:error, _error} -> raise "Could not query druid for template solution #{id}"
+      {:error, error} -> raise "Error querying for template solution #{id}: #{inspect(error)}"
     end
   end
 
@@ -112,10 +102,6 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     }
 
     Druid.sql_query(sql_query)
-    |> case do
-      {:ok, template_solutions} -> template_solutions
-      {:error, _error} -> {:error, "Could not query druid for outcomes"}
-    end
   end
 
   def get_template_solution_outcomes!(id) do
@@ -131,7 +117,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     Druid.sql_query(sql_query)
     |> case do
       {:ok, template_solutions} -> template_solutions
-      {:error, _error} -> raise "Could not query druid for outcomes"
+      {:error, error} -> raise "Error querying for outcomes for #{id}: #{inspect(error)}"
     end
   end
 
@@ -146,10 +132,6 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     }
 
     Druid.sql_query(sql_query)
-    |> case do
-      {:ok, template_solutions} -> template_solutions
-      {:error, _error} -> {:error, "Could not query druid for events"}
-    end
   end
 
   def get_template_solution_events!(id) do
@@ -165,7 +147,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     Druid.sql_query(sql_query)
     |> case do
       {:ok, template_solutions} -> template_solutions
-      {:error, _error} -> raise "Could not query druid for events"
+      {:error, _error} -> raise "Error querying for events for #{id}: #{inspect(id)}"
     end
   end
 

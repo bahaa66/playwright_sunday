@@ -13,6 +13,10 @@ defmodule CogyntWorkstationIngestWeb.DrilldownView do
     %{errors: %{detail: "Not found"}}
   end
 
+  def render("error.json", %{data: data}) do
+    %{error: data}
+  end
+
   def type, do: "solutions"
 
   def id(info, _conn) do
