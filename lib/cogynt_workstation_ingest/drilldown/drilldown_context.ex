@@ -31,7 +31,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   def list_template_solutions() do
     sql_query = %{
       query: """
-        SELECT *
+        SELECT DISTINCT id, *
         FROM druid.template_solutions
       """
     }
@@ -42,14 +42,14 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   def list_template_solutions!() do
     sql_query = %{
       query: """
-        SELECT *
+        SELECT DISTINCT id, *
         FROM druid.template_solutions
       """
     }
 
     Druid.sql_query(sql_query)
     |> case do
-      {:ok, template_solutions} -> template_solutions
+      {:ok, template_solutions} -> {:ok, template_solutions}
       {:error, error} -> raise "Error querying for template solutions: #{inspect(error)}"
     end
   end
@@ -86,7 +86,8 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
 
     Druid.sql_query(sql_query)
     |> case do
-      {:ok, [template_solution]} -> template_solution
+      {:ok, []} -> {:ok, nil}
+      {:ok, [template_solution]} -> {:ok, template_solution}
       {:error, error} -> raise "Error querying for template solution #{id}: #{inspect(error)}"
     end
   end
@@ -116,7 +117,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
 
     Druid.sql_query(sql_query)
     |> case do
-      {:ok, template_solutions} -> template_solutions
+      {:ok, outcomes} -> {:ok, outcomes}
       {:error, error} -> raise "Error querying for outcomes for #{id}: #{inspect(error)}"
     end
   end
@@ -146,28 +147,45 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
 
     Druid.sql_query(sql_query)
     |> case do
-      {:ok, template_solutions} -> template_solutions
+      {:ok, template_solutions} -> {:ok, template_solutions}
       {:error, _error} -> raise "Error querying for events for #{id}: #{inspect(id)}"
     end
   end
 
   def process_template_solutions(data) when is_list(data) do
-    Enum.reduce(data, [], fn d, acc ->
-      acc ++ [process_template_solution(d)]
-    end)
+    try do
+      template_solutions =
+        Enum.reduce(data, [], fn d, acc ->
+          case process_template_solution(d) do
+            {:ok, template_solution} ->
+              acc ++ [template_solution]
+
+            {:error, error} ->
+              throw(error)
+              acc
+          end
+        end)
+
+      {:ok, template_solutions}
+    catch
+      error -> {:error, error}
+    end
   end
 
   def process_template_solution(data) do
-    outcomes =
-      get_template_solution_outcomes(data["id"])
-      |> process_template_solution_outcomes()
+    with {:ok, outcomes} <- get_template_solution_outcomes(data["id"]),
+         {:ok, events} <- get_template_solution_events(data["id"]) do
+      outcomes = process_template_solution_outcomes(outcomes)
+      events = process_template_solution_events(events)
 
-    events =
-      get_template_solution_events(data["id"])
-      |> process_template_solution_events()
+      template_solution =
+        Map.put(data, "events", events)
+        |> Map.put("outcomes", outcomes)
 
-    Map.put(data, "events", events)
-    |> Map.put("outcomes", outcomes)
+      {:ok, template_solution}
+    else
+      {:error, error} -> {:error, error}
+    end
   end
 
   # ------------------------- #
