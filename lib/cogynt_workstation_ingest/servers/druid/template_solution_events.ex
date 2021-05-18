@@ -8,7 +8,6 @@ defmodule CogyntWorkstationIngest.Servers.Druid.TemplateSolutionEvents do
       Config.kafka_brokers()
       |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
       |> Enum.join(","),
-    # brokers: "kafka-qa.cogilitycloud.com:31090",
     dimensions_spec: %{
       dimensions: [
         "id",
