@@ -12,7 +12,7 @@ defmodule CogyntWorkstationIngestWeb.DrilldownController do
          {:ok, data} <- DrilldownContext.process_template_solutions(template_solutions) do
       data =
         data
-        |> Enum.filter(&(&1["template_type_id"] == id))
+        |> Enum.filter(&(&1["templateTypeId"] == id))
         |> Enum.map(&Map.put(Map.put(&1, "key", &1["id"]), "#visited", []))
 
       render(conn, "index.json-api", data: data)

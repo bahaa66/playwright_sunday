@@ -11,7 +11,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
         :io_config,
         :granularity_spec,
         :timestamp_spec,
-        :avro_schema
+        :avro_schema,
+        :flatten_spec
       ])
 
     if is_nil(supervisor_id) do
@@ -123,7 +124,6 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           else
             Druid.Utils.build_kafka_supervisor(id, brokers, supervisor_specs)
           end
-          |> IO.inspect()
 
         with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
              {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do

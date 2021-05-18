@@ -8,33 +8,17 @@ defmodule CogyntWorkstationIngest.Servers.Druid.TemplateSolutionEvents do
       Config.kafka_brokers()
       |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
       |> Enum.join(","),
+    # brokers: "kafka-qa.cogilitycloud.com:31090",
     dimensions_spec: %{
       dimensions: [
         "id",
-        "template_type_name",
-        "template_type_id",
+        "templateTypeName",
+        "templateTypeId",
         "event",
         "aid",
-        "assertion_name",
-        "event_id"
+        "assertionName",
+        "eventId"
       ]
-    },
-    io_config: %{
-      type: "json",
-      flattenSpec: %{
-        fields: [
-          %{
-            type: "path",
-            name: "event_id",
-            expr: "$.event.id"
-          },
-          %{
-            type: "jq",
-            name: "event",
-            expr: ".event | tojson"
-          }
-        ]
-      }
     },
     avro_schema: %{
       fields: [
