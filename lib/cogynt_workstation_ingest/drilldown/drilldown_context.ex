@@ -194,12 +194,11 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
 
   defp process_template_solution_events(events) do
     Enum.reduce(events, %{}, fn evt, acc ->
-      key = evt["event_id"] <> "!" <> evt["aid"]
-
       evt["event"]
       |> Jason.decode()
       |> case do
         {:ok, event} ->
+          key = event["id"] <> "!" <> evt["aid"]
           event = Map.put(event, "assertion_id", evt["aid"])
           Map.put(acc, key, event)
 
