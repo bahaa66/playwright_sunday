@@ -7,12 +7,12 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
     supervisor_specs =
       Keyword.take(opts, [
-        :dimensionsSpec,
+        :dimensions_spec,
         :supervisor_id,
         :io_config,
-        :flattenSpec,
-        :granularitySpec,
-        :timestampSpec
+        :flatten_spec,
+        :granularity_spec,
+        :timestamp_spec
       ])
 
     if is_nil(supervisor_id) do
@@ -122,16 +122,58 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
         supervisor_spec =
           if schema == :avro do
-            Druid.Utils.build_avro_kafka_supervisor(
-              id,
-              brokers,
-              schema_registry_url,
-              supervisor_specs
-            )
+            # Druid.Utils.build_avro_kafka_supervisor(id, brokers, supervisor_specs)
+            %{
+              type: "kafka",
+              dataSchema: %{
+                dataSource: Keyword.get(supervisor_specs, :supervisor_id),
+                parser: %{
+                  type: "avro_stream",
+                  avroBytesDecoder: %{
+                    type: "schema_registry",
+                    url: schema_registry_url
+                  },
+                  parseSpec: %{
+                    format: "avro",
+                    timestampSpec:
+                      Keyword.get(supervisor_specs, :timestamp_spec) ||
+                        %{
+                          column: "_timestamp",
+                          format: "auto",
+                          missingValue: "1970-01-01T00:00:00Z"
+                        },
+                    dimensionsSpec:
+                      Keyword.get(supervisor_specs, :dimensions_spec) ||
+                        raise("You must provide dimensions_spec in your options."),
+                    flattenSpec: Keyword.get(supervisor_specs, :flatten_spec)
+                  }
+                },
+                metricSpec: [],
+                granularitySpec:
+                  Keyword.get(supervisor_specs, :granularity_spec) ||
+                    %{
+                      type: "uniform",
+                      queryGranularity: "HOUR",
+                      segmentGranularity: "HOUR",
+                      rollup: false
+                    }
+              },
+              ioConfig: %{
+                topic: Keyword.get(supervisor_specs, :supervisor_id),
+                useEarliestOffset: true,
+                consumerProperties: %{
+                  "bootstrap.servers": brokers
+                }
+              },
+              tuningConfig: %{
+                type: "kafka",
+                reportParseExceptions: true,
+                logParseExceptions: true
+              }
+            }
           else
             Druid.Utils.build_kafka_supervisor(id, brokers, supervisor_specs)
           end
-          |> IO.inspect(label: "SUPERVISOR SPEC")
 
         with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
              {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
