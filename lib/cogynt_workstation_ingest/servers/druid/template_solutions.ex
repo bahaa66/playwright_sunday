@@ -3,25 +3,18 @@ defmodule CogyntWorkstationIngest.Servers.Druid.TemplateSolutions do
 
   use CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor,
     supervisor_id: Config.template_solutions_topic(),
-    use_avro: true,
+    schema: :avro,
+    schema_registry_url: "http://schemaregistry:8081",
     brokers:
       Config.kafka_brokers()
       |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
       |> Enum.join(","),
-    dimensions_spec: %{
-      dimensions: [
-        "id",
-        "template_type_name",
-        "template_type_id",
-        "retracted"
-      ]
+    timestampSpec: %{
+      column: "timestamp",
+      format: "auto"
     },
-    # TODO: Change this to use the schema registry url and use "schema_repo" type
-    avro_schema: %{
-      name: "TemplateSolution",
-      namespace: "com.cogility.hcep.generated",
-      type: "record",
-      fields: [
+    dimensionsSpec: %{
+      dimensions: [
         %{
           name: "templateTypeName",
           type: "string"
@@ -38,6 +31,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.TemplateSolutions do
           name: "retracted",
           type: "boolean"
         }
-      ]
+      ],
+      dimensionExclusions: []
     }
 end

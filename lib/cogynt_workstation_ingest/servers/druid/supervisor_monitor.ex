@@ -2,16 +2,17 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   defmacro __using__(opts) do
     supervisor_id = Keyword.get(opts, :supervisor_id)
     brokers = Keyword.get(opts, :brokers)
-    use_avro = Keyword.get(opts, :use_avro, false)
+    schema = Keyword.get(opts, :schema, :json)
+    schema_registry_url = Keyword.get(opts, :schema_registry_url)
 
     supervisor_specs =
       Keyword.take(opts, [
-        :dimensions_spec,
+        :dimensionsSpec,
         :supervisor_id,
         :io_config,
-        :granularity_spec,
-        :timestamp_spec,
-        :avro_schema
+        :flattenSpec,
+        :granularitySpec,
+        :timestampSpec
       ])
 
     if is_nil(supervisor_id) do
@@ -116,14 +117,21 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       def handle_continue(:create_or_update_supervisor, %{id: id} = state) do
         brokers = unquote(brokers)
         supervisor_specs = unquote(supervisor_specs)
+        schema_registry_url = unquote(schema_registry_url)
+        schema = unquote(schema)
 
         supervisor_spec =
-          if unquote(use_avro) do
-            Druid.Utils.build_avro_kafka_supervisor(id, brokers, supervisor_specs)
+          if schema == :avro do
+            Druid.Utils.build_avro_kafka_supervisor(
+              id,
+              brokers,
+              schema_registry_url,
+              supervisor_specs
+            )
           else
             Druid.Utils.build_kafka_supervisor(id, brokers, supervisor_specs)
           end
-          |> IO.inspect()
+          |> IO.inspect(label: "SUPERVISOR SPEC")
 
         with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
              {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do

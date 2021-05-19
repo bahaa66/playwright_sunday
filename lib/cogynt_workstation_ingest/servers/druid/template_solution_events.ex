@@ -3,41 +3,14 @@ defmodule CogyntWorkstationIngest.Servers.Druid.TemplateSolutionEvents do
 
   use CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor,
     supervisor_id: Config.template_solution_events_topic(),
-    use_avro: true,
+    schema: :avro,
+    schema_registry_url: "http://schemaregistry:8081",
     brokers:
       Config.kafka_brokers()
       |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
       |> Enum.join(","),
-    dimensions_spec: %{
+    dimensionsSpec: %{
       dimensions: [
-        "id",
-        "template_type_name",
-        "template_type_id",
-        "event",
-        "aid",
-        "assertion_name",
-        "event_id"
-      ]
-    },
-    io_config: %{
-      type: "json",
-      flattenSpec: %{
-        fields: [
-          %{
-            type: "path",
-            name: "event_id",
-            expr: "$.event.id"
-          },
-          %{
-            type: "jq",
-            name: "event",
-            expr: ".event | tojson"
-          }
-        ]
-      }
-    },
-    avro_schema: %{
-      fields: [
         %{
           name: "templateTypeName",
           type: "string"
@@ -69,8 +42,10 @@ defmodule CogyntWorkstationIngest.Servers.Druid.TemplateSolutionEvents do
           type: "string"
         }
       ],
-      name: "SolutionEvent",
-      namespace: "com.cogility.hcep.generated",
-      type: "record"
+      dimensionExclusions: []
+    },
+    timestampSpec: %{
+      column: "timestamp",
+      format: "auto"
     }
 end
