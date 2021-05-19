@@ -144,4 +144,5 @@ config :druid,
       http_username: System.get_env("DRUID_HTTP_USERNAME") || "username",
       http_password: System.get_env("DRUID_HTTP_PASSWORD") || "password"
     ]
-  ]
+  ],
+  schema_registry_url: System.get_env("SCHEMA_REGISTRY_URL") || "http://schemaregistry:8081"

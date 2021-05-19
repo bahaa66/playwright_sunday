@@ -3,6 +3,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.TemplateSolutionEvents do
 
   use CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor,
     supervisor_id: Config.template_solution_events_topic(),
+    schema: :avro,
+    schema_registry_url: Config.schema_registry_url(),
     brokers:
       Config.kafka_brokers()
       |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
@@ -10,29 +12,11 @@ defmodule CogyntWorkstationIngest.Servers.Druid.TemplateSolutionEvents do
     dimensions_spec: %{
       dimensions: [
         "id",
-        "template_type_name",
-        "template_type_id",
+        "templateTypeName",
+        "templateTypeId",
         "event",
         "aid",
-        "assertion_name",
-        "event_id"
+        "assertionName"
       ]
-    },
-    io_config: %{
-      type: "json",
-      flattenSpec: %{
-        fields: [
-          %{
-            type: "path",
-            name: "event_id",
-            expr: "$.event.id"
-          },
-          %{
-            type: "jq",
-            name: "event",
-            expr: ".event | tojson"
-          }
-        ]
-      }
     }
 end

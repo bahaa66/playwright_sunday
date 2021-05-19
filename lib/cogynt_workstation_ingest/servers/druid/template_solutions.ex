@@ -3,6 +3,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.TemplateSolutions do
 
   use CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor,
     supervisor_id: Config.template_solutions_topic(),
+    schema: :avro,
+    schema_registry_url: Config.schema_registry_url(),
     brokers:
       Config.kafka_brokers()
       |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
@@ -10,10 +12,9 @@ defmodule CogyntWorkstationIngest.Servers.Druid.TemplateSolutions do
     dimensions_spec: %{
       dimensions: [
         "id",
-        "template_type_name",
-        "template_type_id",
-        "events",
-        "outcomes"
+        "templateTypeName",
+        "templateTypeId",
+        "retracted"
       ]
     }
 end

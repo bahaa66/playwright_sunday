@@ -1,11 +1,19 @@
 defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   defmacro __using__(opts) do
     supervisor_id = Keyword.get(opts, :supervisor_id)
-    dimensions_spec = Keyword.get(opts, :dimensions_spec)
     brokers = Keyword.get(opts, :brokers)
-    io_config = Keyword.get(opts, :io_config)
-    granularity_spec = Keyword.get(opts, :granularity_spec)
-    timestamp_spec = Keyword.get(opts, :timestamp_spec)
+    schema = Keyword.get(opts, :schema, :json)
+    schema_registry_url = Keyword.get(opts, :schema_registry_url)
+
+    supervisor_specs =
+      Keyword.take(opts, [
+        :dimensions_spec,
+        :supervisor_id,
+        :io_config,
+        :flatten_spec,
+        :granularity_spec,
+        :timestamp_spec
+      ])
 
     if is_nil(supervisor_id) do
       raise "You must provide a supervisor_id:\n\n  use CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor,\n    supervisor_id: \"test_id\"\n\n"
@@ -108,18 +116,21 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       @impl true
       def handle_continue(:create_or_update_supervisor, %{id: id} = state) do
         brokers = unquote(brokers)
-        dimensions_spec = unquote(dimensions_spec)
-        io_config = unquote(io_config)
-        granularity_spec = unquote(granularity_spec)
-        timestamp_spec = unquote(timestamp_spec)
+        supervisor_specs = unquote(supervisor_specs)
+        schema_registry_url = unquote(schema_registry_url)
+        schema = unquote(schema)
 
         supervisor_spec =
-          Druid.Utils.build_kafka_supervisor(id, brokers,
-            dimensions_spec: dimensions_spec,
-            io_config: io_config,
-            granularity_spec: granularity_spec,
-            timestamp_spec: timestamp_spec
-          )
+          if schema == :avro do
+            Druid.Utils.build_avro_kafka_supervisor(
+              id,
+              brokers,
+              schema_registry_url,
+              supervisor_specs
+            )
+          else
+            Druid.Utils.build_kafka_supervisor(id, brokers, supervisor_specs)
+          end
 
         with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
              {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
