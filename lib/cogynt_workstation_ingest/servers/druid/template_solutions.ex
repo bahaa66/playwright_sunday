@@ -4,8 +4,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.TemplateSolutions do
   use CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor,
     supervisor_id: Config.template_solutions_topic(),
     schema: :avro,
-    schema_registry_url: "http://schemaregistry:8081",
-    # schema_registry_url: "http://localhost:8089",
+    schema_registry_url: Config.schema_registry_url(),
     brokers:
       Config.kafka_brokers()
       |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)

@@ -56,6 +56,8 @@ defmodule CogyntWorkstationIngest.Config do
   def tse_connector_name(), do: connector()[:tse_connector_name]
   def connector_restart_time_delay(), do: connector()[:time_delay]
 
+  def schema_registry_url(), do: Application.get_env(:druid, :schema_registry_url)
+
   def parse_kafka_brokers() do
     String.split(kafka()[:brokers], ",", trim: true)
     |> Enum.reduce([], fn x, acc ->
