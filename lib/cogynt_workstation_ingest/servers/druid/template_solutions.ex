@@ -10,8 +10,9 @@ defmodule CogyntWorkstationIngest.Servers.Druid.TemplateSolutions do
       |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
       |> Enum.join(","),
     timestampSpec: %{
-      column: "timestamp",
-      format: "auto"
+      column: "_timestamp",
+      format: "auto",
+      missingValue: "1970-01-01T00:00:00Z"
     },
     dimensionsSpec: %{
       dimensions: [

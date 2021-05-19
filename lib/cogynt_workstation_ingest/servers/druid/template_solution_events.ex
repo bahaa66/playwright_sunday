@@ -45,7 +45,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.TemplateSolutionEvents do
       dimensionExclusions: []
     },
     timestampSpec: %{
-      column: "timestamp",
-      format: "auto"
+      column: "_timestamp",
+      format: "auto",
+      missingValue: "1970-01-01T00:00:00Z"
     }
 end
