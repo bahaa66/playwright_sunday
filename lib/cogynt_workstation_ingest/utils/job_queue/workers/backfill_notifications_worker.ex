@@ -9,6 +9,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
   alias CogyntWorkstationIngest.System.SystemNotificationContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Broadway.EventPipeline
+  alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
 
   alias Models.Enums.ConsumerStatusTypeEnum
   alias Models.Notifications.NotificationSetting
@@ -69,11 +70,11 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
       })
     end
 
-    ensure_event_pipeline_stopped(event_definition.id)
+    ensure_pipeline_drained(event_definition.id)
   end
 
   defp start_event_pipeline(event_definition) do
-    case is_job_queue_finished?(event_definition.id) do
+    case ExqHelpers.queue_finished_processing?("notifications", event_definition.id) do
       true ->
         {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
 
@@ -103,28 +104,28 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
     end
   end
 
-  defp ensure_event_pipeline_stopped(event_definition_id, count \\ 1) do
+  defp ensure_pipeline_drained(event_definition_id, count \\ 1) do
     if count >= 30 do
       CogyntLogger.info(
         "#{__MODULE__}",
-        "ensure_event_pipeline_stopped/1 exceeded number of attempts. Moving forward with BackfillNotifications"
+        "ensure_pipeline_drained/1 exceeded number of attempts. Moving forward with BackfillNotifications"
       )
     else
-      case EventPipeline.event_pipeline_running?(event_definition_id) or
-             not EventPipeline.event_pipeline_finished_processing?(event_definition_id) do
+      case EventPipeline.pipeline_running?(event_definition_id) or
+             not EventPipeline.pipeline_finished_processing?(event_definition_id) do
         true ->
           CogyntLogger.info(
             "#{__MODULE__}",
-            "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before running backfill of notifications"
+            "EventPipeline #{event_definition_id} still draining... waiting for it to finish draining before running NotificationBackfill"
           )
 
           Process.sleep(1000)
-          ensure_event_pipeline_stopped(event_definition_id, count + 1)
+          ensure_pipeline_drained(event_definition_id, count + 1)
 
         false ->
           CogyntLogger.info(
             "#{__MODULE__}",
-            "EventPipeline #{event_definition_id} Stopped"
+            "EventPipeline #{event_definition_id} Drained"
           )
       end
     end
@@ -288,34 +289,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
       end
     else
       risk_score
-    end
-  end
-
-  defp is_job_queue_finished?(id) do
-    try do
-      Enum.reduce(["notifications"], true, fn prefix, acc ->
-        queue_name = prefix <> "-" <> "#{id}"
-        {:ok, count} = Exq.Api.queue_size(Exq.Api, queue_name)
-        {:ok, processes} = Exq.Api.processes(Exq.Api)
-
-        grouped =
-          Enum.group_by(processes, fn process ->
-            decoded_job = Jason.decode!(process.job, keys: :atoms)
-            decoded_job.queue
-          end)
-
-        queue_processes = Map.get(grouped, queue_name, [])
-
-        if count > 0 or Enum.count(queue_processes) > 1 do
-          false
-        else
-          acc
-        end
-      end)
-    rescue
-      _ ->
-        CogyntLogger.error("#{__MODULE__}", "is_job_queue_finished?/1 Failed.")
-        true
     end
   end
 end

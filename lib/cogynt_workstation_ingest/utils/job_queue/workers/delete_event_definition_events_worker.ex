@@ -28,10 +28,11 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionEv
 
       if consumer_state.status != ConsumerStatusTypeEnum.status()[:unknown] do
         Redis.publish_async("ingest_channel", %{
-          stop_consumer: EventsContext.remove_event_definition_virtual_fields(event_definition)
+          shutdown_consumer:
+            EventsContext.remove_event_definition_virtual_fields(event_definition)
         })
 
-        ensure_event_pipeline_stopped(event_definition.id)
+        ensure_pipeline_shutdown(event_definition.id)
       end
 
       # Second soft delete_event_definition_event_detail_templates_data˝
@@ -169,43 +170,37 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionEv
     end)
   end
 
-  defp ensure_event_pipeline_stopped(event_definition_id, count \\ 1) do
+  defp ensure_pipeline_shutdown(event_definition_id, count \\ 1) do
     if count >= 30 do
       CogyntLogger.info(
         "#{__MODULE__}",
-        "ensure_event_pipeline_stopped/1 exceeded number of attempts. Moving forward with DeleteEventDefinitionEvents"
+        "ensure_pipeline_shutdown/1 exceeded number of attempts. Moving forward with DeleteEventDefinitionEvents"
       )
     else
       {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition_id)
 
-      %{
-        topic: nil,
-        status: ConsumerStatusTypeEnum.status()[:unknown],
-        prev_status: nil
-      }
-
       if consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] do
         CogyntLogger.info(
           "#{__MODULE__}",
-          "EventPipeline #{event_definition_id} Stopped"
+          "EventPipeline #{event_definition_id} shutdown"
         )
       else
-        case EventPipeline.event_pipeline_running?(event_definition_id) or
-               not EventPipeline.event_pipeline_finished_processing?(event_definition_id) or
+        case EventPipeline.pipeline_started?(event_definition_id) or
+               not EventPipeline.pipeline_finished_processing?(event_definition_id) or
                consumer_state.status != ConsumerStatusTypeEnum.status()[:paused_and_finished] do
           true ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before resetting data"
+              "EventPipeline #{event_definition_id} still running... waiting for pipeline to shutdown before resetting data"
             )
 
             Process.sleep(1000)
-            ensure_event_pipeline_stopped(event_definition_id, count + 1)
+            ensure_pipeline_shutdown(event_definition_id, count + 1)
 
           false ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "EventPipeline #{event_definition_id} Stopped"
+              "EventPipeline #{event_definition_id} shutdown"
             )
         end
       end

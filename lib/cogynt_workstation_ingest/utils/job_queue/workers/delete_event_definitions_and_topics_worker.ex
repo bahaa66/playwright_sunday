@@ -19,7 +19,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
       EventsContext.list_event_definitions()
       |> Enum.each(fn event_definition ->
         # First stop the EventPipeline if there is one running for the event_definition
-        stop_event_pipeline(event_definition)
+        shutdown_event_pipeline(event_definition)
 
         # Second check to see if the topic needs to be deleted
         if delete_topics do
@@ -51,7 +51,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
 
           event_definition ->
             # First stop the EventPipeline if there is one running for the event_definition
-            stop_event_pipeline(event_definition)
+            shutdown_event_pipeline(event_definition)
 
             # Second check to see if the topic needs to be deleted
             if delete_topics do
@@ -74,21 +74,21 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   # ----------------------- #
   # --- Private Methods --- #
   # ----------------------- #
-  defp stop_event_pipeline(event_definition) do
+  defp shutdown_event_pipeline(event_definition) do
     CogyntLogger.info(
       "#{__MODULE__}",
-      "Stopping EventPipeline for #{event_definition.topic}"
+      "Shutting down EventPipeline for #{event_definition.topic}"
     )
 
     {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
 
     if consumer_state.status != ConsumerStatusTypeEnum.status()[:unknown] do
       Redis.publish_async("ingest_channel", %{
-        stop_consumer: EventsContext.remove_event_definition_virtual_fields(event_definition)
+        shutdown_consumer: EventsContext.remove_event_definition_virtual_fields(event_definition)
       })
     end
 
-    ensure_event_pipeline_stopped(event_definition.id)
+    ensure_pipeline_shutdown(event_definition.id)
   end
 
   defp delete_topics(event_definition) do
@@ -176,11 +176,11 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
     })
   end
 
-  defp ensure_event_pipeline_stopped(event_definition_id, count \\ 1) do
+  defp ensure_pipeline_shutdown(event_definition_id, count \\ 1) do
     if count >= 30 do
       CogyntLogger.info(
         "#{__MODULE__}",
-        "ensure_event_pipeline_stopped/1 exceeded number of attempts. Moving forward with DeleteEventDefinitionsAndTopics"
+        "ensure_pipeline_shutdown/1 exceeded number of attempts. Moving forward with DeleteEventDefinitionsAndTopics"
       )
     else
       {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition_id)
@@ -188,11 +188,11 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
       if consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] do
         CogyntLogger.info(
           "#{__MODULE__}",
-          "EventPipeline #{event_definition_id} Stopped"
+          "EventPipeline #{event_definition_id} shutdown"
         )
       else
-        case EventPipeline.event_pipeline_running?(event_definition_id) or
-               not EventPipeline.event_pipeline_finished_processing?(event_definition_id) or
+        case EventPipeline.pipeline_started?(event_definition_id) or
+               not EventPipeline.pipeline_finished_processing?(event_definition_id) or
                consumer_state.status != ConsumerStatusTypeEnum.status()[:paused_and_finished] do
           true ->
             CogyntLogger.info(
@@ -201,12 +201,12 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
             )
 
             Process.sleep(1000)
-            ensure_event_pipeline_stopped(event_definition_id, count + 1)
+            ensure_pipeline_shutdown(event_definition_id, count + 1)
 
           false ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "EventPipeline #{event_definition_id} Stopped"
+              "EventPipeline #{event_definition_id} shutdown"
             )
         end
       end
