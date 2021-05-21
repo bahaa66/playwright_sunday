@@ -74,20 +74,31 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
         )
 
         # Ensure that Deployment Pipeline is not already running
-        if not DeploymentPipeline.deployment_pipeline_running?() do
-          case ConsumerGroupSupervisor.start_child(:deployment) do
-            {:error, nil} ->
-              CogyntLogger.warn(
-                "#{__MODULE__}",
-                "Deployment Topic DNE. Adding to retry cache. Will reconnect once topic is created"
-              )
+        case DeploymentPipeline.pipeline_started?() do
+          true ->
+            case DeploymentPipeline.pipeline_running?() do
+              true ->
+                CogyntLogger.info("#{__MODULE__}", "Deployment Pipeline already running")
 
-              Redis.hash_set_if_not_exists("crw", Config.deployment_topic(), "dp")
+              false ->
+                DeploymentPipeline.resume_pipeline()
+                CogyntLogger.info("#{__MODULE__}", "Resumed Deployment Pipeline")
+            end
 
-            _ ->
-              Redis.hash_delete("crw", Config.deployment_topic())
-              CogyntLogger.info("#{__MODULE__}", "Started Deployment Pipeline")
-          end
+          false ->
+            case ConsumerGroupSupervisor.start_child(:deployment) do
+              {:error, nil} ->
+                CogyntLogger.warn(
+                  "#{__MODULE__}",
+                  "Deployment Topic DNE. Adding to retry cache. Will reconnect once topic is created"
+                )
+
+                Redis.hash_set_if_not_exists("crw", Config.deployment_topic(), "dp")
+
+              _ ->
+                Redis.hash_delete("crw", Config.deployment_topic())
+                CogyntLogger.info("#{__MODULE__}", "Started Deployment Pipeline")
+            end
         end
 
       {:ok, %{stop_consumer: event_definition} = request} ->
@@ -108,7 +119,35 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
           stop_consumer_for_notification_tasks: event_definition
         })
 
+      {:ok, %{shutdown_consumer: event_definition} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
+        ConsumerStateManager.manage_request(%{shutdown_consumer: event_definition})
+
       {:ok, %{stop_deployment_pipeline: _args} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
+        case DeploymentPipeline.pipeline_started?() do
+          true ->
+            case DeploymentPipeline.pipeline_running?() do
+              true ->
+                DeploymentPipeline.suspend_pipeline()
+
+              false ->
+                CogyntLogger.info("#{__MODULE__}", "Deployment Pipeline already stopped")
+            end
+
+          false ->
+            CogyntLogger.info("#{__MODULE__}", "Deployment Pipeline is not started")
+        end
+
+      {:ok, %{shutdown_deployment_pipeline: _args} = request} ->
         CogyntLogger.info(
           "#{__MODULE__}",
           "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"

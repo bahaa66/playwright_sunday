@@ -3,7 +3,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   The Events context: public interface for event related functionality.
   """
   import Ecto.Query, warn: false
-  alias Ecto.Multi
   alias CogyntWorkstationIngest.Repo
   alias CogyntWorkstationIngest.Config
 

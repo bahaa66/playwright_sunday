@@ -54,7 +54,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
 
         {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition_id)
 
-        case EventPipeline.event_pipeline_finished_processing?(event_definition_id) do
+        case EventPipeline.pipeline_finished_processing?(event_definition_id) do
           true ->
             check_consumer_state(
               event_definition_id,

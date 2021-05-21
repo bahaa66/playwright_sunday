@@ -9,6 +9,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
     DeleteEventDefinitionsAndTopicsWorker
   }
 
+  alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
+
   alias CogyntWorkstationIngest.Config
 
   def perform(delete_topics_for_deployments) do
@@ -17,8 +19,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
     DeleteDrilldownDataWorker.perform(delete_topics_for_deployments)
 
     CogyntLogger.info("#{__MODULE__}", "Stopping the DeploymentPipeline")
-    # Second stop the DeploymentPipeline
-    Redis.publish_async("ingest_channel", %{stop_deployment_pipeline: "deployment"})
+    # Second shutdown the DeploymentPipeline
+    Redis.publish_async("ingest_channel", %{shutdown_deployment_pipeline: "deployment"})
 
     ensure_deployment_pipeline_stopped()
 
@@ -59,8 +61,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
         "ensure_deployment_pipeline_stopped/1 exceeded number of attempts. Moving forward with DeleteDeploymentData"
       )
     else
-      case DeploymentPipeline.deployment_pipeline_running?() or
-             not DeploymentPipeline.deployment_pipeline_finished_processing?() do
+      case DeploymentPipeline.pipeline_running?() or
+             not DeploymentPipeline.pipeline_finished_processing?() do
         true ->
           CogyntLogger.info(
             "#{__MODULE__}",
@@ -82,26 +84,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
   defp reset_deployment_data() do
     DeploymentsContext.hard_delete_deployments()
     # Reset all JobQ Info
-    try do
-      Exq.Api.clear_processes(Exq.Api)
-      Exq.Api.clear_failed(Exq.Api)
-      Exq.Api.clear_retries(Exq.Api)
-      Exq.Api.clear_scheduled(Exq.Api)
-
-      case Exq.Api.queues(Exq.Api) do
-        {:ok, queues} ->
-          Enum.each(queues, fn queue_name ->
-            Exq.unsubscribe(Exq, queue_name)
-            Exq.Api.remove_queue(Exq.Api, queue_name)
-          end)
-
-        _ ->
-          nil
-      end
-    rescue
-      e ->
-        CogyntLogger.error("#{__MODULE__}", "Failed to Reset JobQ data. Error: #{e}")
-    end
+    ExqHelpers.flush_all()
 
     Redis.key_delete("dpcgid")
     Redis.key_delete("dpmi")

@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   """
   use Task
   alias CogyntWorkstationIngest.Events.EventsContext
+  alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
 
   def start_link(_arg \\ []) do
     Task.start_link(__MODULE__, :run, [])
@@ -12,7 +13,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   def run() do
     start_event_type_pipelines()
     start_deployment_pipeline()
-    resubscribe_to_job_queues()
+    ExqHelpers.resubscribe_to_all_queues()
   end
 
   # ----------------------- #
@@ -38,21 +39,5 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
 
   defp start_deployment_pipeline() do
     Redis.publish_async("ingest_channel", %{start_deployment_pipeline: "deployment"})
-  end
-
-  defp resubscribe_to_job_queues() do
-    case Exq.Api.queues(Exq.Api) do
-      {:ok, queues} ->
-        Enum.each(queues, fn queue_name ->
-          if queue_name == "DevDelete" do
-            Exq.subscribe(Exq, queue_name, 1)
-          else
-            Exq.subscribe(Exq, queue_name, 5)
-          end
-        end)
-
-      _ ->
-        nil
-    end
   end
 end

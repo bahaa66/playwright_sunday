@@ -43,7 +43,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
 
     try do
       # poll for failed deployment messages
-      if DeploymentPipeline.deployment_pipeline_running?() do
+      if DeploymentPipeline.pipeline_running?() do
         failed_deployment_messages =
           fetch_and_release_failed_messages(@demand, @deployment_pipeline_module, "fdpm")
 
@@ -68,7 +68,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
 
         consumer_group_id = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
 
-        if EventPipeline.event_pipeline_running?(event_definition_id) do
+        if EventPipeline.pipeline_running?(event_definition_id) do
           failed_event_definition_messages =
             fetch_and_release_failed_messages(@demand, @event_pipeline_module, key)
 
