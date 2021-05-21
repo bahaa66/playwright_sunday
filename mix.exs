@@ -60,19 +60,18 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:kafka,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "kafka",
-       tag: "v1.13.1",
+       tag: "v1.13.12",
        override: true},
       {
         :models,
-        #tag: "v1.13.7",
-        branch: "develop",
+        tag: "v1.13.12",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.13.8",
+        tag: "v1.13.12",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
@@ -86,21 +85,21 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :elasticsearch,
-        tag: "v1.13.5-beta",
+        tag: "v1.13.12",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
         override: true
       },
       {
         :redis,
-        tag: "v1.13.0",
+        tag: "v1.13.12",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true
       },
       {
         :druid,
-        tag: "v1.13.12-beta",
+        tag: "v1.13.12",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "druid",
         override: true
