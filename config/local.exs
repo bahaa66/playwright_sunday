@@ -88,11 +88,6 @@ config :cogynt_workstation_ingest, :deployment_pipeline,
   processor_stages: 2,
   producer_stages: 2
 
-config :cogynt_workstation_ingest, :drilldown_connector,
-  ts_connector_name: "ts_drilldown_connector",
-  tse_connector_name: "tse_drilldown_connector",
-  time_delay: 600_000
-
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.
 config :phoenix, :stacktrace_depth, 20

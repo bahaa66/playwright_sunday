@@ -56,7 +56,7 @@ config :redis, :application,
   name: System.get_env("COGYNT_REDIS_NAME") || "",
   sentinels: System.get_env("COGYNT_REDIS_SENTINELS") || "",
   sentinel_group: System.get_env("COGYNT_REDIS_SENTINEL_GROUP") || "main",
-  databse: System.get_env("COGYNT_REDIS_DATABASE") || "",
+  database: System.get_env("COGYNT_REDIS_DATABASE") || "",
   pools: System.get_env("COGYNT_REDIS_POOLS") || 5,
   exit_on_disconnection: System.get_env("COGYNT_REDIS_EXIT_ON_DISCONNECTION") || true,
   sync_connect: System.get_env("COGYNT_REDIS_SYNC_CONNECT") || true,
@@ -111,12 +111,6 @@ config :cogynt_workstation_ingest, :event_pipeline,
 config :cogynt_workstation_ingest, :deployment_pipeline,
   processor_stages: (System.get_env("DEPLOYMENT_PROCESSOR_STAGES") || "2") |> String.to_integer(),
   producer_stages: (System.get_env("DEPLOYMENT_PRODUCER_STAGES") || "2") |> String.to_integer()
-
-config :cogynt_workstation_ingest, :drilldown_connector,
-  ts_connector_name: System.get_env("TS_DRILLDOWN_CONNECTOR_NAME") || "ts_drilldown_connector",
-  tse_connector_name: System.get_env("TSE_DRILLDOWN_CONNECTOR_NAME") || "tse_drilldown_connector",
-  time_delay:
-    (System.get_env("SINK_CONNECTOR_RESTART_TIMEDELAY") || "600000") |> String.to_integer()
 
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.
