@@ -99,8 +99,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           end
         end)
 
-        # TODO: eventually we will need to start a Drilldown Connector for each new
-        # deployment target that is ingested
         message
 
       _ ->

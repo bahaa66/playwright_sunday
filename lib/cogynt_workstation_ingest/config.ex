@@ -52,10 +52,6 @@ defmodule CogyntWorkstationIngest.Config do
   def postgres_hostname(), do: postgres()[:hostname]
   def postgres_database(), do: postgres()[:database]
 
-  def ts_connector_name(), do: connector()[:ts_connector_name]
-  def tse_connector_name(), do: connector()[:tse_connector_name]
-  def connector_restart_time_delay(), do: connector()[:time_delay]
-
   def schema_registry_url(), do: Application.get_env(:druid, :schema_registry_url)
 
   def parse_kafka_brokers() do
@@ -120,6 +116,4 @@ defmodule CogyntWorkstationIngest.Config do
   defp elasticsearch(), do: Application.get_env(:elasticsearch, :application)
 
   defp clients(), do: Application.get_env(:cogynt_workstation_ingest, :clients)
-
-  defp connector(), do: Application.get_env(:cogynt_workstation_ingest, :drilldown_connector)
 end

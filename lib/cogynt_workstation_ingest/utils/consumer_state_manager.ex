@@ -36,98 +36,89 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     topic = Keyword.get(opts, :topic, nil)
     prev_status = Keyword.get(opts, :prev_status, nil)
 
-    case Redis.key_exists?("cs:#{event_definition_id}") do
-      {:ok, false} ->
-        # create consumer state record
-        consumer_state = %{
-          status: status,
-          topic: topic,
-          prev_status: prev_status
-        }
+    # TODO: After some we should only need to check the new hash value.
+    consumer_state =
+      with {:ok, deprecated_consumer_state} <- Redis.hash_get("cs:#{event_definition_id}", "cs"),
+           {:ok, consumer_state} <- Redis.hash_get("cs", event_definition_id) do
+        consumer_state = consumer_state || deprecated_consumer_state || @default_state
 
-        Redis.hash_set_async("cs:#{event_definition_id}", "cs", consumer_state)
+        # TODO: Eventually remove this when th.
+        if !is_nil(deprecated_consumer_state) and consumer_state != deprecated_consumer_state do
+          Redis.hash_delete("cs:#{event_definition_id}", "cs")
+        end
 
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "New Consumer State created for EventDefinitionId: #{event_definition_id}, #{
-            inspect(consumer_state, pretty: true)
-          }"
-        )
+        consumer_state
+      else
+        {:error, error} ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "Error trying to determine consumer state from Redis for EventDefinitionId: #{
+              event_definition_id
+            }, #{inspect(error)}"
+          )
 
-        Redis.publish_async("consumer_state_subscription", %{
-          id: event_definition_id,
-          topic: topic,
-          status: status
-        })
+          @default_state
+      end
 
-        {:ok, :success}
+    consumer_state =
+      cond do
+        !is_nil(status) and is_nil(prev_status) == true ->
+          current_status = consumer_state.status
 
-      {:ok, true} ->
-        # update consumer state record
-        {:ok, consumer_state} = get_consumer_state(event_definition_id)
+          consumer_state
+          |> Map.put(:status, status)
+          |> Map.put(:prev_status, current_status)
 
-        consumer_state =
-          cond do
-            !is_nil(status) and is_nil(prev_status) == true ->
-              current_status = consumer_state.status
+        !is_nil(status) and !is_nil(prev_status) == true ->
+          consumer_state
+          |> Map.put(:status, status)
+          |> Map.put(:prev_status, prev_status)
 
-              consumer_state
-              |> Map.put(:status, status)
-              |> Map.put(:prev_status, current_status)
+        is_nil(status) and !is_nil(prev_status) == true ->
+          consumer_state
+          |> Map.put(:prev_status, prev_status)
 
-            !is_nil(status) and !is_nil(prev_status) == true ->
-              consumer_state
-              |> Map.put(:status, status)
-              |> Map.put(:prev_status, prev_status)
+        is_nil(status) and is_nil(prev_status) == true ->
+          consumer_state
 
-            is_nil(status) and !is_nil(prev_status) == true ->
-              consumer_state
-              |> Map.put(:prev_status, prev_status)
+        true ->
+          consumer_state
+      end
 
-            is_nil(status) and is_nil(prev_status) == true ->
-              consumer_state
+    consumer_state =
+      if !is_nil(topic) do
+        Map.put(consumer_state, :topic, topic)
+      else
+        consumer_state
+      end
 
-            true ->
-              consumer_state
-          end
+    Redis.hash_set_async("cs", event_definition_id, consumer_state)
 
-        consumer_state =
-          if !is_nil(topic) do
-            Map.put(consumer_state, :topic, topic)
-          else
-            consumer_state
-          end
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "Consumer State updated for EventDefinitionId: #{event_definition_id}, #{
+        inspect(consumer_state, pretty: true)
+      }"
+    )
 
-        Redis.hash_set_async("cs:#{event_definition_id}", "cs", consumer_state)
+    Redis.publish_async("consumer_state_subscription", %{
+      id: event_definition_id,
+      topic: consumer_state.topic,
+      status: consumer_state.status
+    })
 
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Consumer State updated for EventDefinitionId: #{event_definition_id}, #{
-            inspect(consumer_state, pretty: true)
-          }"
-        )
-
-        Redis.publish_async("consumer_state_subscription", %{
-          id: event_definition_id,
-          topic: consumer_state.topic,
-          status: consumer_state.status
-        })
-
-        {:ok, :success}
-    end
+    {:ok, :success}
   end
 
   @doc """
   fetches the consumer_state map stored in the Redis hashkey cs:
   """
   def get_consumer_state(event_definition_id) do
-    case Redis.hash_get("cs:#{event_definition_id}", "cs") do
-      {:ok, nil} ->
-        {:ok, @default_state}
-
-      {:ok, consumer_state} ->
-        {:ok, consumer_state}
-
+    # TODO: After some time these can be removed. It is just so that it is backwards compatible.
+    with {:ok, deprecated_consumer_state} <- Redis.hash_get("cs:#{event_definition_id}", "cs"),
+         {:ok, consumer_state} <- Redis.hash_get("cs", event_definition_id) do
+      {:ok, consumer_state || deprecated_consumer_state || @default_state}
+    else
       {:error, _} ->
         {:error, @default_state}
     end
@@ -137,7 +128,10 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   removes all redis keys that are associated with the given event_definition_id
   """
   def remove_consumer_state(event_definition_id, _opts \\ []) do
+    # TODO: Remove "cs" from the list after servers had a chance to reset and clear the statuses.
     for x <- ["fem", "emi", "cs"], do: Redis.key_delete("#{x}:#{event_definition_id}")
+
+    Redis.hash_delete("cs", event_definition_id)
 
     Redis.hash_delete("ecgid", "EventDefinition-#{event_definition_id}")
 
