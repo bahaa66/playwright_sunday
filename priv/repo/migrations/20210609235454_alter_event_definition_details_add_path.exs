@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterEventDefinitionDetailsAddPath do
+  use Migrations.AlterEventDefinitionDetailsAddPath
+end

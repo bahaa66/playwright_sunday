@@ -796,14 +796,16 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         true ->
           create_event_definition_detail(%{
             event_definition_id: id,
-            field_name: Atom.to_string(key),
+            field_name: val.name,
+            path: val.path,
             field_type: val.dataType
           })
 
         false ->
           create_event_definition_detail(%{
             event_definition_id: id,
-            field_name: key,
+            field_name: val["name"],
+            path: val["path"],
             field_type: val["dataType"]
           })
       end
