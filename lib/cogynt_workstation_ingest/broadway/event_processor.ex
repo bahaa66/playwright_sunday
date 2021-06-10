@@ -172,56 +172,102 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     published_at = event["published_at"]
     confidence = event["_confidence"]
     timestamp = event["_timestamp"]
+    event_definition_details = event_definition.event_definition_details
 
     # Build event_details
     {pg_event_details, elastic_event_details} =
-      Enum.reduce(event, {[], []}, fn {field_name, field_value},
+      Enum.reduce(event, {[], []}, fn {event_key, event_value},
                                       {acc_pg_event_details, acc_elastic_event_document} ->
-        %{field_type: field_type} =
-          Enum.find(event_definition.event_definition_details, %{field_type: nil}, fn %{
-                                                                                        field_name:
-                                                                                          name
-                                                                                      } ->
-            name == field_name
+        event_detail =
+          Enum.reduce_while(event_definition_details, %{}, fn %{
+                                                                field_name: field_name,
+                                                                field_value: field_value,
+                                                                path: path,
+                                                                field_type: field_type
+                                                              },
+                                                              acc ->
+            if Map.equal?(acc, %{}) do
+              if String.contains?(path, "|") do
+                {first_key, remaining_keys} =
+                  String.split(path, "|", trim: true)
+                  |> List.pop_at(0)
+
+                if first_key == event_key do
+                  case parse_map(event_value, remaining_keys) do
+                    {:ok, value_from_path} ->
+                      {:cont,
+                       Map.new([
+                         {:field_name, field_name},
+                         {:field_value, value_from_path},
+                         {:field_type, field_type}
+                       ])}
+
+                    {:error, _} ->
+                      {:cont, acc}
+                  end
+                else
+                  {:cont, acc}
+                end
+              else
+                if path == event_key do
+                  {:cont,
+                   Map.new([
+                     {:field_name, field_name},
+                     {:field_value, field_value},
+                     {:field_type, field_type}
+                   ])}
+                else
+                  {:cont, acc}
+                end
+              end
+            else
+              {:halt, acc}
+            end
           end)
 
-        case is_null_or_empty?(field_value) do
-          false ->
-            # convert Geo and Lexicon data to json
-            field_value =
-              case String.valid?(field_value) do
-                true ->
-                  field_value
+        if !Enum.empty?(event_detail) do
+          case is_null_or_empty?(event_detail.field_value) do
+            false ->
+              # convert Geo and Lexicon data to json
+              converted_field_value =
+                case String.valid?(event_detail.field_value) do
+                  true ->
+                    event_detail.field_value
 
-                false ->
-                  Jason.encode!(field_value)
-              end
+                  false ->
+                    Jason.encode!(event_detail.field_value)
+                end
 
-            acc_pg_event_details =
-              acc_pg_event_details ++
-                [
-                  "#{field_name};#{field_value};#{field_type};#{event_id}\n"
-                ]
-
-            acc_elastic_event_document =
-              if not is_nil(field_type) do
-                acc_elastic_event_document ++
+              acc_pg_event_details =
+                acc_pg_event_details ++
                   [
-                    %{
-                      event_id: event_id,
-                      field_name: field_name,
-                      field_type: field_type,
-                      field_value: field_value
-                    }
+                    "#{event_detail.field_name};#{converted_field_value};#{
+                      event_detail.field_type
+                    };#{event_id}\n"
                   ]
-              else
-                acc_elastic_event_document
-              end
 
-            {acc_pg_event_details, acc_elastic_event_document}
+              acc_elastic_event_document =
+                if not is_nil(event_detail.field_type) do
+                  acc_elastic_event_document ++
+                    [
+                      %{
+                        event_id: event_id,
+                        field_name: event_detail.field_name,
+                        field_type: event_detail.field_type,
+                        field_value: converted_field_value
+                      }
+                    ]
+                else
+                  acc_elastic_event_document
+                end
 
-          true ->
-            {acc_pg_event_details, acc_elastic_event_document}
+              {acc_pg_event_details, acc_elastic_event_document}
+
+            true ->
+              {acc_pg_event_details, acc_elastic_event_document}
+          end
+        else
+          {acc_pg_event_details, acc_elastic_event_document}
         end
       end)
 
@@ -810,5 +856,34 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   defp is_null_or_empty?(binary) do
     is_nil(binary) or binary == ""
+  end
+
+  defp parse_map(map, keys) when is_map(map) and is_list(keys) do
+    {first_key, remaining_keys} = List.pop_at(keys, 0)
+
+    if Map.has_key?(map, first_key) do
+      Map.get(map, first_key)
+      |> parse_map(remaining_keys)
+    else
+      CogyntLogger.warn(
+        "#{__MODULE__}",
+        "parse_map/2 Map: #{inspect(map)} does not have matching keys for Keys: #{inspect(keys)}. Invalid Path variable"
+      )
+
+      {:error, :invalid_path}
+    end
+  end
+
+  defp parse_map(map, key) when is_map(map) do
+    if Map.has_key?(map, key) do
+      {:ok, Map.get(map, key)}
+    else
+      CogyntLogger.warn(
+        "#{__MODULE__}",
+        "parse_map/2 Map: #{inspect(map)} does not have matching keys for Key: #{inspect(key)}. Invalid Path variable"
+      )
+
+      {:error, :invalid_path}
+    end
   end
 end
