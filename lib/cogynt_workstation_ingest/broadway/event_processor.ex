@@ -859,31 +859,35 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   defp parse_map(map, keys) when is_map(map) and is_list(keys) do
-    {first_key, remaining_keys} = List.pop_at(keys, 0)
+    case List.pop_at(keys, 0) do
+      {first_key, []} ->
+        if Map.has_key?(map, first_key) do
+          {:ok, Map.get(map, first_key)}
+        else
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "parse_map/2 Map: #{inspect(map)} does not have matching keys for Keys: #{
+              inspect(keys)
+            }. Invalid Path variable"
+          )
 
-    if Map.has_key?(map, first_key) do
-      Map.get(map, first_key)
-      |> parse_map(remaining_keys)
-    else
-      CogyntLogger.warn(
-        "#{__MODULE__}",
-        "parse_map/2 Map: #{inspect(map)} does not have matching keys for Keys: #{inspect(keys)}. Invalid Path variable"
-      )
+          {:error, :invalid_path}
+        end
 
-      {:error, :invalid_path}
-    end
-  end
+      {first_key, remaining_keys} ->
+        if Map.has_key?(map, first_key) do
+          Map.get(map, first_key)
+          |> parse_map(remaining_keys)
+        else
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "parse_map/2 Map: #{inspect(map)} does not have matching keys for Keys: #{
+              inspect(keys)
+            }. Invalid Path variable"
+          )
 
-  defp parse_map(map, key) when is_map(map) do
-    if Map.has_key?(map, key) do
-      {:ok, Map.get(map, key)}
-    else
-      CogyntLogger.warn(
-        "#{__MODULE__}",
-        "parse_map/2 Map: #{inspect(map)} does not have matching keys for Key: #{inspect(key)}. Invalid Path variable"
-      )
-
-      {:error, :invalid_path}
+          {:error, :invalid_path}
+        end
     end
   end
 end
