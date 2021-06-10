@@ -181,7 +181,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         event_detail =
           Enum.reduce_while(event_definition_details, %{}, fn %{
                                                                 field_name: field_name,
-                                                                field_value: field_value,
                                                                 path: path,
                                                                 field_type: field_type
                                                               },
@@ -213,7 +212,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                   {:cont,
                    Map.new([
                      {:field_name, field_name},
-                     {:field_value, field_value},
+                     {:field_value, event_value},
                      {:field_type, field_type}
                    ])}
                 else
