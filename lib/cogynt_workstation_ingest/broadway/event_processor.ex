@@ -174,86 +174,29 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     timestamp = event["_timestamp"]
     event_definition_details = event_definition.event_definition_details
 
-    # Build event_details
     {pg_event_details, elastic_event_details} =
-      Enum.reduce(event, {[], []}, fn {event_key, event_value},
-                                      {acc_pg_event_details, acc_elastic_event_document} ->
-        event_detail =
-          Enum.reduce_while(event_definition_details, %{}, fn %{
-                                                                field_name: field_name,
-                                                                path: path,
-                                                                field_type: field_type
-                                                              },
-                                                              acc ->
-            if Map.equal?(acc, %{}) do
-              if String.contains?(path, "|") do
-                {first_key, remaining_keys} =
-                  String.split(path, "|", trim: true)
-                  |> List.pop_at(0)
-
-                if first_key == event_key do
-                  case parse_map(event_value, remaining_keys) do
-                    {:ok, value_from_path} ->
-                      {:cont,
-                       Map.new([
-                         {:field_name, field_name},
-                         {:field_value, value_from_path},
-                         {:field_type, field_type}
-                       ])}
-
-                    {:error, _} ->
-                      {:cont, acc}
-                  end
-                else
-                  {:cont, acc}
-                end
-              else
-                if path == event_key do
-                  {:cont,
-                   Map.new([
-                     {:field_name, field_name},
-                     {:field_value, event_value},
-                     {:field_type, field_type}
-                   ])}
-                else
-                  {:cont, acc}
-                end
-              end
-            else
-              {:halt, acc}
-            end
-          end)
-
-        if !Enum.empty?(event_detail) do
-          case is_null_or_empty?(event_detail.field_value) do
-            false ->
-              # convert Geo and Lexicon data to json
-              converted_field_value =
-                case String.valid?(event_detail.field_value) do
-                  true ->
-                    event_detail.field_value
-
-                  false ->
-                    Jason.encode!(event_detail.field_value)
-                end
-
+      Enum.reduce(event_definition_details, {[], []}, fn
+        %{field_name: name, field_type: type, path: path},
+        {acc_pg_event_details, acc_elastic_event_document} ->
+          String.split(path, "|", trim: true)
+          |> get_path_value(event)
+          |> case do
+            {:ok, field_value} ->
               acc_pg_event_details =
                 acc_pg_event_details ++
                   [
-                    "#{event_detail.field_name};#{converted_field_value};#{
-                      event_detail.field_type
-                    };#{event_id}\n"
+                    "#{name};#{field_value};#{type};#{event_id}\n"
                   ]
 
               acc_elastic_event_document =
-                if not is_nil(event_detail.field_type) do
+                if !is_nil(type) do
                   acc_elastic_event_document ++
                     [
                       %{
                         event_id: event_id,
-                        field_name: event_detail.field_name,
-                        field_type: event_detail.field_type,
-                        field_value: converted_field_value
+                        field_name: name,
+                        field_type: type,
+                        field_value: field_value
                       }
                     ]
                 else
@@ -262,12 +205,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
               {acc_pg_event_details, acc_elastic_event_document}
 
-            true ->
+            {:error, :not_found} ->
               {acc_pg_event_details, acc_elastic_event_document}
           end
-        else
-          {acc_pg_event_details, acc_elastic_event_document}
-        end
       end)
 
     # Build elasticsearch documents
@@ -857,35 +797,31 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     is_nil(binary) or binary == ""
   end
 
-  defp parse_map(map, keys) when is_map(map) and is_list(keys) do
-    case List.pop_at(keys, 0) do
-      {first_key, []} ->
-        if Map.has_key?(map, first_key) do
-          {:ok, Map.get(map, first_key)}
-        else
-          CogyntLogger.warn(
-            "#{__MODULE__}",
-            "parse_map/2 Map: #{inspect(map)} does not have matching keys for Keys: #{
-              inspect(keys)
-            }. Invalid Path variable"
-          )
+  defp get_path_value([], _value), do: {:error, :not_found}
 
-          {:error, :invalid_path}
-        end
+  defp get_path_value([field | tail] = path, event) do
+    case Map.get(event, field) do
+      value when is_map(value) ->
+        get_path_value(tail, value)
 
-      {first_key, remaining_keys} ->
-        if Map.has_key?(map, first_key) do
-          Map.get(map, first_key)
-          |> parse_map(remaining_keys)
-        else
-          CogyntLogger.warn(
-            "#{__MODULE__}",
-            "parse_map/2 Map: #{inspect(map)} does not have matching keys for Keys: #{
-              inspect(keys)
-            }. Invalid Path variable"
-          )
+      value ->
+        case is_null_or_empty?(value) do
+          false ->
+            case String.valid?(value) do
+              true ->
+                {:ok, value}
 
-          {:error, :invalid_path}
+              false ->
+                {:ok, Jason.encode!(value)}
+            end
+
+          true ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Could not find value at given Path: #{inspect(path)}"
+            )
+
+            {:error, :not_found}
         end
     end
   end
