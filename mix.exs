@@ -64,14 +64,16 @@ defmodule CogyntWorkstationIngest.MixProject do
        override: true},
       {
         :models,
-        tag: "v1.13.14-beta",
+        # tag: "v1.13.14-beta",
+        branch: "feat/CDST-1014-edge-labels",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.13.14-beta",
+        # tag: "v1.13.14-beta",
+        branch: "feat/CDST-1014-edge-labels",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true

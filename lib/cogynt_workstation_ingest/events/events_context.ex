@@ -557,6 +557,14 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # -------------------------------- #
   # --- EventLink Schema Methods --- #
   # -------------------------------- #
+  def insert_all_event_links(event_links) do
+    # Postgresql protocol has a limit of maximum parameters (65535)
+    Enum.chunk_every(event_links, @insert_batch_size)
+    |> Enum.each(fn rows ->
+      Repo.insert_all(EventLink, rows, timeout: 60_000)
+    end)
+  end
+
   def update_event_links(args, set: set) do
     query = from(e in EventLink)
 
