@@ -65,37 +65,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           data: %{event: %{@entities => entities}, event_id: event_id, crud_action: action} = data
         } = message
       ) do
-    entity_links_core_ids =
-      Enum.reduce(entities, "", fn {_key, link_object_list}, acc_0 ->
-        objects_links =
-          Enum.reduce(link_object_list, "", fn link_object, acc_1 ->
-            case link_object["id"] do
-              nil ->
-                CogyntLogger.warn(
-                  "#{__MODULE__}",
-                  "link object missing id field. LinkObject: #{inspect(link_object, pretty: true)}"
-                )
-
-                acc_1
-
-              core_id ->
-                if acc_1 == "" do
-                  acc_1 <> core_id
-                else
-                  acc_1 <> "," <> core_id
-                end
-            end
-          end)
-
-        if acc_0 == "" do
-          acc_0 <> objects_links
-        else
-          acc_0 <> "," <> objects_links
-        end
-      end)
-
-    entity_links_core_ids = String.to_charlist(entity_links_core_ids)
-
     deleted_at =
       if action == @delete do
         DateTime.truncate(DateTime.utc_now(), :second)
@@ -103,22 +72,33 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         nil
       end
 
-    case EventsContext.call_insert_event_links_function(
-           event_id,
-           entity_links_core_ids,
-           deleted_at
-         ) do
-      {:ok, _result} ->
-        data = Map.put(data, :pipeline_state, :process_entities)
-        Map.put(message, :data, data)
+    Enum.reduce(entities, [], fn {edge_label, link_data_list}, acc ->
+      link_object = List.first(link_data_list) || %{}
 
-      {:error, error} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Failed to insert link_events. Error: #{inspect(error)}"
-        )
+      case link_object["id"] do
+        nil ->
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "link object missing id field. LinkObject: #{inspect(link_object, pretty: true)}"
+          )
 
-        raise "process_entities/1 failed"
-    end
+          acc
+
+        core_id ->
+          acc ++
+            [
+              %{
+                linkage_event_id: event_id,
+                label: edge_label,
+                core_id: core_id,
+                deleted_at: deleted_at
+              }
+            ]
+      end
+    end)
+    |> EventsContext.insert_all_event_links()
+
+    data = Map.put(data, :pipeline_state, :process_entities)
+    Map.put(message, :data, data)
   end
 end
