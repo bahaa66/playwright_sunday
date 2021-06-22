@@ -172,57 +172,42 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     published_at = event["published_at"]
     confidence = event["_confidence"]
     timestamp = event["_timestamp"]
+    event_definition_details = event_definition.event_definition_details
 
-    # Build event_details
     {pg_event_details, elastic_event_details} =
-      Enum.reduce(event, {[], []}, fn {field_name, field_value},
-                                      {acc_pg_event_details, acc_elastic_event_document} ->
-        %{field_type: field_type} =
-          Enum.find(event_definition.event_definition_details, %{field_type: nil}, fn %{
-                                                                                        field_name:
-                                                                                          name
-                                                                                      } ->
-            name == field_name
-          end)
-
-        case is_null_or_empty?(field_value) do
-          false ->
-            # convert Geo and Lexicon data to json
-            field_value =
-              case String.valid?(field_value) do
-                true ->
-                  field_value
-
-                false ->
-                  Jason.encode!(field_value)
-              end
-
-            acc_pg_event_details =
-              acc_pg_event_details ++
-                [
-                  "#{field_name};#{field_value};#{field_type};#{event_id}\n"
-                ]
-
-            acc_elastic_event_document =
-              if not is_nil(field_type) do
-                acc_elastic_event_document ++
+      Enum.reduce(event_definition_details, {[], []}, fn
+        %{field_name: name, field_type: type, path: path},
+        {acc_pg_event_details, acc_elastic_event_document} ->
+          String.split(path, "|", trim: true)
+          |> get_path_value(event)
+          |> case do
+            {:ok, field_value} ->
+              acc_pg_event_details =
+                acc_pg_event_details ++
                   [
-                    %{
-                      event_id: event_id,
-                      field_name: field_name,
-                      field_type: field_type,
-                      field_value: field_value
-                    }
+                    "#{name};#{field_value};#{type};#{event_id}\n"
                   ]
-              else
-                acc_elastic_event_document
-              end
 
-            {acc_pg_event_details, acc_elastic_event_document}
+              acc_elastic_event_document =
+                if !is_nil(type) do
+                  acc_elastic_event_document ++
+                    [
+                      %{
+                        event_id: event_id,
+                        field_name: name,
+                        field_type: type,
+                        field_value: field_value
+                      }
+                    ]
+                else
+                  acc_elastic_event_document
+                end
 
-          true ->
-            {acc_pg_event_details, acc_elastic_event_document}
-        end
+              {acc_pg_event_details, acc_elastic_event_document}
+
+            {:error, :not_found} ->
+              {acc_pg_event_details, acc_elastic_event_document}
+          end
       end)
 
     # Build elasticsearch documents
@@ -810,5 +795,34 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   defp is_null_or_empty?(binary) do
     is_nil(binary) or binary == ""
+  end
+
+  defp get_path_value([], _value), do: {:error, :not_found}
+
+  defp get_path_value([field | tail] = path, event) do
+    case Map.get(event, field) do
+      value when is_map(value) ->
+        get_path_value(tail, value)
+
+      value ->
+        case is_null_or_empty?(value) do
+          false ->
+            case String.valid?(value) do
+              true ->
+                {:ok, value}
+
+              false ->
+                {:ok, Jason.encode!(value)}
+            end
+
+          true ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Could not find value at given Path: #{inspect(path)}"
+            )
+
+            {:error, :not_found}
+        end
+    end
   end
 end
