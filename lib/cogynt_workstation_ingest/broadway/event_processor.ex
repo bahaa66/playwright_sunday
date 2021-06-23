@@ -21,147 +21,72 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     risk_history_document: nil,
     event_document: nil,
     notifications: nil,
-    event_id: nil
+    event_id: nil,
+    notification_priority: 3
   }
 
   @doc """
-  Will create the event record for the Broadway Message. If Crud action key exists
-  then process_event() will call a Psql Function to delete events linked to the core_id.
-  Otherwise it just inserts the event.
+  Creates the map from the ingested Kafka metadata that will be inserted into the Events table
   """
   def process_event(
         %Message{
           data:
             %{
-              event_id: event_id,
-              event: %{@crud => action} = event,
+              event: event,
               event_definition_id: event_definition_id
             } = data
         } = message
       ) do
-    case is_nil(event_id) do
-      true ->
-        core_id = event["id"]
-        occurred_at = event["_timestamp"]
-        event_id = Ecto.UUID.generate()
+    action = event[@crud]
 
-        # If Crud action is Delete, then we need to set the deleted_at column
-        # of the event we are creating and add the event_id into the list
-        # of deleted_event_ids
-        {deleted_at, deleted_by} =
-          if action == @delete do
-            {DateTime.truncate(DateTime.utc_now(), :second), DeletedByValue.Crud.value()}
-          else
-            {nil, nil}
-          end
+    pg_event =
+      case action do
+        "update" ->
+          %{
+            core_id: event["id"],
+            occurred_at: event["_timestamp"],
+            event_details: Jason.encode!(event),
+            event_definition_id: event_definition_id,
+            updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+          }
 
-        case EventsContext.call_insert_crud_event_function(
-               event_id,
-               event_definition_id,
-               core_id,
-               occurred_at,
-               deleted_at,
-               deleted_by
-             ) do
-          {:ok, %Postgrex.Result{rows: rows}} ->
-            deleted_event_ids =
-              List.flatten(rows)
-              |> Enum.reduce([], fn binary_id, acc ->
-                case Ecto.UUID.cast(binary_id) do
-                  {:ok, uuid} ->
-                    acc ++ [uuid]
+        "delete" ->
+          %{
+            core_id: event["id"],
+            occurred_at: event["_timestamp"],
+            event_details: Jason.encode!(event),
+            event_definition_id: event_definition_id
+          }
 
-                  _ ->
-                    acc
-                end
-              end)
+        _ ->
+          now = DateTime.truncate(DateTime.utc_now(), :second)
 
-            data =
-              Map.put(data, :event_id, event_id)
-              |> Map.put(:deleted_event_ids, deleted_event_ids)
-              |> Map.put(:crud_action, action)
-              |> Map.put(:pipeline_state, :process_event)
+          %{
+            core_id: event["id"],
+            occurred_at: event["_timestamp"],
+            event_details: Jason.encode!(event),
+            event_definition_id: event_definition_id,
+            created_at: now,
+            updated_at: now
+          }
+      end
 
-            Map.put(message, :data, data)
+    data =
+      Map.put(data, :pg_event, pg_event)
+      |> Map.put(:crud_action, action)
+      |> Map.put(:pipeline_state, :process_event)
 
-          {:error, %Postgrex.Error{postgres: %{message: error}}} ->
-            CogyntLogger.error(
-              "#{__MODULE__}",
-              "insert_event failed with Error: #{inspect(error)}"
-            )
-
-            raise "process_event/1 failed"
-
-          _ ->
-            CogyntLogger.error(
-              "#{__MODULE__}",
-              "insert_event failed"
-            )
-
-            raise "process_event/1 failed"
-        end
-
-      false ->
-        data = Map.put(data, :pipeline_state, :process_event)
-        Map.put(message, :data, data)
-    end
-  end
-
-  def process_event(
-        %Message{
-          data: %{event_id: event_id, event: event, event_definition: event_definition} = data
-        } = message
-      ) do
-    case is_nil(event_id) do
-      true ->
-        case EventsContext.create_event(%{
-               event_definition_id: event_definition.id,
-               core_id: event["id"],
-               occurred_at: event["_timestamp"]
-             }) do
-          {:ok, %{id: event_id}} ->
-            data =
-              Map.put(data, :event_id, event_id)
-              |> Map.put(:deleted_event_ids, @defaults.deleted_event_ids)
-              |> Map.put(:crud_action, @defaults.crud_action)
-              |> Map.put(:pipeline_state, :process_event)
-
-            Map.put(message, :data, data)
-
-          {:error, reason} ->
-            CogyntLogger.error(
-              "#{__MODULE__}",
-              "process_event/1 failed with reason: #{inspect(reason, pretty: true)}"
-            )
-
-            raise "process_event/1 failed"
-        end
-
-      false ->
-        data = Map.put(data, :pipeline_state, :process_event)
-        Map.put(message, :data, data)
-    end
-  end
-
-  @doc """
-  Takes the field_name and field_value fields from the event and creates a list of event_detail
-  maps. Also creates a list of elasticsearch docs. Returns an updated data map with
-  the :event_details, :risk_history_doc and :event_docs values.
-  """
-  def process_event_details_and_elasticsearch_docs(
-        %Message{data: %{event_id: nil} = data} = message
-      ) do
-    data = Map.put(data, :pipeline_state, :process_event_details_and_elasticsearch_docs)
     Map.put(message, :data, data)
   end
 
-  def process_event_details_and_elasticsearch_docs(
+  @doc """
+  """
+  def process_elasticsearch_documents(
         %Message{
           data:
             %{
               event: event,
               event_definition: event_definition,
-              event_id: event_id,
               event_definition_id: event_definition_id,
               crud_action: action
             } = data
@@ -174,39 +99,30 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     timestamp = event["_timestamp"]
     event_definition_details = event_definition.event_definition_details
 
-    {pg_event_details, elastic_event_details} =
+    elasticsearch_event_details =
       Enum.reduce(event_definition_details, {[], []}, fn
-        %{field_name: name, field_type: type, path: path},
-        {acc_pg_event_details, acc_elastic_event_document} ->
+        %{field_name: name, field_type: type, path: path}, acc ->
           String.split(path, "|", trim: true)
           |> get_path_value(event)
           |> case do
             {:ok, field_value} ->
-              acc_pg_event_details =
-                acc_pg_event_details ++
-                  [
-                    "#{name};#{field_value};#{type};#{event_id}\n"
-                  ]
+              case type do
+                nil ->
+                  acc
 
-              acc_elastic_event_document =
-                if !is_nil(type) do
-                  acc_elastic_event_document ++
+                _ ->
+                  acc ++
                     [
                       %{
-                        event_id: event_id,
                         field_name: name,
                         field_type: type,
                         field_value: field_value
                       }
                     ]
-                else
-                  acc_elastic_event_document
-                end
-
-              {acc_pg_event_details, acc_elastic_event_document}
+              end
 
             {:error, :not_found} ->
-              {acc_pg_event_details, acc_elastic_event_document}
+              acc
           end
       end)
 
@@ -214,11 +130,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     elasticsearch_event_doc =
       if action != @delete do
         case EventDocumentBuilder.build_document(
-               event_id,
                core_id,
                event_definition.title,
                event_definition_id,
-               elastic_event_details,
+               elasticsearch_event_details,
                published_at
              ) do
           {:ok, event_doc} ->
@@ -233,7 +148,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     elasticsearch_risk_history_doc =
       case RiskHistoryDocumentBuilder.build_document(
-             event_id,
              event_definition_id,
              core_id,
              confidence,
@@ -247,23 +161,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end
 
     data =
-      Map.put(data, :event_details, pg_event_details)
-      |> Map.put(:event_doc, elasticsearch_event_doc)
+      Map.put(data, :event_doc, elasticsearch_event_doc)
       |> Map.put(:risk_history_doc, elasticsearch_risk_history_doc)
-      |> Map.put(:pipeline_state, :process_event_details_and_elasticsearch_docs)
+      |> Map.put(:pipeline_state, :process_elasticsearch_documents)
 
     Map.put(message, :data, data)
   end
 
   @doc """
-  process_notifications/1 will create the notifications for each event that comes through the pipeline
-  due to the nature of notification and CRUD events, the notifications must be created in the database at
-  this stage of the pipeline and not in the batch_execution stage.
   """
-  def process_notifications(%Message{data: %{event_id: nil} = data} = message) do
-    data = Map.put(data, :pipeline_state, :process_notifications)
-    Map.put(message, :data, data)
-  end
 
   def process_notifications(
         %Message{
@@ -271,14 +177,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             %{
               event: event,
               event_definition: event_definition,
-              event_id: event_id,
-              deleted_event_ids: []
+              crud_action: action
             } = data
         } = message
       ) do
     risk_score = Map.get(event, @risk_score, 0)
 
-    {_count, notifications} =
+    pg_notifications =
       NotificationsContext.fetch_valid_notification_settings(
         %{
           event_definition_id: event_definition.id,
@@ -295,15 +200,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           [
             %{
               title: ns.title,
-              # description: nil,
-              user_id: ns.user_id,
               archived_at: nil,
-              priority: 3,
+              priority: @defaults.notification_priority,
               assigned_to: ns.assigned_to,
               dismissed_at: nil,
-              deleted_at: nil,
               core_id: event["id"],
-              event_id: event_id,
               tag_id: ns.tag_id,
               notification_setting_id: ns.id,
               created_at: now,
@@ -311,174 +212,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             }
           ]
       end)
-      |> NotificationsContext.insert_all_notifications(
-        returning: [
-          :id,
-          :title,
-          # :description,
-          :user_id,
-          :archived_at,
-          :priority,
-          :assigned_to,
-          :dismissed_at,
-          :deleted_at,
-          :core_id,
-          :event_id,
-          :tag_id,
-          :notification_setting_id,
-          :created_at,
-          :updated_at
-        ]
-      )
 
     # TODO: create system notifications in bulk step
-    SystemNotificationContext.bulk_insert_system_notifications(notifications)
+    # SystemNotificationContext.bulk_insert_system_notifications(notifications)
 
-    data = Map.put(data, :pipeline_state, :process_notifications)
+    data =
+      Map.put(data, :notifications, pg_notifications)
+      |> Map.put(:pipeline_state, :process_notifications)
+
     Map.put(message, :data, data)
-  end
-
-  def process_notifications(
-        %Message{
-          data:
-            %{
-              event: event,
-              event_definition: event_definition,
-              event_id: event_id,
-              crud_action: crud_action,
-              deleted_event_ids: deleted_event_ids
-            } = data
-        } = message
-      ) do
-    case Enum.empty?(deleted_event_ids) do
-      true ->
-        data = Map.put(data, :pipeline_state, :process_notifications)
-        Map.put(message, :data, data)
-
-      false ->
-        # start = Time.utc_now()
-        risk_score = Map.get(event, @risk_score, 0)
-
-        # 1) Fetch all valid_notification_settings and build a list of notifications to
-        # create for each
-        new_notifications =
-          NotificationsContext.fetch_valid_notification_settings(
-            %{
-              event_definition_id: event_definition.id,
-              deleted_at: nil,
-              active: true
-            },
-            risk_score,
-            event_definition
-          )
-          |> Enum.reduce([], fn valid_ns, acc ->
-            deleted_at =
-              if crud_action == @delete do
-                DateTime.truncate(DateTime.utc_now(), :second)
-              else
-                nil
-              end
-
-            now = DateTime.truncate(DateTime.utc_now(), :second)
-
-            acc ++
-              [
-                %{
-                  id: Ecto.UUID.generate(),
-                  title: valid_ns.title,
-                  # description: nil,
-                  user_id: valid_ns.user_id,
-                  archived_at: nil,
-                  priority: 3,
-                  assigned_to: valid_ns.assigned_to,
-                  dismissed_at: nil,
-                  deleted_at: deleted_at,
-                  core_id: event["id"],
-                  event_id: event_id,
-                  tag_id: valid_ns.tag_id,
-                  notification_setting_id: valid_ns.id,
-                  created_at: now,
-                  updated_at: now
-                }
-              ]
-          end)
-
-        # 2) Update all notifications that match invalid_notification_settings to be deleted
-        invalid_notification_setting_ids =
-          NotificationsContext.fetch_invalid_notification_settings(
-            %{
-              event_definition_id: event_definition.id,
-              deleted_at: nil,
-              active: true
-            },
-            risk_score,
-            event_definition
-          )
-          |> Enum.map(fn ns -> ns.id end)
-
-        if !Enum.empty?(invalid_notification_setting_ids) do
-          NotificationsContext.update_notifcations(
-            %{
-              filter: %{
-                notification_setting_ids: invalid_notification_setting_ids,
-                deleted_at: nil,
-                core_id: event["id"]
-              }
-            },
-            set: [deleted_at: DateTime.truncate(DateTime.utc_now(), :second)]
-          )
-        end
-
-        # 3) Insert notifications for valid_notification_settings
-        {_count, created_notifications} =
-          NotificationsContext.insert_all_notifications(new_notifications,
-            returning: [
-              :id,
-              :title,
-              # :description,
-              :user_id,
-              :archived_at,
-              :priority,
-              :assigned_to,
-              :dismissed_at,
-              :deleted_at,
-              :core_id,
-              :event_id,
-              :tag_id,
-              :notification_setting_id,
-              :created_at,
-              :updated_at
-            ],
-            on_conflict:
-              {:replace,
-               [
-                 :title,
-                 # :description,
-                 :user_id,
-                 :assigned_to,
-                 :deleted_at,
-                 :event_id,
-                 :notification_setting_id,
-                 :tag_id,
-                 :core_id,
-                 :updated_at
-               ]},
-            conflict_target:
-              {:unsafe_fragment, "(core_id, notification_setting_id) WHERE core_id IS NOT NULL"}
-          )
-
-        if !Enum.empty?(created_notifications) do
-          # TODO: create system notifications in bulk step
-          SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
-        end
-
-        # finish = Time.utc_now()
-        # diff = Time.diff(finish, start, :millisecond)
-        # IO.puts("DURATION OF NEW NOTIFICATION LOGIC: #{diff}, PID: #{inspect(self())}")
-
-        data = Map.put(data, :pipeline_state, :process_notifications)
-        Map.put(message, :data, data)
-    end
   end
 
   @doc """
@@ -594,6 +336,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     # Elasticsearch Transactional Upserts
     bulk_upsert_event_documents_with_transaction(bulk_transactional_data)
     bulk_upsert_risk_history_with_transaction(bulk_transactional_data)
+
+    # Execute multi transaction
+    # 1) upsert events for core_id
+    # 2) upsert notifications for core_id
 
     case EventsContext.insert_all_event_details_with_copy(bulk_transactional_data.event_details) do
       {:ok, _} ->

@@ -50,7 +50,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       ],
       batchers: [
         default: [
-          batch_size: 1_000,
+          batch_size: 600,
           concurrency: 10
         ]
       ],
@@ -81,7 +81,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           Map.put(message, :data, %{
             event: decoded_data,
             event_definition_id: event_definition_id,
-            event_id: nil,
+            core_id: nil,
             pipeline_state: nil,
             retry_count: 0,
             event_definition:
