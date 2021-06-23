@@ -195,7 +195,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                     p, a when is_map(a) ->
                       Map.get(a, p)
 
-                    _p, nil ->
+                    _, _ ->
                       nil
                   end)
                   |> case do
