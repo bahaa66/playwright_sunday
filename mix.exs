@@ -71,7 +71,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :migrations,
-        tag: "v1.14.0",
+        branch: "fix/CDST-1037-event-links-ordering",
+        #tag: "v1.14.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
