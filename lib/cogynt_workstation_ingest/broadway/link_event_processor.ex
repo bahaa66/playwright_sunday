@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   """
   alias CogyntWorkstationIngest.Events.EventsContext
   alias Broadway.Message
+  alias Models.Enums.DeletedByValue
 
   @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
   @delete Application.get_env(:cogynt_workstation_ingest, :core_keys)[:delete]
@@ -65,11 +66,11 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           data: %{event: %{@entities => entities}, event_id: event_id, crud_action: action} = data
         } = message
       ) do
-    deleted_at =
+    {deleted_at, deleted_by} =
       if action == @delete do
-        DateTime.truncate(DateTime.utc_now(), :second)
+        {DateTime.truncate(DateTime.utc_now(), :second), DeletedByValue.Crud.value()}
       else
-        nil
+        {nil, nil}
       end
 
     Enum.reduce(entities, [], fn {edge_label, link_data_list}, acc ->
@@ -91,7 +92,8 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                 linkage_event_id: event_id,
                 label: edge_label,
                 core_id: core_id,
-                deleted_at: deleted_at
+                deleted_at: deleted_at,
+                deleted_by: deleted_by
               }
             ]
       end
