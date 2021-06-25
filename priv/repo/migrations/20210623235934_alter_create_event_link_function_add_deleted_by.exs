@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterCreateEventLinkFunctionAddDeletedBy do
+  use Migrations.AlterCreateEventLinkFunctionAddDeletedBy
+end

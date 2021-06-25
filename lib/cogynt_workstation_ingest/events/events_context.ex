@@ -619,6 +619,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         event_id,
         event_definition_id,
         core_id,
+        event_type,
         occurred_at,
         deleted_at,
         deleted_by
@@ -651,11 +652,19 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         "CAST('#{deleted_by}' as VARCHAR(255))"
       end
 
+    event_type_cast =
+      if is_nil(event_type) do
+        "NULL"
+      else
+        "CAST('#{event_type}' as VARCHAR(255))"
+      end
+
     try do
       case Repo.query("SELECT insert_crud_event(
             CAST('#{event_id}' as UUID),
             CAST('#{event_definition_id}' as UUID),
             #{core_id_cast},
+            #{event_type_cast},
             #{occurred_at_cast},
             #{deleted_at_cast},
             #{deleted_by_cast}
