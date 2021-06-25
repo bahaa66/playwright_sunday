@@ -619,10 +619,10 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         event_id,
         event_definition_id,
         core_id,
+        event_type,
         occurred_at,
         deleted_at,
-        deleted_by,
-        event_type
+        deleted_by
       ) do
     core_id_cast =
       if is_nil(core_id) do
@@ -664,10 +664,10 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
             CAST('#{event_id}' as UUID),
             CAST('#{event_definition_id}' as UUID),
             #{core_id_cast},
+            #{event_type_cast},
             #{occurred_at_cast},
             #{deleted_at_cast},
-            #{deleted_by_cast},
-            #{event_type_cast}
+            #{deleted_by_cast}
             )") do
         {:ok, result} ->
           {:ok, result}

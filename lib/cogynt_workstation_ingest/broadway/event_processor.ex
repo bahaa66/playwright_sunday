@@ -61,10 +61,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                event_id,
                event_definition_id,
                core_id,
+               event_type,
                occurred_at,
                deleted_at,
-               deleted_by,
-               event_type
+               deleted_by
              ) do
           {:ok, %Postgrex.Result{rows: rows}} ->
             deleted_event_ids =
