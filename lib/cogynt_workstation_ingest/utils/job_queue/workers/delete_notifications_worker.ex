@@ -13,27 +13,20 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
 
-  @page_size 2000
-
   def perform(notification_setting_id) do
     with %NotificationSetting{} = notification_setting <-
            NotificationsContext.get_notification_setting(notification_setting_id),
          %EventDefinition{} = event_definition <-
            EventsContext.get_event_definition(notification_setting.event_definition_id) do
-      # First stop the pipeline and ensure that if finishes processing its messages in the pipeline
+      # 1) pause the pipeline and ensure that if finishes processing its messages
       # before starting the delete of notifications
-      stop_event_pipeline(event_definition)
+      pause_event_pipeline(event_definition)
 
-      # Second once the pipeline has been stopped and the finished processing start the pagination
-      # of events and delete of notifications
-      NotificationsContext.get_page_of_notifications(
-        %{
-          filter: %{notification_setting_id: notification_setting_id},
-          select: [:id]
-        },
-        page_size: @page_size
-      )
-      |> process_notifications(notification_setting.id)
+      # 2) delete all notifications linked to the notification_setting_id
+      NotificationsContext.hard_delete_notifications(notification_setting_id)
+
+      # 3) delete the notification setting
+      NotificationsContext.hard_delete_notification_setting(notification_setting_id)
 
       # Finally check to see if consumer should be started back up again
       start_event_pipeline(event_definition)
@@ -59,7 +52,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
   # ----------------------- #
   # --- Private Methods --- #
   # ----------------------- #
-  defp stop_event_pipeline(event_definition) do
+  defp pause_event_pipeline(event_definition) do
     CogyntLogger.info(
       "#{__MODULE__}",
       "Stopping EventPipeline for #{event_definition.topic}"
@@ -132,35 +125,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
             "EventPipeline #{event_definition_id} drained"
           )
       end
-    end
-  end
-
-  defp process_notifications(
-         %{entries: notifications, page_number: page_number, total_pages: total_pages},
-         notification_setting_id
-       ) do
-    notification_ids = Enum.map(notifications, fn n -> n.id end)
-
-    NotificationsContext.update_notifcations(
-      %{
-        filter: %{notification_ids: notification_ids},
-        select: [:id, :deleted_at]
-      },
-      set: [deleted_at: DateTime.truncate(DateTime.utc_now(), :second)]
-    )
-
-    if page_number >= total_pages do
-      {:ok, :success}
-    else
-      NotificationsContext.get_page_of_notifications(
-        %{
-          filter: %{notification_setting_id: notification_setting_id},
-          select: [:id]
-        },
-        page_number: page_number + 1,
-        page_size: @page_size
-      )
-      |> process_notifications(notification_setting_id)
     end
   end
 end

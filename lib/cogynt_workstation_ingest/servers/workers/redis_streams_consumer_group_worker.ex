@@ -52,9 +52,6 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
                   delete_notifications: field_value
                 })
 
-              :delete_event_definition_events ->
-                ConsumerStateManager.manage_request(%{delete_event_definition_events: field_value})
-
               :dev_delete ->
                 case field_value do
                   %{

@@ -20,21 +20,20 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.UpdateNotificationsWork
            NotificationsContext.get_notification_setting(notification_setting_id),
          %EventDefinition{} = event_definition <-
            EventsContext.get_event_definition(notification_setting.event_definition_id) do
-      # First stop the pipeline and ensure that if finishes processing its messages in the pipeline
+      # 1) stop the pipeline and ensure that if finishes processing its messages in the pipeline
       # before starting the update of notifications
-      stop_event_pipeline(event_definition)
+      pause_event_pipeline(event_definition)
 
-      # Second once the pipeline has been stopped and the finished processing start the pagination
+      # 2) once the pipeline has been stopped and the finished processing start the pagination
       # of events and update of notifications
       NotificationsContext.get_page_of_notifications(
         %{
           filter: %{notification_setting_id: notification_setting_id},
           select: [:id]
         },
-        page_size: @page_size,
-        include_deleted: true
+        page_size: @page_size
       )
-      |> process_notifications(notification_setting)
+      |> update_notifications(notification_setting)
 
       # Finally check to see if consumer should be started back up again
       start_event_pipeline(event_definition)
@@ -60,7 +59,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.UpdateNotificationsWork
   # ----------------------- #
   # --- Private Methods --- #
   # ----------------------- #
-  defp stop_event_pipeline(event_definition) do
+  defp pause_event_pipeline(event_definition) do
     CogyntLogger.info(
       "#{__MODULE__}",
       "Stopping EventPipeline for #{event_definition.topic}"
@@ -136,7 +135,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.UpdateNotificationsWork
     end
   end
 
-  defp process_notifications(
+  defp update_notifications(
          %{entries: notifications, page_number: page_number, total_pages: total_pages},
          %{tag_id: tag_id, id: id, title: ns_title, assigned_to: assigned_to} =
            notification_setting
@@ -160,10 +159,9 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.UpdateNotificationsWork
           select: [:id]
         },
         page_number: page_number + 1,
-        page_size: @page_size,
-        include_deleted: true
+        page_size: @page_size
       )
-      |> process_notifications(notification_setting)
+      |> update_notifications(notification_setting)
     end
   end
 end

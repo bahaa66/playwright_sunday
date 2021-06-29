@@ -32,9 +32,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
         message
 
       "event_type" ->
-        # Temp Store id as `authoring_event_definition_id` until field can be removed
-        Map.put(deployment_message, :authoring_event_definition_id, deployment_message.id)
-        |> Map.put(:topic, deployment_message.filter)
+        Map.put(deployment_message, :topic, deployment_message.filter)
         |> Map.put(:title, deployment_message.name)
         |> Map.put(
           :manual_actions,
@@ -47,7 +45,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
             deployment_message.dsType
           end
         end)
-        |> Map.drop([:id])
         |> EventsContext.upsert_event_definition()
 
         message
@@ -59,24 +56,21 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
 
         # Fetch all event_definitions that exists and are assosciated with
         # the deployment_id
-        current_event_definitions =
-          EventsContext.query_event_definitions(
-            filter: %{
-              deployment_id: deployment_message.id
-            }
-          )
-
+        EventsContext.query_event_definitions(
+          filter: %{
+            deployment_id: deployment_message.id
+          }
+        )
         # If any of these event_definition_id are not in the list of event_definition_ids
         # passed in the deployment message, mark them as inactive and shut off the consumer.
         # If they are in the list make sure to update the DeploymentStatus if it needs to be changed
-        Enum.each(current_event_definitions, fn %EventDefinition{
-                                                  deployment_status: deployment_status,
-                                                  authoring_event_definition_id:
-                                                    authoring_event_definition_id
-                                                } = current_event_definition ->
+        |> Enum.each(fn %EventDefinition{
+                          deployment_status: deployment_status,
+                          id: event_definition_id
+                        } = current_event_definition ->
           case Enum.member?(
                  deployment_message.event_type_ids,
-                 authoring_event_definition_id
+                 event_definition_id
                ) do
             true ->
               if deployment_status == DeploymentStatusType.status()[:inactive] or

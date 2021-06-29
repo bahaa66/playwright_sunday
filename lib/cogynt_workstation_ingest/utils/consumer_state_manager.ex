@@ -13,8 +13,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   alias CogyntWorkstationIngest.Utils.JobQueue.Workers.{
     BackfillNotificationsWorker,
     UpdateNotificationsWorker,
-    DeleteNotificationsWorker,
-    DeleteEventDefinitionEventsWorker
+    DeleteNotificationsWorker
   }
 
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
@@ -36,19 +35,11 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     topic = Keyword.get(opts, :topic, nil)
     prev_status = Keyword.get(opts, :prev_status, nil)
 
-    # TODO: After some we should only need to check the new hash value.
     consumer_state =
-      with {:ok, deprecated_consumer_state} <- Redis.hash_get("cs:#{event_definition_id}", "cs"),
-           {:ok, consumer_state} <- Redis.hash_get("cs", event_definition_id) do
-        consumer_state = consumer_state || deprecated_consumer_state || @default_state
+      case Redis.hash_get("cs", event_definition_id) do
+        {:ok, consumer_state} ->
+          consumer_state || @default_state
 
-        # TODO: Eventually remove this when th.
-        if !is_nil(deprecated_consumer_state) and consumer_state != deprecated_consumer_state do
-          Redis.hash_delete("cs:#{event_definition_id}", "cs")
-        end
-
-        consumer_state
-      else
         {:error, error} ->
           CogyntLogger.info(
             "#{__MODULE__}",
@@ -114,11 +105,10 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   fetches the consumer_state map stored in the Redis hashkey cs:
   """
   def get_consumer_state(event_definition_id) do
-    # TODO: After some time these can be removed. It is just so that it is backwards compatible.
-    with {:ok, deprecated_consumer_state} <- Redis.hash_get("cs:#{event_definition_id}", "cs"),
-         {:ok, consumer_state} <- Redis.hash_get("cs", event_definition_id) do
-      {:ok, consumer_state || deprecated_consumer_state || @default_state}
-    else
+    case Redis.hash_get("cs", event_definition_id) do
+      {:ok, consumer_state} ->
+        {:ok, consumer_state || @default_state}
+
       {:error, _} ->
         {:error, @default_state}
     end
@@ -128,11 +118,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   removes all redis keys that are associated with the given event_definition_id
   """
   def remove_consumer_state(event_definition_id, _opts \\ []) do
-    # TODO: Remove "cs" from the list after servers had a chance to reset and clear the statuses.
-    for x <- ["fem", "emi", "cs"], do: Redis.key_delete("#{x}:#{event_definition_id}")
+    for x <- ["fem", "emi"], do: Redis.key_delete("#{x}:#{event_definition_id}")
 
     Redis.hash_delete("cs", event_definition_id)
-
     Redis.hash_delete("ecgid", "EventDefinition-#{event_definition_id}")
 
     case Redis.get("dd") do
@@ -182,9 +170,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
         {:delete_notifications, notification_setting_id}, _acc ->
           delete_notifications(notification_setting_id)
-
-        {:delete_event_definition_events, event_definition_id}, _acc ->
-          delete_events(event_definition_id)
 
         {:handle_unknown_status, event_definition_id}, _acc ->
           handle_unknown_status(event_definition_id)
@@ -348,7 +333,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
-  # This is specifically for stopping consumer for the JobQueue workers until a updated_at field
+  # This is specifically for pausing consumer for the JobQueue workers until a updated_at field
   # is implemented for the cs:* Redis hashfield values
   defp stop_consumer_for_notification_tasks(event_definition) do
     try do
@@ -692,55 +677,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
-  defp delete_events(event_definition_id) do
-    case event_definition_task_running?(event_definition_id) do
-      false ->
-        {:ok, consumer_state} = get_consumer_state(event_definition_id)
-
-        cond do
-          consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] ->
-            handle_unknown_status(event_definition_id)
-
-          consumer_state.status == ConsumerStatusTypeEnum.status()[:running] ->
-            %{response: {:error, consumer_state.status}}
-
-          consumer_state.status ==
-              ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] ->
-            %{response: {:error, consumer_state.status}}
-
-          consumer_state.status ==
-              ConsumerStatusTypeEnum.status()[:update_notification_task_running] ->
-            %{response: {:error, consumer_state.status}}
-
-          consumer_state.status ==
-              ConsumerStatusTypeEnum.status()[:paused_and_processing] ->
-            %{response: {:error, consumer_state.status}}
-
-          true ->
-            ExqHelpers.create_and_enqueue(
-              "events",
-              event_definition_id,
-              DeleteEventDefinitionEventsWorker,
-              event_definition_id
-            )
-
-            %{response: {:ok, :success}}
-        end
-
-      true ->
-        CogyntLogger.warn(
-          "#{__MODULE__}",
-          "Failed to run delete_events/1. DevDelete task pending or running. Must to wait until it is finished"
-        )
-
-        %{response: {:error, :internal_server_error}}
-    end
-  end
-
   # ---------------------- #
   # --- Helper Methods --- #
   # ---------------------- #
-
   defp start_pipeline(event_definition) do
     case ConsumerGroupSupervisor.start_child(event_definition) do
       {:error, nil} ->
