@@ -45,7 +45,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         core_id = event["id"]
         occurred_at = event["_timestamp"]
         event_id = Ecto.UUID.generate()
-        event_type = Atom.to_string(event_definition.event_type)
+
+        event_type =
+          if is_atom(event_definition.event_type) do
+            Atom.to_string(event_definition.event_type)
+          else
+            event_definition.event_type
+          end
 
         # If Crud action is Delete, then we need to set the deleted_at column
         # of the event we are creating and add the event_id into the list
