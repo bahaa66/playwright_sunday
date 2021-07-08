@@ -743,7 +743,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
       %EventDefinition{active: true} = event_definition ->
         # update event_definition to be active false
-        EventsContext.update_event_definition(event_definition, %{active: false, deleted_at: nil})
+        EventsContext.update_event_definition(event_definition, %{active: false})
 
         # check if there is a consumer running
         if EventPipeline.pipeline_started?(event_definition_id) do

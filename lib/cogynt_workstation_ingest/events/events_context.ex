@@ -3,13 +3,13 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   The Events context: public interface for event related functionality.
   """
   import Ecto.Query, warn: false
+  alias Ecto.Multi
   alias CogyntWorkstationIngest.Repo
   alias CogyntWorkstationIngest.Config
 
   alias Models.Events.{
     Event,
     EventDefinition,
-    EventDetail,
     EventLink,
     EventDefinitionDetail
   }
@@ -20,7 +20,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     EventDetailTemplateGroupItem
   }
 
-  @insert_batch_size 3_000
+  def run_multi_transaction(multi) do
+    Repo.transaction(multi)
+  end
 
   # ---------------------------- #
   # --- Event Schema Methods --- #
@@ -124,6 +126,24 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         select(q, ^select)
     end)
     |> Repo.update_all(set: set)
+  end
+
+  def upsert_all_events_multi(multi, events \\ [], opts \\ [])
+
+  def upsert_all_events_multi(multi, [], _opts), do: multi
+
+  def upsert_all_events_multi(multi, events, opts) do
+    returning = Keyword.get(opts, :returning, [:core_id])
+    on_conflict = Keyword.get(opts, :on_conflict, :nothing)
+    conflict_target = Keyword.get(opts, :conflict_target, [:core_id])
+
+    multi
+    |> Multi.insert_all(:upsert_events, Event, events,
+      returning: returning,
+      on_conflict: on_conflict,
+      conflict_target: conflict_target,
+      timeout: 60_000
+    )
   end
 
   # -------------------------------------- #
@@ -531,153 +551,25 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.update_all(set: set)
   end
 
+  def upsert_all_event_links_multi(multi, event_links \\ [], opts \\ [])
+
+  def upsert_all_event_links_multi(multi, [], _opts), do: multi
+
+  def upsert_all_event_links_multi(multi, event_links, opts) do
+    on_conflict = Keyword.get(opts, :on_conflict, :nothing)
+    conflict_target = Keyword.get(opts, :conflict_target, [:link_core_id])
+
+    multi
+    |> Multi.insert_all(:upsert_event_links, EventLink, event_links,
+      on_conflict: on_conflict,
+      conflict_target: conflict_target,
+      timeout: 60_000
+    )
+  end
+
   # ---------------------- #
   # --- PSQL Functions --- #
   # ---------------------- #
-  # @doc """
-  # Calls the psql Function for inserting an event that has a
-  # core_id field set (crud actions)
-  # ## Examples
-  #     iex> call_insert_crud_event_function(
-  #       "ec9b2f65-3fa0-4415-8c9a-9047328cb8a3",
-  #       "a1f76663-27b4-46b3-bad4-71b46f32eb3c",
-  #       "39e4d640-2061-41fd-8ed5-bed579272aef",
-  #       ~U[2021-03-10 19:07:14Z],
-  #       nil
-  #     )
-  #     {:ok, %Postgrex.Result{}}
-  #     iex> call_insert_crud_event_function(
-  #       "ec9b2f65-3fa0-4415-8c9a-9047328cb8a3",
-  #       "a1f76663-27b4-46b3-bad4-71b46f32eb3c",
-  #       "39e4d640-2061-41fd-8ed5-bed579272aef",
-  #       ~U[2021-03-10 19:07:14Z],
-  #       nil
-  #     )
-  #     {:error, %Postgrex.Error{}}
-  # """
-  # def call_insert_crud_event_function(
-  #       event_id,
-  #       event_definition_id,
-  #       core_id,
-  #       event_type,
-  #       occurred_at,
-  #       deleted_at,
-  #       deleted_by
-  #     ) do
-  #   core_id_cast =
-  #     if is_nil(core_id) do
-  #       "NULL"
-  #     else
-  #       "CAST('#{core_id}' as UUID)"
-  #     end
-
-  #   occurred_at_cast =
-  #     if is_nil(occurred_at) do
-  #       "NULL"
-  #     else
-  #       "CAST('#{occurred_at}' as TIMESTAMP)"
-  #     end
-
-  #   deleted_at_cast =
-  #     if is_nil(deleted_at) do
-  #       "NULL"
-  #     else
-  #       "CAST('#{deleted_at}' as TIMESTAMP)"
-  #     end
-
-  #   deleted_by_cast =
-  #     if is_nil(deleted_by) do
-  #       "NULL"
-  #     else
-  #       "CAST('#{deleted_by}' as VARCHAR(255))"
-  #     end
-
-  #   event_type_cast =
-  #     if is_nil(event_type) do
-  #       "NULL"
-  #     else
-  #       "CAST('#{event_type}' as VARCHAR(255))"
-  #     end
-
-  #   try do
-  #     case Repo.query("SELECT insert_crud_event(
-  #           CAST('#{event_id}' as UUID),
-  #           CAST('#{event_definition_id}' as UUID),
-  #           #{core_id_cast},
-  #           #{event_type_cast},
-  #           #{occurred_at_cast},
-  #           #{deleted_at_cast},
-  #           #{deleted_by_cast}
-  #           )") do
-  #       {:ok, result} ->
-  #         {:ok, result}
-
-  #       {:error, error} ->
-  #         {:error, error}
-  #     end
-  #   rescue
-  #     error ->
-  #       CogyntLogger.error(
-  #         "#{__MODULE__}",
-  #         "call_insert_crud_event_function/1 failed with Error: #{inspect(error)}"
-  #       )
-
-  #       {:error, :internal_server_error}
-  #   end
-  # end
-
-  # @doc """
-  # Calls the psql Function for inserting link_events for
-  # a given event_id
-  # ## Examples
-  #     iex> call_insert_event_links_function(
-  #       "ec9b2f65-3fa0-4415-8c9a-9047328cb8a3",
-  #       ["a1f76663-27b4-46b3-bad4-71b46f32eb3c"],
-  #       ~U[2021-03-10 19:07:14Z]
-  #     )
-  #     {:ok, %Postgrex.Result{}}
-  #     iex> call_insert_event_links_function(
-  #       "ec9b2f65-3fa0-4415-8c9a-9047328cb8a3",
-  #       ["a1f76663-27b4-46b3-bad4-71b46f32eb3c"],
-  #       nil
-  #     )
-  #     {:error, %Postgrex.Error{}}
-  # """
-  # def call_insert_event_links_function(
-  #       event_id,
-  #       core_ids,
-  #       deleted_at
-  #     ) do
-  #   deleted_at_cast =
-  #     if is_nil(deleted_at) do
-  #       "NULL"
-  #     else
-  #       "CAST('#{deleted_at}' as TIMESTAMP)"
-  #     end
-
-  #   try do
-  #     case Repo.query("SELECT insert_event_links(
-  #           CAST('#{event_id}' as UUID),
-  #           CAST(#{inspect(core_ids)} as TEXT),
-  #           #{deleted_at_cast}
-  #           )") do
-  #       {:ok, result} ->
-  #         {:ok, result}
-
-  #       {:error, error} ->
-  #         {:error, error}
-  #     end
-  #   rescue
-  #     error ->
-  #       CogyntLogger.error(
-  #         "#{__MODULE__}",
-  #         "call_insert_event_links_function/1 failed with Error: #{inspect(error)}"
-  #       )
-
-  #       {:error, :internal_server_error}
-  #   end
-  # end
-
   def hard_delete_by_event_definition_id(event_definition_id, limit \\ 50000) do
     try do
       case Repo.query(
@@ -798,18 +690,10 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     end)
   end
 
-  # TODO: change to match db schema
   defp filter_event_links(filter, query) do
     Enum.reduce(filter, query, fn
-      {:linkage_event_ids, linkage_event_ids}, q ->
-        where(q, [el], el.linkage_event_id in ^linkage_event_ids)
-    end)
-  end
-
-  defp filter_event_detail_templates(filter, query) do
-    Enum.reduce(filter, query, fn
-      {:event_definition_id, event_definition_id}, q ->
-        where(q, [edt], edt.event_definition_id == ^event_definition_id)
+      {:link_core_ids, link_core_ids}, q ->
+        where(q, [el], el.link_core_id in ^link_core_ids)
     end)
   end
 end

@@ -194,7 +194,9 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
         :updated_at,
         :assigned_to
       ],
-      on_conflict: {:replace, [:tag_id, :title, :updated_at, :assigned_to, :updated_at]},
+      on_conflict:
+        {:replace,
+         [:tag_id, :title, :updated_at, :assigned_to, :dismissed_at, :priority, :archived_at]},
       conflict_target: [:core_id, :notification_setting_id]
     )
     |> case do
@@ -214,8 +216,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
           select: [:core_id, :created_at]
         },
         page_number: page_number + 1,
-        page_size: @page_size,
-        preload_details: true
+        page_size: @page_size
       )
       |> process_notifications_for_events(notification_setting_id, event_definition)
     end

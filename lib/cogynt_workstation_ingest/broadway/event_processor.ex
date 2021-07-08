@@ -2,14 +2,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @moduledoc """
   Module that acts as the Broadway Processor for the EventPipeline.
   """
+  alias Ecto.Multi
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
-  alias Elasticsearch.DocumentBuilders.{EventDocumentBuilder, RiskHistoryDocumentBuilder}
+  alias Elasticsearch.DocumentBuilders.EventDocumentBuilder
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
-  @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
   @delete Application.get_env(:cogynt_workstation_ingest, :core_keys)[:delete]
   @lexicons Application.get_env(:cogynt_workstation_ingest, :core_keys)[:lexicons]
   @defaults %{
@@ -26,27 +26,29 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @doc """
   Creates the map from the ingested Kafka metadata that will be inserted into the Events table
   """
-  def process_event(%{event: event, event_definition_id: event_definition_id} = data) do
+  def process_event(
+        %{event: event, event_definition_id: event_definition_id, core_id: core_id} = data
+      ) do
     action = event[@crud]
 
     pg_event =
       case action do
         "update" ->
           %{
-            core_id: event["id"],
+            core_id: core_id,
             occurred_at: event["_timestamp"],
             risk_score: format_risk_score(event["_confidence"]),
-            event_details: Jason.encode!(event),
+            event_details: format_lexicon_data(event),
             event_definition_id: event_definition_id,
             updated_at: DateTime.truncate(DateTime.utc_now(), :second)
           }
 
         "delete" ->
           %{
-            core_id: event["id"],
+            core_id: core_id,
             risk_score: format_risk_score(event["_confidence"]),
             occurred_at: event["_timestamp"],
-            event_details: Jason.encode!(event),
+            event_details: format_lexicon_data(event),
             event_definition_id: event_definition_id
           }
 
@@ -54,10 +56,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           now = DateTime.truncate(DateTime.utc_now(), :second)
 
           %{
-            core_id: event["id"],
+            core_id: core_id,
             occurred_at: event["_timestamp"],
             risk_score: format_risk_score(event["_confidence"]),
-            event_details: Jason.encode!(event),
+            event_details: format_lexicon_data(event),
             event_definition_id: event_definition_id,
             created_at: now,
             updated_at: now
@@ -74,20 +76,20 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   def process_elasticsearch_documents(
         %{
           event: event,
+          pg_event: pg_event,
+          core_id: core_id,
           event_definition: event_definition,
           event_definition_id: event_definition_id,
           crud_action: action
         } = data
       ) do
-    event = format_lexicon_data(event)
-    core_id = event["id"]
     published_at = event["published_at"]
     event_definition_details = event_definition.event_definition_details
 
     # Iterate over each event key value pair and build the pg and elastic search event
     # details.
     elasticsearch_event_details =
-      Enum.reduce(event, [], fn
+      Enum.reduce(pg_event.event_details, [], fn
         {key, value}, acc ->
           # Search the event definition details and use the path to figure out the field value.
           Enum.find_value(event_definition_details, fn
@@ -177,19 +179,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   """
   def process_notifications(
         %{
-          event: event,
+          pg_event: pg_event,
+          core_id: core_id,
           event_definition: event_definition
         } = data
       ) do
-    risk_score = Map.get(event, @risk_score, 0)
-
     pg_notifications =
       NotificationsContext.fetch_valid_notification_settings(
         %{
           event_definition_id: event_definition.id,
           active: true
         },
-        risk_score,
+        pg_event.risk_score,
         event_definition
       )
       |> Enum.reduce([], fn ns, acc ->
@@ -198,12 +199,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         acc ++
           [
             %{
-              title: ns.title,
               archived_at: nil,
               priority: @defaults.notification_priority,
               assigned_to: ns.assigned_to,
               dismissed_at: nil,
-              core_id: event["id"],
+              core_id: core_id,
               tag_id: ns.tag_id,
               notification_setting_id: ns.id,
               created_at: now,
@@ -224,9 +224,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     # build transactional data
     default_map = %{
       pg_event: [],
-      notifications: [],
+      pg_notifications: [],
       event_doc: [],
-      risk_history_doc: []
+      pg_event_links: []
     }
 
     bulk_transactional_data =
@@ -237,7 +237,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             :event,
             :event_definition,
             :event_definition_id,
-            :retry_count
+            :retry_count,
+            :pipeline_state
           ])
 
         Map.merge(acc, data, fn k, v1, v2 ->
@@ -253,7 +254,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               v1 ++ [v2]
 
             :pg_notifications ->
-              v1 ++ [v2]
+              v1 ++ List.flatten(v2)
+
+            :pg_event_links ->
+              v1 ++ List.flatten(v2)
 
             _ ->
               v2
@@ -263,11 +267,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     # Elasticsearch Transactional Upserts
     bulk_upsert_event_documents_with_transaction(bulk_transactional_data)
-    bulk_upsert_risk_history_with_transaction(bulk_transactional_data)
+
+    # IO.inspect(bulk_transactional_data.pg_event, label: "EVENTS")
+    # IO.inspect(bulk_transactional_data.pg_notifications, label: "NOTIFICATIONS")
+    # IO.inspect(bulk_transactional_data.pg_event_links, label: "EVENT LINKS")
 
     # Build a Multi transaction to insert all the pg records
     transaction_result =
-      EventsContext.upsert_all_events_multi(bulk_transactional_data.pg_event,
+      Multi.new()
+      |> EventsContext.upsert_all_events_multi(bulk_transactional_data.pg_event,
         on_conflict:
           {:replace,
            [:occurred_at, :risk_score, :event_details, :event_definition_id, :updated_at]},
@@ -279,30 +287,25 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           :core_id,
           :tag_id,
           :id,
-          :title,
           :notification_setting_id,
           :created_at,
           :updated_at,
           :assigned_to
         ],
-        on_conflict: {:replace, [:tag_id, :title, :updated_at, :assigned_to, :updated_at]},
+        on_conflict: {:replace, [:tag_id, :updated_at, :assigned_to]},
         conflict_target: [:core_id, :notification_setting_id]
       )
-      # TODO: add on_conflict
-      |> EventsContext.upsert_all_event_links_multi(bulk_transactional_data.pg_event_links)
+      |> EventsContext.upsert_all_event_links_multi(bulk_transactional_data.pg_event_links,
+        on_conflict: {:replace, [:entity_core_id, :updated_at, :label]},
+        conflict_target: [:link_core_id]
+      )
       |> EventsContext.run_multi_transaction()
 
     case transaction_result do
-      {:ok,
-       %{
-         insert_notifications: {_count_created, created_notifications},
-         update_notifications: {_count_deleted, updated_notifications}
-       }} ->
-        SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
-        SystemNotificationContext.bulk_update_system_notifications(updated_notifications)
+      {:ok, %{upsert_notifications: {_count_created, upserted_notifications}}} ->
+        SystemNotificationContext.bulk_insert_system_notifications(upserted_notifications)
 
-      {:ok, %{insert_notifications: {_count_created, created_notifications}}} ->
-        SystemNotificationContext.bulk_insert_system_notifications(created_notifications)
+      # TODO: send Redis pub sub for Events object
 
       {:ok, _} ->
         nil
@@ -313,7 +316,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           "execute_transaction/1 failed with reason: #{inspect(reason, pretty: true)}"
         )
 
-        rollback_all_elastic_index_data(bulk_transactional_data)
+        rollback_event_index_data(bulk_transactional_data)
 
         raise "execute_transaction/1 failed"
     end
@@ -323,56 +326,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   # --- private methods --- #
   # ----------------------- #
   defp bulk_upsert_event_documents_with_transaction(bulk_transactional_data) do
-    if !Enum.empty?(Map.get(bulk_transactional_data, :deleted_event_ids, [])) do
-      if !Enum.empty?(bulk_transactional_data.event_doc) do
-        # Filter out deleted_event_ids from the event_doc before insert
-        event_docs =
-          bulk_transactional_data.event_doc
-          |> Enum.filter(fn event_doc ->
-            !Enum.member?(bulk_transactional_data.deleted_event_ids, event_doc.id)
-          end)
-
-        case Elasticsearch.bulk_upsert_document(Config.event_index_alias(), event_docs) do
-          {:ok, _} ->
-            :ok
-
-          _ ->
-            rollback_event_index_data(bulk_transactional_data)
-
-            raise "bulk_upsert_event_documents_with_transaction/1 failed"
-        end
-      end
-    else
-      if !Enum.empty?(bulk_transactional_data.event_doc) do
-        case Elasticsearch.bulk_upsert_document(
-               Config.event_index_alias(),
-               bulk_transactional_data.event_doc
-             ) do
-          {:ok, _} ->
-            :ok
-
-          _ ->
-            rollback_event_index_data(bulk_transactional_data)
-
-            raise "bulk_upsert_event_documents_with_transaction/1 failed"
-        end
-      end
-    end
-  end
-
-  defp bulk_upsert_risk_history_with_transaction(bulk_transactional_data) do
-    if !Enum.empty?(bulk_transactional_data.risk_history_doc) do
+    if !Enum.empty?(bulk_transactional_data.event_doc) do
       case Elasticsearch.bulk_upsert_document(
-             Config.risk_history_index_alias(),
-             bulk_transactional_data.risk_history_doc
+             Config.event_index_alias(),
+             bulk_transactional_data.event_doc
            ) do
         {:ok, _} ->
           :ok
 
         _ ->
-          rollback_risk_history_index_data(bulk_transactional_data)
+          rollback_event_index_data(bulk_transactional_data)
 
-          raise "bulk_upsert_risk_history_with_transaction/1 failed"
+          raise "bulk_upsert_event_documents_with_transaction/1 failed"
       end
     end
   end
@@ -386,22 +351,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       Config.event_index_alias(),
       event_doc_ids
     )
-  end
-
-  defp rollback_risk_history_index_data(bulk_transactional_data) do
-    risk_history_doc_ids =
-      bulk_transactional_data.risk_history_doc
-      |> Enum.map(fn risk_history_doc -> risk_history_doc.id end)
-
-    Elasticsearch.bulk_delete_document(
-      Config.risk_history_index_alias(),
-      risk_history_doc_ids
-    )
-  end
-
-  defp rollback_all_elastic_index_data(bulk_transactional_data) do
-    rollback_event_index_data(bulk_transactional_data)
-    rollback_risk_history_index_data(bulk_transactional_data)
   end
 
   defp format_lexicon_data(event) do
@@ -420,7 +369,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
-  defp format_risk_score(nil), do: nil
+  defp format_risk_score(nil), do: 0
 
   defp format_risk_score(confidence) do
     if confidence != 0 do
@@ -434,7 +383,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           0
 
         {score, _extra} ->
-          score
+          trunc(Float.round(score * 100))
       end
     else
       confidence

@@ -23,8 +23,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
     event_definitions =
       EventsContext.query_event_definitions(%{
         filter: %{
-          active: true,
-          deleted_at: nil
+          active: true
         }
       })
 

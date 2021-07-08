@@ -20,7 +20,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         group_id: group_id,
         topics: topics,
         hosts: hosts,
-        event_definition_id: event_definition_id
+        event_definition_id: event_definition_id,
+        event_type: event_type
       }) do
     Broadway.start_link(__MODULE__,
       name: String.to_atom(group_id <> "Pipeline"),
@@ -58,7 +59,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           concurrency: 10
         ]
       ],
-      context: [event_definition_id: event_definition_id]
+      context: [event_definition_id: event_definition_id, event_type: event_type]
     )
   end
 
@@ -189,7 +190,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @doc """
   """
   @impl true
-  def handle_message(_processor_name, message, _context) do
+  def handle_message(_processor_name, message, context) do
+    event_type = Keyword.get(context, :event_type, nil)
+
     message
     |> case do
       %Message{data: %{event: %{@crud => _action}}} ->
@@ -198,7 +201,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
       _ ->
         data =
-          case message.data.event_definition.event_type do
+          case event_type do
             :linkage ->
               case message.data.pipeline_state do
                 :process_event ->
@@ -271,13 +274,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @impl true
   def handle_batch(:crud, messages, _batch_info, context) do
     event_definition_id = Keyword.get(context, :event_definition_id, nil)
+    event_type = Keyword.get(context, :event_type, nil)
 
     messages
-    |> Enum.group_by(fn message -> message.data.event["id"] end)
+    |> Enum.group_by(fn message -> message.data.core_id end)
     |> Enum.reduce([], fn core_id_records, acc ->
       last_crud_action_message = List.last(core_id_records)
 
-      case last_crud_action_message.data.event_definition.event_type do
+      case event_type do
         :linkage ->
           case last_crud_action_message.data.pipeline_state do
             :process_event ->

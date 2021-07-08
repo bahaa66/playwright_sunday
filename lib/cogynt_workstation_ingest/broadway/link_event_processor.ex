@@ -40,7 +40,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   def process_entities(%{validated: false} = data),
     do: Map.put(data, :pipeline_state, :process_entities)
 
-  def process_entities(%{event: %{@entities => entities}, core_id: link_core_id} = data) do
+  def process_entities(%{event: %{@entities => entities}, core_id: core_id} = data) do
     pg_event_links =
       Enum.reduce(entities, [], fn {edge_label, link_data_list}, acc ->
         link_object = List.first(link_data_list) || %{}
@@ -57,11 +57,10 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           entity_core_id ->
             now = DateTime.truncate(DateTime.utc_now(), :second)
 
-            # TODO: what is the unique index on this table and what should we upsert on ?
             acc ++
               [
                 %{
-                  link_core_id: link_core_id,
+                  link_core_id: core_id,
                   label: edge_label,
                   entity_core_id: entity_core_id,
                   created_at: now,
