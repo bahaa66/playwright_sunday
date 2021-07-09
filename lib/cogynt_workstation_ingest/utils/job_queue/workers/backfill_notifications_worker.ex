@@ -162,7 +162,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
 
             [
               %{
-                title: valid_notification_setting.title,
                 archived_at: nil,
                 priority: 3,
                 assigned_to: valid_notification_setting.assigned_to,
@@ -188,15 +187,13 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
         :core_id,
         :tag_id,
         :id,
-        :title,
         :notification_setting_id,
         :created_at,
         :updated_at,
         :assigned_to
       ],
       on_conflict:
-        {:replace,
-         [:tag_id, :title, :updated_at, :assigned_to, :dismissed_at, :priority, :archived_at]},
+        {:replace, [:tag_id, :updated_at, :assigned_to, :dismissed_at, :priority, :archived_at]},
       conflict_target: [:core_id, :notification_setting_id]
     )
     |> case do

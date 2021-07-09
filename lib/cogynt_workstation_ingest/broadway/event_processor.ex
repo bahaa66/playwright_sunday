@@ -22,7 +22,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     notification_priority: 3
   }
 
-  # TODO: update events table schema
   @doc """
   Creates the map from the ingested Kafka metadata that will be inserted into the Events table
   """

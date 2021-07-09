@@ -42,11 +42,6 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
               :backfill_notifications ->
                 ConsumerStateManager.manage_request(%{backfill_notifications: field_value})
 
-              :update_notifications ->
-                ConsumerStateManager.manage_request(%{
-                  update_notifications: field_value
-                })
-
               :delete_notifications ->
                 ConsumerStateManager.manage_request(%{
                   delete_notifications: field_value
