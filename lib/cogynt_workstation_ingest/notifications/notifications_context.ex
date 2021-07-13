@@ -318,7 +318,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     )
   end
 
-  def upsert_all_notifications_multi(multi, events \\ [], opts \\ [])
+  def upsert_all_notifications_multi(multi, notifications \\ [], opts \\ [])
 
   def upsert_all_notifications_multi(multi, [], _opts), do: multi
 
@@ -333,6 +333,18 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       on_conflict: on_conflict,
       conflict_target: conflict_target,
       timeout: 60_000
+    )
+  end
+
+  def delete_all_notifications_multi(multi, core_ids \\ [])
+
+  def delete_all_notifications_multi(multi, []), do: multi
+
+  def delete_all_notifications_multi(multi, core_ids) do
+    multi
+    |> Multi.delete_all(
+      :delete_notifications,
+      from(n in Notification, where: n.core_id in ^core_ids)
     )
   end
 

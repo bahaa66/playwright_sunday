@@ -24,11 +24,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @doc """
   Creates the map from the ingested Kafka metadata that will be inserted into the Events table
   """
-  def process_event(%{event: %{@crud => "delete"}} = data) do
-    # Delete notifications for core_id
-    # Delete Events for core_id
-    # Delete Event Links for core_id IF event_type is Linkage
+  def process_event(%{core_id: core_id, event: %{@crud => "delete"}} = data) do
     Map.put(data, :crud_action, "delete")
+    |> Map.put(:delete_core_id, core_id)
     |> Map.put(:pipeline_state, :process_event)
   end
 
@@ -264,7 +262,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       pg_event: [],
       pg_notifications: [],
       event_doc: [],
-      pg_event_links: []
+      pg_event_links: [],
+      delete_core_id: []
     }
 
     bulk_transactional_data =
@@ -297,6 +296,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             :pg_event_links ->
               v1 ++ List.flatten(v2)
 
+            :delete_core_id ->
+              v1 ++ [v2]
+
             _ ->
               v2
           end
@@ -313,6 +315,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     # Build a Multi transaction to insert all the pg records
     transaction_result =
       Multi.new()
+      |> NotificationsContext.delete_all_notifications_multi(
+        bulk_transactional_data.delete_core_id
+      )
+      |> EventsContext.delete_all_event_links_multi(bulk_transactional_data.delete_core_id)
+      |> EventsContext.delete_all_events_multi(bulk_transactional_data.delete_core_id)
       |> EventsContext.upsert_all_events_multi(bulk_transactional_data.pg_event,
         on_conflict: {:replace_all_except, [:core_id, :created_at]},
         conflict_target: [:core_id]
@@ -331,6 +338,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         on_conflict: {:replace_all_except, [:id, :created_at, :core_id]},
         conflict_target: [:core_id, :notification_setting_id]
       )
+      # TODO: Need to fetch and merge event links for crud data
       |> EventsContext.upsert_all_event_links_multi(bulk_transactional_data.pg_event_links,
         on_conflict: {:replace_all_except, [:id, :created_at]},
         conflict_target: [:link_core_id]

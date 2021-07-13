@@ -118,7 +118,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       {2, [%Event{}, %Event{}]}
   """
   def update_events(args, set: set) do
-    Enum.reduce(args, from(n in Event), fn
+    Enum.reduce(args, from(e in Event), fn
       {:filter, filter}, q ->
         filter_events(filter, q)
 
@@ -144,6 +144,15 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       conflict_target: conflict_target,
       timeout: 60_000
     )
+  end
+
+  def delete_all_events_multi(multi, core_ids \\ [])
+
+  def delete_all_events_multi(multi, []), do: multi
+
+  def delete_all_events_multi(multi, core_ids) do
+    multi
+    |> Multi.delete_all(:delete_events, from(e in Event, where: e.core_id in ^core_ids))
   end
 
   # -------------------------------------- #
@@ -564,6 +573,20 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       on_conflict: on_conflict,
       conflict_target: conflict_target,
       timeout: 60_000
+    )
+  end
+
+  def delete_all_event_links_multi(multi, core_ids \\ [])
+
+  def delete_all_event_links_multi(multi, []), do: multi
+
+  def delete_all_event_links_multi(multi, core_ids) do
+    multi
+    |> Multi.delete_all(
+      :delete_event_links,
+      from(el in EventLink,
+        where: el.link_core_id in ^core_ids or el.entity_core_id in ^core_ids
+      )
     )
   end
 
