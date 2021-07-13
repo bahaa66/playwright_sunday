@@ -278,7 +278,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     messages
     |> Enum.group_by(fn message -> message.data.core_id end)
-    |> Enum.reduce([], fn core_id_records, acc ->
+    |> Enum.reduce([], fn {_core_id, core_id_records}, acc ->
       last_crud_action_message = List.last(core_id_records)
 
       case event_type do

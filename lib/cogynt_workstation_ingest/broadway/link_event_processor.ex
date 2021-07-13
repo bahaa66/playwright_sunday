@@ -8,6 +8,8 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   Checks to make sure if a valid link event was passed through authoring. If incomplete data
   then :validated is set to false. Otherwise it is set to true.
   """
+  def validate_link_event(%{crud_action: "delete"} = data), do: data
+
   def validate_link_event(%{event: event} = data) do
     case Map.get(event, @entities) do
       nil ->
@@ -37,6 +39,8 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
   @doc """
   """
+  def process_entities(%{crud_action: "delete"} = data), do: data
+
   def process_entities(%{validated: false} = data),
     do: Map.put(data, :pipeline_state, :process_entities)
 

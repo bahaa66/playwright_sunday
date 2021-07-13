@@ -10,7 +10,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias CogyntWorkstationIngest.System.SystemNotificationContext
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
-  @delete Application.get_env(:cogynt_workstation_ingest, :core_keys)[:delete]
   @lexicons Application.get_env(:cogynt_workstation_ingest, :core_keys)[:lexicons]
   @defaults %{
     deleted_event_ids: [],
@@ -25,38 +24,49 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @doc """
   Creates the map from the ingested Kafka metadata that will be inserted into the Events table
   """
+  def process_event(%{event: %{@crud => "delete"}} = data) do
+    # Delete notifications for core_id
+    # Delete Events for core_id
+    # Delete Event Links for core_id IF event_type is Linkage
+    Map.put(data, :crud_action, "delete")
+    |> Map.put(:pipeline_state, :process_event)
+  end
+
   def process_event(
         %{event: event, event_definition_id: event_definition_id, core_id: core_id} = data
       ) do
+    now = DateTime.truncate(DateTime.utc_now(), :second)
     action = event[@crud]
+
+    occurred_at =
+      case event["_timestamp"] do
+        nil ->
+          nil
+
+        date_string ->
+          {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
+
+          dt_struct
+          |> DateTime.truncate(:second)
+      end
 
     pg_event =
       case action do
         "update" ->
           %{
             core_id: core_id,
-            occurred_at: event["_timestamp"],
+            occurred_at: occurred_at,
             risk_score: format_risk_score(event["_confidence"]),
             event_details: format_lexicon_data(event),
             event_definition_id: event_definition_id,
-            updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-          }
-
-        "delete" ->
-          %{
-            core_id: core_id,
-            risk_score: format_risk_score(event["_confidence"]),
-            occurred_at: event["_timestamp"],
-            event_details: format_lexicon_data(event),
-            event_definition_id: event_definition_id
+            created_at: now,
+            updated_at: now
           }
 
         _ ->
-          now = DateTime.truncate(DateTime.utc_now(), :second)
-
           %{
             core_id: core_id,
-            occurred_at: event["_timestamp"],
+            occurred_at: occurred_at,
             risk_score: format_risk_score(event["_confidence"]),
             event_details: format_lexicon_data(event),
             event_definition_id: event_definition_id,
@@ -72,14 +82,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   @doc """
   """
+  def process_elasticsearch_documents(%{crud_action: "delete"} = data), do: data
+
   def process_elasticsearch_documents(
         %{
           event: event,
           pg_event: pg_event,
           core_id: core_id,
           event_definition: event_definition,
-          event_definition_id: event_definition_id,
-          crud_action: action
+          event_definition_id: event_definition_id
         } = data
       ) do
     published_at = event["published_at"]
@@ -152,22 +163,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     # Build elasticsearch documents
     elasticsearch_event_doc =
-      if action != @delete do
-        case EventDocumentBuilder.build_document(
-               core_id,
-               event_definition.title,
-               event_definition_id,
-               elasticsearch_event_details,
-               published_at
-             ) do
-          {:ok, event_doc} ->
-            event_doc
+      case EventDocumentBuilder.build_document(
+             core_id,
+             event_definition.title,
+             event_definition_id,
+             elasticsearch_event_details,
+             published_at
+           ) do
+        {:ok, event_doc} ->
+          event_doc
 
-          _ ->
-            @defaults.event_document
-        end
-      else
-        nil
+        _ ->
+          @defaults.event_document
       end
 
     Map.put(data, :event_doc, elasticsearch_event_doc)
@@ -176,6 +183,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   @doc """
   """
+  def process_notifications(%{crud_action: "delete"} = data), do: data
+
   def process_notifications(
         %{
           pg_event: pg_event,
@@ -210,6 +219,36 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             }
           ]
       end)
+
+    # pg_notifications_delete =
+    #   NotificationsContext.fetch_invalid_notification_settings(
+    #     %{
+    #       event_definition_id: event_definition.id,
+    #       active: true
+    #     },
+    #     pg_event.risk_score,
+    #     event_definition
+    #   )
+    #   |> Enum.reduce([], fn ns, acc ->
+
+    #     # TODO: query for notifications where core_id and notification_setting_id match
+    #     # build a list of the notification_setting_ids to remove
+
+    #     acc ++
+    #       [
+    #         %{
+    #           archived_at: nil,
+    #           priority: @defaults.notification_priority,
+    #           assigned_to: ns.assigned_to,
+    #           dismissed_at: nil,
+    #           core_id: core_id,
+    #           tag_id: ns.tag_id,
+    #           notification_setting_id: ns.id,
+    #           created_at: now,
+    #           updated_at: now
+    #         }
+    #       ]
+    #   end)
 
     Map.put(data, :pg_notifications, pg_notifications)
     |> Map.put(:pipeline_state, :process_notifications)
@@ -275,9 +314,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     transaction_result =
       Multi.new()
       |> EventsContext.upsert_all_events_multi(bulk_transactional_data.pg_event,
-        on_conflict:
-          {:replace,
-           [:occurred_at, :risk_score, :event_details, :event_definition_id, :updated_at]},
+        on_conflict: {:replace_all_except, [:core_id, :created_at]},
         conflict_target: [:core_id]
       )
       |> NotificationsContext.upsert_all_notifications_multi(
@@ -291,11 +328,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           :updated_at,
           :assigned_to
         ],
-        on_conflict: {:replace, [:tag_id, :updated_at, :assigned_to]},
+        on_conflict: {:replace_all_except, [:id, :created_at, :core_id]},
         conflict_target: [:core_id, :notification_setting_id]
       )
       |> EventsContext.upsert_all_event_links_multi(bulk_transactional_data.pg_event_links,
-        on_conflict: {:replace, [:entity_core_id, :updated_at, :label]},
+        on_conflict: {:replace_all_except, [:id, :created_at]},
         conflict_target: [:link_core_id]
       )
       |> EventsContext.run_multi_transaction()
@@ -370,9 +407,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   defp format_risk_score(nil), do: 0
 
-  defp format_risk_score(confidence) do
-    if confidence != 0 do
-      case Float.parse(confidence) do
+  defp format_risk_score(risk_score) when is_float(risk_score),
+    do: trunc(Float.round(risk_score * 100))
+
+  defp format_risk_score(risk_score) when is_integer(risk_score), do: risk_score
+
+  defp format_risk_score(risk_score) do
+    if risk_score != 0 do
+      case Float.parse(risk_score) do
         :error ->
           CogyntLogger.warn(
             "#{__MODULE__}",
@@ -385,7 +427,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           trunc(Float.round(score * 100))
       end
     else
-      confidence
+      risk_score
     end
   end
 end

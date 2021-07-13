@@ -192,8 +192,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
         :updated_at,
         :assigned_to
       ],
-      on_conflict:
-        {:replace, [:tag_id, :updated_at, :assigned_to, :dismissed_at, :priority, :archived_at]},
+      on_conflict: {:replace_all_except, [:id, :created_at, :core_id]},
       conflict_target: [:core_id, :notification_setting_id]
     )
     |> case do

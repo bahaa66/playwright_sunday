@@ -42,7 +42,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     do: Repo.get_by(NotificationSetting, clauses)
 
   @doc """
-  Returns a list of NotificationSettings that passes the list of contraints passed in
+  Returns a list of NotificationSettings that match the filters passed
   """
   def fetch_valid_notification_settings(filters, risk_score, event_definition) do
     query_notification_settings(%{filter: filters})
@@ -54,6 +54,22 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
         end) != nil
 
       has_event_definition_detail and in_risk_range?(risk_score, ns.risk_range)
+    end)
+  end
+
+  @doc """
+  Returns a list of NotificationSettings that are left out from the filters passed
+  """
+  def fetch_invalid_notification_settings(filters, risk_score, event_definition) do
+    query_notification_settings(%{filter: filters})
+    |> Enum.filter(fn ns ->
+      has_event_definition_detail =
+        Enum.find(event_definition.event_definition_details, fn
+          %{field_name: name} ->
+            name == ns.title
+        end) != nil
+
+      !has_event_definition_detail or !in_risk_range?(risk_score, ns.risk_range)
     end)
   end
 
