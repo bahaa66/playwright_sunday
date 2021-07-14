@@ -116,7 +116,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   @doc """
   removes all redis keys that are associated with the given event_definition_id
   """
-  def remove_consumer_state(event_definition_id, _opts \\ []) do
+  def remove_consumer_state(event_definition_id) do
     for x <- ["fem", "emi"], do: Redis.key_delete("#{x}:#{event_definition_id}")
 
     Redis.hash_delete("cs", event_definition_id)
@@ -396,6 +396,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
         true ->
           ConsumerGroupSupervisor.stop_child(event_definition.id)
+          remove_consumer_state(event_definition.id)
           %{response: {:ok, ConsumerStatusTypeEnum.status()[:unknown]}}
       end
     rescue

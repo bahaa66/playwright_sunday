@@ -61,6 +61,10 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           entity_core_id ->
             now = DateTime.truncate(DateTime.utc_now(), :second)
 
+            # TODO
+            # If CRUD: update
+            # Delete all records that match link_core_id.
+
             acc ++
               [
                 %{

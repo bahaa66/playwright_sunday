@@ -22,7 +22,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   }
 
   @doc """
-  Creates the map from the ingested Kafka metadata that will be inserted into the Events table
+  process_event/1 for a CRUD: delete event. We just store the core_id of the event that needs
+  to be deleted as part of the payload. When it hits the transactional step of the pipeline the
+  event and its associated data will be removed
   """
   def process_event(%{core_id: core_id, event: %{@crud => "delete"}} = data) do
     Map.put(data, :crud_action, "delete")
@@ -30,6 +32,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     |> Map.put(:pipeline_state, :process_event)
   end
 
+  @doc """
+  process_event/1 will build an event map that will be processed in bulk in the transactional step
+  of the pipeline
+  """
   def process_event(
         %{event: event, event_definition_id: event_definition_id, core_id: core_id} = data
       ) do
@@ -78,10 +84,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     |> Map.put(:pipeline_state, :process_event)
   end
 
-  @doc """
-  """
   def process_elasticsearch_documents(%{crud_action: "delete"} = data), do: data
 
+  @doc """
+  process_elasticsearch_documents/1 will build the Event Elasticsearch document that Workstation
+  uses to fetch its search facets and do a lot of quick keyword searches against.
+  """
   def process_elasticsearch_documents(
         %{
           event: event,
@@ -179,10 +187,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     |> Map.put(:pipeline_state, :process_elasticsearch_documents)
   end
 
-  @doc """
-  """
   def process_notifications(%{crud_action: "delete"} = data), do: data
 
+  @doc """
+  process_notifications/1 will build notifications objects for each valid notification_setting
+  at the time. With CRUD: update messages we need to take into consideration the possibilty
+  of a notification that was previously created against a valid notification setting, no longer
+  being valid. So we must also fetch all invalid_notification_settings at the time and store the
+  core_ids for the associated notifications to be removed in the transactional step of the pipeline.
+  """
   def process_notifications(
         %{
           pg_event: pg_event,
@@ -218,43 +231,38 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           ]
       end)
 
-    # pg_notifications_delete =
-    #   NotificationsContext.fetch_invalid_notification_settings(
-    #     %{
-    #       event_definition_id: event_definition.id,
-    #       active: true
-    #     },
-    #     pg_event.risk_score,
-    #     event_definition
-    #   )
-    #   |> Enum.reduce([], fn ns, acc ->
+    invalid_notification_settings =
+      NotificationsContext.fetch_invalid_notification_settings(
+        %{
+          event_definition_id: event_definition.id,
+          active: true
+        },
+        pg_event.risk_score,
+        event_definition
+      )
 
-    #     # TODO: query for notifications where core_id and notification_setting_id match
-    #     # build a list of the notification_setting_ids to remove
-
-    #     acc ++
-    #       [
-    #         %{
-    #           archived_at: nil,
-    #           priority: @defaults.notification_priority,
-    #           assigned_to: ns.assigned_to,
-    #           dismissed_at: nil,
-    #           core_id: core_id,
-    #           tag_id: ns.tag_id,
-    #           notification_setting_id: ns.id,
-    #           created_at: now,
-    #           updated_at: now
-    #         }
-    #       ]
-    #   end)
+    pg_notifications_delete =
+      if Enum.empty?(invalid_notification_settings) do
+        []
+      else
+        NotificationsContext.query_notifications(%{
+          filter: %{
+            notification_setting_ids:
+              Enum.map(invalid_notification_settings, fn invalid_ns -> invalid_ns.id end),
+            core_id: core_id
+          }
+        })
+        |> Enum.map(fn notifications -> notifications.core_id end)
+      end
 
     Map.put(data, :pg_notifications, pg_notifications)
+    |> Map.put(:pg_notifications_delete, pg_notifications_delete)
     |> Map.put(:pipeline_state, :process_notifications)
   end
 
   @doc """
-  For datasets that can be processed in bulk this will aggregate all of the
-  processed data and insert it into postgres in bulk
+  Takes all the messages that have gone through the processing steps in the pipeline up to the batch limit
+  configured. Will execute one multi transaction to delete and upsert all objects
   """
   def execute_batch_transaction(messages) do
     # build transactional data
@@ -263,7 +271,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       pg_notifications: [],
       event_doc: [],
       pg_event_links: [],
-      delete_core_id: []
+      delete_core_id: [],
+      pg_notifications_delete: []
     }
 
     bulk_transactional_data =
@@ -299,6 +308,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             :delete_core_id ->
               v1 ++ [v2]
 
+            :pg_notifications_delete ->
+              v1 ++ List.flatten(v2)
+
             _ ->
               v2
           end
@@ -316,7 +328,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     transaction_result =
       Multi.new()
       |> NotificationsContext.delete_all_notifications_multi(
-        bulk_transactional_data.delete_core_id
+        Enum.uniq(
+          bulk_transactional_data.delete_core_id ++
+            bulk_transactional_data.pg_notifications_delete
+        )
       )
       |> EventsContext.delete_all_event_links_multi(bulk_transactional_data.delete_core_id)
       |> EventsContext.delete_all_events_multi(bulk_transactional_data.delete_core_id)
@@ -338,7 +353,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         on_conflict: {:replace_all_except, [:id, :created_at, :core_id]},
         conflict_target: [:core_id, :notification_setting_id]
       )
-      # TODO: Need to fetch and merge event links for crud data
       |> EventsContext.upsert_all_event_links_multi(bulk_transactional_data.pg_event_links,
         on_conflict: {:replace_all_except, [:id, :created_at]},
         conflict_target: [:link_core_id]
