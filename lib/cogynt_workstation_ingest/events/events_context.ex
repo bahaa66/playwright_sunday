@@ -101,7 +101,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       {:select, select}, q ->
         select(q, ^select)
     end)
-    |> order_by([e], desc: e.created_at, asc: e.id)
+    |> order_by([e], desc: e.created_at, asc: e.core_id)
     |> Repo.paginate(page: page, page_size: page_size)
   end
 

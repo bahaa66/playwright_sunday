@@ -91,7 +91,7 @@ defmodule CogyntWorkstationIngest.System.SystemNotificationContext do
           Enum.reduce(notifications, acc, fn notification, acc_1 ->
             system_notification_details = %SystemNotificationDetails{
               notification_id: notification.id,
-              event_id: notification.event_id
+              core_id: notification.core_id
             }
 
             now = DateTime.truncate(DateTime.utc_now(), :second)

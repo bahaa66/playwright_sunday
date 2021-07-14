@@ -12,12 +12,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
   @lexicons Application.get_env(:cogynt_workstation_ingest, :core_keys)[:lexicons]
   @defaults %{
-    deleted_event_ids: [],
     crud_action: nil,
-    risk_history_document: nil,
     event_document: nil,
-    notifications: nil,
-    event_id: nil,
     notification_priority: 3
   }
 
