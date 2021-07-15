@@ -268,7 +268,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       event_doc: [],
       pg_event_links: [],
       delete_core_id: [],
-      pg_notifications_delete: []
+      pg_notifications_delete: [],
+      pg_event_links_delete: []
     }
 
     bulk_transactional_data =
@@ -307,6 +308,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             :pg_notifications_delete ->
               v1 ++ List.flatten(v2)
 
+            :pg_event_links_delete ->
+              v1 ++ List.flatten(v2)
+
             _ ->
               v2
           end
@@ -329,7 +333,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             bulk_transactional_data.pg_notifications_delete
         )
       )
-      |> EventsContext.delete_all_event_links_multi(bulk_transactional_data.delete_core_id)
+      |> EventsContext.delete_all_event_links_multi(
+        Enum.uniq(
+          bulk_transactional_data.delete_core_id ++ bulk_transactional_data.pg_event_links_delete
+        )
+      )
       |> EventsContext.delete_all_events_multi(bulk_transactional_data.delete_core_id)
       |> EventsContext.upsert_all_events_multi(bulk_transactional_data.pg_event,
         on_conflict: {:replace_all_except, [:core_id, :created_at]},

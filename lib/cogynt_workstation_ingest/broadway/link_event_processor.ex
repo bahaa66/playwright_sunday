@@ -44,7 +44,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   def process_entities(%{validated: false} = data),
     do: Map.put(data, :pipeline_state, :process_entities)
 
-  def process_entities(%{event: %{@entities => entities}, core_id: core_id} = data) do
+  def process_entities(
+        %{event: %{@entities => entities}, core_id: core_id, crud_action: crud_action} = data
+      ) do
     pg_event_links =
       Enum.reduce(entities, [], fn {edge_label, link_data_list}, acc ->
         link_object = List.first(link_data_list) || %{}
@@ -61,10 +63,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           entity_core_id ->
             now = DateTime.truncate(DateTime.utc_now(), :second)
 
-            # TODO
-            # If CRUD: update
-            # Delete all records that match link_core_id.
-
             acc ++
               [
                 %{
@@ -78,7 +76,17 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         end
       end)
 
+    pg_event_links_delete =
+      case crud_action do
+        "update" ->
+          [core_id]
+
+        _ ->
+          []
+      end
+
     Map.put(data, :pg_event_links, pg_event_links)
+    |> Map.put(:pg_event_links_delete, pg_event_links_delete)
     |> Map.put(:pipeline_state, :process_entities)
   end
 end
