@@ -42,6 +42,22 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
             "EventDefinition-#{event_definition.id}" <> "-" <> cgid
         end
 
+      # Start Druid Ingestion if EventDefinition event_history flag is set
+      if event_definition.event_history == true do
+        druid_supervisor_name = String.to_atom(consumer_group_id <> "-DruidSupervisor")
+        druid_supervisor_pid = Process.whereis(druid_supervisor_name)
+
+        IO.inspect(druid_supervisor_name, label: "********* NAME")
+        IO.inspect(druid_supervisor_pid, label: "********* PID")
+
+        # if DynamicSupervisorMonitor.supervisor_running?(druid_supervisor_pid)
+        if is_nil(druid_supervisor_pid) do
+          start_druid_supervisor(druid_supervisor_name, topic)
+        else
+          DynamicSupervisorMonitor.resume_supervisor(druid_supervisor_pid)
+        end
+      end
+
       child_spec = %{
         id: topic,
         start: {
