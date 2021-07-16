@@ -367,8 +367,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:ok, %{upsert_notifications: {_count_created, upserted_notifications}}} ->
         SystemNotificationContext.bulk_insert_system_notifications(upserted_notifications)
 
-      # TODO: send Redis pub sub for Events object
-
       {:ok, _} ->
         nil
 
@@ -382,6 +380,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
         raise "execute_transaction/1 failed"
     end
+
+    Redis.publish_async(
+      "events_upserted",
+      %{events_upserted: bulk_transactional_data.pg_event}
+    )
   end
 
   # ----------------------- #
