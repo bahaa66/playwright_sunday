@@ -357,10 +357,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         on_conflict: {:replace_all_except, [:id, :created_at, :core_id]},
         conflict_target: [:core_id, :notification_setting_id]
       )
-      |> EventsContext.upsert_all_event_links_multi(bulk_transactional_data.pg_event_links,
-        on_conflict: {:replace_all_except, [:id, :created_at]},
-        conflict_target: [:link_core_id]
-      )
+      |> EventsContext.upsert_all_event_links_multi(bulk_transactional_data.pg_event_links)
       |> EventsContext.run_multi_transaction()
 
     case transaction_result do

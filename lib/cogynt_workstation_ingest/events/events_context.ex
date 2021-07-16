@@ -564,16 +564,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
   def upsert_all_event_links_multi(multi, [], _opts), do: multi
 
-  def upsert_all_event_links_multi(multi, event_links, opts) do
-    on_conflict = Keyword.get(opts, :on_conflict, :nothing)
-    conflict_target = Keyword.get(opts, :conflict_target, [:link_core_id])
-
+  def upsert_all_event_links_multi(multi, event_links, _opts) do
     multi
-    |> Multi.insert_all(:upsert_event_links, EventLink, event_links,
-      on_conflict: on_conflict,
-      conflict_target: conflict_target,
-      timeout: 60_000
-    )
+    |> Multi.insert_all(:upsert_event_links, EventLink, event_links, timeout: 60_000)
   end
 
   def delete_all_event_links_multi(multi, core_ids \\ [])
