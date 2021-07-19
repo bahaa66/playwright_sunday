@@ -202,7 +202,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       _ ->
         data =
           case event_type do
-            :linkage ->
+            "linkage" ->
               case message.data.pipeline_state do
                 :process_event ->
                   message.data
@@ -282,7 +282,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       last_crud_action_message = List.last(core_id_records)
 
       case event_type do
-        :linkage ->
+        "linkage" ->
           case last_crud_action_message.data.pipeline_state do
             :process_event ->
               data =
