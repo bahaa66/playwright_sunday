@@ -7,6 +7,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   use DynamicSupervisor
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
+  alias CogyntWorkstationIngest.Servers.Druid.DynamicSupervisorMonitor
 
   alias CogyntWorkstationIngest.Broadway.{
     EventPipeline,
@@ -42,22 +43,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
             "EventDefinition-#{event_definition.id}" <> "-" <> cgid
         end
 
-      # Start Druid Ingestion if EventDefinition event_history flag is set
-      if event_definition.event_history == true do
-        druid_supervisor_name = String.to_atom(consumer_group_id <> "-DruidSupervisor")
-        druid_supervisor_pid = Process.whereis(druid_supervisor_name)
-
-        IO.inspect(druid_supervisor_name, label: "********* NAME")
-        IO.inspect(druid_supervisor_pid, label: "********* PID")
-
-        # if DynamicSupervisorMonitor.supervisor_running?(druid_supervisor_pid)
-        if is_nil(druid_supervisor_pid) do
-          start_druid_supervisor(druid_supervisor_name, topic)
-        else
-          DynamicSupervisorMonitor.resume_supervisor(druid_supervisor_pid)
-        end
-      end
-
       child_spec = %{
         id: topic,
         start: {
@@ -78,7 +63,18 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         type: :supervisor
       }
 
-      DynamicSupervisor.start_child(__MODULE__, child_spec)
+      # Start Druid Ingestion if EventDefinition event_history flag is set
+      if event_definition.event_history == true do
+        case start_druid_supervisor(consumer_group_id, topic) do
+          {:ok, :success} ->
+            DynamicSupervisor.start_child(__MODULE__, child_spec)
+
+          {:error, nil} ->
+            {:error, nil}
+        end
+      else
+        DynamicSupervisor.start_child(__MODULE__, child_spec)
+      end
     else
       {:error, nil}
     end
@@ -169,6 +165,74 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
       {:ok, consumer_group_id} ->
         "EventDefinition-#{event_definition_id}" <> "-" <> consumer_group_id
+    end
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp start_druid_supervisor(consumer_group_id, topic) do
+    druid_supervisor_name = String.to_atom(consumer_group_id <> "-DruidSupervisor")
+    druid_supervisor_pid = Process.whereis(druid_supervisor_name)
+
+    child_spec = %{
+      id: topic,
+      start: {
+        DynamicSupervisorMonitor,
+        :start_link,
+        [
+          %{
+            supervisor_id: topic,
+            brokers:
+              Config.kafka_brokers()
+              |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
+              |> Enum.join(","),
+            dimensions_spec: %{
+              dimensions: []
+            },
+            name: druid_supervisor_name
+          }
+        ]
+      },
+      restart: :permanent,
+      shutdown: 5000,
+      type: :supervisor
+    }
+
+    # IO.inspect(druid_supervisor_name, label: "********* NAME")
+    # IO.inspect(druid_supervisor_pid, label: "********* PID")
+
+    if is_nil(druid_supervisor_pid) do
+      case DynamicSupervisor.start_child(__MODULE__, child_spec) do
+        {:error, error} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "Failed to start Druid Supervisor, error: #{inspect(error)}"
+          )
+
+          {:error, nil}
+
+        _ ->
+          {:ok, :success}
+      end
+    else
+      case DynamicSupervisorMonitor.supervisor_status(druid_supervisor_pid) do
+        %{"state" => "SUSPENDED"} ->
+          IO.puts("RESUMING DRUID *****")
+          DynamicSupervisorMonitor.resume_supervisor(druid_supervisor_pid)
+
+        %{"state" => "RUNNING"} ->
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "Druid supervisor: #{druid_supervisor_name} already running"
+          )
+
+        _ ->
+          IO.puts("DELETING AND RESETTING DRUID *****")
+          DynamicSupervisorMonitor.delete_data_and_reset_supervisor(druid_supervisor_pid)
+      end
+
+      {:ok, :success}
     end
   end
 end

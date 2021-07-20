@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.DynamicSupervisorMonitor do
   """
   use GenServer
 
-  @status_check_interval 30_000
+  @status_check_interval 10_000
 
   # -------------------- #
   # --- client calls --- #
@@ -93,7 +93,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.DynamicSupervisorMonitor do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Unable to delete datasource do to error: #{inspect(error)}"
+          "Unable to delete Druid datasource do to error: #{inspect(error)}"
         )
 
         {:reply, {:error, error}, state}
@@ -111,7 +111,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.DynamicSupervisorMonitor do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Unable to suspend datasource do to error: #{inspect(error)}"
+          "Unable to suspend Druid datasource do to error: #{inspect(error)}"
         )
 
         {:reply, {:error, error}, state}
@@ -129,7 +129,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.DynamicSupervisorMonitor do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Unable to resume datasource do to error: #{inspect(error)}"
+          "Unable to resume Druid datasource do to error: #{inspect(error)}"
         )
 
         {:reply, {:error, error}, state}
@@ -138,7 +138,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.DynamicSupervisorMonitor do
 
   @impl true
   def handle_continue({:create_or_update_supervisor, args}, %{id: id} = state) do
-    dimensions_spec = Map.get(args, :dimensions_spec)
+    dimensions_spec = Map.get(args, :dimensions_spec, %{dimensions: []})
     brokers = Map.get(args, :brokers)
     io_config = Map.get(args, :io_config)
     granularity_spec = Map.get(args, :granularity_spec)
@@ -160,7 +160,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.DynamicSupervisorMonitor do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Unable to create and get supervisor information for #{id}: #{inspect(error)}"
+          "Unable to create/fetch Druid supervisor information for #{id}: #{inspect(error)}"
         )
 
         {:noreply, %{state | supervisor_status: {:error, error}}}
@@ -176,7 +176,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.DynamicSupervisorMonitor do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Unable to reset and get supervisor information for #{id}: #{inspect(error)}"
+          "Unable to reset/fetch supervisor Druid information for #{id}: #{inspect(error)}"
         )
 
         {:noreply, state}
@@ -187,10 +187,10 @@ defmodule CogyntWorkstationIngest.Servers.Druid.DynamicSupervisorMonitor do
   def handle_info(:get_status, %{id: id} = state) do
     Druid.get_supervisor_status(id)
     |> case do
-      {:ok, %{"payload" => %{"detailedState" => "LOST_CONTACT_WITH_STREAM"} = p}} ->
+      {:ok, %{"payload" => %{"detailedState" => "LOST_CONTACT_WITH_STREAM"} = _p}} ->
         {:noreply, state, {:continue, :reset_and_get_supervisor}}
 
-      {:ok, %{"payload" => payload} = s} ->
+      {:ok, %{"payload" => payload} = _s} ->
         Process.send_after(__MODULE__, :get_status, @status_check_interval)
         {:noreply, %{state | supervisor_status: payload}}
 
