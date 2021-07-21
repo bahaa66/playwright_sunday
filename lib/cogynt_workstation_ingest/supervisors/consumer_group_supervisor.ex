@@ -64,16 +64,12 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       }
 
       # Start Druid Ingestion if EventDefinition event_history flag is set
-      if event_definition.event_history == true do
-        case start_druid_supervisor(consumer_group_id, topic) do
-          {:ok, :success} ->
-            DynamicSupervisor.start_child(__MODULE__, child_spec)
+      case start_druid_supervisor(consumer_group_id, topic) do
+        {:ok, :success} ->
+          DynamicSupervisor.start_child(__MODULE__, child_spec)
 
-          {:error, nil} ->
-            {:error, nil}
-        end
-      else
-        DynamicSupervisor.start_child(__MODULE__, child_spec)
+        {:error, nil} ->
+          {:error, nil}
       end
     else
       {:error, nil}
@@ -199,8 +195,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       type: :supervisor
     }
 
-    # IO.inspect(druid_supervisor_name, label: "********* NAME")
-    # IO.inspect(druid_supervisor_pid, label: "********* PID")
+    IO.inspect(druid_supervisor_name, label: "********* NAME")
+    IO.inspect(druid_supervisor_pid, label: "********* PID")
 
     if is_nil(druid_supervisor_pid) do
       case DynamicSupervisor.start_child(__MODULE__, child_spec) do
