@@ -66,14 +66,15 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
           String.split(key, ":")
           |> List.last()
 
-        consumer_group_id = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
+        consumer_group_id =
+          ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline"
 
         if EventPipeline.pipeline_running?(event_definition_id) do
           failed_event_definition_messages =
             fetch_and_release_failed_messages(@demand, @event_pipeline_module, key)
 
           Broadway.push_messages(
-            String.to_atom(consumer_group_id <> "Pipeline"),
+            {:via, Registry, {BroadwayRegistry, consumer_group_id}},
             failed_event_definition_messages
           )
         end

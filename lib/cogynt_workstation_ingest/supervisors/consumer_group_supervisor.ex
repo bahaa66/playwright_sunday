@@ -7,7 +7,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   use DynamicSupervisor
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
-  alias CogyntWorkstationIngest.Servers.Druid.DynamicSupervisorMonitor
+  alias CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor
+  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
 
   alias CogyntWorkstationIngest.Broadway.{
     EventPipeline,
@@ -117,16 +118,19 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def stop_child(event_definition_id) when is_binary(event_definition_id) do
-    (fetch_event_cgid(event_definition_id) <> "Pipeline")
-    |> String.to_atom()
-    |> Process.whereis()
-    |> case do
-      nil ->
+    name = fetch_event_cgid(event_definition_id)
+    DruidRegistryHelper.terminate_druid_with_registry_lookup(name)
+
+    case Registry.lookup(BroadwayRegistry, "#{name}" <> "Pipeline") do
+      [] ->
         {:ok, :success}
 
-      child_pid ->
-        GenServer.stop(child_pid)
-        Process.sleep(1500)
+      registered_processes ->
+        Enum.each(registered_processes, fn {pid, _} ->
+          GenServer.stop(pid)
+          Process.sleep(1500)
+        end)
+
         {:ok, :success}
     end
   end
@@ -167,68 +171,42 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp start_druid_supervisor(consumer_group_id, topic) do
-    druid_supervisor_name = String.to_atom(consumer_group_id <> "-DruidSupervisor")
-    druid_supervisor_pid = Process.whereis(druid_supervisor_name)
+  defp start_druid_supervisor(name, topic) do
+    # %{
+    #   id: topic,
+    #   start: {
+    #     SupervisorMonitor,
+    #     :start_link,
+    #     [
+    #       %{
+    #         supervisor_id: topic,
+    #         brokers:
+    #           Config.kafka_brokers()
+    #           |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
+    #           |> Enum.join(","),
+    #         dimensions_spec: %{
+    #           dimensions: []
+    #         },
+    #         name: name
+    #       }
+    #     ]
+    #   },
+    #   restart: :transient,
+    #   shutdown: 5000,
+    #   type: :supervisor
+    # }
 
-    child_spec = %{
-      id: topic,
-      start: {
-        DynamicSupervisorMonitor,
-        :start_link,
-        [
-          %{
-            supervisor_id: topic,
-            brokers:
-              Config.kafka_brokers()
-              |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
-              |> Enum.join(","),
-            dimensions_spec: %{
-              dimensions: []
-            },
-            name: druid_supervisor_name
-          }
-        ]
+    %{
+      supervisor_id: topic,
+      brokers:
+        Config.kafka_brokers()
+        |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
+        |> Enum.join(","),
+      dimensions_spec: %{
+        dimensions: []
       },
-      restart: :permanent,
-      shutdown: 5000,
-      type: :supervisor
+      name: name
     }
-
-    IO.inspect(druid_supervisor_name, label: "********* NAME")
-    IO.inspect(druid_supervisor_pid, label: "********* PID")
-
-    if is_nil(druid_supervisor_pid) do
-      case DynamicSupervisor.start_child(__MODULE__, child_spec) do
-        {:error, error} ->
-          CogyntLogger.error(
-            "#{__MODULE__}",
-            "Failed to start Druid Supervisor, error: #{inspect(error)}"
-          )
-
-          {:error, nil}
-
-        _ ->
-          {:ok, :success}
-      end
-    else
-      case DynamicSupervisorMonitor.supervisor_status(druid_supervisor_pid) do
-        %{"state" => "SUSPENDED"} ->
-          IO.puts("RESUMING DRUID *****")
-          DynamicSupervisorMonitor.resume_supervisor(druid_supervisor_pid)
-
-        %{"state" => "RUNNING"} ->
-          CogyntLogger.warn(
-            "#{__MODULE__}",
-            "Druid supervisor: #{druid_supervisor_name} already running"
-          )
-
-        _ ->
-          IO.puts("DELETING AND RESETTING DRUID *****")
-          DynamicSupervisorMonitor.delete_data_and_reset_supervisor(druid_supervisor_pid)
-      end
-
-      {:ok, :success}
-    end
+    |> DruidRegistryHelper.start_druid_with_registry_lookup(name)
   end
 end

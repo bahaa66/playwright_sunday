@@ -2,7 +2,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
   @moduledoc """
   """
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Servers.Druid.{TemplateSolutionEvents, TemplateSolutions}
+  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
 
   def perform(delete_drilldown_topics) do
     # TODO: eventually need to run this against all deployment targets
@@ -33,7 +33,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
     CogyntLogger.info("#{__MODULE__}", "Starting resetting of drilldown data")
 
     # Delete druid data and reset druid supervisors
-    TemplateSolutions.delete_data_and_reset_supervisor()
-    TemplateSolutionEvents.delete_data_and_reset_supervisor()
+    DruidRegistryHelper.reset_druid_with_registry_lookup(Config.template_solution_events_topic())
+    DruidRegistryHelper.reset_druid_with_registry_lookup(Config.template_solutions_topic())
   end
 end

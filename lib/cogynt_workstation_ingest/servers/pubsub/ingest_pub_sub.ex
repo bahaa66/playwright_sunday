@@ -4,7 +4,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
   """
   use GenServer
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
+  alias CogyntWorkstationIngest.Utils.{ConsumerStateManager, DruidRegistryHelper}
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Broadway.DeploymentPipeline
 
@@ -143,6 +143,14 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
         )
 
         ConsumerGroupSupervisor.stop_child(:deployment)
+
+      {:ok, %{start_druid_supervisor: spec} = request} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
+        )
+
+        DruidRegistryHelper.start_druid_with_registry_lookup(spec, spec.name)
 
       {:ok, _} ->
         CogyntLogger.warn(

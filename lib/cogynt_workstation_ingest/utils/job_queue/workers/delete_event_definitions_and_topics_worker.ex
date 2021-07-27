@@ -1,6 +1,4 @@
 defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsAndTopicsWorker do
-  @moduledoc """
-  """
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Broadway.EventPipeline
   alias CogyntWorkstationIngest.Events.EventsContext
@@ -18,15 +16,15 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
     if hard_delete_event_definitions do
       EventsContext.list_event_definitions()
       |> Enum.each(fn event_definition ->
-        # First stop the EventPipeline if there is one running for the event_definition
+        # 1) stop the EventPipeline if there is one running for the event_definition
         shutdown_event_pipeline(event_definition)
 
-        # Second check to see if the topic needs to be deleted
+        # 2) check to see if the topic needs to be deleted
         if delete_topics do
           delete_topics(event_definition)
         end
 
-        # Third remove all records from Elasticsearch
+        # 3) remove all records from Elasticsearch
         delete_elasticsearch_data(event_definition)
 
         ConsumerStateManager.remove_consumer_state(event_definition.id)
@@ -48,21 +46,21 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
             )
 
           event_definition ->
-            # First stop the EventPipeline if there is one running for the event_definition
+            # 1) stop the EventPipeline if there is one running for the event_definition
             shutdown_event_pipeline(event_definition)
 
-            # Second check to see if the topic needs to be deleted
+            # 2) check to see if the topic needs to be deleted
             if delete_topics do
               delete_topics(event_definition)
             end
 
-            # Third remove all records from Elasticsearch
+            # 3) remove all records from Elasticsearch
             delete_elasticsearch_data(event_definition)
 
-            # Fourth delete the event definition data
+            # 4) delete the event definition data
             delete_event_definition(event_definition)
 
-            # Finally one last call to remove elasticsearch data to ensure all data has been removed from all shards
+            # 5) one last call to remove elasticsearch data to ensure all data has been removed from all shards
             delete_elasticsearch_data(event_definition)
         end
       end)

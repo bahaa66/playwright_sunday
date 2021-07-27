@@ -10,7 +10,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
+  alias CogyntWorkstationIngest.Utils.{ConsumerStateManager, DruidRegistryHelper}
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Broadway.{EventProcessor, LinkEventProcessor}
 
@@ -24,7 +24,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         event_type: event_type
       }) do
     Broadway.start_link(__MODULE__,
-      name: String.to_atom(group_id <> "Pipeline"),
+      name: {:via, Registry, {BroadwayRegistry, "#{group_id}" <> "Pipeline"}},
       producer: [
         module:
           {BroadwayKafka.Producer,
@@ -366,11 +366,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
   @doc false
   def pipeline_started?(event_definition_id) do
-    (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline")
-    |> String.to_atom()
-    |> Process.whereis()
-    |> case do
-      nil ->
+    id = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline"
+
+    case Registry.lookup(BroadwayRegistry, id) do
+      [] ->
         false
 
       _ ->
@@ -381,9 +380,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @doc false
   def pipeline_running?(event_definition_id) do
     if pipeline_started?(event_definition_id) do
-      (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline")
-      |> String.to_atom()
-      |> Broadway.producer_names()
+      name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline"
+
+      Broadway.producer_names({:via, Registry, {BroadwayRegistry, name}})
       |> Enum.reduce(true, fn producer, acc ->
         case GenStage.demand(producer) do
           :forward ->
@@ -425,9 +424,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
   @doc false
   def suspend_pipeline(event_definition_id) do
-    (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline")
-    |> String.to_atom()
-    |> Broadway.producer_names()
+    # suspend druid ingest supervisor
+    name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
+
+    DruidRegistryHelper.suspend_druid_with_registry_lookup(name)
+
+    # suspend ingest producers
+    Broadway.producer_names({:via, Registry, {BroadwayRegistry, "#{name}" <> "Pipeline"}})
     |> Enum.each(fn producer ->
       GenStage.demand(producer, :accumulate)
     end)
@@ -435,9 +438,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
   @doc false
   def resume_pipeline(event_definition_id) do
-    (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline")
-    |> String.to_atom()
-    |> Broadway.producer_names()
+    # resume druid ingest supervisor
+    name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
+
+    DruidRegistryHelper.resume_druid_with_registry_lookup(name)
+
+    # resume ingest producers
+    Broadway.producer_names({:via, Registry, {BroadwayRegistry, "#{name}" <> "Pipeline"}})
     |> Enum.each(fn producer ->
       GenStage.demand(producer, :forward)
     end)
@@ -445,9 +452,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
   @doc false
   def estimated_buffer_count(event_definition_id) do
-    (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline")
-    |> String.to_atom()
-    |> Broadway.producer_names()
+    name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline"
+
+    Broadway.producer_names({:via, Registry, {BroadwayRegistry, name}})
     |> Enum.reduce(0, fn producer, acc ->
       acc + GenStage.estimate_buffered_count(producer)
     end)
