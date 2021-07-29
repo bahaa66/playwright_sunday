@@ -62,7 +62,6 @@ defmodule CogyntWorkstationIngest.Servers.Workers.ConsumerRetryWorker do
   defp start_event_type_consumers(event_definition_id) do
     with %EventDefinition{} = event_definition <-
            EventsContext.get_event_definition(event_definition_id),
-         true <- is_nil(event_definition.deleted_at),
          true <- event_definition.active do
       Redis.hash_delete("crw", event_definition_id)
 
