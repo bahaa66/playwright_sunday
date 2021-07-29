@@ -428,7 +428,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
-  defp format_risk_score(nil), do: 0
+  defp format_risk_score(nil), do: nil
 
   defp format_risk_score(risk_score) when is_float(risk_score),
     do: trunc(Float.round(risk_score * 100))
