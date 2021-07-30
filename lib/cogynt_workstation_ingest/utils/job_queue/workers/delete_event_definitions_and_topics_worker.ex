@@ -165,11 +165,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
           }\nError: #{inspect(error)}"
         )
     end
-
-    Elasticsearch.delete_by_query(Config.risk_history_index_alias(), %{
-      field: "event_definition_id",
-      value: event_definition.id
-    })
   end
 
   defp ensure_pipeline_shutdown(event_definition_id, count \\ 1) do
