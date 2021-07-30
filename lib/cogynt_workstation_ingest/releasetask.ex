@@ -13,7 +13,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
 
   def repos(app), do: Application.get_env(app, :ecto_repos, []) |> IO.inspect()
 
-  alias Elasticsearch.IndexMappings.{EventIndexMapping, RiskHistoryIndexMapping}
+  alias Elasticsearch.IndexMappings.EventIndexMapping
   alias CogyntWorkstationIngest.Config
 
   def premigrate do
@@ -88,26 +88,6 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
 
       {:ok, true} ->
         IO.puts("event_index already exists.")
-        IO.puts("indexes complete..")
-    end
-
-    with {:ok, _} <- HTTPoison.start(),
-         {:ok, false} <- Elasticsearch.index_exists?(Config.risk_history_index_alias()),
-         {:ok, _} <-
-           Elasticsearch.create_index(
-             Config.risk_history_index_alias(),
-             RiskHistoryIndexMapping.risk_history_index_settings()
-           ) do
-      IO.puts("The risk_history_index for CogyntWorkstation have been created.")
-
-      IO.puts("indexes complete..")
-    else
-      {:error, _} ->
-        IO.puts("Failed to create risk_history index")
-
-      {:ok, true} ->
-        IO.puts("risk_history_index already exists.")
-
         IO.puts("indexes complete..")
     end
   end

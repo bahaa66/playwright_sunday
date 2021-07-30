@@ -64,16 +64,14 @@ defmodule CogyntWorkstationIngest.MixProject do
        override: true},
       {
         :models,
-        # tag: "v1.14.1",
-        branch: "feat/CDST-1027-database-schema-refactor",
+        tag: "v1.14.2-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        # tag: "v1.14.1",
-        branch: "feat/CDST-1027-database-schema-refactor",
+        tag: "v1.14.2-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
@@ -87,8 +85,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :elasticsearch,
-        # tag: "v1.13.12",
-        branch: "feat/CDST-1027-database-schema-refactor",
+        tag: "v1.14.2-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
         override: true
