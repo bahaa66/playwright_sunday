@@ -16,7 +16,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
   alias Models.Events.EventDefinition
 
   @page_size 5000
-  @risk_score Application.get_env(:cogynt_workstation_ingest, :core_keys)[:risk_score]
 
   def perform(notification_setting_id) do
     with %NotificationSetting{} = notification_setting <-
@@ -25,24 +24,23 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
            EventsContext.get_event_definition(notification_setting.event_definition_id,
              preload_details: true
            ) do
-      # First stop the pipeline and ensure that if finishes processing its messages in the pipeline
+      # First pause the pipeline and ensure that it finishes processing its messages
       # before starting the backfill of notifications
-      stop_event_pipeline(event_definition)
+      pause_event_pipeline(event_definition)
 
       # Second once the pipeline has been stopped and the finished processing start the pagination
       # of events and backfill of notifications
       EventsContext.get_page_of_events(
         %{
           filter: %{event_definition_id: event_definition.id},
-          select: [:id, :core_id, :created_at]
+          select: [:core_id, :created_at]
         },
         page_number: 1,
-        page_size: @page_size,
-        preload_details: true
+        page_size: @page_size
       )
       |> process_notifications_for_events(notification_setting.id, event_definition)
 
-      # Finally check to see if consumer should be started back up again
+      # Finally check to see if consumer should be restarted
       start_event_pipeline(event_definition)
     else
       nil ->
@@ -58,8 +56,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
   # ----------------------- #
   # --- Private Methods --- #
   # ----------------------- #
-  defp stop_event_pipeline(event_definition) do
-    CogyntLogger.info("#{__MODULE__}", "Stopping EventPipeline for #{event_definition.topic}")
+  defp pause_event_pipeline(event_definition) do
+    CogyntLogger.info("#{__MODULE__}", "Pausing EventPipeline for #{event_definition.topic}")
 
     {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
 
@@ -136,120 +134,73 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
          notification_setting_id,
          event_definition
        ) do
-    notifications =
-      Enum.reduce(events, [], fn event, acc ->
-        risk_score = fetch_risk_score_from_event_details(event.event_details)
+    Enum.reduce(events, [], fn event, acc ->
+      # 1) Fetch all valid_notification_settings for each event
+      valid_notification_setting =
+        NotificationsContext.fetch_valid_notification_settings(
+          %{
+            event_definition_id: event_definition.id,
+            active: true
+          },
+          event.risk_score,
+          event_definition
+        )
+        |> Enum.find(nil, fn ns -> ns.id == notification_setting_id end)
 
-        # 1) Fetch all valid_notification_settings for each event
-        valid_notification_setting =
-          NotificationsContext.fetch_valid_notification_settings(
-            %{
-              event_definition_id: event_definition.id,
-              deleted_at: nil,
-              active: true
-            },
-            risk_score,
-            event_definition
-          )
-          |> Enum.find(nil, fn ns -> ns.id == notification_setting_id end)
+      # 2) Ensure that there is a ValidNotificationSetting AND that there was not already a Notification
+      # created during Ingest for that notification_setting_id and build a list of notifications to
+      # create for each
+      notification =
+        if !is_nil(valid_notification_setting) do
+          if is_nil(
+               NotificationsContext.get_notification_by(
+                 core_id: event.core_id,
+                 notification_setting_id: notification_setting_id
+               )
+             ) do
+            now = DateTime.truncate(DateTime.utc_now(), :second)
 
-        # 2) Update all notifications that match invalid_notification_settings to be deleted
-        invalid_notification_setting_ids =
-          NotificationsContext.fetch_invalid_notification_settings(
-            %{
-              event_definition_id: event_definition.id,
-              deleted_at: nil,
-              active: true
-            },
-            risk_score,
-            event_definition
-          )
-          |> Enum.map(fn ns -> ns.id end)
-
-        if !Enum.empty?(invalid_notification_setting_ids) do
-          NotificationsContext.update_notifcations(
-            %{
-              filter: %{
-                notification_setting_ids: invalid_notification_setting_ids,
-                deleted_at: nil,
-                core_id: event.core_id
+            [
+              %{
+                archived_at: nil,
+                priority: 3,
+                assigned_to: valid_notification_setting.assigned_to,
+                dismissed_at: nil,
+                core_id: event.core_id,
+                tag_id: valid_notification_setting.tag_id,
+                notification_setting_id: valid_notification_setting.id,
+                created_at: now,
+                updated_at: now
               }
-            },
-            set: [deleted_at: DateTime.truncate(DateTime.utc_now(), :second)]
-          )
-        end
-
-        # 3) Ensure that there is a ValidNotificationSetting AND that there was not already a Notification
-        # created during Ingest for that notification_setting_id and build a list of notifications to
-        # create for each
-        notification =
-          if !is_nil(valid_notification_setting) do
-            if is_nil(
-                 NotificationsContext.get_notification_by(
-                   event_id: event.id,
-                   notification_setting_id: notification_setting_id
-                 )
-               ) do
-              # Set fields for Stream_input
-              id = Ecto.UUID.generate()
-              title = valid_notification_setting.title || 'null'
-              description = 'null'
-              user_id = valid_notification_setting.user_id || 'null'
-              archived_at = 'null'
-              priority = 3
-              assigned_to = valid_notification_setting.assigned_to || 'null'
-              dismissed_at = 'null'
-              deleted_at = 'null'
-              core_id = event.core_id || 'null'
-              now = DateTime.truncate(DateTime.utc_now(), :second)
-              created_at = event.created_at || now
-
-              [
-                "#{id};#{title};#{description};#{user_id};#{archived_at};#{priority};#{
-                  assigned_to
-                };#{dismissed_at};#{deleted_at};#{event.id};#{valid_notification_setting.id};#{
-                  valid_notification_setting.tag_id
-                };#{core_id};#{created_at};#{now}\n"
-              ]
-            else
-              []
-            end
+            ]
           else
             []
           end
+        else
+          []
+        end
 
-        acc ++ notification
-      end)
-
-    # 4) Insert notifications for valid_notification_settings
-    case NotificationsContext.insert_all_notifications_with_copy(notifications) do
-      {:ok, %Postgrex.Result{rows: []}} ->
+      acc ++ notification
+    end)
+    |> NotificationsContext.upsert_all_notifications(
+      returning: [
+        :core_id,
+        :tag_id,
+        :id,
+        :notification_setting_id,
+        :created_at,
+        :updated_at,
+        :assigned_to
+      ],
+      on_conflict: {:replace_all_except, [:id, :created_at, :core_id]},
+      conflict_target: [:core_id, :notification_setting_id]
+    )
+    |> case do
+      {0, []} ->
         nil
 
-      {:ok, %Postgrex.Result{rows: results}} ->
-        notifications_enum = NotificationsContext.map_postgres_results(results)
-
-        # only want to publish the notifications that are not deleted
-        %{true: publish_notifications} =
-          Enum.group_by(notifications_enum, fn n -> is_nil(n.deleted_at) end)
-
-        # Redis.publish_async("notification_settings_subscription", %{
-        #   updated: notification_setting_id
-        # })
-
-        SystemNotificationContext.bulk_insert_system_notifications(publish_notifications)
-
-      {:error, %Postgrex.Error{postgres: %{message: error}}} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "process_notifications failed with Error: #{inspect(error)}"
-        )
-
-      _ ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "process_notifications failed"
-        )
+      {_count, upserted_notifications} ->
+        SystemNotificationContext.bulk_insert_system_notifications(upserted_notifications)
     end
 
     if page_number >= total_pages do
@@ -258,37 +209,12 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
       EventsContext.get_page_of_events(
         %{
           filter: %{event_definition_id: event_definition.id},
-          select: [:id, :core_id, :created_at]
+          select: [:core_id, :created_at]
         },
         page_number: page_number + 1,
-        page_size: @page_size,
-        preload_details: true
+        page_size: @page_size
       )
       |> process_notifications_for_events(notification_setting_id, event_definition)
-    end
-  end
-
-  defp fetch_risk_score_from_event_details(event_details) do
-    risk_score =
-      Enum.find(event_details, 0, fn detail ->
-        detail.field_name == @risk_score and detail.field_value != nil
-      end)
-
-    if risk_score != 0 do
-      case Float.parse(risk_score.field_value) do
-        :error ->
-          CogyntLogger.warn(
-            "#{__MODULE__}",
-            "Failed to parse risk_score as a float. Defaulting to 0"
-          )
-
-          0
-
-        {score, _extra} ->
-          score
-      end
-    else
-      risk_score
     end
   end
 end

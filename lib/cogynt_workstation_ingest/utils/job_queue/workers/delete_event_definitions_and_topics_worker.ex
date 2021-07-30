@@ -29,9 +29,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         # Third remove all records from Elasticsearch
         delete_elasticsearch_data(event_definition)
 
-        ConsumerStateManager.remove_consumer_state(event_definition.id,
-          hard_delete_event_definition: true
-        )
+        ConsumerStateManager.remove_consumer_state(event_definition.id)
       end)
 
       EventsContext.truncate_all_tables()
@@ -169,11 +167,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
           }\nError: #{inspect(error)}"
         )
     end
-
-    Elasticsearch.delete_by_query(Config.risk_history_index_alias(), %{
-      field: "event_definition_id",
-      value: event_definition.id
-    })
   end
 
   defp ensure_pipeline_shutdown(event_definition_id, count \\ 1) do
@@ -185,30 +178,23 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
     else
       {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition_id)
 
-      if consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] do
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "EventPipeline #{event_definition_id} shutdown"
-        )
-      else
-        case EventPipeline.pipeline_started?(event_definition_id) or
-               not EventPipeline.pipeline_finished_processing?(event_definition_id) or
-               consumer_state.status != ConsumerStatusTypeEnum.status()[:paused_and_finished] do
-          true ->
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before resetting data"
-            )
+      case EventPipeline.pipeline_started?(event_definition_id) or
+             not EventPipeline.pipeline_finished_processing?(event_definition_id) or
+             consumer_state.status != ConsumerStatusTypeEnum.status()[:unknown] do
+        true ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before resetting data"
+          )
 
-            Process.sleep(1000)
-            ensure_pipeline_shutdown(event_definition_id, count + 1)
+          Process.sleep(1000)
+          ensure_pipeline_shutdown(event_definition_id, count + 1)
 
-          false ->
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "EventPipeline #{event_definition_id} shutdown"
-            )
-        end
+        false ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "EventPipeline #{event_definition_id} shutdown"
+          )
       end
     end
   end

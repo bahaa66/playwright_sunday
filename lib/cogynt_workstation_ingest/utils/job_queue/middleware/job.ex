@@ -6,9 +6,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
 
   alias CogyntWorkstationIngest.Utils.JobQueue.Workers.{
     BackfillNotificationsWorker,
-    UpdateNotificationsWorker,
     DeleteNotificationsWorker,
-    DeleteEventDefinitionEventsWorker,
     DeleteDeploymentDataWorker,
     DeleteDrilldownDataWorker,
     DeleteEventDefinitionsAndTopicsWorker
@@ -190,23 +188,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
             )
         end
 
-      worker_module == to_string(UpdateNotificationsWorker) ->
-        case Redis.hash_get("ts", "un") do
-          {:ok, nil} ->
-            Redis.hash_set(
-              "ts",
-              "un",
-              [args]
-            )
-
-          {:ok, notification_setting_ids} ->
-            Redis.hash_set(
-              "ts",
-              "un",
-              Enum.uniq(notification_setting_ids ++ [args])
-            )
-        end
-
       worker_module == to_string(DeleteNotificationsWorker) ->
         case Redis.hash_get("ts", "dn") do
           {:ok, nil} ->
@@ -221,23 +202,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
               "ts",
               "dn",
               Enum.uniq(notification_setting_ids ++ [args])
-            )
-        end
-
-      worker_module == to_string(DeleteEventDefinitionEventsWorker) ->
-        case Redis.hash_get("ts", "de") do
-          {:ok, nil} ->
-            Redis.hash_set(
-              "ts",
-              "de",
-              [args]
-            )
-
-          {:ok, event_definition_ids} ->
-            Redis.hash_set(
-              "ts",
-              "de",
-              Enum.uniq(event_definition_ids ++ [args])
             )
         end
 
@@ -303,19 +267,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
             )
         end
 
-      worker_module == to_string(UpdateNotificationsWorker) ->
-        case Redis.hash_get("ts", "un") do
-          {:ok, nil} ->
-            nil
-
-          {:ok, notification_setting_ids} ->
-            Redis.hash_set(
-              "ts",
-              "un",
-              List.delete(notification_setting_ids, args)
-            )
-        end
-
       worker_module == to_string(DeleteNotificationsWorker) ->
         case Redis.hash_get("ts", "dn") do
           {:ok, nil} ->
@@ -326,19 +277,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
               "ts",
               "dn",
               List.delete(notification_setting_ids, args)
-            )
-        end
-
-      worker_module == to_string(DeleteEventDefinitionEventsWorker) ->
-        case Redis.hash_get("ts", "de") do
-          {:ok, nil} ->
-            nil
-
-          {:ok, event_definition_ids} ->
-            Redis.hash_set(
-              "ts",
-              "de",
-              List.delete(event_definition_ids, args)
             )
         end
 

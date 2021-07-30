@@ -49,19 +49,8 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
         {:ok, created_at, _} = DateTime.from_iso8601(event_definition.created_at)
         {:ok, updated_at, _} = DateTime.from_iso8601(event_definition.updated_at)
 
-        deleted_at =
-          case is_nil(event_definition.deleted_at) do
-            false ->
-              {:ok, deleted_at, _} = DateTime.from_iso8601(event_definition.deleted_at)
-              deleted_at
-
-            true ->
-              nil
-          end
-
         event_definition =
           event_definition
-          |> Map.put(:deleted_at, deleted_at)
           |> Map.put(:created_at, created_at)
           |> Map.put(:updated_at, updated_at)
 
