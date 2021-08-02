@@ -379,8 +379,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
 
     Redis.publish_async(
-      "events_upserted",
-      %{events_upserted: bulk_transactional_data.pg_event}
+      "events_changed_listener",
+      %{
+        deleted: bulk_transactional_data.delete_core_id,
+        upserted: bulk_transactional_data.pg_event
+      }
     )
   end
 
