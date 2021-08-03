@@ -7,7 +7,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   use DynamicSupervisor
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
-  alias CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor
   alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
 
   alias CogyntWorkstationIngest.Broadway.{
@@ -172,30 +171,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   # --- private methods --- #
   # ----------------------- #
   defp start_druid_supervisor(name, topic) do
-    # %{
-    #   id: topic,
-    #   start: {
-    #     SupervisorMonitor,
-    #     :start_link,
-    #     [
-    #       %{
-    #         supervisor_id: topic,
-    #         brokers:
-    #           Config.kafka_brokers()
-    #           |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
-    #           |> Enum.join(","),
-    #         dimensions_spec: %{
-    #           dimensions: []
-    #         },
-    #         name: name
-    #       }
-    #     ]
-    #   },
-    #   restart: :transient,
-    #   shutdown: 5000,
-    #   type: :supervisor
-    # }
-
     %{
       supervisor_id: topic,
       brokers:

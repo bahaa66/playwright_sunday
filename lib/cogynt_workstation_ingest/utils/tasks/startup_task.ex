@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
-  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
 
   def start_link(_arg \\ []) do
     Task.start_link(__MODULE__, :run, [])
