@@ -45,49 +45,13 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
 
   defp start_template_solutions_druid_supervisor() do
     Redis.publish_async("ingest_channel", %{
-      start_druid_supervisor: %{
-        supervisor_id: Config.template_solutions_topic(),
-        schema: :avro,
-        schema_registry_url: Config.schema_registry_url(),
-        brokers:
-          Config.kafka_brokers()
-          |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
-          |> Enum.join(","),
-        dimensions_spec: %{
-          dimensions: [
-            "id",
-            "templateTypeName",
-            "templateTypeId",
-            "retracted"
-          ]
-        },
-        name: Config.template_solutions_topic()
-      }
+      start_template_solutions_druid_supervisor: Config.template_solutions_topic()
     })
   end
 
   defp start_template_solution_events_druid_supervisor() do
     Redis.publish_async("ingest_channel", %{
-      start_druid_supervisor: %{
-        supervisor_id: Config.template_solution_events_topic(),
-        schema: :avro,
-        schema_registry_url: Config.schema_registry_url(),
-        brokers:
-          Config.kafka_brokers()
-          |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
-          |> Enum.join(","),
-        dimensions_spec: %{
-          dimensions: [
-            "id",
-            "templateTypeName",
-            "templateTypeId",
-            "event",
-            "aid",
-            "assertionName"
-          ]
-        },
-        name: Config.template_solution_events_topic()
-      }
+      start_template_solution_events_druid_supervisor: Config.template_solution_events_topic()
     })
   end
 end

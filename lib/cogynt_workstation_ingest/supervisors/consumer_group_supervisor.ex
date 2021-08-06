@@ -63,8 +63,10 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         type: :supervisor
       }
 
-      # Start Druid Ingestion if EventDefinition event_history flag is set
-      case start_druid_supervisor(consumer_group_id, topic) do
+      case DruidRegistryHelper.start_druid_with_registry_lookup(
+             consumer_group_id,
+             event_definition
+           ) do
         {:ok, :success} ->
           DynamicSupervisor.start_child(__MODULE__, child_spec)
 
@@ -165,23 +167,5 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       {:ok, consumer_group_id} ->
         "EventDefinition-#{event_definition_id}" <> "-" <> consumer_group_id
     end
-  end
-
-  # ----------------------- #
-  # --- private methods --- #
-  # ----------------------- #
-  defp start_druid_supervisor(name, topic) do
-    %{
-      supervisor_id: topic,
-      brokers:
-        Config.kafka_brokers()
-        |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
-        |> Enum.join(","),
-      dimensions_spec: %{
-        dimensions: []
-      },
-      name: name
-    }
-    |> DruidRegistryHelper.start_druid_with_registry_lookup(name)
   end
 end

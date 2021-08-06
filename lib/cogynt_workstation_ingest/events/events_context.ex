@@ -506,6 +506,17 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   @doc """
+  Will return all the EventDefintionDetails that are assosciated with the EventDefinition
+  struct
+  """
+  def get_event_definition_details(event_definition_id) do
+    from(details in EventDefinitionDetail,
+      where: details.event_definition_id == ^event_definition_id
+    )
+    |> Repo.all()
+  end
+
+  @doc """
   Removes all the records in the EventDefinitionDetails table.
   It returns a tuple containing the number of entries
   and any returned result as second element. The second
