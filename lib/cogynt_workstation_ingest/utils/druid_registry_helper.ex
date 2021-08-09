@@ -59,7 +59,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                 Enum.uniq(
                   acc ++
                     [
-                      "geo"
+                      "location"
                     ]
                 )
 
@@ -80,19 +80,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
           end)
 
         child_spec =
-          if Enum.member?(dimensions, "geo") do
-            %{
-              supervisor_id: event_definition.topic,
-              brokers:
-                Config.kafka_brokers()
-                |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
-                |> Enum.join(","),
-              dimensions_spec: %{
-                dimensions: dimensions
-              },
-              name: name
-            }
-          else
+          if Enum.member?(dimensions, "location") do
             %{
               supervisor_id: event_definition.topic,
               brokers:
@@ -108,11 +96,23 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                   fields: [
                     %{
                       type: "jq",
-                      name: "geo",
-                      expr: ".geo | tojson"
+                      name: "location",
+                      expr: ".location | tojson"
                     }
                   ]
                 }
+              },
+              name: name
+            }
+          else
+            %{
+              supervisor_id: event_definition.topic,
+              brokers:
+                Config.kafka_brokers()
+                |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
+                |> Enum.join(","),
+              dimensions_spec: %{
+                dimensions: dimensions
               },
               name: name
             }
