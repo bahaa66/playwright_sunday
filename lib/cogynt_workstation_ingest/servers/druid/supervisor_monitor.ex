@@ -37,7 +37,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   end
 
   def terminate_and_shutdown(pid) do
-    GenServer.cast(pid, :terminate_and_shutdown)
+    GenServer.call(pid, :terminate_and_shutdown)
   end
 
   def delete_data_and_reset_supervisor(pid) do
@@ -209,6 +209,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
         :dimensions_spec,
         :supervisor_id,
         :io_config,
+        :parse_spec,
         :flatten_spec,
         :granularity_spec,
         :timestamp_spec
@@ -226,6 +227,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       else
         Druid.Utils.build_kafka_supervisor(id, brokers, supervisor_specs)
       end
+
+    IO.inspect(supervisor_spec, label: "FINAL SUPERVISOR SPEC*******")
 
     with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
          {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do

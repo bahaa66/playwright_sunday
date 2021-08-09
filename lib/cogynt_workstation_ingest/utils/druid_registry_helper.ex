@@ -90,17 +90,15 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
               dimensions_spec: %{
                 dimensions: dimensions
               },
-              io_config: %{
-                type: "json",
-                flattenSpec: %{
-                  fields: [
-                    %{
-                      type: "jq",
-                      name: "location",
-                      expr: ".location | tojson"
-                    }
-                  ]
-                }
+              flatten_spec: %{
+                useFieldDiscovery: true,
+                fields: [
+                  %{
+                    type: "jq",
+                    name: "location",
+                    expr: ".location | tojson"
+                  }
+                ]
               },
               name: name
             }
