@@ -41,18 +41,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     %{
       type: "string",
       name: "path"
-    },
-    %{
-      type: "string",
-      name: "location"
-    },
-    %{
-      type: "string",
-      name: "geometry"
-    },
-    %{
-      type: "string",
-      name: "coordinates"
     }
   ]
 
@@ -71,10 +59,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                 Enum.uniq(
                   acc ++
                     [
-                      %{
-                        type: "string",
-                        name: field_name
-                      }
+                      "geo"
                     ]
                 )
 
@@ -94,17 +79,44 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
             end
           end)
 
-        child_spec = %{
-          supervisor_id: event_definition.topic,
-          brokers:
-            Config.kafka_brokers()
-            |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
-            |> Enum.join(","),
-          dimensions_spec: %{
-            dimensions: dimensions
-          },
-          name: name
-        }
+        child_spec =
+          if Enum.member?(dimensions, "geo") do
+            %{
+              supervisor_id: event_definition.topic,
+              brokers:
+                Config.kafka_brokers()
+                |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
+                |> Enum.join(","),
+              dimensions_spec: %{
+                dimensions: dimensions
+              },
+              name: name
+            }
+          else
+            %{
+              supervisor_id: event_definition.topic,
+              brokers:
+                Config.kafka_brokers()
+                |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
+                |> Enum.join(","),
+              dimensions_spec: %{
+                dimensions: dimensions
+              },
+              io_config: %{
+                type: "json",
+                flattenSpec: %{
+                  fields: [
+                    %{
+                      type: "jq",
+                      name: "geo",
+                      expr: ".geo | tojson"
+                    }
+                  ]
+                }
+              },
+              name: name
+            }
+          end
 
         IO.inspect(child_spec, label: "CHILD SPEC ***")
 
