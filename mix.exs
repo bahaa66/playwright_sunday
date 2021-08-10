@@ -100,10 +100,9 @@ defmodule CogyntWorkstationIngest.MixProject do
       {
         :druid,
         # tag: "v1.13.12",
-        branch: "develop",
-        git: "git@github.com:cogility/cogynt-common.git",
-        sparse: "druid",
-        override: true
+        # git: "git@github.com:cogility/cogynt-common.git",
+        # sparse: "druid",
+        path: "../cogynt-common/druid", override: true
       }
     ]
   end
