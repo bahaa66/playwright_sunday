@@ -68,7 +68,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
       ) do
     {deleted_at, deleted_by} =
       if action == @delete do
-        {DateTime.truncate(DateTime.utc_now(), :second), DeletedByValue.Crud.value()}
+        {DateTime.truncate(DateTime.utc_now(), :second), DeletedByValue.Crud}
       else
         {nil, nil}
       end
