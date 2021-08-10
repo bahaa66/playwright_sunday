@@ -56,6 +56,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
         Redis.hash_set_async("dss", supervisor_id, state)
         Redis.key_pexpire("dss", @dss_key_expire)
 
+        # TODO Return a sync error if fails to create supervisor upon startup
         {:ok, state, {:continue, {:create_or_update_supervisor, args}}}
 
       {:ok, false} ->
@@ -235,7 +236,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           "Unable to create/fetch Druid supervisor information for #{id}: #{inspect(error)}"
         )
 
-        state = %{state | supervisor_status: {:error, error}}
+        state = %{state | supervisor_status: {:error, :internal_server_error}}
         Redis.hash_set_async("dss", id, state)
         Redis.key_pexpire("dss", @dss_key_expire)
 
@@ -288,7 +289,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           "Unable to get Druid supervisor status for #{id}: #{inspect(error)}"
         )
 
-        state = %{state | supervisor_status: {:error, error}}
+        state = %{state | supervisor_status: {:error, :internal_server_error}}
         Redis.hash_set_async("dss", id, state)
         Redis.key_pexpire("dss", @dss_key_expire)
 
