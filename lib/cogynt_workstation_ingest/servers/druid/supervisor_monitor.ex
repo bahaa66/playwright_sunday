@@ -201,7 +201,6 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   @impl true
   def handle_continue({:create_or_update_supervisor, args}, %{id: id} = state) do
     brokers = Map.get(args, :brokers)
-    schema_registry_url = Map.get(args, :schema_registry_url)
     schema = Map.get(args, :schema, :json)
 
     supervisor_specs =
@@ -212,21 +211,12 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
         :parse_spec,
         :flatten_spec,
         :granularity_spec,
-        :timestamp_spec
+        :timestamp_spec,
+        :schema_registry_url
       ])
       |> Keyword.new()
 
-    supervisor_spec =
-      if schema == :avro do
-        Druid.Utils.build_avro_kafka_supervisor(
-          id,
-          brokers,
-          schema_registry_url,
-          supervisor_specs
-        )
-      else
-        Druid.Utils.build_kafka_supervisor(id, brokers, supervisor_specs)
-      end
+    supervisor_spec = Druid.Utils.build_kafka_supervisor(id, brokers, schema, supervisor_specs)
 
     IO.inspect(supervisor_spec, label: "FINAL SUPERVISOR SPEC*******")
 
