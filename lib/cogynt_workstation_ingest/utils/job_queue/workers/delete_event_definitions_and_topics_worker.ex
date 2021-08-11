@@ -28,7 +28,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         delete_elasticsearch_data(event_definition)
 
         # 4) remove Druid datasource
-        Druid.delete_datasource(event_definition.topic)
+        delete_druid_datasource(event_definition.topic)
 
         ConsumerStateManager.remove_consumer_state(event_definition.id)
       end)
@@ -67,7 +67,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
             delete_elasticsearch_data(event_definition)
 
             # 6) remove Druid datasource
-            Druid.delete_datasource(event_definition.topic)
+            delete_druid_datasource(event_definition.topic)
         end
       end)
     end
@@ -169,6 +169,22 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
           "There was an error deleting elasticsearch data for event definition: #{
             event_definition.id
           }\nError: #{inspect(error)}"
+        )
+    end
+  end
+
+  defp delete_druid_datasource(topic) do
+    case Druid.delete_datasource(topic) do
+      {:ok, result} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Deleted Druid Datasource with response: #{inspect(result)}"
+        )
+
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Failed to remove Druid datasource with Error: #{inspect(error)}"
         )
     end
   end
