@@ -29,7 +29,6 @@ defmodule CogyntWorkstationIngest.Application do
     children = [
       {Phoenix.PubSub, [name: CogyntWorkstationIngestWeb.PubSub, adapter: Phoenix.PubSub.PG2]},
       {Registry, keys: :unique, name: DruidRegistry},
-      {Registry, keys: :unique, name: BroadwayRegistry},
       # Start the Ecto repository
       CogyntWorkstationIngest.Repo,
       # Start the TelemetrySupervisor,

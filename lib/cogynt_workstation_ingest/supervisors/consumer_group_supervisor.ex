@@ -119,19 +119,16 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def stop_child(event_definition_id) when is_binary(event_definition_id) do
-    name = fetch_event_cgid(event_definition_id)
-    DruidRegistryHelper.terminate_druid_with_registry_lookup(name)
-
-    case Registry.lookup(BroadwayRegistry, "#{name}" <> "Pipeline") do
-      [] ->
+    (fetch_event_cgid(event_definition_id) <> "Pipeline")
+    |> String.to_atom()
+    |> Process.whereis()
+    |> case do
+      nil ->
         {:ok, :success}
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {pid, _} ->
-          GenServer.stop(pid)
-          Process.sleep(1500)
-        end)
-
+      child_pid ->
+        GenServer.stop(child_pid)
+        Process.sleep(1500)
         {:ok, :success}
     end
   end
