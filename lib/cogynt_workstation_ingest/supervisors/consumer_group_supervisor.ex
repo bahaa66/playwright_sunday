@@ -119,7 +119,11 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def stop_child(event_definition_id) when is_binary(event_definition_id) do
-    (fetch_event_cgid(event_definition_id) <> "Pipeline")
+    name = fetch_event_cgid(event_definition_id)
+
+    DruidRegistryHelper.terminate_druid_with_registry_lookup(name)
+
+    (name <> "Pipeline")
     |> String.to_atom()
     |> Process.whereis()
     |> case do

@@ -27,6 +27,9 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         # 3) remove all records from Elasticsearch
         delete_elasticsearch_data(event_definition)
 
+        # 4) remove Druid datasource
+        Druid.delete_datasource(event_definition.topic)
+
         ConsumerStateManager.remove_consumer_state(event_definition.id)
       end)
 
@@ -62,6 +65,9 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
 
             # 5) one last call to remove elasticsearch data to ensure all data has been removed from all shards
             delete_elasticsearch_data(event_definition)
+
+            # 6) remove Druid datasource
+            Druid.delete_datasource(event_definition.topic)
         end
       end)
     end
