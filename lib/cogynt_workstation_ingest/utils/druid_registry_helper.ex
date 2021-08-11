@@ -44,34 +44,105 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     }
   ]
 
+  @default_fields [
+    %{
+      type: "root",
+      name: "id"
+    },
+    %{
+      type: "root",
+      name: "published_by"
+    },
+    %{
+      type: "root",
+      name: "_confidence"
+    },
+    %{
+      type: "root",
+      name: "publishing_template_type_name"
+    },
+    %{
+      type: "root",
+      name: "data_type"
+    },
+    %{
+      type: "root",
+      name: "$crud"
+    },
+    %{
+      type: "root",
+      name: "source"
+    },
+    %{
+      type: "root",
+      name: "published_at"
+    },
+    %{
+      type: "root",
+      name: "path"
+    }
+  ]
+
   def start_druid_with_registry_lookup(name, event_definition) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
-        dimensions =
+        # dimensions =
+        #   EventsContext.get_event_definition_details(event_definition.id)
+        #   |> Enum.reduce(@default_dimensions, fn %EventDefinitionDetail{
+        #                                            field_name: field_name,
+        #                                            field_type: field_type
+        #                                          },
+        #                                          acc ->
+        #     case field_type do
+        #       "geo" ->
+        #         Enum.uniq(
+        #           acc ++
+        #             [
+        #               "location"
+        #             ]
+        #         )
+
+        #       nil ->
+        #         acc
+
+        #       _ ->
+        #         Enum.uniq(
+        #           acc ++
+        #             [
+        #               %{
+        #                 type: field_type,
+        #                 name: field_name
+        #               }
+        #             ]
+        #         )
+        #     end
+        #   end)
+
+        fields =
           EventsContext.get_event_definition_details(event_definition.id)
-          |> Enum.reduce(@default_dimensions, fn %EventDefinitionDetail{
-                                                   field_name: field_name,
-                                                   field_type: field_type
-                                                 },
-                                                 acc ->
-            case field_type do
-              "geo" ->
+          |> Enum.reduce(@default_fields, fn %EventDefinitionDetail{
+                                               field_name: field_name
+                                             },
+                                             acc ->
+            case field_name do
+              "location" ->
                 Enum.uniq(
                   acc ++
                     [
-                      "location"
+                      %{
+                        type: "jq",
+                        name: "location",
+                        expr: ".location | tojson"
+                      }
                     ]
                 )
-
-              nil ->
-                acc
 
               _ ->
                 Enum.uniq(
                   acc ++
                     [
                       %{
-                        type: field_type,
+                        type: "root",
                         name: field_name
                       }
                     ]
@@ -79,42 +150,58 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
             end
           end)
 
-        child_spec =
-          if Enum.member?(dimensions, "location") do
-            %{
-              supervisor_id: event_definition.topic,
-              brokers:
-                Config.kafka_brokers()
-                |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
-                |> Enum.join(","),
-              dimensions_spec: %{
-                dimensions: dimensions
-              },
-              flatten_spec: %{
-                useFieldDiscovery: true,
-                fields: [
-                  %{
-                    type: "jq",
-                    name: "location",
-                    expr: ".location | tojson"
-                  }
-                ]
-              },
-              name: name
-            }
-          else
-            %{
-              supervisor_id: event_definition.topic,
-              brokers:
-                Config.kafka_brokers()
-                |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
-                |> Enum.join(","),
-              dimensions_spec: %{
-                dimensions: dimensions
-              },
-              name: name
-            }
-          end
+        # child_spec =
+        #   if Enum.member?(dimensions, "location") do
+        #     %{
+        #       supervisor_id: event_definition.topic,
+        #       brokers:
+        #         Config.kafka_brokers()
+        #         |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
+        #         |> Enum.join(","),
+        #       dimensions_spec: %{
+        #         dimensions: dimensions
+        #       },
+        #       flatten_spec: %{
+        #         useFieldDiscovery: true,
+        #         fields: [
+        #           %{
+        #             type: "jq",
+        #             name: "location",
+        #             expr: ".location | tojson"
+        #           }
+        #         ]
+        #       },
+        #       name: name
+        #     }
+        #   else
+        #     %{
+        #       supervisor_id: event_definition.topic,
+        #       brokers:
+        #         Config.kafka_brokers()
+        #         |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
+        #         |> Enum.join(","),
+        #       dimensions_spec: %{
+        #         dimensions: dimensions
+        #       },
+        #       name: name
+        #     }
+        #   end
+
+        child_spec = %{
+          supervisor_id: event_definition.topic,
+          brokers:
+            Config.kafka_brokers()
+            |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
+            |> Enum.join(","),
+          dimensions_spec: %{
+            dimensions: []
+          },
+          flatten_spec: %{
+            useFieldDiscovery: true,
+            fields: fields
+          },
+          name: name
+        }
 
         IO.inspect(child_spec, label: "CHILD SPEC ***")
 
