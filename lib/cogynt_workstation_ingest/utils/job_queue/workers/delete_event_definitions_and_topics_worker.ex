@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
+  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
 
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
@@ -173,8 +174,10 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
     end
   end
 
-  defp delete_druid_datasource(topic) do
-    case Druid.delete_datasource(topic) do
+  defp delete_druid_datasource(event_definition_id) do
+    name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
+
+    case Druid.delete_datasource(name) do
       {:ok, result} ->
         CogyntLogger.info(
           "#{__MODULE__}",

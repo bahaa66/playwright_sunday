@@ -11,8 +11,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   # -------------------- #
   # --- client calls --- #
   # -------------------- #
-  def start_link(%{name: name} = args) do
-    GenServer.start_link(__MODULE__, args, name: {:via, Registry, {DruidRegistry, name}})
+  def start_link(%{supervisor_id: supervisor_id} = args) do
+    GenServer.start_link(__MODULE__, args, name: {:via, Registry, {DruidRegistry, supervisor_id}})
   end
 
   def supervisor_status(pid) do
@@ -213,7 +213,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
         :flatten_spec,
         :granularity_spec,
         :timestamp_spec,
-        :schema_registry_url
+        :schema_registry_url,
+        :topic
       ])
       |> Keyword.new()
 

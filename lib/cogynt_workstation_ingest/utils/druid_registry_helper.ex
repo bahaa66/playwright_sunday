@@ -86,70 +86,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   def start_druid_with_registry_lookup(name, event_definition) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
-        # dimensions =
-        #   EventsContext.get_event_definition_details(event_definition.id)
-        #   |> Enum.reduce(@default_dimensions, fn %EventDefinitionDetail{
-        #                                            field_name: field_name,
-        #                                            field_type: field_type
-        #                                          },
-        #                                          acc ->
-        #     case field_type do
-        #       "geo" ->
-        #         Enum.uniq(
-        #           acc ++
-        #             [
-        #               "location"
-        #             ]
-        #         )
-
-        #       nil ->
-        #         acc
-
-        #       _ ->
-        #         Enum.uniq(
-        #           acc ++
-        #             [
-        #               %{
-        #                 type: field_type,
-        #                 name: field_name
-        #               }
-        #             ]
-        #         )
-        #     end
-        #   end)
-
-        # fields =
-        #   EventsContext.get_event_definition_details(event_definition.id)
-        #   |> Enum.reduce(@default_fields, fn %EventDefinitionDetail{
-        #                                        field_name: field_name
-        #                                      },
-        #                                      acc ->
-        #     case field_name do
-        #       "location" ->
-        #         Enum.uniq(
-        #           acc ++
-        #             [
-        #               %{
-        #                 type: "jq",
-        #                 name: "location",
-        #                 expr: ".location | tojson"
-        #               }
-        #             ]
-        #         )
-
-        #       _ ->
-        #         Enum.uniq(
-        #           acc ++
-        #             [
-        #               %{
-        #                 type: "root",
-        #                 name: field_name
-        #               }
-        #             ]
-        #         )
-        #     end
-        #   end)
-
         {dimensions, fields} =
           EventsContext.get_event_definition_details(event_definition.id)
           |> Enum.reduce({@default_dimensions, @default_fields}, fn %EventDefinitionDetail{
@@ -211,45 +147,8 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
             end
           end)
 
-        # child_spec =
-        #   if Enum.member?(dimensions, "location") do
-        #     %{
-        #       supervisor_id: event_definition.topic,
-        #       brokers:
-        #         Config.kafka_brokers()
-        #         |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
-        #         |> Enum.join(","),
-        #       dimensions_spec: %{
-        #         dimensions: dimensions
-        #       },
-        #       flatten_spec: %{
-        #         useFieldDiscovery: false,
-        #         fields: [
-        #           %{
-        #             type: "jq",
-        #             name: "location",
-        #             expr: ".location | tojson"
-        #           }
-        #         ]
-        #       },
-        #       name: name
-        #     }
-        #   else
-        #     %{
-        #       supervisor_id: event_definition.topic,
-        #       brokers:
-        #         Config.kafka_brokers()
-        #         |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
-        #         |> Enum.join(","),
-        #       dimensions_spec: %{
-        #         dimensions: dimensions
-        #       },
-        #       name: name
-        #     }
-        #   end
-
         child_spec = %{
-          supervisor_id: event_definition.topic,
+          supervisor_id: name,
           brokers:
             Config.kafka_brokers()
             |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
@@ -261,7 +160,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
             useFieldDiscovery: true,
             fields: fields
           },
-          name: name
+          topic: event_definition.topic
         }
 
         IO.inspect(child_spec, label: "CHILD SPEC ***")
@@ -321,7 +220,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
               "retracted"
             ]
           },
-          name: name
+          topic: name
         }
 
         case DruidSupervisor.create_druid_supervisor(child_spec) do
@@ -381,7 +280,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
               "assertionName"
             ]
           },
-          name: name
+          topic: name
         }
 
         case DruidSupervisor.create_druid_supervisor(child_spec) do
