@@ -5,8 +5,14 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   """
   use GenServer, restart: :transient
 
-  @status_check_interval 10_000
-  @dss_key_expire 900_000
+  @status_check_interval 30_000
+  @dss_key_expire 300_000
+  @detailed_state_errors [
+    "UNHEALTHY_SUPERVISOR",
+    "UNHEALTHY_TASKS",
+    "UNABLE_TO_CONNECT_TO_STREAM",
+    "LOST_CONTACT_WITH_STREAM"
+  ]
 
   # -------------------- #
   # --- client calls --- #
@@ -81,6 +87,11 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   def handle_call(:supervisor_status, _from, %{id: id} = state) do
     case Redis.hash_get("dss", id) do
       {:ok, nil} ->
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "DruidSupervisorMonitor State not found. Resetting Supervisor and State"
+        )
+
         {:reply, "NOT FOUND", state, {:continue, :reset_and_get_supervisor}}
 
       {:ok, %{supervisor_status: status} = state} ->
@@ -95,6 +106,11 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   def handle_call(:healthy?, _from, %{id: id} = state) do
     case Redis.hash_get("dss", id) do
       {:ok, nil} ->
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "DruidSupervisorMonitor State not found. Resetting Supervisor and State"
+        )
+
         {:reply, "NOT FOUND", state, {:continue, :reset_and_get_supervisor}}
 
       {:ok, %{supervisor_status: status} = state} ->
@@ -109,6 +125,11 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   def handle_call(:state, _from, %{id: id} = state) do
     case Redis.hash_get("dss", id) do
       {:ok, nil} ->
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "DruidSupervisorMonitor State not found. Resetting Supervisor and State"
+        )
+
         {:reply, "NOT FOUND", state, {:continue, :reset_and_get_supervisor}}
 
       {:ok, %{supervisor_status: status} = state} ->
@@ -220,8 +241,6 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
     supervisor_spec = Druid.Utils.build_kafka_supervisor(id, brokers, schema, supervisor_specs)
 
-    IO.inspect(supervisor_spec, label: "FINAL SUPERVISOR SPEC*******")
-
     with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
          {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
       Process.send_after(__MODULE__, :get_status, @status_check_interval)
@@ -274,15 +293,21 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   def handle_info(:get_status, %{id: id} = state) do
     Druid.get_supervisor_status(id)
     |> case do
-      {:ok, %{"payload" => %{"detailedState" => "LOST_CONTACT_WITH_STREAM"} = _p}} ->
-        {:noreply, state, {:continue, :reset_and_get_supervisor}}
+      {:ok, %{"payload" => %{"detailedState" => detailed_state} = payload}} ->
+        if Enum.member?(@detailed_state_errors, detailed_state) do
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "DruidSupervisor: #{id} in Error State: #{detailed_state}. Resetting Supervisor"
+          )
 
-      {:ok, %{"payload" => payload} = _s} ->
-        Process.send_after(__MODULE__, :get_status, @status_check_interval)
-        state = %{state | supervisor_status: payload}
-        Redis.hash_set_async("dss", id, state)
-        Redis.key_pexpire("dss", @dss_key_expire)
-        {:noreply, state}
+          {:noreply, state, {:continue, :reset_and_get_supervisor}}
+        else
+          Process.send_after(__MODULE__, :get_status, @status_check_interval)
+          state = %{state | supervisor_status: payload}
+          Redis.hash_set_async("dss", id, state)
+          Redis.key_pexpire("dss", @dss_key_expire)
+          {:noreply, state}
+        end
 
       {:error, error} ->
         CogyntLogger.error(

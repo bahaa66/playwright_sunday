@@ -30,7 +30,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
       )
     end
 
-    CogyntLogger.info("#{__MODULE__}", "Starting resetting of drilldown data")
+    CogyntLogger.info("#{__MODULE__}", "Starting resetting of Drilldown Druid Data")
 
     # Delete druid data and reset druid supervisors
     DruidRegistryHelper.reset_druid_with_registry_lookup(Config.template_solution_events_topic())

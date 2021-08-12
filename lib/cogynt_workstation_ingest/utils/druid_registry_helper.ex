@@ -163,13 +163,11 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
           topic: event_definition.topic
         }
 
-        IO.inspect(child_spec, label: "CHILD SPEC ***")
-
         case DruidSupervisor.create_druid_supervisor(child_spec) do
           {:error, error} ->
             CogyntLogger.error(
               "#{__MODULE__}",
-              "Failed to start Druid Supervisor, error: #{inspect(error)}"
+              "Failed to start Druid Supervisor: #{name}. Error: #{inspect(error)}"
             )
 
             {:error, nil}
@@ -182,7 +180,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
           case SupervisorMonitor.supervisor_status(druid_supervisor_pid) do
             %{state: "SUSPENDED"} ->
-              IO.puts("RESUMING DRUID *****")
               SupervisorMonitor.resume_supervisor(druid_supervisor_pid)
 
             %{state: "RUNNING"} ->
@@ -192,7 +189,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
               )
 
             _ ->
-              IO.puts("DELETING AND RESETTING DRUID *****")
               SupervisorMonitor.delete_data_and_reset_supervisor(druid_supervisor_pid)
           end
         end)
@@ -240,7 +236,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
           case SupervisorMonitor.supervisor_status(druid_supervisor_pid) do
             %{state: "SUSPENDED"} ->
-              IO.puts("RESUMING DRUID *****")
               SupervisorMonitor.resume_supervisor(druid_supervisor_pid)
 
             %{state: "RUNNING"} ->
@@ -250,7 +245,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
               )
 
             _ ->
-              IO.puts("DELETING AND RESETTING DRUID *****")
               SupervisorMonitor.delete_data_and_reset_supervisor(druid_supervisor_pid)
           end
         end)
@@ -300,7 +294,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
           case SupervisorMonitor.supervisor_status(druid_supervisor_pid) do
             %{state: "SUSPENDED"} ->
-              IO.puts("RESUMING DRUID *****")
               SupervisorMonitor.resume_supervisor(druid_supervisor_pid)
 
             %{state: "RUNNING"} ->
@@ -310,7 +303,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
               )
 
             _ ->
-              IO.puts("DELETING AND RESETTING DRUID *****")
               SupervisorMonitor.delete_data_and_reset_supervisor(druid_supervisor_pid)
           end
         end)
@@ -334,7 +326,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   def suspend_druid_with_registry_lookup(name) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
-        CogyntLogger.warn("#{__MODULE__}", "No PID registred for #{name}")
+        CogyntLogger.warn("#{__MODULE__}", "No PID registred with DruidRegistry for #{name}")
 
       registered_processes ->
         Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
@@ -346,7 +338,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   def reset_druid_with_registry_lookup(name) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
-        CogyntLogger.warn("#{__MODULE__}", "No PID registred for #{name}")
+        CogyntLogger.warn("#{__MODULE__}", "No PID registred with DruidRegistry for #{name}")
 
       registered_processes ->
         Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
@@ -358,7 +350,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   def terminate_druid_with_registry_lookup(name) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
-        CogyntLogger.warn("#{__MODULE__}", "No PID registred for #{name}")
+        CogyntLogger.warn("#{__MODULE__}", "No PID registred with DruidRegistry for #{name}")
 
       registered_processes ->
         Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
