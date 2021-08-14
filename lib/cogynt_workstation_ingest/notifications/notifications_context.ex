@@ -352,28 +352,8 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
   # --- private methods --- #
   # ----------------------- #
   defp in_risk_range?(risk_score, risk_range) do
-    with true <- risk_score > 0,
-         min_risk_range <- Enum.min(risk_range),
-         max_risk_range <- Enum.max(risk_range) do
-      if risk_score >= min_risk_range and risk_score <= max_risk_range do
-        true
-      else
-        false
-      end
-    else
-      # risk_score == 0
-      false ->
-        if Enum.min(risk_range) > 0 do
-          false
-        else
-          # risk_score == 0 and min_range == 0
-          true
-        end
-
-      _ ->
-        CogyntLogger.warn("#{__MODULE__}", "Risk Range validation failed")
-        false
-    end
+    risk_score = risk_score || 0
+    risk_score >= Enum.min(risk_range) and risk_score <= Enum.max(risk_range)
   end
 
   defp filter_notifications(filter, query) do
