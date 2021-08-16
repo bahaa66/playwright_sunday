@@ -100,6 +100,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     event_definition_details = event_definition.event_definition_details
     event = format_lexicon_data(event)
 
+    event_type =
+      case Map.get(event_definition, :event_type, :none) do
+        event_type when is_atom(event_type) -> event_type
+        event_type when is_binary(event_type) -> String.to_atom(event_type)
+      end
+
     # Iterate over each event key value pair and build the pg and elastic search event
     # details.
     elasticsearch_event_details =
@@ -174,7 +180,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
              event_details: elasticsearch_event_details,
              core_event_id: core_id,
              published_at: published_at,
-             event_type: Map.get(event_definition, :event_type, :none),
+             event_type: event_type,
              occurred_at: Map.get(event, "_timestamp"),
              risk_score: risk_score,
              converted_risk_score:
