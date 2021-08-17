@@ -4,6 +4,8 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   """
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Events.EventsContext
+  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
+  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
   alias Models.Deployments.Deployment
   alias Models.Enums.DeploymentStatusType
   alias Models.Events.EventDefinition
@@ -46,6 +48,17 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           end
         end)
         |> EventsContext.upsert_event_definition()
+        |> case do
+          {:ok, event_definition} ->
+            ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id)
+            |> DruidRegistryHelper.update_druid_with_registry_lookup(event_definition)
+
+          _ ->
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "Failed to upsert EventDefinition for DeploymentProcessor"
+            )
+        end
 
         message
 

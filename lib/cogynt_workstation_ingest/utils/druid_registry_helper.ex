@@ -86,82 +86,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   def start_druid_with_registry_lookup(name, event_definition) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
-        {dimensions, fields} =
-          EventsContext.get_event_definition_details(event_definition.id)
-          |> Enum.reduce({@default_dimensions, @default_fields}, fn %EventDefinitionDetail{
-                                                                      field_name: field_name,
-                                                                      field_type: field_type
-                                                                    },
-                                                                    {acc_dimensions, acc_fields} ->
-            case field_type do
-              "geo" ->
-                acc_dimensions =
-                  Enum.uniq(
-                    acc_dimensions ++
-                      [
-                        "location"
-                      ]
-                  )
-
-                acc_fields =
-                  Enum.uniq(
-                    acc_fields ++
-                      [
-                        %{
-                          type: "jq",
-                          name: "location",
-                          expr: ".location | tojson"
-                        }
-                      ]
-                  )
-
-                {acc_dimensions, acc_fields}
-
-              nil ->
-                {acc_dimensions, acc_fields}
-
-              _ ->
-                acc_dimensions =
-                  Enum.uniq(
-                    acc_dimensions ++
-                      [
-                        %{
-                          type: field_type,
-                          name: field_name
-                        }
-                      ]
-                  )
-
-                acc_fields =
-                  Enum.uniq(
-                    acc_fields ++
-                      [
-                        %{
-                          type: "root",
-                          name: field_name
-                        }
-                      ]
-                  )
-
-                {acc_dimensions, acc_fields}
-            end
-          end)
-
-        child_spec = %{
-          supervisor_id: name,
-          brokers:
-            Config.kafka_brokers()
-            |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
-            |> Enum.join(","),
-          dimensions_spec: %{
-            dimensions: dimensions
-          },
-          flatten_spec: %{
-            useFieldDiscovery: true,
-            fields: fields
-          },
-          topic: event_definition.topic
-        }
+        child_spec = build_druid_ingest_spec(name, event_definition)
 
         case DruidSupervisor.create_druid_supervisor(child_spec) do
           {:error, error} ->
@@ -311,6 +236,33 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     end
   end
 
+  def update_druid_with_registry_lookup(name, event_definition) do
+    child_spec = build_druid_ingest_spec(name, event_definition)
+
+    case Registry.lookup(DruidRegistry, name) do
+      [] ->
+        case DruidSupervisor.create_druid_supervisor(child_spec) do
+          {:error, error} ->
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "Failed to start Druid Supervisor: #{name}. Error: #{inspect(error)}"
+            )
+
+            {:error, nil}
+
+          _ ->
+            {:ok, :success}
+        end
+
+      registered_processes ->
+        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
+          SupervisorMonitor.create_or_update_supervisor(druid_supervisor_pid, child_spec)
+        end)
+
+        {:ok, :success}
+    end
+  end
+
   def resume_druid_with_registry_lookup(name) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
@@ -357,5 +309,87 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
           SupervisorMonitor.terminate_and_shutdown(druid_supervisor_pid)
         end)
     end
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp build_druid_ingest_spec(name, event_definition) do
+    {dimensions, fields} =
+      EventsContext.get_event_definition_details(event_definition.id)
+      |> Enum.reduce({@default_dimensions, @default_fields}, fn %EventDefinitionDetail{
+                                                                  field_name: field_name,
+                                                                  field_type: field_type
+                                                                },
+                                                                {acc_dimensions, acc_fields} ->
+        case field_type do
+          "geo" ->
+            acc_dimensions =
+              Enum.uniq(
+                acc_dimensions ++
+                  [
+                    "location"
+                  ]
+              )
+
+            acc_fields =
+              Enum.uniq(
+                acc_fields ++
+                  [
+                    %{
+                      type: "jq",
+                      name: "location",
+                      expr: ".location | tojson"
+                    }
+                  ]
+              )
+
+            {acc_dimensions, acc_fields}
+
+          nil ->
+            {acc_dimensions, acc_fields}
+
+          _ ->
+            acc_dimensions =
+              Enum.uniq(
+                acc_dimensions ++
+                  [
+                    %{
+                      type: field_type,
+                      name: field_name
+                    }
+                  ]
+              )
+
+            acc_fields =
+              Enum.uniq(
+                acc_fields ++
+                  [
+                    %{
+                      type: "root",
+                      name: field_name
+                    }
+                  ]
+              )
+
+            {acc_dimensions, acc_fields}
+        end
+      end)
+
+    %{
+      supervisor_id: name,
+      brokers:
+        Config.kafka_brokers()
+        |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
+        |> Enum.join(","),
+      dimensions_spec: %{
+        dimensions: dimensions
+      },
+      flatten_spec: %{
+        useFieldDiscovery: true,
+        fields: fields
+      },
+      topic: event_definition.topic
+    }
   end
 end

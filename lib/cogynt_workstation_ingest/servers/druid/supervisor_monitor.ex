@@ -25,13 +25,16 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     GenServer.call(pid, :supervisor_status)
   end
 
-  @spec healthy?(atom | pid | {atom, any} | {:via, atom, any}) :: any
   def healthy?(pid) do
     GenServer.call(pid, :healthy?)
   end
 
   def state(pid) do
     GenServer.call(pid, :state)
+  end
+
+  def create_or_update_supervisor(pid, opts) do
+    GenServer.cast(pid, {:create_or_update_supervisor, opts})
   end
 
   def suspend_supervisor(pid) do
@@ -73,10 +76,10 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
         {:stop, :unhealthy_druid_server}
 
-      {:error, error} ->
+      {:error, :internal_server_error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Unable to verify the health of the Druid server: #{inspect(error)}"
+          "Unable to verify the health of the Druid server. internal_server_error}"
         )
 
         {:stop, :druid_server_connection_error}
@@ -138,6 +141,11 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       {:error, error} ->
         {:reply, {:error, error}, state}
     end
+  end
+
+  @impl true
+  def handle_cast({:create_or_update_supervisor, opts}, state) do
+    {:noreply, state, {:continue, {:create_or_update_supervisor, opts}}}
   end
 
   @impl true
