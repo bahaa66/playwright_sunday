@@ -362,15 +362,28 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
               )
 
             acc_fields =
-              Enum.uniq(
-                acc_fields ++
-                  [
-                    %{
-                      type: "root",
-                      name: field_name
-                    }
-                  ]
-              )
+              if field_name == "path" do
+                Enum.uniq(
+                  acc_fields ++
+                    [
+                      %{
+                        type: "jq",
+                        name: "path",
+                        expr: ".path | tojson"
+                      }
+                    ]
+                )
+              else
+                Enum.uniq(
+                  acc_fields ++
+                    [
+                      %{
+                        type: "root",
+                        name: field_name
+                      }
+                    ]
+                )
+              end
 
             {acc_dimensions, acc_fields}
         end
