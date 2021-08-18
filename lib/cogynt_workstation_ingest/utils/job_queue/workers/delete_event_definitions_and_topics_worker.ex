@@ -177,6 +177,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   defp delete_druid_datasource(event_definition_id) do
     name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
 
+    IO.inspect(name, label: "********* Deleting Druid DataSource for Name: #{name}")
+
     case Druid.delete_datasource(name) do
       {:ok, result} ->
         CogyntLogger.info(
