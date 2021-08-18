@@ -294,6 +294,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   @impl true
   def handle_continue(:shutdown_server, %{id: id} = _state) do
     Redis.hash_delete("dss", id)
+    CogyntLogger.info("#{__MODULE__}", "Shutting down Druid Supervisor Monitor for ID: #{id}")
     Process.exit(self(), :normal)
   end
 

@@ -50,8 +50,10 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
         |> EventsContext.upsert_event_definition()
         |> case do
           {:ok, event_definition} ->
-            ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id)
-            |> DruidRegistryHelper.update_druid_with_registry_lookup(event_definition)
+            with name <- ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id),
+                 true <- name != "" do
+              DruidRegistryHelper.update_druid_with_registry_lookup(name, event_definition)
+            end
 
           _ ->
             CogyntLogger.error(

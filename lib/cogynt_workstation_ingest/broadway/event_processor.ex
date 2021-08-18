@@ -393,18 +393,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         raise "execute_transaction/1 failed"
     end
 
-    test =
-      Enum.map(bulk_transactional_data.pg_event, fn event ->
-        Map.put(event, :event_type, event_type)
-      end)
-
-    IO.inspect(test, label: "EVENTS PUBLISHED ****", pretty: true)
-
     Redis.publish_async(
       "events_changed_listener",
       %{
+        event_type: event_type,
         deleted: bulk_transactional_data.delete_core_id,
-        upserted: test
+        upserted: bulk_transactional_data.pg_event
       }
     )
   end
