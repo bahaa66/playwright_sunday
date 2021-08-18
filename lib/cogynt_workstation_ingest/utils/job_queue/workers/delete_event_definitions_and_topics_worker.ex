@@ -183,7 +183,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   end
 
   defp delete_druid_datasource(name) do
-    IO.inspect(name, label: "********* Deleting Druid DataSource for Name: #{name}")
+    IO.inspect(name, label: "********* Deleting Druid DataSource for Name:")
 
     case Druid.delete_datasource(name) do
       {:ok, result} ->
