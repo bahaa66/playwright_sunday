@@ -262,10 +262,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @impl true
   def handle_batch(:default, messages, _batch_info, context) do
     event_definition_id = Keyword.get(context, :event_definition_id, nil)
+    event_type = Keyword.get(context, :event_type, nil)
 
     messages
     |> Enum.map(fn message -> message.data end)
-    |> EventProcessor.execute_batch_transaction()
+    |> EventProcessor.execute_batch_transaction(event_type)
 
     incr_total_processed_message_count(event_definition_id, Enum.count(messages))
     messages
@@ -358,7 +359,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           end
       end
     end)
-    |> EventProcessor.execute_batch_transaction()
+    |> EventProcessor.execute_batch_transaction(event_type)
 
     incr_total_processed_message_count(event_definition_id, Enum.count(messages))
     messages
