@@ -396,11 +396,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     Redis.publish_async(
       "events_changed_listener",
       %{
+        event_type: event_type,
         deleted: bulk_transactional_data.delete_core_id,
-        upserted:
-          Enum.map(bulk_transactional_data.pg_event, fn event ->
-            Map.put(event, :event_type, event_type)
-          end)
+        upserted: bulk_transactional_data.pg_event
       }
     )
   end
