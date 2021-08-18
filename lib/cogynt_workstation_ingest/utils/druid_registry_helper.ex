@@ -76,10 +76,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     %{
       type: "root",
       name: "published_at"
-    },
-    %{
-      type: "root",
-      name: "path"
     }
   ]
 
@@ -125,24 +121,16 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   def start_drilldown_druid_with_registry_lookup("template_solutions" = name) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
-        child_spec = %{
-          supervisor_id: name,
-          schema: :avro,
-          schema_registry_url: Config.schema_registry_url(),
-          brokers:
-            Config.kafka_brokers()
-            |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
-            |> Enum.join(","),
-          dimensions_spec: %{
-            dimensions: [
+        child_spec =
+          build_drilldown_druid_ingestion_spec(
+            [
               "id",
               "templateTypeName",
               "templateTypeId",
               "retracted"
-            ]
-          },
-          topic: name
-        }
+            ],
+            name
+          )
 
         case DruidSupervisor.create_druid_supervisor(child_spec) do
           {:error, error} ->
@@ -181,26 +169,18 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   def start_drilldown_druid_with_registry_lookup("template_solution_events" = name) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
-        child_spec = %{
-          supervisor_id: name,
-          schema: :avro,
-          schema_registry_url: Config.schema_registry_url(),
-          brokers:
-            Config.kafka_brokers()
-            |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
-            |> Enum.join(","),
-          dimensions_spec: %{
-            dimensions: [
+        child_spec =
+          build_drilldown_druid_ingestion_spec(
+            [
               "id",
               "templateTypeName",
               "templateTypeId",
               "event",
               "aid",
               "assertionName"
-            ]
-          },
-          topic: name
-        }
+            ],
+            name
+          )
 
         case DruidSupervisor.create_druid_supervisor(child_spec) do
           {:error, error} ->
@@ -403,6 +383,22 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         fields: fields
       },
       topic: event_definition.topic
+    }
+  end
+
+  defp build_drilldown_druid_ingestion_spec(dimensions, name) do
+    %{
+      supervisor_id: name,
+      schema: :avro,
+      schema_registry_url: Config.schema_registry_url(),
+      brokers:
+        Config.kafka_brokers()
+        |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
+        |> Enum.join(","),
+      dimensions_spec: %{
+        dimensions: dimensions
+      },
+      topic: name
     }
   end
 end

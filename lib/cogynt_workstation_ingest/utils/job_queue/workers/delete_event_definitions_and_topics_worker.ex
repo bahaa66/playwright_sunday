@@ -17,6 +17,10 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
     if hard_delete_event_definitions do
       EventsContext.list_event_definitions()
       |> Enum.each(fn event_definition ->
+        # have to fetch the consumer_group_name before we shutdown the pipeline. That action
+        # removes the consumer_group_name from Redis and we wont be able to fetch it after it
+        # completes
+        datasource_name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id)
         # 1) stop the EventPipeline if there is one running for the event_definition
         shutdown_event_pipeline(event_definition)
 
@@ -29,7 +33,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         delete_elasticsearch_data(event_definition)
 
         # 4) remove Druid datasource
-        delete_druid_datasource(event_definition.topic)
+        delete_druid_datasource(datasource_name)
 
         ConsumerStateManager.remove_consumer_state(event_definition.id)
       end)
@@ -50,6 +54,10 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
             )
 
           event_definition ->
+            # have to fetch the consumer_group_name before we shutdown the pipeline. That action
+            # removes the consumer_group_name from Redis and we wont be able to fetch it after it
+            # completes
+            datasource_name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id)
             # 1) stop the EventPipeline if there is one running for the event_definition
             shutdown_event_pipeline(event_definition)
 
@@ -68,7 +76,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
             delete_elasticsearch_data(event_definition)
 
             # 6) remove Druid datasource
-            delete_druid_datasource(event_definition.topic)
+            delete_druid_datasource(datasource_name)
         end
       end)
     end
@@ -174,9 +182,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
     end
   end
 
-  defp delete_druid_datasource(event_definition_id) do
-    name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
-
+  defp delete_druid_datasource(name) do
     IO.inspect(name, label: "********* Deleting Druid DataSource for Name: #{name}")
 
     case Druid.delete_datasource(name) do
