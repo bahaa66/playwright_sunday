@@ -100,6 +100,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     event_definition_details = event_definition.event_definition_details
     event = format_lexicon_data(event)
 
+    occurred_at =
+      case event["_timestamp"] do
+        nil ->
+          nil
+
+        date_string ->
+          {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
+
+          dt_struct
+          |> DateTime.truncate(:second)
+      end
+
     event_type =
       case Map.get(event_definition, :event_type, :none) do
         event_type when is_atom(event_type) -> event_type
@@ -149,20 +161,21 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               # Convert the value if needed
               |> case do
                 nil -> false
-                value when is_binary(value) -> {value, field_name, field_type}
-                value -> {Jason.encode!(value), field_name, field_type}
+                value when is_binary(value) -> {value, field_name, field_type, path}
+                value -> {Jason.encode!(value), field_name, field_type, path}
               end
           end)
           |> case do
             # If it has a field type then it has a corresponding event definition detail that gives
             # us the the field_type so we save an event_detail and a elastic document
-            {field_value, field_name, field_type} ->
+            {field_value, field_name, field_type, path} ->
               acc ++
                 [
                   %{
                     field_name: field_name,
                     field_type: field_type,
-                    field_value: field_value
+                    field_value: field_value,
+                    path: path
                   }
                 ]
 
@@ -181,7 +194,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
              core_event_id: core_id,
              published_at: published_at,
              event_type: event_type,
-             occurred_at: Map.get(event, "_timestamp"),
+             occurred_at: occurred_at,
              risk_score: risk_score,
              converted_risk_score:
                if(is_nil(risk_score), do: nil, else: format_risk_score(risk_score)),
