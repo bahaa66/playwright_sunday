@@ -92,7 +92,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           pg_event: pg_event,
           core_id: core_id,
           event_definition: event_definition,
-          event_definition_id: event_definition_id
+          event_definition_id: event_definition_id,
+          event_type: event_type
         } = data
       ) do
     published_at = event["published_at"]
