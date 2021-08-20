@@ -37,10 +37,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     %{
       type: "date",
       name: "published_at"
-    },
-    %{
-      type: "string",
-      name: "path"
     }
   ]
 
@@ -76,6 +72,11 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     %{
       type: "root",
       name: "published_at"
+    },
+    %{
+      type: "jq",
+      name: "lexicons",
+      expr: ".$matches | tojson"
     }
   ]
 
@@ -308,7 +309,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
               Enum.uniq(
                 acc_dimensions ++
                   [
-                    "location"
+                    field_name
                   ]
               )
 
@@ -318,8 +319,8 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                   [
                     %{
                       type: "jq",
-                      name: "location",
-                      expr: ".location | tojson"
+                      name: field_name,
+                      expr: ".#{field_name} | tojson"
                     }
                   ]
               )
