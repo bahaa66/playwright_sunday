@@ -71,7 +71,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   def transform(%Message{data: encoded_data} = message, opts) do
     event_definition_id = Keyword.get(opts, :event_definition_id, nil)
-    event_type(Keyword.get(opts, :event_type, "none"))
+    event_type = (Keyword.get(opts, :event_type, "none")
 
     if is_nil(event_definition_id) do
       CogyntLogger.error(
