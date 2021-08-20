@@ -75,7 +75,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     },
     %{
       type: "jq",
-      name: "lexicons",
+      name: "$matches",
       expr: ".$matches | tojson"
     }
   ]
