@@ -303,6 +303,8 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                                                                   path: field_path
                                                                 },
                                                                 {acc_dimensions, acc_fields} ->
+        is_nested = String.contains?(field_path, "|")
+
         cond do
           field_type == "geo" or
               field_type == "array" ->
@@ -321,7 +323,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                     %{
                       type: "jq",
                       name: field_path,
-                      expr: "$.#{Enum.join(String.split(field_path, "|"), ".")} | tojson"
+                      expr: ".#{Enum.join(String.split(field_path, "|"), ".")} | tojson"
                     }
                   ]
               )
@@ -348,7 +350,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                 acc_fields ++
                   [
                     %{
-                      type: "jq",
+                      type: "path",
                       name: field_path,
                       expr: "$.#{Enum.join(String.split(field_path, "|"), ".")}"
                     }
