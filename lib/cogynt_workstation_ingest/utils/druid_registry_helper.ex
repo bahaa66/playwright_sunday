@@ -300,11 +300,13 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
       EventsContext.get_event_definition_details(event_definition.id)
       |> Enum.reduce({@default_dimensions, @default_fields}, fn %EventDefinitionDetail{
                                                                   field_name: field_name,
-                                                                  field_type: field_type
+                                                                  field_type: field_type,
+                                                                  path: field_path
                                                                 },
                                                                 {acc_dimensions, acc_fields} ->
-        case field_type do
-          "geo" ->
+        cond do
+          field_type == "geo" or
+              field_type == "array" ->
             acc_dimensions =
               Enum.uniq(
                 acc_dimensions ++
@@ -320,17 +322,17 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                     %{
                       type: "jq",
                       name: field_name,
-                      expr: ".#{field_name} | tojson"
+                      expr: "$.#{Enum.join(String.split(field_path, "|"), ".")} | tojson"
                     }
                   ]
               )
 
             {acc_dimensions, acc_fields}
 
-          nil ->
+          field_type == "nil" or is_nil(field_type) ->
             {acc_dimensions, acc_fields}
 
-          _ ->
+          true ->
             acc_dimensions =
               Enum.uniq(
                 acc_dimensions ++
@@ -343,28 +345,16 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
               )
 
             acc_fields =
-              if field_name == "path" do
-                Enum.uniq(
-                  acc_fields ++
-                    [
-                      %{
-                        type: "jq",
-                        name: "path",
-                        expr: ".path | tojson"
-                      }
-                    ]
-                )
-              else
-                Enum.uniq(
-                  acc_fields ++
-                    [
-                      %{
-                        type: "root",
-                        name: field_name
-                      }
-                    ]
-                )
-              end
+              Enum.uniq(
+                acc_fields ++
+                  [
+                    %{
+                      type: "jq",
+                      name: field_name,
+                      expr: "$.#{Enum.join(String.split(field_path, "|"), ".")} | tojson"
+                    }
+                  ]
+              )
 
             {acc_dimensions, acc_fields}
         end
