@@ -299,7 +299,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     {dimensions, fields} =
       EventsContext.get_event_definition_details(event_definition.id)
       |> Enum.reduce({@default_dimensions, @default_fields}, fn %EventDefinitionDetail{
-                                                                  field_name: field_name,
                                                                   field_type: field_type,
                                                                   path: field_path
                                                                 },
@@ -311,7 +310,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
               Enum.uniq(
                 acc_dimensions ++
                   [
-                    field_name
+                    field_path
                   ]
               )
 
@@ -321,7 +320,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                   [
                     %{
                       type: "jq",
-                      name: field_name,
+                      name: field_path,
                       expr: "$.#{Enum.join(String.split(field_path, "|"), ".")} | tojson"
                     }
                   ]
@@ -339,7 +338,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                   [
                     %{
                       type: field_type,
-                      name: field_name
+                      name: field_path
                     }
                   ]
               )
@@ -350,7 +349,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                   [
                     %{
                       type: "jq",
-                      name: field_name,
+                      name: field_path,
                       expr: "$.#{Enum.join(String.split(field_path, "|"), ".")} | tojson"
                     }
                   ]
