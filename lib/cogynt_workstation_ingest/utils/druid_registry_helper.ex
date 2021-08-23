@@ -350,7 +350,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                     %{
                       type: "jq",
                       name: field_path,
-                      expr: "$.#{Enum.join(String.split(field_path, "|"), ".")} | tojson"
+                      expr: "$.#{Enum.join(String.split(field_path, "|"), ".")}"
                     }
                   ]
               )
