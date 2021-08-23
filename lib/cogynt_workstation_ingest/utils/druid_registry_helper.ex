@@ -72,12 +72,13 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     %{
       type: "root",
       name: "published_at"
-    },
-    %{
-      type: "jq",
-      name: "$matches",
-      expr: ".$matches | tojson"
     }
+    # },
+    # %{
+    #   type: "jq",
+    #   name: "$matches",
+    #   expr: ".$matches | tojson"
+    # }
   ]
 
   def start_druid_with_registry_lookup(name, event_definition) do
