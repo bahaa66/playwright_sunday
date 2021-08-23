@@ -346,16 +346,28 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
               )
 
             acc_fields =
-              Enum.uniq(
-                acc_fields ++
-                  [
-                    %{
-                      type: "path",
-                      name: field_path,
-                      expr: "$.#{Enum.join(String.split(field_path, "|"), ".")}"
-                    }
-                  ]
-              )
+              if is_nested do
+                Enum.uniq(
+                  acc_fields ++
+                    [
+                      %{
+                        type: "path",
+                        name: field_path,
+                        expr: "$.#{Enum.join(String.split(field_path, "|"), ".")}"
+                      }
+                    ]
+                )
+              else
+                Enum.uniq(
+                  acc_fields ++
+                    [
+                      %{
+                        type: "root",
+                        name: field_path
+                      }
+                    ]
+                )
+              end
 
             {acc_dimensions, acc_fields}
         end
