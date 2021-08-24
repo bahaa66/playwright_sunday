@@ -5,6 +5,8 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   alias Models.Events.EventDefinitionDetail
   alias CogyntWorkstationIngest.Config
 
+  @lexions_expression ~s("$matches")
+
   @default_dimensions [
     %{
       type: "string",
@@ -76,7 +78,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     %{
       type: "jq",
       name: "$matches",
-      expr: ".#{"$matches"} | json"
+      expr: ".#{@lexions_expression} | json"
     }
   ]
 
