@@ -39,6 +39,10 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     %{
       type: "date",
       name: "published_at"
+    },
+    %{
+      type: "string",
+      name: "$matches"
     }
   ]
 
