@@ -82,7 +82,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     %{
       type: "jq",
       name: "$matches",
-      expr: ".#{@lexions_expression} | json"
+      expr: ".#{@lexions_expression} | tojson"
     }
   ]
 
