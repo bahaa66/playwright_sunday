@@ -76,7 +76,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     %{
       type: "jq",
       name: "$matches",
-      expr: '."$matches" | json'
+      expr: ".#{"$matches"} | json"
     }
   ]
 
@@ -303,7 +303,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                                                                   path: field_path
                                                                 },
                                                                 {acc_dimensions, acc_fields} ->
-        #is_nested = String.contains?(field_path, "|")
+        # is_nested = String.contains?(field_path, "|")
 
         cond do
           field_type == "geo" or
