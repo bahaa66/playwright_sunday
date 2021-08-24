@@ -72,13 +72,12 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     %{
       type: "root",
       name: "published_at"
+    },
+    %{
+      type: "jq",
+      name: "$matches",
+      expr: '."$matches" | json'
     }
-    # },
-    # %{
-    #   type: "jq",
-    #   name: "$matches",
-    #   expr: ".$matches | tojson"
-    # }
   ]
 
   def start_druid_with_registry_lookup(name, event_definition) do
@@ -304,7 +303,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                                                                   path: field_path
                                                                 },
                                                                 {acc_dimensions, acc_fields} ->
-        is_nested = String.contains?(field_path, "|")
+        #is_nested = String.contains?(field_path, "|")
 
         cond do
           field_type == "geo" or
@@ -347,28 +346,16 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
               )
 
             acc_fields =
-              if is_nested do
-                Enum.uniq(
-                  acc_fields ++
-                    [
-                      %{
-                        type: "path",
-                        name: field_path,
-                        expr: "$.#{Enum.join(String.split(field_path, "|"), ".")}"
-                      }
-                    ]
-                )
-              else
-                Enum.uniq(
-                  acc_fields ++
-                    [
-                      %{
-                        type: "root",
-                        name: field_path
-                      }
-                    ]
-                )
-              end
+              Enum.uniq(
+                acc_fields ++
+                  [
+                    %{
+                      type: "path",
+                      name: field_path,
+                      expr: "$.#{Enum.join(String.split(field_path, "|"), ".")}"
+                    }
+                  ]
+              )
 
             {acc_dimensions, acc_fields}
         end
