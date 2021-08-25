@@ -3,6 +3,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   Task to run needed logic for application startup
   """
   use Task
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
 
@@ -13,6 +14,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   def run() do
     start_event_type_pipelines()
     start_deployment_pipeline()
+    start_template_solutions_druid_supervisor()
+    start_template_solution_events_druid_supervisor()
     ExqHelpers.resubscribe_to_all_queues()
   end
 
@@ -38,5 +41,17 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
 
   defp start_deployment_pipeline() do
     Redis.publish_async("ingest_channel", %{start_deployment_pipeline: "deployment"})
+  end
+
+  defp start_template_solutions_druid_supervisor() do
+    Redis.publish_async("ingest_channel", %{
+      start_template_solutions_druid_supervisor: Config.template_solutions_topic()
+    })
+  end
+
+  defp start_template_solution_events_druid_supervisor() do
+    Redis.publish_async("ingest_channel", %{
+      start_template_solution_events_druid_supervisor: Config.template_solution_events_topic()
+    })
   end
 end

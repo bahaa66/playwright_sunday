@@ -7,6 +7,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   use DynamicSupervisor
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
+  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
 
   alias CogyntWorkstationIngest.Broadway.{
     EventPipeline,
@@ -62,7 +63,16 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         type: :supervisor
       }
 
-      DynamicSupervisor.start_child(__MODULE__, child_spec)
+      case DruidRegistryHelper.start_druid_with_registry_lookup(
+             consumer_group_id,
+             event_definition
+           ) do
+        {:ok, :success} ->
+          DynamicSupervisor.start_child(__MODULE__, child_spec)
+
+        {:error, nil} ->
+          {:error, nil}
+      end
     else
       {:error, nil}
     end
@@ -109,7 +119,11 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def stop_child(event_definition_id) when is_binary(event_definition_id) do
-    (fetch_event_cgid(event_definition_id) <> "Pipeline")
+    name = fetch_event_cgid(event_definition_id)
+
+    DruidRegistryHelper.terminate_druid_with_registry_lookup(name)
+
+    (name <> "Pipeline")
     |> String.to_atom()
     |> Process.whereis()
     |> case do

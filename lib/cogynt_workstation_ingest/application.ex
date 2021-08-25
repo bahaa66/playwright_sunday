@@ -20,13 +20,15 @@ defmodule CogyntWorkstationIngest.Application do
     ConsumerGroupSupervisor,
     ServerSupervisor,
     TaskSupervisor,
-    TelemetrySupervisor
+    TelemetrySupervisor,
+    DruidSupervisor
   }
 
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
       {Phoenix.PubSub, [name: CogyntWorkstationIngestWeb.PubSub, adapter: Phoenix.PubSub.PG2]},
+      {Registry, keys: :unique, name: DruidRegistry},
       # Start the Ecto repository
       CogyntWorkstationIngest.Repo,
       # Start the TelemetrySupervisor,
@@ -41,6 +43,8 @@ defmodule CogyntWorkstationIngest.Application do
       child_spec_supervisor(ServerSupervisor, ServerSupervisor),
       # Start the DynamicSupervisor for Kafka ConsumerGroups
       ConsumerGroupSupervisor,
+      # Start the DynamicSupervisor for Druid Ingestion supervisor/tasks,
+      DruidSupervisor,
       # The supervisor for all Task workers
       child_spec_supervisor(TaskSupervisor, TaskSupervisor)
     ]
