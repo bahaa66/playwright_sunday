@@ -92,11 +92,25 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           pg_event: pg_event,
           core_id: core_id,
           event_definition: event_definition,
-          event_definition_id: event_definition_id
+          event_definition_id: event_definition_id,
+          event_type: event_type
         } = data
       ) do
     published_at = event["published_at"]
+    risk_score = event["_confidence"]
     event_definition_details = event_definition.event_definition_details
+
+    occurred_at =
+      case event["_timestamp"] do
+        nil ->
+          nil
+
+        date_string ->
+          {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
+
+          dt_struct
+          |> DateTime.truncate(:second)
+      end
 
     # Iterate over each event key value pair and build the pg and elastic search event
     # details.
@@ -141,20 +155,21 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               # Convert the value if needed
               |> case do
                 nil -> false
-                value when is_binary(value) -> {value, field_name, field_type}
-                value -> {Jason.encode!(value), field_name, field_type}
+                value when is_binary(value) -> {value, field_name, field_type, path}
+                value -> {Jason.encode!(value), field_name, field_type, path}
               end
           end)
           |> case do
             # If it has a field type then it has a corresponding event definition detail that gives
             # us the the field_type so we save an event_detail and a elastic document
-            {field_value, field_name, field_type} ->
+            {field_value, field_name, field_type, path} ->
               acc ++
                 [
                   %{
                     field_name: field_name,
                     field_type: field_type,
-                    field_value: field_value
+                    field_value: field_value,
+                    path: path
                   }
                 ]
 
@@ -165,13 +180,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     # Build elasticsearch documents
     elasticsearch_event_doc =
-      case EventDocumentBuilder.build_document(
-             core_id,
-             event_definition.title,
-             event_definition_id,
-             elasticsearch_event_details,
-             published_at
-           ) do
+      case EventDocumentBuilder.build_document(%{
+             id: core_id,
+             title: event_definition.title,
+             event_definition_id: event_definition_id,
+             event_details: elasticsearch_event_details,
+             core_event_id: core_id,
+             published_at: published_at,
+             event_type: event_type,
+             occurred_at: occurred_at,
+             risk_score: risk_score,
+             converted_risk_score: pg_event.risk_score
+           }) do
         {:ok, event_doc} ->
           event_doc
 
@@ -260,7 +280,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   Takes all the messages that have gone through the processing steps in the pipeline up to the batch limit
   configured. Will execute one multi transaction to delete and upsert all objects
   """
-  def execute_batch_transaction(messages) do
+  def execute_batch_transaction(messages, event_type) do
     # build transactional data
     default_map = %{
       pg_event: [],
@@ -364,8 +384,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       {:ok, %{upsert_notifications: {_count_created, upserted_notifications}}} ->
         SystemNotificationContext.bulk_insert_system_notifications(upserted_notifications)
 
-      # TODO: send Redis pub sub for Events object
-
       {:ok, _} ->
         nil
 
@@ -379,6 +397,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
         raise "execute_transaction/1 failed"
     end
+
+    Redis.publish_async(
+      "events_changed_listener",
+      %{
+        event_type: event_type,
+        deleted: bulk_transactional_data.delete_core_id,
+        upserted: bulk_transactional_data.pg_event
+      }
+    )
   end
 
   # ----------------------- #
@@ -433,7 +460,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   defp format_risk_score(risk_score) when is_float(risk_score),
     do: trunc(Float.round(risk_score * 100))
 
-  defp format_risk_score(risk_score) when is_integer(risk_score), do: risk_score
+  defp format_risk_score(risk_score) when is_integer(risk_score), do: risk_score * 100
 
   defp format_risk_score(risk_score) do
     if risk_score != 0 do

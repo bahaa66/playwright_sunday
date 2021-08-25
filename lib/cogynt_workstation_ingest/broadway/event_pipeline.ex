@@ -42,7 +42,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              ]
            ]},
         concurrency: Config.event_producer_stages(),
-        transformer: {__MODULE__, :transform, [event_definition_id: event_definition_id]}
+        transformer:
+          {__MODULE__, :transform,
+           [event_definition_id: event_definition_id, event_type: event_type]}
       ],
       processors: [
         default: [
@@ -69,6 +71,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   def transform(%Message{data: encoded_data} = message, opts) do
     event_definition_id = Keyword.get(opts, :event_definition_id, nil)
+    event_type = Keyword.get(opts, :event_type, "none")
 
     if is_nil(event_definition_id) do
       CogyntLogger.error(
@@ -89,6 +92,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
             core_id: decoded_data["id"] || Ecto.UUID.generate(),
             pipeline_state: nil,
             retry_count: 0,
+            event_type: event_type,
             event_definition:
               EventsContext.get_event_definition(event_definition_id, preload_details: true)
               |> EventsContext.remove_event_definition_virtual_fields(
@@ -262,10 +266,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @impl true
   def handle_batch(:default, messages, _batch_info, context) do
     event_definition_id = Keyword.get(context, :event_definition_id, nil)
+    event_type = Keyword.get(context, :event_type, nil)
 
     messages
     |> Enum.map(fn message -> message.data end)
-    |> EventProcessor.execute_batch_transaction()
+    |> EventProcessor.execute_batch_transaction(event_type)
 
     incr_total_processed_message_count(event_definition_id, Enum.count(messages))
     messages
@@ -358,7 +363,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           end
       end
     end)
-    |> EventProcessor.execute_batch_transaction()
+    |> EventProcessor.execute_batch_transaction(event_type)
 
     incr_total_processed_message_count(event_definition_id, Enum.count(messages))
     messages
