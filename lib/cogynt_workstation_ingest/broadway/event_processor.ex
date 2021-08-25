@@ -99,7 +99,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     published_at = event["published_at"]
     risk_score = event["_confidence"]
     event_definition_details = event_definition.event_definition_details
-    event = format_lexicon_data(event)
 
     occurred_at =
       case event["_timestamp"] do
@@ -111,12 +110,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
           dt_struct
           |> DateTime.truncate(:second)
-      end
-
-    event_type =
-      case Map.get(event_definition, :event_type, :none) do
-        event_type when is_atom(event_type) -> event_type
-        event_type when is_binary(event_type) -> String.to_atom(event_type)
       end
 
     # Iterate over each event key value pair and build the pg and elastic search event
@@ -197,9 +190,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
              event_type: event_type,
              occurred_at: occurred_at,
              risk_score: risk_score,
-             converted_risk_score:
-               if(is_nil(risk_score), do: nil, else: format_risk_score(risk_score)),
-             lexicons: Map.get(event, @lexicons)
+             converted_risk_score: pg_event.risk_score
            }) do
         {:ok, event_doc} ->
           event_doc
