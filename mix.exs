@@ -85,8 +85,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :elasticsearch,
-        # tag: "v1.14.2-beta",
-        branch: "feat/CDST-1022-search-facet-query",
+        tag: "v1.14.4-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "elasticsearch",
         override: true
