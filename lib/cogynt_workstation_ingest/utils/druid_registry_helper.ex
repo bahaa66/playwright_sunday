@@ -309,18 +309,13 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                                                                   path: field_path
                                                                 },
                                                                 {acc_dimensions, acc_fields} ->
-        # is_nested = String.contains?(field_path, "|")
-
         cond do
           field_type == "geo" or
               field_type == "array" ->
             acc_dimensions =
-              Enum.uniq(
-                acc_dimensions ++
-                  [
-                    field_path
-                  ]
-              )
+              Enum.map(acc_dimensions, fn dimension ->
+                if dimension.name == field_path, do: field_path, else: dimension
+              end)
 
             acc_fields =
               Enum.uniq(
@@ -341,15 +336,14 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
 
           true ->
             acc_dimensions =
-              Enum.uniq(
-                acc_dimensions ++
-                  [
-                    %{
-                      type: field_type,
-                      name: field_path
-                    }
-                  ]
-              )
+              Enum.map(acc_dimensions, fn dimension ->
+                if dimension.name == field_path,
+                  do: %{
+                    type: field_type,
+                    name: field_path
+                  },
+                  else: dimension
+              end)
 
             acc_fields =
               Enum.uniq(
