@@ -313,9 +313,22 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
           field_type == "geo" or
               field_type == "array" ->
             acc_dimensions =
-              Enum.map(acc_dimensions, fn dimension ->
-                if dimension.name == field_path, do: field_path, else: dimension
-              end)
+              Enum.uniq(
+                Enum.map(acc_dimensions, fn dimension ->
+                  if dimension.name == field_path,
+                    do: %{
+                      type: "string",
+                      name: field_path
+                    },
+                    else: dimension
+                end) ++
+                  [
+                    %{
+                      type: "string",
+                      name: field_path
+                    }
+                  ]
+              )
 
             acc_fields =
               Enum.uniq(
@@ -344,6 +357,24 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                   },
                   else: dimension
               end)
+
+            acc_dimensions =
+              Enum.uniq(
+                Enum.map(acc_dimensions, fn dimension ->
+                  if dimension.name == field_path,
+                    do: %{
+                      type: field_type,
+                      name: field_path
+                    },
+                    else: dimension
+                end) ++
+                  [
+                    %{
+                      type: field_type,
+                      name: field_path
+                    }
+                  ]
+              )
 
             acc_fields =
               Enum.uniq(
