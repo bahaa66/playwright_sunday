@@ -302,6 +302,9 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   # --- private methods --- #
   # ----------------------- #
   defp build_druid_ingest_spec(name, event_definition) do
+    IO.inspect(@default_dimensions, label: "DEFAULT DIMENSIONS***********")
+    IO.inspect(@default_fields, label: "DEFAULT FIELDS***********")
+
     {dimensions, fields} =
       EventsContext.get_event_definition_details(event_definition.id)
       |> Enum.reduce({@default_dimensions, @default_fields}, fn %EventDefinitionDetail{
