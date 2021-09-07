@@ -302,9 +302,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   # --- private methods --- #
   # ----------------------- #
   defp build_druid_ingest_spec(name, event_definition) do
-    IO.inspect(@default_dimensions, label: "DEFAULT DIMENSIONS***********")
-    IO.inspect(@default_fields, label: "DEFAULT FIELDS***********")
-
     {dimensions, fields} =
       EventsContext.get_event_definition_details(event_definition.id)
       |> Enum.reduce({@default_dimensions, @default_fields}, fn %EventDefinitionDetail{
@@ -312,6 +309,8 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                                                                   path: field_path
                                                                 },
                                                                 {acc_dimensions, acc_fields} ->
+        sigil_field_path = ~s(#{field_path})
+
         cond do
           # Any type that is not supported by Native Druid types need to be matched here
           field_type == "geo" or
@@ -319,17 +318,17 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
             acc_dimensions =
               Enum.uniq(
                 Enum.map(acc_dimensions, fn dimension ->
-                  if dimension.name == field_path,
+                  if dimension.name == sigil_field_path,
                     do: %{
                       type: "string",
-                      name: ~s(#{field_path})
+                      name: sigil_field_path
                     },
                     else: dimension
                 end) ++
                   [
                     %{
                       type: "string",
-                      name: ~s(#{field_path})
+                      name: sigil_field_path
                     }
                   ]
               )
@@ -340,7 +339,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                   [
                     %{
                       type: "jq",
-                      name: ~s(#{field_path}),
+                      name: sigil_field_path,
                       expr: ".#{Enum.join(String.split(field_path, "|"), ".")} | tojson"
                     }
                   ]
@@ -355,17 +354,17 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
             acc_dimensions =
               Enum.uniq(
                 Enum.map(acc_dimensions, fn dimension ->
-                  if dimension.name == field_path,
+                  if dimension.name == sigil_field_path,
                     do: %{
                       type: field_type,
-                      name: ~s(#{field_path})
+                      name: sigil_field_path
                     },
                     else: dimension
                 end) ++
                   [
                     %{
                       type: field_type,
-                      name: ~s(#{field_path})
+                      name: sigil_field_path
                     }
                   ]
               )
@@ -376,7 +375,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                   [
                     %{
                       type: "path",
-                      name: ~s(#{field_path}),
+                      name: sigil_field_path,
                       expr: "$.#{Enum.join(String.split(field_path, "|"), ".")}"
                     }
                   ]
