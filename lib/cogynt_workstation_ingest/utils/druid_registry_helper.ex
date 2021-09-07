@@ -10,78 +10,78 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   @default_dimensions [
     %{
       type: "string",
-      name: "id"
+      name: ~s("id")
     },
     %{
       type: "string",
-      name: "published_by"
+      name: ~s("published_by")
     },
     %{
       type: "float",
-      name: "_confidence"
+      name: ~s("_confidence")
     },
     %{
       type: "string",
-      name: "publishing_template_type_name"
+      name: ~s("publishing_template_type_name")
     },
     %{
       type: "string",
-      name: "data_type"
+      name: ~s("data_type")
     },
     %{
       type: "string",
-      name: "$crud"
+      name: ~s("$crud")
     },
     %{
       type: "string",
-      name: "source"
+      name: ~s("source")
     },
     %{
       type: "date",
-      name: "published_at"
+      name: ~s("published_at")
     },
     %{
       type: "string",
-      name: "$matches"
+      name: ~s("$matches")
     }
   ]
 
   @default_fields [
     %{
       type: "root",
-      name: "id"
+      name: ~s("id")
     },
     %{
       type: "root",
-      name: "published_by"
+      name: ~s("published_by")
     },
     %{
       type: "root",
-      name: "_confidence"
+      name: ~s("_confidence")
     },
     %{
       type: "root",
-      name: "publishing_template_type_name"
+      name: ~s("publishing_template_type_name")
     },
     %{
       type: "root",
-      name: "data_type"
+      name: ~s("data_type")
     },
     %{
       type: "root",
-      name: "$crud"
+      name: ~s("$crud")
     },
     %{
       type: "root",
-      name: "source"
+      name: ~s("source")
     },
     %{
       type: "root",
-      name: "published_at"
+      name: ~s("published_at")
     },
     %{
       type: "jq",
-      name: "$matches",
+      name: ~s("$matches"),
       expr: ".#{@lexions_expression} | tojson"
     }
   ]
@@ -310,6 +310,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                                                                 },
                                                                 {acc_dimensions, acc_fields} ->
         cond do
+          # Any type that is not supported by Native Druid types need to be matched here
           field_type == "geo" or
               field_type == "array" ->
             acc_dimensions =
@@ -318,14 +319,14 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                   if dimension.name == field_path,
                     do: %{
                       type: "string",
-                      name: field_path
+                      name: ~s(#{field_path})
                     },
                     else: dimension
                 end) ++
                   [
                     %{
                       type: "string",
-                      name: field_path
+                      name: ~s(#{field_path})
                     }
                   ]
               )
@@ -336,7 +337,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                   [
                     %{
                       type: "jq",
-                      name: field_path,
+                      name: ~s(#{field_path}),
                       expr: ".#{Enum.join(String.split(field_path, "|"), ".")} | tojson"
                     }
                   ]
@@ -349,29 +350,19 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
 
           true ->
             acc_dimensions =
-              Enum.map(acc_dimensions, fn dimension ->
-                if dimension.name == field_path,
-                  do: %{
-                    type: field_type,
-                    name: field_path
-                  },
-                  else: dimension
-              end)
-
-            acc_dimensions =
               Enum.uniq(
                 Enum.map(acc_dimensions, fn dimension ->
                   if dimension.name == field_path,
                     do: %{
                       type: field_type,
-                      name: field_path
+                      name: ~s(#{field_path})
                     },
                     else: dimension
                 end) ++
                   [
                     %{
                       type: field_type,
-                      name: field_path
+                      name: ~s(#{field_path})
                     }
                   ]
               )
@@ -382,7 +373,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                   [
                     %{
                       type: "path",
-                      name: field_path,
+                      name: ~s(#{field_path}),
                       expr: "$.#{Enum.join(String.split(field_path, "|"), ".")}"
                     }
                   ]
