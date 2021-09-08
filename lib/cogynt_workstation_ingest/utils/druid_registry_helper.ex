@@ -6,7 +6,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   alias CogyntWorkstationIngest.Config
 
   @lexions_expression ~s("$matches")
-  @status_check_interval 30_000
+  @status_check_interval 90_000
   @default_dimensions [
     %{
       type: "string",

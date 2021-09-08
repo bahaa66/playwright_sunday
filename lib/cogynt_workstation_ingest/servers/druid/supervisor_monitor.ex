@@ -87,7 +87,6 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           state = %{id: supervisor_id, supervisor_status: payload}
           Redis.hash_set_async("dss", id, state)
           Redis.key_pexpire("dss", @dss_key_expire)
-          IO.inspect(supervisor_id, label: "STARTING DRUID MONITOR ID:")
           DruidRegistryHelper.check_status_with_registry_lookup(id)
           {:ok, state}
         else
@@ -328,8 +327,6 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
   @impl true
   def handle_info(:get_status, %{id: id} = state) do
-    IO.inspect(id, label: "Calling Get_status for id", pretty: true)
-
     Druid.get_supervisor_status(id)
     |> case do
       {:ok, %{"payload" => %{"detailedState" => detailed_state} = payload}} ->
