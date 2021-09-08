@@ -87,6 +87,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           state = %{id: supervisor_id, supervisor_status: payload}
           Redis.hash_set_async("dss", id, state)
           Redis.key_pexpire("dss", @dss_key_expire)
+          IO.inspect(supervisor_id, label: "STARTING DRUID MONITOR ID:")
           DruidRegistryHelper.check_status_with_registry_lookup(id)
           {:ok, state}
         else
@@ -204,7 +205,6 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       state = %{state | supervisor_status: payload}
       Redis.hash_set_async("dss", id, state)
       Redis.key_pexpire("dss", @dss_key_expire)
-      DruidRegistryHelper.check_status_with_registry_lookup(id)
       {:noreply, state}
     else
       {:error, error} ->
@@ -339,6 +339,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
             "DruidSupervisor: #{id} in Error State: #{detailed_state}. Resetting Supervisor"
           )
 
+          DruidRegistryHelper.check_status_with_registry_lookup(id)
+
           {:noreply, state, {:continue, :reset_and_get_supervisor}}
         else
           state = %{state | supervisor_status: payload}
@@ -356,6 +358,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
         Redis.hash_set_async("dss", id, state)
         Redis.key_pexpire("dss", @dss_key_expire)
+        DruidRegistryHelper.check_status_with_registry_lookup(id)
 
         {:noreply, state}
     end
