@@ -73,6 +73,29 @@ config :plug, :types, %{
   "application/vnd.api+json" => ["json-api"]
 }
 
+
+config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster,
+  username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",
+  password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
+  json_library: Jason,
+  url: System.get_env("ELASTIC_URL") || "http://localhost:9200",
+  api: Elasticsearch.API.HTTP,
+  indexes: %{
+    event_test: %{
+      settings: "/priv/elasticsearch/event.json",
+      store: CogyntWorkstationIngest.Elasticsearch.Store,
+      sources: [Models.Events.Event, Models.Events.EventDefinition, Models.EventDetailTemplates],
+      bulk_page_size: 10,
+      bulk_wait_interval: 5000
+    }
+  },
+  default_options: [
+    timeout: 10_000,
+    recv_timeout: 5_000,
+    hackney: [pool: :elasticsearh_pool],
+    ssl: [versions: [:"tlsv1.2"]]
+  ]
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{Mix.env()}.exs"

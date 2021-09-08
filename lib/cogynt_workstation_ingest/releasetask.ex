@@ -13,7 +13,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
 
   def repos(app), do: Application.get_env(app, :ecto_repos, []) |> IO.inspect()
 
-  alias Elasticsearch.IndexMappings.EventIndexMapping
+  # alias Elasticsearch.IndexMappings.EventIndexMapping
   alias CogyntWorkstationIngest.Config
 
   def premigrate do
@@ -90,6 +90,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
         IO.puts("event_index already exists.")
         IO.puts("indexes complete..")
     end
+
   end
 
   defp run_migrations_for(repo) do

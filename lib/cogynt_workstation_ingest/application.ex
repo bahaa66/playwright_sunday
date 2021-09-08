@@ -45,8 +45,9 @@ defmodule CogyntWorkstationIngest.Application do
       ConsumerGroupSupervisor,
       # Start the DynamicSupervisor for Druid Ingestion supervisor/tasks,
       DruidSupervisor,
+      CogyntWorkstationIngest.Elasticsearch.Cluster,
       # The supervisor for all Task workers
-      child_spec_supervisor(TaskSupervisor, TaskSupervisor)
+      child_spec_supervisor(TaskSupervisor, TaskSupervisor),
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
