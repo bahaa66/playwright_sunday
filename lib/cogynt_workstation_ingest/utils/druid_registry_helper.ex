@@ -6,7 +6,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   alias CogyntWorkstationIngest.Config
 
   @lexions_expression ~s("$matches")
-
+  @status_check_interval 30_000
   @default_dimensions [
     %{
       type: "string",
@@ -261,7 +261,10 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   def resume_druid_with_registry_lookup(name) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
-        CogyntLogger.warn("#{__MODULE__}", "No PID registred for #{name}")
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "resume_druid_with_registry_lookup/1. No PID registred for #{name}"
+        )
 
       registered_processes ->
         Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
@@ -273,7 +276,10 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   def suspend_druid_with_registry_lookup(name) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
-        CogyntLogger.warn("#{__MODULE__}", "No PID registred with DruidRegistry for #{name}")
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "suspend_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
+        )
 
       registered_processes ->
         Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
@@ -285,7 +291,10 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   def reset_druid_with_registry_lookup(name) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
-        CogyntLogger.warn("#{__MODULE__}", "No PID registred with DruidRegistry for #{name}")
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "reset_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
+        )
 
       registered_processes ->
         Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
@@ -297,11 +306,29 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   def terminate_druid_with_registry_lookup(name) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
-        CogyntLogger.warn("#{__MODULE__}", "No PID registred with DruidRegistry for #{name}")
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "terminate_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
+        )
 
       registered_processes ->
         Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
           SupervisorMonitor.terminate_and_shutdown(druid_supervisor_pid)
+        end)
+    end
+  end
+
+  def check_status_with_registry_lookup(name) do
+    case Registry.lookup(DruidRegistry, name) do
+      [] ->
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "check_status_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
+        )
+
+      registered_processes ->
+        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
+          Process.send_after(druid_supervisor_pid, :check_status, @status_check_interval)
         end)
     end
   end

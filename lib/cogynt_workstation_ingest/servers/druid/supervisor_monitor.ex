@@ -5,7 +5,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   """
   use GenServer, restart: :transient
 
-  @status_check_interval 30_000
+  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
+
   @dss_key_expire 300_000
   @detailed_state_errors [
     "UNHEALTHY_SUPERVISOR",
@@ -83,10 +84,10 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
         with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
              {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
-          Process.send_after(__MODULE__, :get_status, @status_check_interval)
+          DruidRegistryHelper.check_status_with_registry_lookup(id)
 
           state = %{id: supervisor_id, supervisor_status: payload}
-          Redis.hash_set_async("dss", supervisor_id, state)
+          Redis.hash_set_async("dss", id, state)
           Redis.key_pexpire("dss", @dss_key_expire)
           {:ok, state}
         else
@@ -201,7 +202,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
     with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
          {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
-      Process.send_after(__MODULE__, :get_status, @status_check_interval)
+      DruidRegistryHelper.check_status_with_registry_lookup(id)
 
       state = %{state | supervisor_status: payload}
       Redis.hash_set_async("dss", id, state)
@@ -342,7 +343,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
           {:noreply, state, {:continue, :reset_and_get_supervisor}}
         else
-          Process.send_after(__MODULE__, :get_status, @status_check_interval)
+          DruidRegistryHelper.check_status_with_registry_lookup(id)
+
           state = %{state | supervisor_status: payload}
           Redis.hash_set_async("dss", id, state)
           Redis.key_pexpire("dss", @dss_key_expire)
