@@ -5,7 +5,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   """
   use GenServer, restart: :transient
 
-  @status_check_interval 30_000
+  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
+
   @dss_key_expire 300_000
   @detailed_state_errors [
     "UNHEALTHY_SUPERVISOR",
@@ -61,12 +62,46 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     Druid.status_health()
     |> case do
       {:ok, true} ->
-        state = %{id: supervisor_id, supervisor_status: %{state: "LOADING"}}
-        Redis.hash_set_async("dss", supervisor_id, state)
-        Redis.key_pexpire("dss", @dss_key_expire)
+        brokers = Map.get(args, :brokers)
+        schema = Map.get(args, :schema, :json)
 
-        # TODO Return a sync error if fails to create supervisor upon startup
-        {:ok, state, {:continue, {:create_or_update_supervisor, args}}}
+        supervisor_specs =
+          Map.take(args, [
+            :dimensions_spec,
+            :supervisor_id,
+            :io_config,
+            :parse_spec,
+            :flatten_spec,
+            :granularity_spec,
+            :timestamp_spec,
+            :schema_registry_url,
+            :topic
+          ])
+          |> Keyword.new()
+
+        supervisor_spec =
+          Druid.Utils.build_kafka_supervisor(supervisor_id, brokers, schema, supervisor_specs)
+
+        with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
+             {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
+          state = %{id: supervisor_id, supervisor_status: payload}
+          Redis.hash_set_async("dss", id, state)
+          Redis.key_pexpire("dss", @dss_key_expire)
+          DruidRegistryHelper.check_status_with_registry_lookup(id)
+          {:ok, state}
+        else
+          {:error, error} ->
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "Unable to create/fetch Druid supervisor information for #{supervisor_id}: #{
+                inspect(error)
+              }"
+            )
+
+            Redis.hash_delete("dss", supervisor_id)
+
+            {:stop, :failed_to_create_druid_supervisor}
+        end
 
       {:ok, false} ->
         CogyntLogger.error(
@@ -98,7 +133,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
         {:reply, "NOT FOUND", state, {:continue, :reset_and_get_supervisor}}
 
       {:ok, %{supervisor_status: status} = state} ->
-        {:reply, status, state}
+        {:reply, Map.get(status, :detailedState, "UNKNOWN"), state}
 
       {:error, error} ->
         {:reply, {:error, error}, state}
@@ -136,7 +171,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
         {:reply, "NOT FOUND", state, {:continue, :reset_and_get_supervisor}}
 
       {:ok, %{supervisor_status: status} = state} ->
-        {:reply, Map.get(status, :state, "UNKNOWN"), state}
+        {:reply, status, state}
 
       {:error, error} ->
         {:reply, {:error, error}, state}
@@ -144,92 +179,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   end
 
   @impl true
-  def handle_cast({:create_or_update_supervisor, opts}, state) do
-    {:noreply, state, {:continue, {:create_or_update_supervisor, opts}}}
-  end
-
-  @impl true
-  def handle_call(:delete_data_and_reset_supervisor, _from, %{id: id} = state) do
-    Druid.delete_datasource(id)
-    |> case do
-      {:ok, response} ->
-        state = %{state | supervisor_status: %{state: "DELETING"}}
-        Redis.hash_set_async("dss", id, state)
-        Redis.key_pexpire("dss", @dss_key_expire)
-        {:reply, response, state, {:continue, :reset_and_get_supervisor}}
-
-      {:error, error} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Unable to delete Druid datasource do to error: #{inspect(error)}"
-        )
-
-        {:reply, {:error, error}, state}
-    end
-  end
-
-  @impl true
-  def handle_call(:suspend_supervisor, _from, %{id: id} = state) do
-    Druid.suspend_supervisor(id)
-    |> case do
-      {:ok, response} ->
-        state = %{state | supervisor_status: %{state: "SUSPENDED"}}
-        Redis.hash_set_async("dss", id, state)
-        Redis.key_pexpire("dss", @dss_key_expire)
-        {:reply, response, state}
-
-      {:error, error} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Unable to suspend Druid datasource do to error: #{inspect(error)}"
-        )
-
-        {:reply, {:error, error}, state}
-    end
-  end
-
-  @impl true
-  def handle_call(:resume_supervisor, _from, %{id: id} = state) do
-    Druid.resume_supervisor(id)
-    |> case do
-      {:ok, response} ->
-        state = %{state | supervisor_status: %{state: "RUNNING"}}
-        Redis.hash_set_async("dss", id, state)
-        Redis.key_pexpire("dss", @dss_key_expire)
-        {:reply, response, state}
-
-      {:error, error} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Unable to resume Druid datasource do to error: #{inspect(error)}"
-        )
-
-        {:reply, {:error, error}, state}
-    end
-  end
-
-  @impl true
-  def handle_call(:terminate_and_shutdown, _from, %{id: id} = state) do
-    Druid.terminate_supervisor(id)
-    |> case do
-      {:ok, response} ->
-        state = %{state | supervisor_status: %{state: "TERMINATED"}}
-        Redis.hash_set_async("dss", id, state)
-        Redis.key_pexpire("dss", @dss_key_expire)
-        {:reply, response, state, {:continue, :shutdown_server}}
-
-      {:error, error} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Unable to terminate Druid supervisor do to error: #{inspect(error)}"
-        )
-
-        {:reply, {:error, error}, state}
-    end
-  end
-
-  @impl true
-  def handle_continue({:create_or_update_supervisor, args}, %{id: id} = state) do
+  def handle_cast({:create_or_update_supervisor, args}, %{id: id} = state) do
     brokers = Map.get(args, :brokers)
     schema = Map.get(args, :schema, :json)
 
@@ -251,8 +201,6 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
     with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
          {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
-      Process.send_after(__MODULE__, :get_status, @status_check_interval)
-
       state = %{state | supervisor_status: payload}
       Redis.hash_set_async("dss", id, state)
       Redis.key_pexpire("dss", @dss_key_expire)
@@ -264,11 +212,90 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           "Unable to create/fetch Druid supervisor information for #{id}: #{inspect(error)}"
         )
 
-        state = %{state | supervisor_status: {:error, :internal_server_error}}
+        {:noreply, state, {:continue, :shutdown_server}}
+    end
+  end
+
+  @impl true
+  def handle_call(:delete_data_and_reset_supervisor, _from, %{id: id} = state) do
+    Druid.delete_datasource(id)
+    |> case do
+      {:ok, response} ->
+        {:ok, %{"payload" => payload}} = Druid.get_supervisor_status(id)
+
+        state = %{state | supervisor_status: payload}
         Redis.hash_set_async("dss", id, state)
         Redis.key_pexpire("dss", @dss_key_expire)
+        {:reply, response, state, {:continue, :reset_and_get_supervisor}}
 
-        {:noreply, state}
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Unable to delete Druid datasource do to error: #{inspect(error)}"
+        )
+
+        {:reply, {:error, error}, state}
+    end
+  end
+
+  @impl true
+  def handle_call(:suspend_supervisor, _from, %{id: id} = state) do
+    Druid.suspend_supervisor(id)
+    |> case do
+      {:ok, response} ->
+        {:ok, %{"payload" => payload}} = Druid.get_supervisor_status(id)
+
+        state = %{state | supervisor_status: payload}
+        Redis.hash_set_async("dss", id, state)
+        Redis.key_pexpire("dss", @dss_key_expire)
+        {:reply, response, state}
+
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Unable to suspend Druid datasource do to error: #{inspect(error)}"
+        )
+
+        {:reply, {:error, error}, state}
+    end
+  end
+
+  @impl true
+  def handle_call(:resume_supervisor, _from, %{id: id} = state) do
+    Druid.resume_supervisor(id)
+    |> case do
+      {:ok, response} ->
+        {:ok, %{"payload" => payload}} = Druid.get_supervisor_status(id)
+
+        state = %{state | supervisor_status: payload}
+        Redis.hash_set_async("dss", id, state)
+        Redis.key_pexpire("dss", @dss_key_expire)
+        {:reply, response, state}
+
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Unable to resume Druid datasource do to error: #{inspect(error)}"
+        )
+
+        {:reply, {:error, error}, state}
+    end
+  end
+
+  @impl true
+  def handle_call(:terminate_and_shutdown, _from, %{id: id} = state) do
+    Druid.terminate_supervisor(id)
+    |> case do
+      {:ok, response} ->
+        {:reply, response, state, {:continue, :shutdown_server}}
+
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Unable to terminate Druid supervisor do to error: #{inspect(error)}"
+        )
+
+        {:reply, {:error, error}, state}
     end
   end
 
@@ -309,12 +336,14 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
             "DruidSupervisor: #{id} in Error State: #{detailed_state}. Resetting Supervisor"
           )
 
+          DruidRegistryHelper.check_status_with_registry_lookup(id)
+
           {:noreply, state, {:continue, :reset_and_get_supervisor}}
         else
-          Process.send_after(__MODULE__, :get_status, @status_check_interval)
           state = %{state | supervisor_status: payload}
           Redis.hash_set_async("dss", id, state)
           Redis.key_pexpire("dss", @dss_key_expire)
+          DruidRegistryHelper.check_status_with_registry_lookup(id)
           {:noreply, state}
         end
 
@@ -324,9 +353,9 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           "Unable to get Druid supervisor status for #{id}: #{inspect(error)}"
         )
 
-        state = %{state | supervisor_status: {:error, :internal_server_error}}
         Redis.hash_set_async("dss", id, state)
         Redis.key_pexpire("dss", @dss_key_expire)
+        DruidRegistryHelper.check_status_with_registry_lookup(id)
 
         {:noreply, state}
     end

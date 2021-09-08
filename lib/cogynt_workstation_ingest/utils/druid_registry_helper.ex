@@ -6,7 +6,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   alias CogyntWorkstationIngest.Config
 
   @lexions_expression ~s("$matches")
-
+  @status_check_interval 90_000
   @default_dimensions [
     %{
       type: "string",
@@ -48,36 +48,44 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
 
   @default_fields [
     %{
-      type: "root",
-      name: "id"
+      type: "path",
+      name: "id",
+      expr: "$.id"
     },
     %{
-      type: "root",
-      name: "published_by"
+      type: "path",
+      name: "published_by",
+      expr: "$.path"
     },
     %{
-      type: "root",
-      name: "_confidence"
+      type: "path",
+      name: "_confidence",
+      expr: "$._confidence"
     },
     %{
-      type: "root",
-      name: "publishing_template_type_name"
+      type: "path",
+      name: "publishing_template_type_name",
+      expr: "$.publishing_template_type_name"
     },
     %{
-      type: "root",
-      name: "data_type"
+      type: "path",
+      name: "data_type",
+      expr: "$.data_type"
     },
     %{
-      type: "root",
-      name: "$crud"
+      type: "path",
+      name: "$crud",
+      expr: "$.$crud"
     },
     %{
-      type: "root",
-      name: "source"
+      type: "path",
+      name: "source",
+      expr: "$.source"
     },
     %{
-      type: "root",
-      name: "published_at"
+      type: "path",
+      name: "published_at",
+      expr: "$.published_at"
     },
     %{
       type: "jq",
@@ -253,7 +261,10 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   def resume_druid_with_registry_lookup(name) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
-        CogyntLogger.warn("#{__MODULE__}", "No PID registred for #{name}")
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "resume_druid_with_registry_lookup/1. No PID registred for #{name}"
+        )
 
       registered_processes ->
         Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
@@ -265,7 +276,10 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   def suspend_druid_with_registry_lookup(name) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
-        CogyntLogger.warn("#{__MODULE__}", "No PID registred with DruidRegistry for #{name}")
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "suspend_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
+        )
 
       registered_processes ->
         Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
@@ -277,7 +291,10 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   def reset_druid_with_registry_lookup(name) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
-        CogyntLogger.warn("#{__MODULE__}", "No PID registred with DruidRegistry for #{name}")
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "reset_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
+        )
 
       registered_processes ->
         Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
@@ -289,11 +306,29 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   def terminate_druid_with_registry_lookup(name) do
     case Registry.lookup(DruidRegistry, name) do
       [] ->
-        CogyntLogger.warn("#{__MODULE__}", "No PID registred with DruidRegistry for #{name}")
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "terminate_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
+        )
 
       registered_processes ->
         Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
           SupervisorMonitor.terminate_and_shutdown(druid_supervisor_pid)
+        end)
+    end
+  end
+
+  def check_status_with_registry_lookup(name) do
+    case Registry.lookup(DruidRegistry, name) do
+      [] ->
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "check_status_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
+        )
+
+      registered_processes ->
+        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
+          Process.send_after(druid_supervisor_pid, :get_status, @status_check_interval)
         end)
     end
   end
@@ -309,13 +344,29 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                                                                   path: field_path
                                                                 },
                                                                 {acc_dimensions, acc_fields} ->
+        sigil_field_path = ~s("#{field_path}")
+
         cond do
+          # Any type that is not supported by Native Druid types need to be matched here
           field_type == "geo" or
               field_type == "array" ->
             acc_dimensions =
-              Enum.map(acc_dimensions, fn dimension ->
-                if dimension.name == field_path, do: field_path, else: dimension
-              end)
+              Enum.uniq(
+                Enum.map(acc_dimensions, fn dimension ->
+                  if dimension.name == field_path,
+                    do: %{
+                      type: "string",
+                      name: field_path
+                    },
+                    else: dimension
+                end) ++
+                  [
+                    %{
+                      type: "string",
+                      name: field_path
+                    }
+                  ]
+              )
 
             acc_fields =
               Enum.uniq(
@@ -324,7 +375,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                     %{
                       type: "jq",
                       name: field_path,
-                      expr: ".#{Enum.join(String.split(field_path, "|"), ".")} | tojson"
+                      expr: ".#{Enum.join(String.split(sigil_field_path, "|"), ".")} | tojson"
                     }
                   ]
               )
@@ -336,14 +387,22 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
 
           true ->
             acc_dimensions =
-              Enum.map(acc_dimensions, fn dimension ->
-                if dimension.name == field_path,
-                  do: %{
-                    type: field_type,
-                    name: field_path
-                  },
-                  else: dimension
-              end)
+              Enum.uniq(
+                Enum.map(acc_dimensions, fn dimension ->
+                  if dimension.name == field_path,
+                    do: %{
+                      type: field_type,
+                      name: field_path
+                    },
+                    else: dimension
+                end) ++
+                  [
+                    %{
+                      type: field_type,
+                      name: field_path
+                    }
+                  ]
+              )
 
             acc_fields =
               Enum.uniq(

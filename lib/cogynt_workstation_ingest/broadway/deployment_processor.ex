@@ -55,10 +55,10 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
               DruidRegistryHelper.update_druid_with_registry_lookup(name, event_definition)
             end
 
-          _ ->
+          error ->
             CogyntLogger.error(
               "#{__MODULE__}",
-              "Failed to upsert EventDefinition for DeploymentProcessor"
+              "Failed to upsert EventDefinition for DeploymentProcessor. Error: #{inspect(error)}"
             )
         end
 
