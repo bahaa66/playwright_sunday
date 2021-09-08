@@ -11,47 +11,47 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     %{
       type: "string",
       name: "id"
-      #name: ~s("id")
+      # name: ~s("id")
     },
     %{
       type: "string",
       name: "published_by"
-      #name: ~s("published_by")
+      # name: ~s("published_by")
     },
     %{
       type: "float",
       name: "_confidence"
-      #name: ~s("_confidence")
+      # name: ~s("_confidence")
     },
     %{
       type: "string",
       name: "publishing_template_type_name"
-      #name: ~s("publishing_template_type_name")
+      # name: ~s("publishing_template_type_name")
     },
     %{
       type: "string",
       name: "data_type"
-      #name: ~s("data_type")
+      # name: ~s("data_type")
     },
     %{
       type: "string",
       name: "$crud"
-      #name: ~s("$crud")
+      # name: ~s("$crud")
     },
     %{
       type: "string",
       name: "source"
-      #name: ~s("source")
+      # name: ~s("source")
     },
     %{
       type: "date",
       name: "published_at"
-      #name: ~s("published_at")
+      # name: ~s("published_at")
     },
     %{
       type: "string",
       name: "$matches"
-      #name: ~s("$matches")
+      # name: ~s("$matches")
     }
   ]
 
@@ -59,47 +59,47 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     %{
       type: "root",
       name: "id"
-      #name: ~s("id")
+      # name: ~s("id")
     },
     %{
       type: "root",
       name: "published_by"
-      #name: ~s("published_by")
+      # name: ~s("published_by")
     },
     %{
       type: "root",
       name: "_confidence"
-      #name: ~s("_confidence")
+      # name: ~s("_confidence")
     },
     %{
       type: "root",
       name: "publishing_template_type_name"
-      #name: ~s("publishing_template_type_name")
+      # name: ~s("publishing_template_type_name")
     },
     %{
       type: "root",
       name: "data_type"
-      #name: ~s("data_type")
+      # name: ~s("data_type")
     },
     %{
       type: "root",
       name: "$crud"
-      #name: ~s("$crud")
+      # name: ~s("$crud")
     },
     %{
       type: "root",
       name: "source"
-      #name: ~s("source")
+      # name: ~s("source")
     },
     %{
       type: "root",
       name: "published_at"
-      #name: ~s("published_at")
+      # name: ~s("published_at")
     },
     %{
       type: "jq",
-      #name: ~s("$matches"),
-      name: "$matches"
+      # name: ~s("$matches"),
+      name: "$matches",
       expr: ".#{@lexions_expression} | tojson"
     }
   ]
