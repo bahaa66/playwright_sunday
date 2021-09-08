@@ -327,8 +327,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                                                                   path: field_path
                                                                 },
                                                                 {acc_dimensions, acc_fields} ->
-        # sigil_field_path = ~s("#{field_path}")
-        sigil_field_path = field_path
+        sigil_field_path = ~s("#{field_path}")
 
         cond do
           # Any type that is not supported by Native Druid types need to be matched here
@@ -337,17 +336,17 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
             acc_dimensions =
               Enum.uniq(
                 Enum.map(acc_dimensions, fn dimension ->
-                  if dimension.name == sigil_field_path,
+                  if dimension.name == field_path,
                     do: %{
                       type: "string",
-                      name: sigil_field_path
+                      name: field_path
                     },
                     else: dimension
                 end) ++
                   [
                     %{
                       type: "string",
-                      name: sigil_field_path
+                      name: field_path
                     }
                   ]
               )
@@ -358,8 +357,8 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                   [
                     %{
                       type: "jq",
-                      name: sigil_field_path,
-                      expr: ".#{Enum.join(String.split(field_path, "|"), ".")} | tojson"
+                      name: field_path,
+                      expr: ".#{Enum.join(String.split(sigil_field_path, "|"), ".")} | tojson"
                     }
                   ]
               )
@@ -373,17 +372,17 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
             acc_dimensions =
               Enum.uniq(
                 Enum.map(acc_dimensions, fn dimension ->
-                  if dimension.name == sigil_field_path,
+                  if dimension.name == field_path,
                     do: %{
                       type: field_type,
-                      name: sigil_field_path
+                      name: field_path
                     },
                     else: dimension
                 end) ++
                   [
                     %{
                       type: field_type,
-                      name: sigil_field_path
+                      name: field_path
                     }
                   ]
               )
@@ -394,7 +393,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                   [
                     %{
                       type: "path",
-                      name: sigil_field_path,
+                      name: field_path,
                       expr: "$.#{Enum.join(String.split(field_path, "|"), ".")}"
                     }
                   ]
