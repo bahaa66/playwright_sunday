@@ -10,78 +10,96 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   @default_dimensions [
     %{
       type: "string",
-      name: ~s("id")
+      name: "id"
+      #name: ~s("id")
     },
     %{
       type: "string",
-      name: ~s("published_by")
+      name: "published_by"
+      #name: ~s("published_by")
     },
     %{
       type: "float",
-      name: ~s("_confidence")
+      name: "_confidence"
+      #name: ~s("_confidence")
     },
     %{
       type: "string",
-      name: ~s("publishing_template_type_name")
+      name: "publishing_template_type_name"
+      #name: ~s("publishing_template_type_name")
     },
     %{
       type: "string",
-      name: ~s("data_type")
+      name: "data_type"
+      #name: ~s("data_type")
     },
     %{
       type: "string",
-      name: ~s("$crud")
+      name: "$crud"
+      #name: ~s("$crud")
     },
     %{
       type: "string",
-      name: ~s("source")
+      name: "source"
+      #name: ~s("source")
     },
     %{
       type: "date",
-      name: ~s("published_at")
+      name: "published_at"
+      #name: ~s("published_at")
     },
     %{
       type: "string",
-      name: ~s("$matches")
+      name: "$matches"
+      #name: ~s("$matches")
     }
   ]
 
   @default_fields [
     %{
       type: "root",
-      name: ~s("id")
+      name: "id"
+      #name: ~s("id")
     },
     %{
       type: "root",
-      name: ~s("published_by")
+      name: "published_by"
+      #name: ~s("published_by")
     },
     %{
       type: "root",
-      name: ~s("_confidence")
+      name: "_confidence"
+      #name: ~s("_confidence")
     },
     %{
       type: "root",
-      name: ~s("publishing_template_type_name")
+      name: "publishing_template_type_name"
+      #name: ~s("publishing_template_type_name")
     },
     %{
       type: "root",
-      name: ~s("data_type")
+      name: "data_type"
+      #name: ~s("data_type")
     },
     %{
       type: "root",
-      name: ~s("$crud")
+      name: "$crud"
+      #name: ~s("$crud")
     },
     %{
       type: "root",
-      name: ~s("source")
+      name: "source"
+      #name: ~s("source")
     },
     %{
       type: "root",
-      name: ~s("published_at")
+      name: "published_at"
+      #name: ~s("published_at")
     },
     %{
       type: "jq",
-      name: ~s("$matches"),
+      #name: ~s("$matches"),
+      name: "$matches"
       expr: ".#{@lexions_expression} | tojson"
     }
   ]
@@ -309,7 +327,8 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                                                                   path: field_path
                                                                 },
                                                                 {acc_dimensions, acc_fields} ->
-        sigil_field_path = ~s("#{field_path}")
+        # sigil_field_path = ~s("#{field_path}")
+        sigil_field_path = field_path
 
         cond do
           # Any type that is not supported by Native Druid types need to be matched here
