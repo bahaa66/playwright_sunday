@@ -328,7 +328,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
 
       registered_processes ->
         Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          Process.send_after(druid_supervisor_pid, :check_status, @status_check_interval)
+          Process.send_after(druid_supervisor_pid, :get_status, @status_check_interval)
         end)
     end
   end

@@ -327,34 +327,34 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   end
 
   @impl true
-  def handle_info(:get_status, state) do
-    IO.inspect(state, label: "Calling Get_status", pretty: true)
+  def handle_info(:get_status, %{id: id} = state) do
+    IO.inspect(id, label: "Calling Get_status for id", pretty: true)
 
-    Druid.get_supervisor_status(state.id)
+    Druid.get_supervisor_status(id)
     |> case do
       {:ok, %{"payload" => %{"detailedState" => detailed_state} = payload}} ->
         if Enum.member?(@detailed_state_errors, detailed_state) do
           CogyntLogger.warn(
             "#{__MODULE__}",
-            "DruidSupervisor: #{state.id} in Error State: #{detailed_state}. Resetting Supervisor"
+            "DruidSupervisor: #{id} in Error State: #{detailed_state}. Resetting Supervisor"
           )
 
           {:noreply, state, {:continue, :reset_and_get_supervisor}}
         else
           state = %{state | supervisor_status: payload}
-          Redis.hash_set_async("dss", state.id, state)
+          Redis.hash_set_async("dss", id, state)
           Redis.key_pexpire("dss", @dss_key_expire)
-          DruidRegistryHelper.check_status_with_registry_lookup(state.id)
+          DruidRegistryHelper.check_status_with_registry_lookup(id)
           {:noreply, state}
         end
 
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Unable to get Druid supervisor status for #{state.id}: #{inspect(error)}"
+          "Unable to get Druid supervisor status for #{id}: #{inspect(error)}"
         )
 
-        Redis.hash_set_async("dss", state.id, state)
+        Redis.hash_set_async("dss", id, state)
         Redis.key_pexpire("dss", @dss_key_expire)
 
         {:noreply, state}
