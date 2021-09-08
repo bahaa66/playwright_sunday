@@ -11,47 +11,38 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     %{
       type: "string",
       name: "id"
-      # name: ~s("id")
     },
     %{
       type: "string",
       name: "published_by"
-      # name: ~s("published_by")
     },
     %{
       type: "float",
       name: "_confidence"
-      # name: ~s("_confidence")
     },
     %{
       type: "string",
       name: "publishing_template_type_name"
-      # name: ~s("publishing_template_type_name")
     },
     %{
       type: "string",
       name: "data_type"
-      # name: ~s("data_type")
     },
     %{
       type: "string",
       name: "$crud"
-      # name: ~s("$crud")
     },
     %{
       type: "string",
       name: "source"
-      # name: ~s("source")
     },
     %{
       type: "date",
       name: "published_at"
-      # name: ~s("published_at")
     },
     %{
       type: "string",
       name: "$matches"
-      # name: ~s("$matches")
     }
   ]
 
