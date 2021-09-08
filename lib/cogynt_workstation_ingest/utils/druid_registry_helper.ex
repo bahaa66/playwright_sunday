@@ -57,48 +57,47 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
 
   @default_fields [
     %{
-      type: "root",
-      name: "id"
-      # name: ~s("id")
+      type: "path",
+      name: "id",
+      expr: "$.id"
     },
     %{
-      type: "root",
-      name: "published_by"
-      # name: ~s("published_by")
+      type: "path",
+      name: "published_by",
+      expr: "$.path"
     },
     %{
-      type: "root",
-      name: "_confidence"
-      # name: ~s("_confidence")
+      type: "path",
+      name: "_confidence",
+      expr: "$._confidence"
     },
     %{
-      type: "root",
-      name: "publishing_template_type_name"
-      # name: ~s("publishing_template_type_name")
+      type: "path",
+      name: "publishing_template_type_name",
+      expr: "$.publishing_template_type_name"
     },
     %{
-      type: "root",
-      name: "data_type"
-      # name: ~s("data_type")
+      type: "path",
+      name: "data_type",
+      expr: "$.data_type"
     },
     %{
-      type: "root",
-      name: "$crud"
-      # name: ~s("$crud")
+      type: "path",
+      name: "$crud",
+      expr: "$.$crud"
     },
     %{
-      type: "root",
-      name: "source"
-      # name: ~s("source")
+      type: "path",
+      name: "source",
+      expr: "$.source"
     },
     %{
-      type: "root",
-      name: "published_at"
-      # name: ~s("published_at")
+      type: "path",
+      name: "published_at",
+      expr: "$.published_at"
     },
     %{
       type: "jq",
-      # name: ~s("$matches"),
       name: "$matches",
       expr: ".#{@lexions_expression} | tojson"
     }
