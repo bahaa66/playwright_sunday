@@ -27,6 +27,7 @@ defmodule CogyntWorkstationIngest.Application do
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
+      {Cluster.Supervisor, [topologies(), [name: CogyntWorkstationIngest.ClusterSupervisor]]},
       {Phoenix.PubSub, [name: CogyntWorkstationIngestWeb.PubSub, adapter: Phoenix.PubSub.PG2]},
       {Registry, keys: :unique, name: DruidRegistry},
       # Start the Ecto repository
@@ -46,7 +47,8 @@ defmodule CogyntWorkstationIngest.Application do
       # Start the DynamicSupervisor for Druid Ingestion supervisor/tasks,
       DruidSupervisor,
       # The supervisor for all Task workers
-      child_spec_supervisor(TaskSupervisor, TaskSupervisor)
+      child_spec_supervisor(TaskSupervisor, TaskSupervisor),
+      {CogyntWorkstationIngest.Servers.Workers.TestWorker.Starter, [timeout: :timer.seconds(2)]}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
@@ -77,5 +79,13 @@ defmodule CogyntWorkstationIngest.Application do
       shutdown: 5000,
       type: :supervisor
     }
+  end
+
+  defp topologies do
+    [
+      ingest: [
+        strategy: Cluster.Strategy.Gossip
+      ]
+    ]
   end
 end

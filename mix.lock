@@ -38,6 +38,7 @@
   "junit_formatter": {:hex, :junit_formatter, "3.2.0", "6a64d6327c48472e983af7645aeb1d756cad4b33c5ab3a5db820f13d6d2b85fe", [:mix], [], "hexpm", "043d6f660667ee64c6d7e5edb867b7900c395356346e77185879449b50486681"},
   "kafka": {:git, "git@github.com:cogility/cogynt-common.git", "db013097597d95cc1dd4d3fd2a216ccd7235552c", [sparse: "kafka", tag: "v1.13.12"]},
   "kafka_protocol": {:hex, :kafka_protocol, "2.4.1", "9e89afc740f57d17bec33f0f21dc23e7cbfd8c9ed3b0d6b9fc3a6bd4a827c088", [:rebar, :rebar3], [{:crc32cer, "0.1.8", [hex: :crc32cer, repo: "hexpm", optional: false]}, {:snappyer, "1.2.6", [hex: :snappyer, repo: "hexpm", optional: false]}], "hexpm", "86c9e1c6496273a6d1a02dc0e6ef7479d70441d526970abe667e2cf4deb1df21"},
+  "libcluster": {:hex, :libcluster, "3.2.2", "8d98f7492c315fa0374acd405b7cb04205e737c3e245c8d5ff2503c0420bd6b3", [:mix], [{:jason, "~> 1.1", [hex: :jason, repo: "hexpm", optional: false]}], "hexpm", "3f1c97e0d5b439476b4ea7b74fb4d0e70eb770b6a8503c2e4964906723a83dd3"},
   "metrics": {:hex, :metrics, "1.0.1", "25f094dea2cda98213cecc3aeff09e940299d950904393b2a29d191c346a8486", [:rebar3], [], "hexpm", "69b09adddc4f74a40716ae54d140f93beb0fb8978d8636eaded0c31b6f099f16"},
   "migrations": {:git, "git@github.com:cogility/cogynt-common.git", "de3e659867ac128eba3ea3dab93d88e24510d5f9", [tag: "v1.14.2-beta", sparse: "migrations"]},
   "mime": {:hex, :mime, "1.6.0", "dabde576a497cef4bbdd60aceee8160e02a6c89250d6c0b29e56c0dfb00db3d2", [:mix], [], "hexpm", "31a1a8613f8321143dde1dafc36006a17d28d02bdfecb9e95a880fa7aabd19a7"},
