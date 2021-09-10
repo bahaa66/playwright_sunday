@@ -43,6 +43,10 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     %{
       type: "string",
       name: "$matches"
+    },
+    %{
+      type: "integer",
+      name: "$version"
     }
   ]
 
@@ -86,6 +90,11 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
       type: "path",
       name: "published_at",
       expr: "$.published_at"
+    },
+    %{
+      type: "path",
+      name: "$version",
+      expr: "$.$version"
     },
     %{
       type: "jq",
