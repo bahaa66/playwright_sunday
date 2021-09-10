@@ -99,7 +99,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :druid,
-        tag: "v1.14.3-beta",
+        tag: "v1.14.5-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "druid"
       }
