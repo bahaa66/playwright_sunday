@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias Ecto.Multi
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
-  alias Elasticsearch.DocumentBuilders.EventDocumentBuilder
+  # alias Elasticsearch.DocumentBuilders.EventDocumentBuilder
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
 
@@ -338,7 +338,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end)
 
     # Elasticsearch Transactional Upserts
-    bulk_upsert_event_documents_with_transaction(bulk_transactional_data)
+    # bulk_upsert_event_documents_with_transaction(bulk_transactional_data)
 
     # IO.inspect(bulk_transactional_data.pg_event, label: "EVENTS")
     # IO.inspect(bulk_transactional_data.pg_notifications, label: "NOTIFICATIONS")
@@ -433,10 +433,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       bulk_transactional_data.event_doc
       |> Enum.map(fn event_doc -> event_doc.id end)
 
-    Elasticsearch.bulk_delete_document(
-      Config.event_index_alias(),
-      event_doc_ids
-    )
+    # Elasticsearch.bulk_delete_document(
+    #   Config.event_index_alias(),
+    #   event_doc_ids
+    # )
   end
 
   defp format_lexicon_data(event) do

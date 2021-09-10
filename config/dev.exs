@@ -40,36 +40,14 @@ config :kafka, :application,
   session_timeout: (System.get_env("SESSION_TIMEOUT") || "10000") |> String.to_integer(),
   kafka_connect_host: System.get_env("KAFKA_CONNECT_URL") || "http://localhost:8083"
 
-# Elasticsearch configurations
-config :elasticsearch, :application,
-  cacertfile: System.get_env("ELASTIC_CA_CERT_PATH") || "",
-  host: System.get_env("ELASTIC_URL") || "http://localhost:9200",
-  username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",
-  password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
-  shards: (System.get_env("ELASTIC_SHARDS") || "1") |> String.to_integer(),
-  replicas: (System.get_env("ELASTIC_REPLICAS") || "0") |> String.to_integer()
-
-config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster,
-  username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",
-  password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
-  json_library: Jason,
-  url: System.get_env("ELASTIC_URL") || "http://localhost:9200",
-  api: Elasticsearch.API.HTTP,
-  indexes: %{
-    event_test: %{
-      settings: "priv/elasticsearch/event.json",
-      store: CogyntWorkstationIngest.Elasticsearch.Store,
-      sources: [Models.Events.Event, Models.Events.EventDefinition, Models.EventDetailTemplates],
-      bulk_page_size: 10,
-      bulk_wait_interval: 5000
-    }
-  },
-  default_options: [
-    timeout: 10_000,
-    recv_timeout: 5_000,
-    hackney: [pool: :elasticsearh_pool],
-    ssl: [versions: [:"tlsv1.2"]]
-  ]
+# # Elasticsearch configurations
+# config :elasticsearch, :application,
+#   cacertfile: System.get_env("ELASTIC_CA_CERT_PATH") || "",
+#   host: System.get_env("ELASTIC_URL") || "http://localhost:9200",
+#   username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",
+#   password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
+#   shards: (System.get_env("ELASTIC_SHARDS") || "1") |> String.to_integer(),
+#   replicas: (System.get_env("ELASTIC_REPLICAS") || "0") |> String.to_integer()
 
 # Redis configurations
 config :redis, :application,

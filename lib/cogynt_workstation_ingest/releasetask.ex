@@ -74,7 +74,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
     config = Elasticsearch.Cluster.Config.get(CogyntWorkstationIngest.Elasticsearch.Cluster) |> IO.inspect()
     alias = String.to_existing_atom("event_test") |> IO.inspect()
     name = Elasticsearch.Index.build_name(alias)|> IO.inspect()
-    %{settings: settings_file} = index_config = config[:indexes][alias] 
+    %{settings: settings_file} = index_config = config[:indexes][alias]
 
     with :ok <- Elasticsearch.Index.create_from_file(config, name, settings_file),
          bulk_upload(config, name, index_config),

@@ -9,9 +9,11 @@ defmodule Mix.Tasks.DropElasticIndexes do
 
   @impl Mix.Task
   def run(_) do
-    with {:ok, _} <- HTTPoison.start(),
-         {:ok, true} <- Elasticsearch.index_exists?(Config.event_index_alias()),
-         {:ok, _} <- Elasticsearch.delete_index(Config.event_index_alias()) do
+    with {:ok, _} <- HTTPoison.start()
+    # ,
+        #  {:ok, true} <- Elasticsearch.index_exists?(Config.event_index_alias()),
+        #  {:ok, _} <- Elasticsearch.delete_index(Config.event_index_alias())
+        do
       Mix.shell().info("The index: #{Config.event_index_alias()} for Cogynt has been deleted.")
     else
       {:error, _} ->
