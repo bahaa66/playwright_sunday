@@ -6,14 +6,11 @@ defmodule CogyntWorkstationIngest.Elasticsearch.Store do
 
   @impl true
   def stream(schema) do
-    IO.puts("***********in schema************")
-    schema |> IO.inspect()
     Repo.stream(schema)
   end
 
   @impl true
   def transaction(fun) do
-    IO.puts("***********in transaction************")
     {:ok, result} = Repo.transaction(fun, timeout: :infinity)
   end
 end
