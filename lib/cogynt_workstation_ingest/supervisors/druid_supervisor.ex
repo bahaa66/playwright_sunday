@@ -1,6 +1,5 @@
 defmodule CogyntWorkstationIngest.Supervisors.DruidSupervisor do
   use Horde.DynamicSupervisor
-  alias Cogynt.Logger
 
   alias CogyntWorkstationIngest.Horde.HordeRegistry
   alias CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor

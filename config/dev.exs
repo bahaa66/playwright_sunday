@@ -140,3 +140,11 @@ config :druid,
     ]
   ],
   schema_registry_url: System.get_env("SCHEMA_REGISTRY_URL") || "http://schemaregistry:8081"
+
+# TODO: Update this to work with Kubernetes.
+config :libcluster,
+  topologies: [
+    ingest: [
+      strategy: Cluster.Strategy.Gossip
+    ]
+  ]

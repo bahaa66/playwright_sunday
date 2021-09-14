@@ -6,6 +6,7 @@ defmodule CogyntWorkstationIngest.Application do
   use Application
   require Protocol
   alias CogyntWorkstationIngest.Horde.{HordeRegistry, NodeObserver}
+  alias CogyntWorkstationIngest.Config
 
   Protocol.derive(Jason.Encoder, Broadway.Message,
     only: [
@@ -48,7 +49,7 @@ defmodule CogyntWorkstationIngest.Application do
       DruidSupervisor,
       # The supervisor for all Task workers
       child_spec_supervisor(TaskSupervisor, TaskSupervisor),
-      {Cluster.Supervisor, [topologies(), [name: CogyntWorkstationIngest.ClusterSupervisor]]},
+      {Cluster.Supervisor, [Config.libcluster_topologies(), [name: CogyntWorkstationIngest.ClusterSupervisor]]},
       HordeRegistry,
       NodeObserver
     ]
@@ -81,13 +82,5 @@ defmodule CogyntWorkstationIngest.Application do
       shutdown: 5000,
       type: :supervisor
     }
-  end
-
-  defp topologies do
-    [
-      ingest: [
-        strategy: Cluster.Strategy.Gossip
-      ]
-    ]
   end
 end

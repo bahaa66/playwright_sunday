@@ -43,16 +43,4 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   defp start_deployment_pipeline() do
     Redis.publish_async("ingest_channel", %{start_deployment_pipeline: "deployment"})
   end
-
-  defp start_template_solutions_druid_supervisor() do
-    Redis.publish_async("ingest_channel", %{
-      start_template_solutions_druid_supervisor: Config.template_solutions_topic()
-    })
-  end
-
-  defp start_template_solution_events_druid_supervisor() do
-    Redis.publish_async("ingest_channel", %{
-      start_template_solution_events_druid_supervisor: Config.template_solution_events_topic()
-    })
-  end
 end

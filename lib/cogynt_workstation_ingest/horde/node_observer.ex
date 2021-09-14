@@ -12,7 +12,7 @@ defmodule CogyntWorkstationIngest.Horde.NodeObserver do
     {:ok, nil}
   end
 
-  def handle_info({:nodeup, _node, _node_type} = s, state) do
+  def handle_info({:nodeup, _node, _node_type}, state) do
     set_members(HordeRegistry)
     set_members(DruidSupervisor)
 
