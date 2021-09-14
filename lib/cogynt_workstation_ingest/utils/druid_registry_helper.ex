@@ -358,7 +358,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         cond do
           # Any type that is not supported by Native Druid types need to be matched here
           field_type == "geo" or
-              field_type == "array" ->
+              String.contains?(field_type, "array") ->
             acc_dimensions =
               Enum.uniq(
                 Enum.map(acc_dimensions, fn dimension ->
