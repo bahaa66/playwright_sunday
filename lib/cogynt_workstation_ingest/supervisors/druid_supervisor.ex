@@ -1,14 +1,49 @@
 defmodule CogyntWorkstationIngest.Supervisors.DruidSupervisor do
-  use DynamicSupervisor
+  use Horde.DynamicSupervisor
+  alias Cogynt.Logger
 
+  alias CogyntWorkstationIngest.Horde.HordeRegistry
   alias CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor
 
-  def start_link(arg),
-    do: DynamicSupervisor.start_link(__MODULE__, arg, name: __MODULE__)
+  def start_link(_),
+    do: Horde.DynamicSupervisor.start_link(__MODULE__, [strategy: :one_for_one], name: __MODULE__)
 
-  def init(_arg),
-    do: DynamicSupervisor.init(strategy: :one_for_one)
+  def init(init_arg) do
+    [members: members()]
+    |> Keyword.merge(init_arg)
+    |> Horde.DynamicSupervisor.init()
+  end
+
+  def start_child(opts) do
+    name =
+      opts
+      |> Keyword.get(:name, SupervisorMonitor)
+      |> via_tuple()
+
+    new_opts = Keyword.put(opts, :name, name)
+
+    child_spec = %{
+      id: SupervisorMonitor,
+      start: {SupervisorMonitor, :start_link, [new_opts]}
+    }
+
+    Horde.DynamicSupervisor.start_child(__MODULE__, child_spec)
+  end
 
   def create_druid_supervisor(arg),
-    do: DynamicSupervisor.start_child(__MODULE__, {SupervisorMonitor, arg})
+    do: Horde.DynamicSupervisor.start_child(__MODULE__, {SupervisorMonitor, arg})
+
+  def whereis(name \\ SupervisorMonitor) do
+    name
+    |> via_tuple()
+    |> GenServer.whereis()
+  end
+
+  defp members() do
+    Enum.map([Node.self() | Node.list()], &{__MODULE__, &1})
+  end
+
+  defp via_tuple(name) do
+    {:via, Horde.Registry, {HordeRegistry, name}}
+  end
 end

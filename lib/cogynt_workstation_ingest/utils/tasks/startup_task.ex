@@ -6,6 +6,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
+  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
 
   def start_link(_arg \\ []) do
     Task.start_link(__MODULE__, :run, [])
@@ -14,8 +15,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   def run() do
     start_event_type_pipelines()
     start_deployment_pipeline()
-    start_template_solutions_druid_supervisor()
-    start_template_solution_events_druid_supervisor()
+    DruidRegistryHelper.start_drilldown_druid_with_registry_lookup("template_solutions")
+    DruidRegistryHelper.start_drilldown_druid_with_registry_lookup("template_solution_events")
     ExqHelpers.resubscribe_to_all_queues()
   end
 

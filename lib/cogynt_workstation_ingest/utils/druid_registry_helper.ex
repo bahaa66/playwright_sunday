@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   alias CogyntWorkstationIngest.Config
 
   @lexions_expression ~s("$matches")
-  @status_check_interval 90_000
   @default_dimensions [
     %{
       type: "string",
@@ -95,48 +94,55 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   ]
 
   def start_druid_with_registry_lookup(name, event_definition) do
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
-        child_spec = build_druid_ingest_spec(name, event_definition)
+    case DruidSupervisor.whereis(name) do
+      nil ->
+        druid_spec = build_druid_ingest_spec(name, event_definition)
 
-        case DruidSupervisor.create_druid_supervisor(child_spec) do
+        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec) do
+          {:error, {:already_started, pid}} ->
+            {:ok, pid}
+
           {:error, error} ->
             CogyntLogger.error(
               "#{__MODULE__}",
-              "Failed to start Druid Supervisor: #{name}. Error: #{inspect(error)}"
+              "Failed to start Druid Supervisor, error: #{inspect(error)}"
             )
 
             {:error, nil}
 
-          _ ->
-            {:ok, :success}
+          {:ok, pid} ->
+            {:ok, pid}
         end
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          case SupervisorMonitor.supervisor_status(druid_supervisor_pid) do
-            %{state: "SUSPENDED"} ->
-              SupervisorMonitor.resume_supervisor(druid_supervisor_pid)
+      pid ->
+        case SupervisorMonitor.supervisor_status(pid) do
+          "SUSPENDED" ->
+            SupervisorMonitor.resume_supervisor(pid)
 
-            %{state: "RUNNING"} ->
-              CogyntLogger.warn(
-                "#{__MODULE__}",
-                "Druid supervisor: #{name} already running"
-              )
+          "RUNNING" ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{name} already running"
+            )
 
-            _ ->
-              SupervisorMonitor.delete_data_and_reset_supervisor(druid_supervisor_pid)
-          end
-        end)
+          "PENDING" ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{name} has a pending status and is already starting."
+            )
 
-        {:ok, :success}
+          _ ->
+            SupervisorMonitor.delete_data_and_reset_supervisor(pid)
+        end
+
+        {:ok, pid}
     end
   end
 
   def start_drilldown_druid_with_registry_lookup("template_solutions" = name) do
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
-        child_spec =
+    case DruidSupervisor.whereis(name) do
+      nil ->
+        druid_spec =
           build_drilldown_druid_ingestion_spec(
             [
               "id",
@@ -147,7 +153,10 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
             name
           )
 
-        case DruidSupervisor.create_druid_supervisor(child_spec) do
+        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec) do
+          {:error, {:already_started, pid}} ->
+            {:ok, pid}
+
           {:error, error} ->
             CogyntLogger.error(
               "#{__MODULE__}",
@@ -156,35 +165,24 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
 
             {:error, nil}
 
-          _ ->
-            {:ok, :success}
+          {:ok, pid} ->
+            {:ok, pid}
         end
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          case SupervisorMonitor.supervisor_status(druid_supervisor_pid) do
-            %{state: "SUSPENDED"} ->
-              SupervisorMonitor.resume_supervisor(druid_supervisor_pid)
+      pid ->
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "Druid supervisor: #{name} already started by another node"
+        )
 
-            %{state: "RUNNING"} ->
-              CogyntLogger.warn(
-                "#{__MODULE__}",
-                "Druid supervisor: #{name} already running"
-              )
-
-            _ ->
-              SupervisorMonitor.delete_data_and_reset_supervisor(druid_supervisor_pid)
-          end
-        end)
-
-        {:ok, :success}
+        {:ok, pid}
     end
   end
 
   def start_drilldown_druid_with_registry_lookup("template_solution_events" = name) do
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
-        child_spec =
+    case DruidSupervisor.whereis(name) do
+      nil ->
+        druid_spec =
           build_drilldown_druid_ingestion_spec(
             [
               "id",
@@ -197,7 +195,10 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
             name
           )
 
-        case DruidSupervisor.create_druid_supervisor(child_spec) do
+        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec) do
+          {:error, {:already_started, pid}} ->
+            {:ok, pid}
+
           {:error, error} ->
             CogyntLogger.error(
               "#{__MODULE__}",
@@ -206,37 +207,29 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
 
             {:error, nil}
 
-          _ ->
-            {:ok, :success}
+          {:ok, pid} ->
+            {:ok, pid}
         end
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          case SupervisorMonitor.supervisor_status(druid_supervisor_pid) do
-            %{state: "SUSPENDED"} ->
-              SupervisorMonitor.resume_supervisor(druid_supervisor_pid)
+      pid ->
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "Druid supervisor: #{name} already started by another node"
+        )
 
-            %{state: "RUNNING"} ->
-              CogyntLogger.warn(
-                "#{__MODULE__}",
-                "Druid supervisor: #{name} already running"
-              )
-
-            _ ->
-              SupervisorMonitor.delete_data_and_reset_supervisor(druid_supervisor_pid)
-          end
-        end)
-
-        {:ok, :success}
+        {:ok, pid}
     end
   end
 
   def update_druid_with_registry_lookup(name, event_definition) do
-    child_spec = build_druid_ingest_spec(name, event_definition)
+    druid_spec = build_druid_ingest_spec(name, event_definition)
 
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
-        case DruidSupervisor.create_druid_supervisor(child_spec) do
+    case DruidSupervisor.whereis(name) do
+      nil ->
+        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec) do
+          {:error, {:already_started, pid}} ->
+            {:ok, pid}
+
           {:error, error} ->
             CogyntLogger.error(
               "#{__MODULE__}",
@@ -245,91 +238,88 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
 
             {:error, nil}
 
-          _ ->
-            {:ok, :success}
+          {:ok, pid} ->
+            {:ok, pid}
         end
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          SupervisorMonitor.create_or_update_supervisor(druid_supervisor_pid, child_spec)
-        end)
-
-        {:ok, :success}
+      pid ->
+        SupervisorMonitor.create_or_update_supervisor(pid, druid_spec)
+        {:ok, pid}
     end
   end
 
   def resume_druid_with_registry_lookup(name) do
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
+    case DruidSupervisor.whereis(name) do
+      nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
           "resume_druid_with_registry_lookup/1. No PID registred for #{name}"
         )
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          SupervisorMonitor.resume_supervisor(druid_supervisor_pid)
-        end)
+        {:error, :not_found}
+
+      pid ->
+        SupervisorMonitor.resume_supervisor(pid)
     end
   end
 
   def suspend_druid_with_registry_lookup(name) do
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
+    case DruidSupervisor.whereis(name) do
+      nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
           "suspend_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
         )
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          SupervisorMonitor.suspend_supervisor(druid_supervisor_pid)
-        end)
+        {:error, :not_found}
+
+      pid ->
+        SupervisorMonitor.suspend_supervisor(pid)
     end
   end
 
   def reset_druid_with_registry_lookup(name) do
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
+    case DruidSupervisor.whereis(name) do
+      nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
           "reset_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
         )
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          SupervisorMonitor.delete_data_and_reset_supervisor(druid_supervisor_pid)
-        end)
+        {:error, :not_found}
+
+      pid ->
+        SupervisorMonitor.delete_data_and_reset_supervisor(pid)
     end
   end
 
   def terminate_druid_with_registry_lookup(name) do
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
+    case DruidSupervisor.whereis(name) do
+      nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
           "terminate_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
         )
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          SupervisorMonitor.terminate_and_shutdown(druid_supervisor_pid)
-        end)
+        {:error, :not_found}
+
+      pid ->
+        SupervisorMonitor.terminate_and_shutdown(pid)
     end
   end
 
   def check_status_with_registry_lookup(name) do
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
+    case DruidSupervisor.whereis(name) do
+      nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
           "check_status_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
         )
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          Process.send_after(druid_supervisor_pid, :get_status, @status_check_interval)
-        end)
+        {:error, :not_found}
+
+      pid ->
+        Process.send(pid, :get_status, [:noconnect])
     end
   end
 
@@ -339,85 +329,85 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   defp build_druid_ingest_spec(name, event_definition) do
     {dimensions, fields} =
       EventsContext.get_event_definition_details(event_definition.id)
-      |> Enum.reduce({@default_dimensions, @default_fields}, fn %EventDefinitionDetail{
-                                                                  field_type: field_type,
-                                                                  path: field_path
-                                                                },
-                                                                {acc_dimensions, acc_fields} ->
-        sigil_field_path = ~s("#{field_path}")
+      |> Enum.reduce({@default_dimensions, @default_fields}, fn
+        %EventDefinitionDetail{
+          field_type: field_type,
+          path: field_path
+        },
+        {acc_dimensions, acc_fields} ->
+          sigil_field_path = ~s("#{field_path}")
 
-        cond do
-          # Any type that is not supported by Native Druid types need to be matched here
-          field_type == "geo" or
-              field_type == "array" ->
-            acc_dimensions =
-              Enum.uniq(
-                Enum.map(acc_dimensions, fn dimension ->
-                  if dimension.name == field_path,
-                    do: %{
-                      type: "string",
-                      name: field_path
-                    },
-                    else: dimension
-                end) ++
-                  [
-                    %{
-                      type: "string",
-                      name: field_path
-                    }
-                  ]
-              )
+          cond do
+            # Any type that is not supported by Native Druid types need to be matched here
+            field_type in ["geo", "array"] ->
+              acc_dimensions =
+                Enum.uniq(
+                  Enum.map(acc_dimensions, fn dimension ->
+                    if dimension.name == field_path,
+                      do: %{
+                        type: "string",
+                        name: field_path
+                      },
+                      else: dimension
+                  end) ++
+                    [
+                      %{
+                        type: "string",
+                        name: field_path
+                      }
+                    ]
+                )
 
-            acc_fields =
-              Enum.uniq(
-                acc_fields ++
-                  [
-                    %{
-                      type: "jq",
-                      name: field_path,
-                      expr: ".#{Enum.join(String.split(sigil_field_path, "|"), ".")} | tojson"
-                    }
-                  ]
-              )
+              acc_fields =
+                Enum.uniq(
+                  acc_fields ++
+                    [
+                      %{
+                        type: "jq",
+                        name: field_path,
+                        expr: ".#{Enum.join(String.split(sigil_field_path, "|"), ".")} | tojson"
+                      }
+                    ]
+                )
 
-            {acc_dimensions, acc_fields}
+              {acc_dimensions, acc_fields}
 
-          field_type == "nil" or is_nil(field_type) ->
-            {acc_dimensions, acc_fields}
+            field_type == "nil" or is_nil(field_type) ->
+              {acc_dimensions, acc_fields}
 
-          true ->
-            acc_dimensions =
-              Enum.uniq(
-                Enum.map(acc_dimensions, fn dimension ->
-                  if dimension.name == field_path,
-                    do: %{
-                      type: field_type,
-                      name: field_path
-                    },
-                    else: dimension
-                end) ++
-                  [
-                    %{
-                      type: field_type,
-                      name: field_path
-                    }
-                  ]
-              )
+            true ->
+              acc_dimensions =
+                Enum.uniq(
+                  Enum.map(acc_dimensions, fn dimension ->
+                    if dimension.name == field_path,
+                      do: %{
+                        type: field_type,
+                        name: field_path
+                      },
+                      else: dimension
+                  end) ++
+                    [
+                      %{
+                        type: field_type,
+                        name: field_path
+                      }
+                    ]
+                )
 
-            acc_fields =
-              Enum.uniq(
-                acc_fields ++
-                  [
-                    %{
-                      type: "path",
-                      name: field_path,
-                      expr: "$.#{Enum.join(String.split(field_path, "|"), ".")}"
-                    }
-                  ]
-              )
+              acc_fields =
+                Enum.uniq(
+                  acc_fields ++
+                    [
+                      %{
+                        type: "path",
+                        name: field_path,
+                        expr: "$.#{Enum.join(String.split(field_path, "|"), ".")}"
+                      }
+                    ]
+                )
 
-            {acc_dimensions, acc_fields}
-        end
+              {acc_dimensions, acc_fields}
+          end
       end)
 
     %{
