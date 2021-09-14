@@ -413,18 +413,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   # ----------------------- #
   defp bulk_upsert_event_documents_with_transaction(bulk_transactional_data) do
     if !Enum.empty?(bulk_transactional_data.event_doc) do
-      case Elasticsearch.bulk_upsert_document(
-             Config.event_index_alias(),
-             bulk_transactional_data.event_doc
-           ) do
-        {:ok, _} ->
-          :ok
+      # case Elasticsearch.bulk_upsert_document(
+      #        Config.event_index_alias(),
+      #        bulk_transactional_data.event_doc
+      #      ) do
+      #   {:ok, _} ->
+      #     :ok
 
-        _ ->
-          rollback_event_index_data(bulk_transactional_data)
+      #   _ ->
+      #     rollback_event_index_data(bulk_transactional_data)
 
-          raise "bulk_upsert_event_documents_with_transaction/1 failed"
-      end
+      #     raise "bulk_upsert_event_documents_with_transaction/1 failed"
+      # end
     end
   end
 

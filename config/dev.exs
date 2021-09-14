@@ -59,7 +59,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster
     event_test: %{
       settings: "priv/elasticsearch/event.json",
       store: CogyntWorkstationIngest.Elasticsearch.Store,
-      sources: [Models.Events.Event, Models.Events.EventDefinition, Models.EventDetailTemplates],
+      sources: [Models.Events.Event],
       bulk_page_size: 5000,
       bulk_wait_interval: 15_000
     }

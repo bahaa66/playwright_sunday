@@ -15,7 +15,7 @@ defmodule LivenessCheck do
   @spec call(Plug.Conn.t(), options) :: Plug.Conn.t()
   def call(%Plug.Conn{} = conn, _opts) do
     # {_, event_index_health} = Elasticsearch.index_health?(Config.event_index_alias())
-    {_, event_index_health} = Elasticsearch.get(CogyntWorkstationIngest.Elasticsearch.Cluster, "/_cluster/health/event_test-1631297307591784?wait_for_status=green&timeout=10s")
+    {_, event_index_health} = Elasticsearch.get(CogyntWorkstationIngest.Elasticsearch.Cluster, "/_cluster/health/event_test-1631640751341514?wait_for_status=green&timeout=10s")
 
     if kafka_health?() and postgres_health?() and redis_health?() and
          event_index_health do
