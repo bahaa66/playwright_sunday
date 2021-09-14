@@ -58,6 +58,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:telemetry_poller, "~> 0.4"},
       {:exq, git: "git@github.com:akira/exq.git", branch: "master"},
       {:libcluster, "~> 3.2.2"},
+      {:horde, "~> 0.8.3"},
       {:kafka,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "kafka",

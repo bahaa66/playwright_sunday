@@ -5,6 +5,7 @@ defmodule CogyntWorkstationIngest.Application do
 
   use Application
   require Protocol
+  alias CogyntWorkstationIngest.Horde.{HordeRegistry, NodeObserver}
 
   Protocol.derive(Jason.Encoder, Broadway.Message,
     only: [
@@ -27,7 +28,6 @@ defmodule CogyntWorkstationIngest.Application do
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
-      {Cluster.Supervisor, [topologies(), [name: CogyntWorkstationIngest.ClusterSupervisor]]},
       {Phoenix.PubSub, [name: CogyntWorkstationIngestWeb.PubSub, adapter: Phoenix.PubSub.PG2]},
       {Registry, keys: :unique, name: DruidRegistry},
       # Start the Ecto repository
@@ -48,7 +48,9 @@ defmodule CogyntWorkstationIngest.Application do
       DruidSupervisor,
       # The supervisor for all Task workers
       child_spec_supervisor(TaskSupervisor, TaskSupervisor),
-      {CogyntWorkstationIngest.Servers.Workers.TestWorker.Starter, [timeout: :timer.seconds(2)]}
+      {Cluster.Supervisor, [topologies(), [name: CogyntWorkstationIngest.ClusterSupervisor]]},
+      HordeRegistry,
+      NodeObserver
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
