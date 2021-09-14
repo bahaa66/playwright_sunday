@@ -346,6 +346,8 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   # --- private methods --- #
   # ----------------------- #
   defp build_druid_ingest_spec(name, event_definition) do
+    # Build the DimensionSpecs and FlattenSpecs based off of the defaults
+    # and the EventDefinitionDetails
     {dimensions, fields} =
       EventsContext.get_event_definition_details(event_definition.id)
       |> Enum.reduce({@default_dimensions, @default_fields}, fn %EventDefinitionDetail{
@@ -429,6 +431,25 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         end
       end)
 
+    # If the _timestamp field existed in the EventDefinitionDetails then use it as the
+    # Druid timestamp filter. Otherwise use published_at
+    timestamp =
+      case Enum.find(dimensions, fn dimension -> dimension.name == "_timestamp" end) do
+        nil ->
+          %{
+            column: "published_at",
+            format: "auto",
+            missingValue: "1970-01-01T00:00:00Z"
+          }
+
+        _ ->
+          %{
+            column: "_timestamp",
+            format: "auto",
+            missingValue: "1970-01-01T00:00:00Z"
+          }
+      end
+
     %{
       supervisor_id: name,
       brokers:
@@ -442,6 +463,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         useFieldDiscovery: true,
         fields: fields
       },
+      timestamp_spec: timestamp,
       topic: event_definition.topic
     }
   end
