@@ -338,7 +338,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end)
 
     # Elasticsearch Transactional Upserts
-    # bulk_upsert_event_documents_with_transaction(bulk_transactional_data)
+    bulk_upsert_event_documents_with_transaction(bulk_transactional_data)
 
     # IO.inspect(bulk_transactional_data.pg_event, label: "EVENTS")
     # IO.inspect(bulk_transactional_data.pg_notifications, label: "NOTIFICATIONS")
@@ -383,6 +383,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     case transaction_result do
       {:ok, %{upsert_notifications: {_count_created, upserted_notifications}}} ->
         SystemNotificationContext.bulk_insert_system_notifications(upserted_notifications)
+              #Call hot swap here after multi transaction is run.
 
       {:ok, _} ->
         nil

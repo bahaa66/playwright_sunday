@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.Store do
 
   @impl true
   def stream(schema) do
-    # Stream.resource(schema)
     Repo.stream(schema)
   end
 
