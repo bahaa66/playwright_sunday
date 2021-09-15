@@ -71,39 +71,40 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
 
   defp run_indexes() do
     IO.puts("Running indexes..")
-    config = Elasticsearch.Cluster.Config.get(CogyntWorkstationIngest.Elasticsearch.Cluster) |> IO.inspect()
-    alias = String.to_existing_atom("event_test") |> IO.inspect()
-    name = Elasticsearch.Index.build_name(alias)|> IO.inspect()
-    %{settings: settings_file} = index_config = config[:indexes][alias]
 
-    with :ok <- Elasticsearch.Index.create_from_file(config, name, settings_file),
-         bulk_upload(config, name, index_config),
-         :ok <- Elasticsearch.Index.alias(config, name, alias),
-         :ok <- Elasticsearch.Index.clean_starting_with(config, alias, 2),
-         :ok <- Elasticsearch.Index.refresh(config, name) do
-          :ok
+    with {:ok, _} <- HTTPoison.start(),
+         {:ok, []} <- index_starting_with(CogyntWorkstationIngest.Elasticsearch.Cluster, "event_test"),
+         :ok <-
+           Elasticsearch.Index.create_from_file(CogyntWorkstationIngest.Elasticsearch.Cluster,
+             "event_test",
+             "priv/elasticsearch/event.json"
+           ) do
+            Elasticsearch.Index.alias(CogyntWorkstationIngest.Elasticsearch.Cluster, "event_test", "event_test")
+      IO.puts("The event_index for CogyntWorkstation have been created.")
+
+      IO.puts("indexes complete..")
     else
-        err -> IO.puts(err)
+      {:error, %Elasticsearch.Exception{raw: %{"error" => error}}} ->
+        reason = Map.get(error, "reason")
+        IO.puts("Failed to create event index #{reason}")
+                # config = Elasticsearch.Cluster.Config.get(CogyntWorkstationIngest.Elasticsearch.Cluster) |> IO.inspect()
+                # alias = String.to_existing_atom("event_test") |> IO.inspect()
+                # name = Elasticsearch.Index.build_name(alias)|> IO.inspect()
+                # %{settings: settings_file} = index_config = config[:indexes][alias]
 
-    # with {:ok, _} <- HTTPoison.start(),
-    #      {:ok, false} <- Elasticsearch.index_exists?(Config.event_index_alias()),
-    #      {:ok, _} <-
-    #        Elasticsearch.create_index(
-    #          Config.event_index_alias(),
-    #          EventIndexMapping.event_index_settings()
-    #        ) do
-    #   IO.puts("The event_index for CogyntWorkstation have been created.")
-
-    #   IO.puts("indexes complete..")
-    # else
-    #   {:error, _} ->
-    #     IO.puts("Failed to create event index")
+                # with :ok <- Elasticsearch.Index.create_from_file(config, name, settings_file),
+                #      bulk_upload(config, name, index_config),
+                #      :ok <- Elasticsearch.Index.alias(config, name, alias),
+                #      :ok <- Elasticsearch.Index.clean_starting_with(config, alias, 2),
+                #      :ok <- Elasticsearch.Index.refresh(config, name) do
+                #       :ok
+                # else
+                #     err -> IO.puts(err)
 
       {:ok, true} ->
         IO.puts("event_index already exists.")
         IO.puts("indexes complete..")
     end
-
   end
 
   defp run_migrations_for(repo) do
@@ -132,4 +133,15 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
   end
 
   def priv_dir(app), do: "#{:code.priv_dir(app)}"
+
+  defp index_starting_with(cluster, prefix) do
+    with {:ok, indexes} <- Elasticsearch.get(CogyntWorkstationIngest.ElasticsearchCluster, "/_cat/indices?format=json") do
+      indexes =
+        indexes
+        |> Enum.map(& &1["index"])
+        |> Enum.filter(& String.match?(&1, ~r/event_test/))
+        |> Enum.sort()
+        {:ok, indexes}
+      end
+  end
 end

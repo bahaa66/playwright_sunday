@@ -14,11 +14,9 @@ defmodule LivenessCheck do
 
   @spec call(Plug.Conn.t(), options) :: Plug.Conn.t()
   def call(%Plug.Conn{} = conn, _opts) do
-    # {_, event_index_health} = Elasticsearch.index_health?(Config.event_index_alias())
-    {_, event_index_health} = Elasticsearch.get(CogyntWorkstationIngest.Elasticsearch.Cluster, "/_cluster/health/event_test-1631640751341514?wait_for_status=green&timeout=10s")
 
     if kafka_health?() and postgres_health?() and redis_health?() and
-         event_index_health do
+         event_index_health() do
       send_resp(conn, 200, @resp_body)
     else
       send_resp(conn, 500, @resp_body_error)
@@ -86,5 +84,32 @@ defmodule LivenessCheck do
         CogyntLogger.error("#{__MODULE__}", "LivenessCheck Failed on Redis Internal Server Error")
         false
     end
+  end
+
+  defp event_index_health() do
+    with {:ok, index} <-  latest_index_starting_with(),
+      {:ok, _index_health} <-  Elasticsearch.get(CogyntWorkstationIngest.Elasticsearch.Cluster,
+          "_cluster/health/#{index}?wait_for_status=green&timeout=10s") do
+        true
+    else
+      {:error, _error} -> false
+    end
+  end
+
+  defp latest_index_starting_with() do
+    with {:ok, indexes} <- Elasticsearch.get(CogyntWorkstationIngest.Elasticsearch.Cluster, "/_cat/indices?format=json") do
+      index =
+        indexes
+        |> Enum.map(& &1["index"])
+        |> Enum.filter(& String.match?(&1, ~r/event_test/))
+        |> Enum.sort()
+        |> List.last()
+        |> IO.inspect()
+
+        case index do
+          nil -> {:error, :not_found}
+          index -> {:ok, index}
+        end
+      end
   end
 end
