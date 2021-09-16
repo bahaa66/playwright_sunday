@@ -1,6 +1,8 @@
 defmodule LivenessCheck do
   import Plug.Conn
   alias CogyntWorkstationIngest.Config
+  alias CogyntWorkstationIngest.Elasticsearch.API
+
 
   @type options :: [resp_body: String.t()]
 
@@ -86,30 +88,12 @@ defmodule LivenessCheck do
     end
   end
 
-  defp event_index_health() do
-    with {:ok, index} <-  latest_index_starting_with(),
-      {:ok, _index_health} <-  Elasticsearch.get(CogyntWorkstationIngest.Elasticsearch.Cluster,
-          "_cluster/health/#{index}?wait_for_status=green&timeout=10s") do
+  def event_index_health() do
+    with {:ok, index} <-  API.latest_index_starting_with("event_test"),
+      {:ok, _index_health} <-  API.index_health(index) do
         true
     else
       {:error, _error} -> false
     end
-  end
-
-  defp latest_index_starting_with() do
-    with {:ok, indexes} <- Elasticsearch.get(CogyntWorkstationIngest.Elasticsearch.Cluster, "/_cat/indices?format=json") do
-      index =
-        indexes
-        |> Enum.map(& &1["index"])
-        |> Enum.filter(& String.match?(&1, ~r/event_test/))
-        |> Enum.sort()
-        |> List.last()
-        |> IO.inspect()
-
-        case index do
-          nil -> {:error, :not_found}
-          index -> {:ok, index}
-        end
-      end
   end
 end

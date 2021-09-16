@@ -1,4 +1,6 @@
 defmodule CogyntWorkstationIngest.ReleaseTasks do
+
+  alias CogyntWorkstationIngest.Elasticsearch.API
   @apps [
     :cogynt_workstation_ingest
   ]
@@ -73,7 +75,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
     IO.puts("Running indexes..")
 
     with {:ok, _} <- HTTPoison.start(),
-         {:ok, []} <- index_starting_with(CogyntWorkstationIngest.Elasticsearch.Cluster, "event_test"),
+         {:ok, []} <- API.index_starting_with("event_test"),
          :ok <-
            Elasticsearch.Index.create_from_file(CogyntWorkstationIngest.Elasticsearch.Cluster,
              "event_test",
@@ -134,14 +136,5 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
 
   def priv_dir(app), do: "#{:code.priv_dir(app)}"
 
-  defp index_starting_with(cluster, prefix) do
-    with {:ok, indexes} <- Elasticsearch.get(CogyntWorkstationIngest.ElasticsearchCluster, "/_cat/indices?format=json") do
-      indexes =
-        indexes
-        |> Enum.map(& &1["index"])
-        |> Enum.filter(& String.match?(&1, ~r/event_test/))
-        |> Enum.sort()
-        {:ok, indexes}
-      end
-  end
+
 end

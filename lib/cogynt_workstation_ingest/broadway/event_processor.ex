@@ -434,6 +434,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       bulk_transactional_data.event_doc
       |> Enum.map(fn event_doc -> event_doc.id end)
 
+      #TBD delete
+
     # Elasticsearch.bulk_delete_document(
     #   Config.event_index_alias(),
     #   event_doc_ids
