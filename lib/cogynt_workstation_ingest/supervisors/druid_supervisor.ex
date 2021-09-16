@@ -29,9 +29,6 @@ defmodule CogyntWorkstationIngest.Supervisors.DruidSupervisor do
     Horde.DynamicSupervisor.start_child(__MODULE__, child_spec)
   end
 
-  def create_druid_supervisor(arg),
-    do: Horde.DynamicSupervisor.start_child(__MODULE__, {SupervisorMonitor, arg})
-
   def whereis(name \\ SupervisorMonitor) do
     name
     |> via_tuple()

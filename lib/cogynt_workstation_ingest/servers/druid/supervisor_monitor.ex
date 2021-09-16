@@ -4,13 +4,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   of the status of the Druid Spuervisor and can execute actions against it
   """
   use GenServer
+  alias __MODULE__.SupervisorStatus
 
-  @detailed_state_errors [
-    "UNHEALTHY_SUPERVISOR",
-    "UNHEALTHY_TASKS",
-    "UNABLE_TO_CONNECT_TO_STREAM",
-    "LOST_CONTACT_WITH_STREAM"
-  ]
   @status_check_interval 90_000
   @starting_status_interval 1_000
 
@@ -31,8 +26,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     GenServer.call(pid, :healthy?)
   end
 
-  def state(pid) do
-    GenServer.call(pid, :state)
+  def supervisor_state(pid) do
+    GenServer.call(pid, :supervisor_state)
   end
 
   def create_or_update_supervisor(pid, opts) do
@@ -63,32 +58,66 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     Druid.status_health()
     |> case do
       {:ok, true} ->
-        brokers = Map.get(args, :brokers)
-        schema = Map.get(args, :schema, :json)
-
-        supervisor_specs =
-          Map.take(args, [
-            :dimensions_spec,
-            :supervisor_id,
-            :io_config,
-            :parse_spec,
-            :flatten_spec,
-            :granularity_spec,
-            :timestamp_spec,
-            :schema_registry_url,
-            :topic
-          ])
-          |> Keyword.new()
-
-        supervisor_spec =
-          Druid.Utils.build_kafka_supervisor(supervisor_id, brokers, schema, supervisor_specs)
-
-        with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
-             {:ok, %{"payload" => %{"detailedState" => status} = payload}} <-
-               Druid.get_supervisor_status(id) do
+        with {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(supervisor_id),
+             %SupervisorStatus{} = status <- SupervisorStatus.new(payload) do
           schedule(status)
-          {:ok, %{id: supervisor_id, supervisor_status: payload}}
+          {:ok, %{id: supervisor_id, supervisor_status: status}}
         else
+          {:error, %{code: 400, error: message} = error} when is_binary(message) ->
+            if message =~ "Cannot find any supervisor with id" do
+              brokers = Map.get(args, :brokers)
+              schema = Map.get(args, :schema, :json)
+
+              supervisor_specs =
+                Map.take(args, [
+                  :dimensions_spec,
+                  :supervisor_id,
+                  :io_config,
+                  :parse_spec,
+                  :flatten_spec,
+                  :granularity_spec,
+                  :timestamp_spec,
+                  :schema_registry_url,
+                  :topic
+                ])
+                |> Keyword.new()
+
+              supervisor_spec =
+                Druid.Utils.build_kafka_supervisor(
+                  supervisor_id,
+                  brokers,
+                  schema,
+                  supervisor_specs
+                )
+
+              with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
+                   {:ok, %{"payload" => payload}} <-
+                     Druid.get_supervisor_status(id),
+                   %SupervisorStatus{} = status <- SupervisorStatus.new(payload) do
+                schedule(status)
+                {:ok, %{id: id, supervisor_status: status}}
+              else
+                {:error, error} ->
+                  CogyntLogger.error(
+                    "#{__MODULE__}",
+                    "Unable to create/fetch Druid supervisor information for #{supervisor_id}: #{
+                      inspect(error)
+                    }"
+                  )
+
+                  {:stop, :failed_to_create_druid_supervisor}
+              end
+            else
+              CogyntLogger.error(
+                "#{__MODULE__}",
+                "Unable to create/fetch Druid supervisor information for #{supervisor_id}: #{
+                  inspect(error)
+                }"
+              )
+
+              {:stop, :failed_to_create_druid_supervisor}
+            end
+
           {:error, error} ->
             CogyntLogger.error(
               "#{__MODULE__}",
@@ -119,7 +148,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   end
 
   @impl GenServer
-  def handle_call(:supervisor_status, _from, %{supervisor_status: %{"state" => status}} = state) do
+  def handle_call(:supervisor_status, _from, %{supervisor_status: status} = state) do
     {:reply, status, state}
   end
 
@@ -129,15 +158,20 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   end
 
   @impl GenServer
-  def handle_call(:state, _from, %{supervisor_status: status} = state) do
-    {:reply, status, state}
+  def handle_call(
+        :supervisor_state,
+        _from,
+        %{supervisor_status: %SupervisorStatus{state: sup_state}} = state
+      ) do
+    {:reply, sup_state, state}
   end
 
   @impl GenServer
   def handle_call(:delete_data_and_reset_supervisor, _from, %{id: id} = state) do
     with {:ok, delete_response} <- Druid.delete_datasource(id),
-         {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
-      {:reply, delete_response, %{state | supervisor_status: payload},
+         {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id),
+         %SupervisorStatus{} = status <- SupervisorStatus.new(payload) do
+      {:reply, delete_response, %{state | supervisor_status: status},
        {:continue, :reset_and_get_supervisor}}
     else
       {:error, error} ->
@@ -153,8 +187,9 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   @impl GenServer
   def handle_call(:suspend_supervisor, _from, %{id: id} = state) do
     with {:ok, suspend_response} <- Druid.suspend_supervisor(id),
-         {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
-      {:reply, suspend_response, %{state | supervisor_status: payload}}
+         {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id),
+         %SupervisorStatus{} = status <- SupervisorStatus.new(payload) do
+      {:reply, suspend_response, %{state | supervisor_status: status}}
     else
       {:error, error} ->
         CogyntLogger.error(
@@ -169,8 +204,9 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   @impl GenServer
   def handle_call(:resume_supervisor, _from, %{id: id} = state) do
     with {:ok, resume_response} <- Druid.resume_supervisor(id),
-         {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
-      {:reply, resume_response, %{state | supervisor_status: payload}}
+         {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id),
+         %SupervisorStatus{} = status <- SupervisorStatus.new(payload) do
+      {:reply, resume_response, %{state | supervisor_status: status}}
     else
       {:error, error} ->
         CogyntLogger.error(
@@ -221,8 +257,9 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     supervisor_spec = Druid.Utils.build_kafka_supervisor(id, brokers, schema, supervisor_specs)
 
     with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
-         {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id) do
-      {:noreply, %{state | supervisor_status: payload}}
+         {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id),
+         %SupervisorStatus{} = status <- SupervisorStatus.new(payload) do
+      {:noreply, %{state | supervisor_status: status}}
     else
       {:error, error} ->
         CogyntLogger.error(
@@ -237,10 +274,9 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   @impl GenServer
   def handle_continue(:reset_and_get_supervisor, %{id: id} = state) do
     with {:ok, %{"id" => id}} <- Druid.reset_supervisor(id),
-         {:ok, %{"payload" => %{"detailedState" => status}} = payload} <-
-           Druid.get_supervisor_status(id) do
-      schedule(status)
-      {:noreply, %{state | supervisor_status: payload}}
+         {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id),
+         %SupervisorStatus{} = status <- SupervisorStatus.new(payload) do
+      {:noreply, %{state | supervisor_status: status}}
     else
       {:error, error} ->
         CogyntLogger.error(
@@ -248,7 +284,6 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           "Unable to reset/fetch supervisor Druid information for #{id}: #{inspect(error)}"
         )
 
-        schedule("ERROR")
         {:noreply, state}
     end
   end
@@ -260,22 +295,21 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   end
 
   @impl GenServer
-  def handle_info(:get_status, %{id: id} = state) do
-    Druid.get_supervisor_status(id)
-    |> case do
-      {:ok, %{"payload" => %{"detailedState" => detailed_state} = payload}} ->
-        if Enum.member?(@detailed_state_errors, detailed_state) do
-          CogyntLogger.warn(
-            "#{__MODULE__}",
-            "DruidSupervisor: #{id} in Error State: #{detailed_state}. Resetting Supervisor"
-          )
+  def handle_info(:update_status, %{id: id} = state) do
+    with {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id),
+         %SupervisorStatus{} = status <- SupervisorStatus.new(payload) do
+      if SupervisorStatus.requires_reset?(status) do
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "DruidSupervisor: #{id} in Error State: #{status}. Resetting Supervisor"
+        )
 
-          {:noreply, state, {:continue, :reset_and_get_supervisor}}
-        else
-          schedule(detailed_state)
-          {:noreply, %{state | supervisor_status: payload}}
-        end
-
+        {:noreply, state, {:continue, :reset_and_get_supervisor}}
+      else
+        schedule(state)
+        {:noreply, %{state | supervisor_status: status}}
+      end
+    else
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
@@ -287,11 +321,11 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     end
   end
 
-  defp schedule(status) when status in ["PENDING", "CREATING_TASKS"] do
-    Process.send_after(self(), :get_status, @starting_status_interval)
+  defp schedule(%SupervisorStatus{state: state}) when state in ["PENDING", "CREATING_TASKS"] do
+    Process.send_after(self(), :update_status, @starting_status_interval)
   end
 
   defp schedule(_) do
-    Process.send_after(self(), :get_status, @status_check_interval)
+    Process.send_after(self(), :update_status, @status_check_interval)
   end
 end

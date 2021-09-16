@@ -115,23 +115,25 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         end
 
       pid ->
-        case SupervisorMonitor.supervisor_status(pid) do
-          "SUSPENDED" ->
+        state = SupervisorMonitor.supervisor_status(pid)
+
+        cond do
+          SupervisorMonitor.SupervisorStatus.is_suspended?(state) ->
             SupervisorMonitor.resume_supervisor(pid)
 
-          "RUNNING" ->
+          SupervisorMonitor.SupervisorStatus.is_running?(state) ->
             CogyntLogger.warn(
               "#{__MODULE__}",
               "Druid supervisor: #{name} already running"
             )
 
-          "PENDING" ->
+          SupervisorMonitor.SupervisorStatus.is_pending?(state) ->
             CogyntLogger.warn(
               "#{__MODULE__}",
               "Druid supervisor: #{name} has a pending status and is already starting."
             )
 
-          _ ->
+          true ->
             SupervisorMonitor.delete_data_and_reset_supervisor(pid)
         end
 
@@ -259,7 +261,30 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         {:error, :not_found}
 
       pid ->
-        SupervisorMonitor.resume_supervisor(pid)
+        state = SupervisorMonitor.supervisor_status(pid)
+
+        cond do
+          SupervisorMonitor.SupervisorStatus.is_suspended?(state) ->
+            SupervisorMonitor.resume_supervisor(pid)
+
+          SupervisorMonitor.SupervisorStatus.is_running?(state) ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{name} already running"
+            )
+
+          SupervisorMonitor.SupervisorStatus.is_pending?(state) ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{name} has a pending status and is already starting."
+            )
+
+          true ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{name} has an unhandled state #{state}."
+            )
+        end
     end
   end
 
@@ -274,7 +299,30 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         {:error, :not_found}
 
       pid ->
-        SupervisorMonitor.suspend_supervisor(pid)
+        state = SupervisorMonitor.supervisor_status(pid)
+
+        cond do
+          SupervisorMonitor.SupervisorStatus.is_suspended?(state) ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{name} already suspended"
+            )
+
+          SupervisorMonitor.SupervisorStatus.is_running?(state) ->
+            SupervisorMonitor.suspend_supervisor(pid)
+
+          SupervisorMonitor.SupervisorStatus.is_pending?(state) ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{name} has a pending status you may want to wait and retry."
+            )
+
+          true ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{name} has an unhandled state #{state}."
+            )
+        end
     end
   end
 

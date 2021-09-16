@@ -49,7 +49,8 @@ defmodule CogyntWorkstationIngest.Application do
       DruidSupervisor,
       # The supervisor for all Task workers
       child_spec_supervisor(TaskSupervisor, TaskSupervisor),
-      {Cluster.Supervisor, [Config.libcluster_topologies(), [name: CogyntWorkstationIngest.ClusterSupervisor]]},
+      {Cluster.Supervisor,
+       [Config.libcluster_topologies(), [name: CogyntWorkstationIngest.ClusterSupervisor]]},
       HordeRegistry,
       NodeObserver
     ]

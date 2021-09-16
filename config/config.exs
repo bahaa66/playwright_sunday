@@ -75,11 +75,11 @@ config :plug, :types, %{
 
 # Default libcluster configs.
 config :libcluster,
-    topologies: [
-      ingest: [
-        strategy: Cluster.Strategy.Gossip
-      ]
+  topologies: [
+    ingest: [
+      strategy: Cluster.Strategy.Gossip
     ]
+  ]
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
