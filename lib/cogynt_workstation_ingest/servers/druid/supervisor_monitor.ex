@@ -91,8 +91,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
                 )
 
               with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
-                   {:ok, %{"payload" => payload}} <-
-                     Druid.get_supervisor_status(id),
+                   {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id),
                    %SupervisorStatus{} = status <- SupervisorStatus.new(payload) do
                 schedule(status)
                 {:ok, %{id: id, supervisor_status: status}}
