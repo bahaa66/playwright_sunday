@@ -161,7 +161,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
       "#{__MODULE__}",
       "Deleting Elasticsearch data for EventDefinitionId: #{event_definition.id}"
     )
-    #TBD delete 
+
+    # TBD delete 
     # case Elasticsearch.delete_by_query(Config.event_index_alias(), %{
     #        field: "event_definition_id",
     #        value: event_definition.id

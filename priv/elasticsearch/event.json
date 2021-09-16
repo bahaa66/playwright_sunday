@@ -47,6 +47,12 @@
                         "type": "object"
                     }
                 }
+            },
+            "converted_risk_score": {
+                "type": "integer"
+            },
+            "risk_score": {
+                "type": "double"
             }
         }
     }

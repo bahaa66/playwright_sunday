@@ -1,14 +1,15 @@
 defimpl Elasticsearch.Document, for: Models.Events.Event do
-
   alias CogyntWorkstationIngest.Events.EventsContext
 
   def id(event), do: event.core_id
   def routing(_), do: false
+
   def encode(event) do
     event_definition =
       EventsContext.get_event_definition(event.event_definition_id, preload_details: true)
       |> EventsContext.remove_event_definition_virtual_fields(
-        include_event_definition_details: true)
+        include_event_definition_details: true
+      )
 
     event_definition_details = event_definition.event_definition_details
     # Iterate over each event key value pair and build the pg and elastic search event
@@ -76,6 +77,7 @@ defimpl Elasticsearch.Document, for: Models.Events.Event do
               acc
           end
       end)
+
     %{
       title: event_definition.title,
       event_definition_id: event.event_definition_id,

@@ -3,7 +3,6 @@ defmodule LivenessCheck do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Elasticsearch.API
 
-
   @type options :: [resp_body: String.t()]
 
   @resp_body "Server's Up!"
@@ -16,7 +15,6 @@ defmodule LivenessCheck do
 
   @spec call(Plug.Conn.t(), options) :: Plug.Conn.t()
   def call(%Plug.Conn{} = conn, _opts) do
-
     if kafka_health?() and postgres_health?() and redis_health?() and
          event_index_health() do
       send_resp(conn, 200, @resp_body)
@@ -88,10 +86,10 @@ defmodule LivenessCheck do
     end
   end
 
-  def event_index_health() do
-    with {:ok, index} <-  API.latest_index_starting_with("event_test"),
-      {:ok, _index_health} <-  API.index_health(index) do
-        true
+  defp event_index_health?() do
+    with {:ok, index} <- API.latest_index_starting_with("event_test"),
+         {:ok, _index_health} <- API.index_health(index) do
+      true
     else
       {:error, _error} -> false
     end
