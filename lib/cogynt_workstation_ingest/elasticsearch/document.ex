@@ -5,7 +5,6 @@ defimpl Elasticsearch.Document, for: Models.Events.Event do
   def routing(_), do: false
 
   def encode(event) do
-    IO.puts("****************inside EVENT document*********************")
     event_definition = event.event_definition
     event_definition_details = event_definition.event_definition_details
     # Iterate over each event key value pair and build the pg and elastic search event

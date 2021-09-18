@@ -48,10 +48,10 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
     )
   end
 
-  def test do
+  def reindex(index) do
     config = Elasticsearch.Cluster.Config.get(CogyntWorkstationIngest.Elasticsearch.Cluster) |> IO.inspect()
-    alias = String.to_existing_atom("event_test") |> IO.inspect()
-    name = Elasticsearch.Index.build_name(alias)|> IO.inspect()
+    alias = String.to_existing_atom(index)
+    name = Elasticsearch.Index.build_name(alias)
     %{settings: settings_file} = index_config = config[:indexes][alias]
 
     with :ok <- Elasticsearch.Index.create_from_file(config, name, settings_file),
@@ -63,7 +63,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
          end
   end
 
-  def bulk_upload(config, name, index_config) do
+  defp bulk_upload(config, name, index_config) do
     case Elasticsearch.Index.Bulk.upload(config, name, index_config) do
       :ok ->
         :ok
