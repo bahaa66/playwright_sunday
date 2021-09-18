@@ -6,17 +6,15 @@ defmodule CogyntWorkstationIngest.Elasticsearch.Store do
 
   @impl true
   def stream(schema) do
-    IO.puts("*************IN STREAM JUST STREAM**************")
     schema
     |> Repo.stream()
-    |> Stream.chunk_every(10)
+    |> Stream.chunk_every(500) #add a chunk size
     |> Stream.flat_map(fn chunk -> Repo.preload(chunk, [event_definition: [:event_definition_details]])
 end)
   end
 
   @impl true
   def transaction(fun) do
-    IO.puts("***********IN TRANSACTION*******************")
     {:ok, result} = Repo.transaction(fun, timeout: :infinity)
   end
 end
