@@ -1,5 +1,5 @@
 defmodule CogyntWorkstationIngest.Elasticsearch.API do
-  def index_exists(index) do
+  def index_exists?(index) do
     with {:ok, _index} <- latest_index_starting_with("event_test") do
       true
     else
@@ -46,5 +46,31 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
       CogyntWorkstationIngest.Elasticsearch.Cluster,
       "_cluster/health/#{index}?wait_for_status=green&timeout=10s"
     )
+  end
+
+  def test do
+    config = Elasticsearch.Cluster.Config.get(CogyntWorkstationIngest.Elasticsearch.Cluster) |> IO.inspect()
+    alias = String.to_existing_atom("event_test") |> IO.inspect()
+    name = Elasticsearch.Index.build_name(alias)|> IO.inspect()
+    %{settings: settings_file} = index_config = config[:indexes][alias]
+
+    with :ok <- Elasticsearch.Index.create_from_file(config, name, settings_file),
+         bulk_upload(config, name, index_config),
+         :ok <- Elasticsearch.Index.alias(config, name, alias),
+         :ok <- Elasticsearch.Index.clean_starting_with(config, alias, 2),
+         :ok <- Elasticsearch.Index.refresh(config, name) do
+          :ok
+         end
+  end
+
+  def bulk_upload(config, name, index_config) do
+    case Elasticsearch.Index.Bulk.upload(config, name, index_config) do
+      :ok ->
+        :ok
+
+      {:error, errors} ->
+        IO.puts(errors)
+        errors
+    end
   end
 end

@@ -16,7 +16,7 @@ defmodule LivenessCheck do
   @spec call(Plug.Conn.t(), options) :: Plug.Conn.t()
   def call(%Plug.Conn{} = conn, _opts) do
     if kafka_health?() and postgres_health?() and redis_health?() and
-         event_index_health() do
+         event_index_health?() do
       send_resp(conn, 200, @resp_body)
     else
       send_resp(conn, 500, @resp_body_error)

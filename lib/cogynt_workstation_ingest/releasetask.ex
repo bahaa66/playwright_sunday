@@ -75,7 +75,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
     IO.puts("Running indexes..")
 
     with {:ok, _} <- HTTPoison.start(),
-         {:ok, []} <- API.index_starting_with("event_test"),
+         {:ok, _index}  <- API.index_starting_with("event_test"),
          :ok <-
            Elasticsearch.Index.create_from_file(
              CogyntWorkstationIngest.Elasticsearch.Cluster,
@@ -127,17 +127,6 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
     app = Keyword.get(repo.config, :otp_app)
     repo_underscore = repo |> Module.split() |> List.last() |> Macro.underscore()
     Path.join([priv_dir(app), repo_underscore, filename])
-  end
-
-  def bulk_upload(config, name, index_config) do
-    case Elasticsearch.Index.Bulk.upload(config, name, index_config) do
-      :ok ->
-        :ok
-
-      {:error, errors} ->
-        IO.puts(errors)
-        errors
-    end
   end
 
   def priv_dir(app), do: "#{:code.priv_dir(app)}"
