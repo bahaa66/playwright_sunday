@@ -210,7 +210,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
               case message.data.pipeline_state do
                 :process_event ->
                   message.data
-                  |> EventProcessor.process_elasticsearch_documents()
                   |> EventProcessor.process_notifications()
                   |> LinkEventProcessor.validate_link_event()
                   |> LinkEventProcessor.process_entities()
@@ -233,7 +232,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
                 _ ->
                   message.data
                   |> EventProcessor.process_event()
-                  |> EventProcessor.process_elasticsearch_documents()
                   |> EventProcessor.process_notifications()
                   |> LinkEventProcessor.validate_link_event()
                   |> LinkEventProcessor.process_entities()
@@ -243,7 +241,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
               case message.data.pipeline_state do
                 :process_event ->
                   message.data
-                  |> EventProcessor.process_elasticsearch_documents()
                   |> EventProcessor.process_notifications()
 
                 :process_event_details_and_elasticsearch_docs ->
@@ -253,7 +250,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
                 _ ->
                   message.data
                   |> EventProcessor.process_event()
-                  |> EventProcessor.process_elasticsearch_documents()
                   |> EventProcessor.process_notifications()
               end
           end
@@ -292,7 +288,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
             :process_event ->
               data =
                 last_crud_action_message.data
-                |> EventProcessor.process_elasticsearch_documents()
                 |> EventProcessor.process_notifications()
                 |> LinkEventProcessor.validate_link_event()
                 |> LinkEventProcessor.process_entities()
@@ -327,7 +322,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
               data =
                 last_crud_action_message.data
                 |> EventProcessor.process_event()
-                |> EventProcessor.process_elasticsearch_documents()
                 |> EventProcessor.process_notifications()
                 |> LinkEventProcessor.validate_link_event()
                 |> LinkEventProcessor.process_entities()
@@ -340,7 +334,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
             :process_event ->
               data =
                 last_crud_action_message.data
-                |> EventProcessor.process_elasticsearch_documents()
                 |> EventProcessor.process_notifications()
 
               acc ++ [data]
@@ -356,7 +349,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
               data =
                 last_crud_action_message.data
                 |> EventProcessor.process_event()
-                |> EventProcessor.process_elasticsearch_documents()
                 |> EventProcessor.process_notifications()
 
               acc ++ [data]

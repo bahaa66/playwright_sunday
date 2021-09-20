@@ -178,27 +178,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           end
       end)
 
-    # Build elasticsearch documents
-    # case EventDocumentBuilder.build_document(%{
-    #        id: core_id,
-    #        title: event_definition.title,
-    #        event_definition_id: event_definition_id,
-    #        event_details: elasticsearch_event_details,
-    #        core_event_id: core_id,
-    #        published_at: published_at,
-    #        event_type: event_type,
-    #        occurred_at: occurred_at,
-    #        risk_score: risk_score,
-    #        converted_risk_score: pg_event.risk_score
-    #      }) do
-    #   {:ok, event_doc} ->
-    #     event_doc
-    # _ ->
-    elasticsearch_event_doc = @defaults.event_document
-    # end
-
-    Map.put(data, :event_doc, elasticsearch_event_doc)
-    |> Map.put(:pipeline_state, :process_elasticsearch_documents)
   end
 
   def process_notifications(%{crud_action: "delete"} = data), do: data
