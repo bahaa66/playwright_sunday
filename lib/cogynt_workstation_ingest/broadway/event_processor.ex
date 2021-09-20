@@ -154,9 +154,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               end
               # Convert the value if needed
               |> case do
-                nil -> false
-                value when is_binary(value) -> {value, field_name, field_type, path}
-                value -> {Jason.encode!(value), field_name, field_type, path}
+                nil ->
+                  false
+
+                value ->
+                  case Jason.encode(value) do
+                    {:ok, value} -> {value, field_name, field_type, path}
+                    {:error, _error} -> {to_string(value), field_name, field_type, path}
+                  end
               end
           end)
           |> case do
