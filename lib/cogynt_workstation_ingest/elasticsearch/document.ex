@@ -85,7 +85,7 @@ defimpl Elasticsearch.Document, for: Models.Events.Event do
       event_type: event_definition.event_type,
       event_details: elasticsearch_event_details,
     }
-    |> IO.inspect()
+    |> IO.inspect
 end
 
 

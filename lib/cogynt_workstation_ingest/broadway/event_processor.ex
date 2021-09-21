@@ -257,9 +257,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     case transaction_result do
       {:ok, %{upsert_notifications: {_count_created, upserted_notifications}}} ->
         SystemNotificationContext.bulk_insert_system_notifications(upserted_notifications)
-
-      # TBD call bulk_upload
-
+  
+        {:ok, index} = CogyntWorkstationIngest.Elasticsearch.API.latest_index_starting_with("event_test")
+        config = Elasticsearch.Cluster.Config.get(CogyntWorkstationIngest.Elasticsearch.Cluster)
+        %{settings: settings} = index_config = config[:indexes][:event_test]
       {:ok, _} ->
         nil
 

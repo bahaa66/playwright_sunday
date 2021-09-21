@@ -15,6 +15,7 @@ end)
 
   @impl true
   def transaction(fun) do
-    {:ok, result} = Repo.transaction(fun, timeout: :infinity)
+    IO.inspect fun
+    {:ok, result} = Repo.transaction(fun, timeout: :infinity) |> IO.inspect()
   end
 end
