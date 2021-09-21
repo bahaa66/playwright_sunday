@@ -1,11 +1,17 @@
 defmodule CogyntWorkstationIngest.Elasticsearch.API do
+
   def index_exists?(index) do
-    with {:ok, _} <- latest_index_starting_with("index") do
+    with {:ok, _} <- latest_index_starting_with(index) do
       true
     else
       {:error, _} ->
         false
     end
+  end
+
+  def create_index(index) do
+    Elasticsearch.Index.create_from_file(CogyntWorkstationIngest.Elasticsearch.Cluster, "event_test", "priv/elasticsearch/event.json")
+    Elasticsearch.Index.alias(CogyntWorkstationIngest.Elasticsearch.Cluster, "event_test", "event_test")
   end
 
   def index_starting_with(prefix) do
@@ -48,7 +54,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
     )
   end
 
-  def delete_by_query()
   def reindex(index) do
     config = Elasticsearch.Cluster.Config.get(CogyntWorkstationIngest.Elasticsearch.Cluster) |> IO.inspect()
     alias = String.to_existing_atom(index)
@@ -74,4 +79,12 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
         errors
     end
   end
+
+  def delete_on_query() do
+
+  end
+
+  def search_query() do
+  end
+
 end

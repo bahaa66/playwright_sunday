@@ -75,44 +75,26 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
     IO.puts("Running indexes..")
 
     with {:ok, _} <- HTTPoison.start(),
-         {:ok, _index}  <- API.index_starting_with("event_test"),
-         :ok <-
-           Elasticsearch.Index.create_from_file(
-             CogyntWorkstationIngest.Elasticsearch.Cluster,
-             "event_test",
-             "priv/elasticsearch/event.json"
-           ) do
-      Elasticsearch.Index.alias(
-        CogyntWorkstationIngest.Elasticsearch.Cluster,
-        "event_test",
-        "event_test"
-      )
-
-      IO.puts("The event_index for CogyntWorkstation have been created.")
-
-      IO.puts("indexes complete..")
+         false <- API.index_exists?("event_test") do
+         API.create_index("event_test")
+         IO.puts("The event_index for CogyntWorkstation have been created.")
+         IO.puts("indexes complete..")
     else
+      true ->
+        case check_active_index_setting?() do
+        true ->
+          IO.puts("event_index already exists.")
+          IO.puts("indexes complete..")
+
+        false ->
+          API.create_index("event_test")
+          IO.puts("The event_index for CogyntWorkstation have been created.")
+          IO.puts("indexes complete..")
+        end
+
       {:error, %Elasticsearch.Exception{raw: %{"error" => error}}} ->
         reason = Map.get(error, "reason")
         IO.puts("Failed to create event index #{reason}")
-
-      # config = Elasticsearch.Cluster.Config.get(CogyntWorkstationIngest.Elasticsearch.Cluster) |> IO.inspect()
-      # alias = String.to_existing_atom("event_test") |> IO.inspect()
-      # name = Elasticsearch.Index.build_name(alias)|> IO.inspect()
-      # %{settings: settings_file} = index_config = config[:indexes][alias]
-
-      # with :ok <- Elasticsearch.Index.create_from_file(config, name, settings_file),
-      #      bulk_upload(config, name, index_config),
-      #      :ok <- Elasticsearch.Index.alias(config, name, alias),
-      #      :ok <- Elasticsearch.Index.clean_starting_with(config, alias, 2),
-      #      :ok <- Elasticsearch.Index.refresh(config, name) do
-      #       :ok
-      # else
-      #     err -> IO.puts(err)
-
-      {:ok, true} ->
-        IO.puts("event_index already exists.")
-        IO.puts("indexes complete..")
     end
   end
 
@@ -127,6 +109,19 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
     app = Keyword.get(repo.config, :otp_app)
     repo_underscore = repo |> Module.split() |> List.last() |> Macro.underscore()
     Path.join([priv_dir(app), repo_underscore, filename])
+  end
+
+  defp check_active_index_setting?() do
+    filename = "priv/elasticsearch/event.active.json"
+    with {:ok, body} <- File.read(filename),
+    {:ok, json} <- Poison.decode(body) do
+      cluster_config = Elasticsearch.Cluster.Config.get(CogyntWorkstationIngest.Elasticsearch.Cluster)
+      json |> Map.equal?(cluster_config)
+    else
+      {:error, reason} ->
+        IO.puts("Cannot read file #{filename} because #{reason}")
+        false
+end
   end
 
   def priv_dir(app), do: "#{:code.priv_dir(app)}"
