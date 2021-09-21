@@ -7,7 +7,6 @@ defmodule Mix.Tasks.CreateElasticIndexes do
 
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Elasticsearch.API
-  # alias Elasticsearch.IndexMappings.EventIndexMapping
 
   @impl Mix.Task
   def run(_) do

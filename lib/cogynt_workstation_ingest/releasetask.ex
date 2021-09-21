@@ -15,9 +15,6 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
 
   def repos(app), do: Application.get_env(app, :ecto_repos, []) |> IO.inspect()
 
-  # alias Elasticsearch.IndexMappings.EventIndexMapping
-  # alias CogyntWorkstationIngest.Config
-
   def premigrate do
     start_services()
 
@@ -82,14 +79,14 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
     else
       true ->
         case check_active_index_setting?() do
-        true ->
-          IO.puts("event_index already exists.")
-          IO.puts("indexes complete..")
+          true ->
+            IO.puts("event_index already exists.")
+            IO.puts("indexes complete..")
 
-        false ->
-          API.create_index("event_test")
-          IO.puts("The event_index for CogyntWorkstation have been created.")
-          IO.puts("indexes complete..")
+          false ->
+            API.create_index("event_test")
+            IO.puts("The event_index for CogyntWorkstation have been created.")
+            IO.puts("indexes complete..")
         end
 
       {:error, %Elasticsearch.Exception{raw: %{"error" => error}}} ->
@@ -112,11 +109,16 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
   end
 
   defp check_active_index_setting?() do
+    #TBD add config variables
     filename = "priv/elasticsearch/event.active.json"
+    config = Elasticsearch.Cluster.Config.get(CogyntWorkstationIngest.Elasticsearch.Cluster)
+    %{settings: settings} = index_config = config[:indexes][:event_test]
+
     with {:ok, body} <- File.read(filename),
-    {:ok, json} <- Poison.decode(body) do
-      cluster_config = Elasticsearch.Cluster.Config.get(CogyntWorkstationIngest.Elasticsearch.Cluster)
-      json |> Map.equal?(cluster_config)
+    {:ok, config_body} <- File.read(settings),
+    {:ok, json} <- Poison.decode(body),
+    {:ok, config_json} <- Poison.decode(config_body) do
+      json |> Map.equal?(config_json)
     else
       {:error, reason} ->
         IO.puts("Cannot read file #{filename} because #{reason}")

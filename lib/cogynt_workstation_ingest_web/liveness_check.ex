@@ -91,7 +91,9 @@ defmodule LivenessCheck do
          {:ok, _index_health} <- API.index_health?(index) do
       true
     else
-      {:error, _error} -> false
+      {:error, _error} ->
+        CogyntLogger.error("#{__MODULE__}", "LivenessCheck Event Index Failed")
+        false
     end
   end
 end
