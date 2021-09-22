@@ -15,8 +15,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   def run() do
     start_event_type_pipelines()
     start_deployment_pipeline()
-    DruidRegistryHelper.start_drilldown_druid_with_registry_lookup("template_solutions")
-    DruidRegistryHelper.start_drilldown_druid_with_registry_lookup("template_solution_events")
+    DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(Config.template_solutions_topic())
+    DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(Config.template_solution_events_topic())
     ExqHelpers.resubscribe_to_all_queues()
   end
 

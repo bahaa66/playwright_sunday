@@ -143,11 +143,11 @@ config :druid,
 
 config :libcluster,
   topologies: [
-    ingest: [
+    k8s_ws_ingest: [
       strategy: Elixir.Cluster.Strategy.Kubernetes,
       config: [
         mode: :ip,
-        kubernetes_node_basename: System.get_env("NODE_ID") || "ws-ingest-otp",
+        kubernetes_node_basename: System.get_env("NODE_ID") |> IO.inspect(label: "NODE ID") || "ws-ingest-otp",
         kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
         kubernetes_namespace:  System.get_env("NAMESPACE") || "cogynt-kots",
         polling_interval: 10_000
