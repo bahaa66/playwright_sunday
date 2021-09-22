@@ -76,7 +76,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
         :ok
 
       {:error, errors} ->
-        IO.puts(errors)
+        IO.inspect(errors)
         errors
     end
   end

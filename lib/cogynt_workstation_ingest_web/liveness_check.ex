@@ -89,9 +89,7 @@ defmodule LivenessCheck do
   defp event_index_health?() do
     with {:ok, index} <- API.latest_index_starting_with("event_test"),
          {:ok, _index_health} <- API.index_health?(index) do
-
-
-          
+          IO.puts("successful liveness check")
       true
     else
       {:error, _error} ->

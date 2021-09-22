@@ -84,7 +84,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
             IO.puts("indexes complete..")
 
           false ->
-            API.create_index("event_test")
+            API.reindex("event_test")
             IO.puts("The event_index for CogyntWorkstation have been created.")
             IO.puts("indexes complete..")
         end
