@@ -67,7 +67,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
              consumer_group_id,
              event_definition
            ) do
-        {:ok, :success} ->
+        {:ok, _} ->
           DynamicSupervisor.start_child(__MODULE__, child_spec)
 
         {:error, nil} ->

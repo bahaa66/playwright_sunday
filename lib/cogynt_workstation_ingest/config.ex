@@ -87,6 +87,8 @@ defmodule CogyntWorkstationIngest.Config do
     end)
   end
 
+  def libcluster_topologies(), do: Application.get_env(:libcluster, :topologies)
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #

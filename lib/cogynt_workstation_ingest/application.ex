@@ -5,6 +5,8 @@ defmodule CogyntWorkstationIngest.Application do
 
   use Application
   require Protocol
+  alias CogyntWorkstationIngest.Horde.{HordeRegistry, NodeObserver}
+  alias CogyntWorkstationIngest.Config
 
   Protocol.derive(Jason.Encoder, Broadway.Message,
     only: [
@@ -25,10 +27,17 @@ defmodule CogyntWorkstationIngest.Application do
   }
 
   def start(_type, _args) do
+    IO.inspect(Config.libcluster_topologies(), label: "TOPOLOGIES")
+
     # List all child processes to be supervised
     children = [
       {Phoenix.PubSub, [name: CogyntWorkstationIngestWeb.PubSub, adapter: Phoenix.PubSub.PG2]},
-      {Registry, keys: :unique, name: DruidRegistry},
+       # Start Horde an libcluster related supervisors. The registry needs to come before the TaskSupervisor.
+      {Cluster.Supervisor,
+       [Config.libcluster_topologies() , [name: CogyntWorkstationIngest.ClusterSupervisor]]},
+      HordeRegistry,
+      DruidSupervisor,
+      NodeObserver,
       # Start the Ecto repository
       CogyntWorkstationIngest.Repo,
       # Start the TelemetrySupervisor,
@@ -43,8 +52,6 @@ defmodule CogyntWorkstationIngest.Application do
       child_spec_supervisor(ServerSupervisor, ServerSupervisor),
       # Start the DynamicSupervisor for Kafka ConsumerGroups
       ConsumerGroupSupervisor,
-      # Start the DynamicSupervisor for Druid Ingestion supervisor/tasks,
-      DruidSupervisor,
       # The supervisor for all Task workers
       child_spec_supervisor(TaskSupervisor, TaskSupervisor)
     ]

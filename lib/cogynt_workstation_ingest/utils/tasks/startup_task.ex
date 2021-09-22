@@ -6,6 +6,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
+  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
 
   def start_link(_arg \\ []) do
     Task.start_link(__MODULE__, :run, [])
@@ -14,8 +15,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   def run() do
     start_event_type_pipelines()
     start_deployment_pipeline()
-    start_template_solutions_druid_supervisor()
-    start_template_solution_events_druid_supervisor()
+    DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(Config.template_solutions_topic())
+    DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(Config.template_solution_events_topic())
     ExqHelpers.resubscribe_to_all_queues()
   end
 
@@ -41,17 +42,5 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
 
   defp start_deployment_pipeline() do
     Redis.publish_async("ingest_channel", %{start_deployment_pipeline: "deployment"})
-  end
-
-  defp start_template_solutions_druid_supervisor() do
-    Redis.publish_async("ingest_channel", %{
-      start_template_solutions_druid_supervisor: Config.template_solutions_topic()
-    })
-  end
-
-  defp start_template_solution_events_druid_supervisor() do
-    Redis.publish_async("ingest_channel", %{
-      start_template_solution_events_druid_supervisor: Config.template_solution_events_topic()
-    })
   end
 end
