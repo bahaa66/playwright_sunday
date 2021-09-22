@@ -115,6 +115,6 @@ config :druid,
       http_password: "password"
     ]
   ],
-  schema_registry_url: "http://cyn-kafka.cogilitycloud.com:31081/"
+  schema_registry_url: "http://localhost:8081"/
 
 config :logger, :console, level: :info
