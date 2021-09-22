@@ -57,7 +57,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster
   url: System.get_env("ELASTIC_URL") || "http://localhost:9200",
   api: Elasticsearch.API.HTTP,
   indexes: %{
-    event_test: %{
+    event: %{
       settings: "priv/elasticsearch/event.json",
       store: CogyntWorkstationIngest.Elasticsearch.Store,
       sources: [Models.Events.Event],

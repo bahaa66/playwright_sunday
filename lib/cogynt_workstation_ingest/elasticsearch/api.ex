@@ -1,7 +1,11 @@
 defmodule CogyntWorkstationIngest.Elasticsearch.API do
 
+  alias Elasticsearch.Index
+  alias CogyntWorkstationIngest.Elasticsearch.Cluster
+  alias CogyntWorkstationIngest.Config
+
   def index_exists?(index) do
-    with {:ok, _} <- latest_index_starting_with(index) do
+    with {:ok, _} <- Index.latest_starting_with(Cluster, index) do
       true
     else
       {:error, _} ->
@@ -10,42 +14,9 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
   end
 
   def create_index(index) do
-    name = Elasticsearch.Index.build_name(index) |> IO.inspect
-    Elasticsearch.Index.create_from_file(CogyntWorkstationIngest.Elasticsearch.Cluster, name, "priv/elasticsearch/event.json") |>IO.inspect()
-    Elasticsearch.Index.alias(CogyntWorkstationIngest.Elasticsearch.Cluster, name, "event_test")
-  end
-
-  def index_starting_with(prefix) do
-    with {:ok, indexes} <-
-           Elasticsearch.get(
-             CogyntWorkstationIngest.Elasticsearch.Cluster,
-             "/_cat/indices?format=json"
-           ) do
-      prefix = prefix |> to_string() |> Regex.escape()
-      {:ok, prefix} = Regex.compile("^#{prefix}-[0-9]+$")
-
-      indexes =
-        indexes
-        |> Enum.map(& &1["index"])
-        |> Enum.filter(&String.match?(&1, prefix))
-        |> Enum.sort()
-
-      {:ok, indexes}
-    end
-  end
-
-  def latest_index_starting_with(prefix) do
-    with {:ok, indexes} <- index_starting_with(prefix) do
-      index =
-        indexes
-        |> Enum.sort()
-        |> List.last()
-
-      case index do
-        nil -> {:error, :not_found}
-        index -> {:ok, index}
-      end
-    end
+    name = "#{index}_#{today_date()}"
+    Elasticsearch.Index.create_from_file(CogyntWorkstationIngest.Elasticsearch.Cluster, name, "priv/elasticsearch/event.json")
+    Elasticsearch.Index.alias(CogyntWorkstationIngest.Elasticsearch.Cluster, name, Config.event_index_alias())
   end
 
   def index_health?(index) do
@@ -57,8 +28,8 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
 
   def reindex(index) do
     config = Elasticsearch.Cluster.Config.get(CogyntWorkstationIngest.Elasticsearch.Cluster)
-    alias = String.to_existing_atom(index) |>IO.inspect()
-    name = Elasticsearch.Index.build_name(alias) |> IO.inspect()
+    alias = String.to_existing_atom(index)
+    name = Elasticsearch.Index.build_name(alias)
     %{settings: settings_file} = index_config = config[:indexes][alias]
 
     with :ok <- Elasticsearch.Index.create_from_file(config, name, settings_file),
@@ -75,9 +46,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
       :ok ->
         :ok
 
-      {:error, errors} ->
-        IO.inspect(errors)
-        errors
+      {:error, errors} -> errors
     end
   end
 
@@ -87,5 +56,12 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
 
   def search_query() do
   end
+
+  def bulk_upsert() do
+
+  end
+
+    @doc false
+    defp today_date(), do: Timex.now() |> Timex.format!("%Y%m%d", :strftime)
 
 end

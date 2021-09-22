@@ -1,5 +1,6 @@
 defmodule CogyntWorkstationIngest.ReleaseTasks do
   alias CogyntWorkstationIngest.Elasticsearch.API
+  alias CogyntWorkstationIngest.Config
 
   @apps [
     :cogynt_workstation_ingest
@@ -72,8 +73,8 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
     IO.puts("Running indexes..")
 
     with {:ok, _} <- HTTPoison.start(),
-         false <- API.index_exists?("event_test") do
-         API.create_index("event_test")
+         false <- API.index_exists?(Config.event_index_alias()) do
+         API.create_index(Config.event_index_alias())
          IO.puts("The event_index for CogyntWorkstation have been created.")
          IO.puts("indexes complete..")
     else
@@ -84,7 +85,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
             IO.puts("indexes complete..")
 
           false ->
-            API.reindex("event_test")
+            API.reindex(Config.event_index_alias())
             IO.puts("The event_index for CogyntWorkstation have been created.")
             IO.puts("indexes complete..")
         end
@@ -112,7 +113,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
     #TBD add config variables
     filename = "priv/elasticsearch/event.active.json"
     config = Elasticsearch.Cluster.Config.get(CogyntWorkstationIngest.Elasticsearch.Cluster)
-    %{settings: settings} = index_config = config[:indexes][:event_test]
+    %{settings: settings} = index_config = config[:indexes][:event]
 
     with {:ok, body} <- File.read(filename),
     {:ok, config_body} <- File.read(settings),

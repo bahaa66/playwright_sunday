@@ -7,17 +7,14 @@ defmodule Mix.Tasks.CreateElasticIndexes do
 
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Elasticsearch.API
+  alias CogyntWorkstationIngest.Elasticsearch.Cluster
+  alias Elasticsearch.Index
 
   @impl Mix.Task
   def run(_) do
     with {:ok, _} <- HTTPoison.start(),
-         {:ok, []} <- API.latest_index_starting_with("event_test"),
-         :ok <-
-           Elasticsearch.Index.create_from_file(
-             CogyntWorkstationIngest.Elasticsearch.Cluster,
-             "event_test",
-             "priv/elasticsearch/event.json"
-           ) do
+         {:ok, []} <- Index.latest_starting_with(Cluster, Config.event_index_alias()),
+         :ok <- API.create_index(Config.event_index_alias()) do
       Mix.shell().info("The index: #{Config.event_index_alias()} for Cogynt has been created.")
     else
       {:error, _} ->

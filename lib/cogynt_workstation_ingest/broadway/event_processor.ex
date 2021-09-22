@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias Ecto.Multi
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
-  alias CogyntWorkstationIngest.Config
+  # alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
@@ -79,6 +79,129 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     |> Map.put(:pipeline_state, :process_event)
   end
 
+
+  def process_elasticsearch_documents(%{crud_action: "delete"} = data), do: data
+
+  @doc """
+  process_elasticsearch_documents/1 will build the Event Elasticsearch document that Workstation
+  uses to fetch its search facets and do a lot of quick keyword searches against.
+  """
+  def process_elasticsearch_documents(
+        %{
+          event: event,
+          pg_event: pg_event,
+          core_id: core_id,
+          event_definition: event_definition,
+          event_definition_id: event_definition_id,
+          event_type: event_type
+        } = data
+      ) do
+    published_at = event["published_at"]
+    risk_score = event["_confidence"]
+    event_definition_details = event_definition.event_definition_details
+
+    occurred_at =
+      case event["_timestamp"] do
+        nil ->
+          nil
+
+        date_string ->
+          {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
+
+          dt_struct
+          |> DateTime.truncate(:second)
+      end
+
+    # Iterate over each event key value pair and build the pg and elastic search event
+    # details.
+    elasticsearch_event_details =
+      Enum.reduce(pg_event.event_details, [], fn
+        {key, value}, acc ->
+          # Search the event definition details and use the path to figure out the field value.
+          Enum.find_value(event_definition_details, fn
+            %{path: path, field_name: field_name, field_type: field_type} ->
+              # Split the path on the delimiter which currently is hard coded to |
+              case String.split(path, "|") do
+                # If there is only one element in the list then we don't need to dig into the object
+                # any further and we return the value.
+                [first] when first == key ->
+                  value
+
+                [first | remaining_path] when first == key ->
+                  # If the path is has a length is greater than 1 then whe use it to get the value.
+                  Enum.reduce(remaining_path, value, fn
+                    p, a when is_map(a) ->
+                      Map.get(a, p)
+
+                    _, _ ->
+                      nil
+                  end)
+                  |> case do
+                    nil ->
+                      CogyntLogger.warn(
+                        "#{__MODULE__}",
+                        "Could not find value at given Path: #{inspect(path)}"
+                      )
+
+                      false
+
+                    value ->
+                      value
+                  end
+
+                _ ->
+                  nil
+              end
+              # Convert the value if needed
+              |> case do
+                nil -> false
+                value when is_binary(value) -> {value, field_name, field_type, path}
+                value -> {Jason.encode!(value), field_name, field_type, path}
+              end
+          end)
+          |> case do
+            # If it has a field type then it has a corresponding event definition detail that gives
+            # us the the field_type so we save an event_detail and a elastic document
+            {field_value, field_name, field_type, path} ->
+              acc ++
+                [
+                  %{
+                    field_name: field_name,
+                    field_type: field_type,
+                    field_value: field_value,
+                    path: path
+                  }
+                ]
+
+            nil ->
+              acc
+          end
+      end)
+
+    # Build elasticsearch documents
+    elasticsearch_event_doc =
+      # case EventDocumentBuilder.build_document(%{
+      #        id: core_id,
+      #        title: event_definition.title,
+      #        event_definition_id: event_definition_id,
+      #        event_details: elasticsearch_event_details,
+      #        core_event_id: core_id,
+      #        published_at: published_at,
+      #        event_type: event_type,
+      #        occurred_at: occurred_at,
+      #        risk_score: risk_score,
+      #        converted_risk_score: pg_event.risk_score
+      #      }) do
+      #   {:ok, event_doc} ->
+      #     event_doc
+
+      #   _ ->
+          @defaults.event_document
+      # end
+
+    Map.put(data, :event_doc, elasticsearch_event_doc)
+    |> Map.put(:pipeline_state, :process_elasticsearch_documents)
+  end
 
   def process_notifications(%{crud_action: "delete"} = data), do: data
 
@@ -214,6 +337,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         end)
       end)
 
+    # Elasticsearch Transactional Upserts
+    bulk_upsert_event_documents_with_transaction(bulk_transactional_data)
+
     # IO.inspect(bulk_transactional_data.pg_event, label: "EVENTS")
     # IO.inspect(bulk_transactional_data.pg_notifications, label: "NOTIFICATIONS")
     # IO.inspect(bulk_transactional_data.pg_event_links, label: "EVENT LINKS")
@@ -257,10 +383,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     case transaction_result do
       {:ok, %{upsert_notifications: {_count_created, upserted_notifications}}} ->
         SystemNotificationContext.bulk_insert_system_notifications(upserted_notifications)
-  
-        {:ok, index} = CogyntWorkstationIngest.Elasticsearch.API.latest_index_starting_with("event_test")
-        config = Elasticsearch.Cluster.Config.get(CogyntWorkstationIngest.Elasticsearch.Cluster)
-        %{settings: settings} = index_config = config[:indexes][:event_test]
+
       {:ok, _} ->
         nil
 
@@ -290,6 +413,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   # ----------------------- #
   defp bulk_upsert_event_documents_with_transaction(bulk_transactional_data) do
     if !Enum.empty?(bulk_transactional_data.event_doc) do
+      #TBD  call new lib bulk_upsert
       # case Elasticsearch.bulk_upsert_document(
       #        Config.event_index_alias(),
       #        bulk_transactional_data.event_doc
