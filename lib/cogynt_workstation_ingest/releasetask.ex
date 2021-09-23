@@ -1,6 +1,7 @@
 defmodule CogyntWorkstationIngest.ReleaseTasks do
   alias CogyntWorkstationIngest.Elasticsearch.API
   alias CogyntWorkstationIngest.Config
+  alias CogyntWorkstationIngest.Elasticsearch.Cluster
 
   @apps [
     :cogynt_workstation_ingest
@@ -112,7 +113,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
   defp check_active_index_setting?() do
     #TBD add config variables
     filename = "priv/elasticsearch/event.active.json"
-    config = Elasticsearch.Cluster.Config.get(CogyntWorkstationIngest.Elasticsearch.Cluster)
+    config = Elasticsearch.Cluster.Config.get(Cluster)
     %{settings: settings} = index_config = config[:indexes][:event]
 
     with {:ok, body} <- File.read(filename),

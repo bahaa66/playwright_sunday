@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
   alias CogyntWorkstationIngest.Elasticsearch.Cluster
   alias CogyntWorkstationIngest.Config
 
+
   def index_exists?(index) do
     with {:ok, _} <- Index.latest_starting_with(Cluster, index) do
       true
@@ -14,20 +15,29 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
   end
 
   def create_index(index) do
-    name = "#{index}_#{today_date()}"
-    Elasticsearch.Index.create_from_file(CogyntWorkstationIngest.Elasticsearch.Cluster, name, "priv/elasticsearch/event.json")
-    Elasticsearch.Index.alias(CogyntWorkstationIngest.Elasticsearch.Cluster, name, Config.event_index_alias())
+    name = Index.build_name(index)
+    case Elasticsearch.Index.create_from_file(Cluster, name, "priv/elasticsearch/event.json") do
+      :ok ->
+        Index.alias(Cluster, name, Config.event_index_alias())
+        :ok
+
+        {:error, error} ->
+          CogyntLogger.error(
+            "Creating Elasticsearch Index Error",
+            "Failed to create index: #{index}. Error: #{inspect(error)}"
+          )
+    end
+
   end
 
-  def index_health?(index) do
-    Elasticsearch.get(
-      CogyntWorkstationIngest.Elasticsearch.Cluster,
+  def index_health(index) do
+   Elasticsearch.get(Cluster,
       "_cluster/health/#{index}?wait_for_status=green&timeout=10s"
     )
   end
 
   def reindex(index) do
-    config = Elasticsearch.Cluster.Config.get(CogyntWorkstationIngest.Elasticsearch.Cluster)
+    config = Cluster.Config.get(Cluster)
     alias = String.to_existing_atom(index)
     name = Elasticsearch.Index.build_name(alias)
     %{settings: settings_file} = index_config = config[:indexes][alias]
@@ -50,18 +60,63 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
     end
   end
 
-  def delete_on_query() do
+  def delete_by_query() do
 
   end
 
   def search_query() do
   end
 
-  def bulk_upsert() do
+  def bulk_upsert(index, bulk_docs) do
+    {:ok, index} = Elasticsearch.Index.latest_starting_with(Cluster, index) |> IO.inspect()
 
+    encoded_data = bulk_docs
+    |> Enum.map(&encode!(&1, index))
+    |> Enum.join("\n")
+
+    Elasticsearch.post(CogyntWorkstationIngest.Elasticsearch.Cluster, "_bulk", encoded_data)
   end
 
-    @doc false
-    defp today_date(), do: Timex.now() |> Timex.format!("%Y%m%d", :strftime)
+  def bulk_delete(index, bulk_delete_ids) do
+    {:ok, index} = Elasticsearch.Index.latest_starting_with(Cluster, index) |> IO.inspect()
+
+    bulk_delete_data = prepare_bulk_delete_data(index, bulk_delete_ids)
+
+    Elasticsearch.post(Cluster, "_bulk", bulk_delete_data)
+  end
+
+
+  defp encode!(struct, index, action \\ "create") do
+    header = header(action, index, struct)
+
+    document = Jason.encode!(struct)
+
+    "#{header}\n#{document}\n"
+  end
+
+  defp header(type, index, struct) do
+    attrs = %{
+      "_index" => index,
+      "_id" => struct[:id]
+    }
+    Jason.encode!(%{type => attrs})
+  end
+
+  @doc false
+  defp prepare_bulk_delete_data(index, ids) do
+    Enum.map(ids, fn id ->
+      %{delete: %{_index: index, _id: id}}
+    end)
+    |> format_bulk_data()
+  end
+
+  @doc false
+  defp format_bulk_data(bulk_data) do
+    bulk_data =
+      Enum.map(bulk_data, fn data -> Jason.encode!(data) end)
+      |> Enum.join("\n")
+
+    bulk_data <> "\n"
+  end
 
 end

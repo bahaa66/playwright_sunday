@@ -5,8 +5,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias Ecto.Multi
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
-  # alias CogyntWorkstationIngest.Config
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
+  alias CogyntWorkstationIngest.Elasticsearch.API
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
   @lexicons Application.get_env(:cogynt_workstation_ingest, :core_keys)[:lexicons]
@@ -413,19 +414,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   # ----------------------- #
   defp bulk_upsert_event_documents_with_transaction(bulk_transactional_data) do
     if !Enum.empty?(bulk_transactional_data.event_doc) do
-      #TBD  call new lib bulk_upsert
-      # case Elasticsearch.bulk_upsert_document(
-      #        Config.event_index_alias(),
-      #        bulk_transactional_data.event_doc
-      #      ) do
-      #   {:ok, _} ->
-      #     :ok
+      case API.bulk_upsert_document(
+             Config.event_index_alias(),
+             bulk_transactional_data.event_doc
+           ) do
+        {:ok, _} ->
+          :ok
 
-      #   _ ->
-      #     rollback_event_index_data(bulk_transactional_data)
+        _ ->
+          rollback_event_index_data(bulk_transactional_data)
 
-      #     raise "bulk_upsert_event_documents_with_transaction/1 failed"
-      # end
+          raise "bulk_upsert_event_documents_with_transaction/1 failed"
+      end
     end
   end
 
@@ -434,12 +434,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       bulk_transactional_data.event_doc
       |> Enum.map(fn event_doc -> event_doc.id end)
 
-    # TBD delete
 
-    # Elasticsearch.bulk_delete_document(
-    #   Config.event_index_alias(),
-    #   event_doc_ids
-    # )
+    API.bulk_delete(
+      Config.event_index_alias(),
+      event_doc_ids
+    )
   end
 
   defp format_lexicon_data(event) do

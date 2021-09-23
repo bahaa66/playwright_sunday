@@ -58,7 +58,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster
   api: Elasticsearch.API.HTTP,
   indexes: %{
     event: %{
-      settings: "priv/elasticsearch/event.json",
+      settings: "priv/elasticsearch/event.active.json",
       store: CogyntWorkstationIngest.Elasticsearch.Store,
       sources: [Models.Events.Event],
       bulk_page_size: 5000,
