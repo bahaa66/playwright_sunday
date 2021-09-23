@@ -646,19 +646,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end)
 
     # Elasticsearch Transactional Upserts
-    # Elasticsearch Transactional Upserts
-    IO.inspect(bulk_transactional_data.event_doc, label: "EVENT DOC *****", pretty: true)
-
-    IO.inspect(bulk_transactional_data.risk_history_doc,
-      label: "RISK HISTORY DOC *****",
-      pretty: true
-    )
-
-    IO.inspect(bulk_transactional_data.deleted_event_ids,
-      label: "DELETED EVENT IDS *****",
-      pretty: true
-    )
-
     bulk_upsert_event_documents_with_transaction(bulk_transactional_data)
     bulk_upsert_risk_history_with_transaction(bulk_transactional_data)
 
@@ -732,18 +719,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end)
 
     # Elasticsearch Transactional Upserts
-    IO.inspect(bulk_transactional_data.event_doc, label: "EVENT DOC *****", pretty: true)
-
-    IO.inspect(bulk_transactional_data.risk_history_doc,
-      label: "RISK HISTORY DOC *****",
-      pretty: true
-    )
-
-    IO.inspect(bulk_transactional_data.deleted_event_ids,
-      label: "DELETED EVENT IDS *****",
-      pretty: true
-    )
-
     bulk_upsert_event_documents_with_transaction(bulk_transactional_data)
     bulk_upsert_risk_history_with_transaction(bulk_transactional_data)
 
@@ -785,6 +760,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             :ok
 
           _ ->
+            body = prepare_bulk_upsert_data(Config.event_index_alias(), event_docs, [])
+
+            IO.inspect(body, label: "Bulk Insert Event Document Failed. *********", pretty: true)
+
             rollback_event_index_data(bulk_transactional_data)
 
             raise "bulk_upsert_event_documents_with_transaction/1 failed"
@@ -867,4 +846,54 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         end
     end
   end
+
+  # ---------------------- #
+  # --- temp for debug --- #
+  # ---------------------- #
+  defp prepare_bulk_upsert_data(index, bulk_data, remove_fields) do
+    bulk_data =
+      Enum.reduce(bulk_data, [], fn data, acc ->
+        id = Map.get(data, :id)
+
+        action_data = %{
+          update: %{
+            _id: id,
+            _index: index,
+            retry_on_conflict: 5
+          }
+        }
+
+        payload =
+          case remove_fields do
+            [] ->
+              %{
+                doc: data,
+                doc_as_upsert: true
+              }
+
+            _ ->
+              remove_fields_script =
+                Enum.reduce(remove_fields, "", fn field, acc ->
+                  acc <> "ctx._source.remove('#{field}');"
+                end)
+
+              %{
+                script: %{
+                  source: remove_fields_script,
+                  lang: "painless",
+                  params: data
+                },
+                upsert: data
+              }
+          end
+
+        acc ++ [encode!(action_data)] ++ [encode!(payload)]
+      end)
+      |> Enum.join("\n")
+
+    bulk_data <> "\n"
+  end
+
+  defp encode!(data), do: Jason.encode!(data)
+  defp decode!(data), do: Jason.decode!(data)
 end
