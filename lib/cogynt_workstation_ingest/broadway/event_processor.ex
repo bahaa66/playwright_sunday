@@ -646,6 +646,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end)
 
     # Elasticsearch Transactional Upserts
+    # Elasticsearch Transactional Upserts
+    IO.inspect(bulk_transactional_data.event_doc, label: "EVENT DOC *****", pretty: true)
+
+    IO.inspect(bulk_transactional_data.risk_history_doc,
+      label: "RISK HISTORY DOC *****",
+      pretty: true
+    )
+
+    IO.inspect(bulk_transactional_data.deleted_event_ids,
+      label: "DELETED EVENT IDS *****",
+      pretty: true
+    )
+
     bulk_upsert_event_documents_with_transaction(bulk_transactional_data)
     bulk_upsert_risk_history_with_transaction(bulk_transactional_data)
 
