@@ -37,7 +37,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
   end
 
   def reindex(index) do
-    config = Cluster.Config.get(Cluster)
+    config = Elasticsearch.Cluster.Config.get(Cluster)
     alias = String.to_existing_atom(index)
     name = Elasticsearch.Index.build_name(alias)
     %{settings: settings_file} = index_config = config[:indexes][alias]
@@ -67,14 +67,37 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
   def search_query() do
   end
 
-  def bulk_upsert(index, bulk_docs) do
+  def bulk_upsert_document(index, bulk_docs) do
     {:ok, index} = Elasticsearch.Index.latest_starting_with(Cluster, index) |> IO.inspect()
 
     encoded_data = bulk_docs
     |> Enum.map(&encode!(&1, index))
     |> Enum.join("\n")
 
-    Elasticsearch.post(CogyntWorkstationIngest.Elasticsearch.Cluster, "_bulk", encoded_data)
+    try do
+      case Elasticsearch.post(CogyntWorkstationIngest.Elasticsearch.Cluster, "_bulk", encoded_data) do
+        {:ok, result} ->
+          {:ok, result}
+
+        {:error, error} ->
+          CogyntLogger.error(
+            "Elasticsearch Bulk Upsert Error",
+            "Failed to bulk upsert documents for index: #{index}. Error: #{inspect(error)}"
+          )
+
+          {:error, error}
+      end
+    rescue
+      e in HTTPoison.Error ->
+        CogyntLogger.error(
+          "Elasticsearch Connection Failure",
+          "Unable to connect to elasticsearch while bulk upserting document. Index: #{index} Error: #{
+            e.reason
+          }"
+        )
+
+        {:error, e.reason}
+    end
   end
 
   def bulk_delete(index, bulk_delete_ids) do
@@ -85,6 +108,20 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
     Elasticsearch.post(Cluster, "_bulk", bulk_delete_data)
   end
 
+
+    # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+
+  defp valid_core_id?(core_id) do
+    case is_nil(core_id) do
+      true ->
+        true
+
+      false ->
+        is_binary(core_id)
+    end
+  end
 
   defp encode!(struct, index, action \\ "create") do
     header = header(action, index, struct)

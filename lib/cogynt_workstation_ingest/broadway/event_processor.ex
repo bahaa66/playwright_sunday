@@ -8,6 +8,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
   alias CogyntWorkstationIngest.Elasticsearch.API
+  alias CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder
 
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
   @lexicons Application.get_env(:cogynt_workstation_ingest, :core_keys)[:lexicons]
@@ -181,24 +182,24 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     # Build elasticsearch documents
     elasticsearch_event_doc =
-      # case EventDocumentBuilder.build_document(%{
-      #        id: core_id,
-      #        title: event_definition.title,
-      #        event_definition_id: event_definition_id,
-      #        event_details: elasticsearch_event_details,
-      #        core_event_id: core_id,
-      #        published_at: published_at,
-      #        event_type: event_type,
-      #        occurred_at: occurred_at,
-      #        risk_score: risk_score,
-      #        converted_risk_score: pg_event.risk_score
-      #      }) do
-      #   {:ok, event_doc} ->
-      #     event_doc
+      case EventDocumentBuilder.build_document(%{
+             id: core_id,
+             title: event_definition.title,
+             event_definition_id: event_definition_id,
+             event_details: elasticsearch_event_details,
+             core_event_id: core_id,
+             published_at: published_at,
+             event_type: event_type,
+             occurred_at: occurred_at,
+             risk_score: risk_score,
+             converted_risk_score: pg_event.risk_score
+           }) do
+        {:ok, event_doc} ->
+          event_doc
 
-      #   _ ->
+        _ ->
           @defaults.event_document
-      # end
+      end
 
     Map.put(data, :event_doc, elasticsearch_event_doc)
     |> Map.put(:pipeline_state, :process_elasticsearch_documents)
