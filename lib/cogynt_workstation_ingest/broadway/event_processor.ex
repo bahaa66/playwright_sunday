@@ -851,6 +851,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   # --- temp for debug --- #
   # ---------------------- #
   defp prepare_bulk_upsert_data(index, bulk_data, remove_fields) do
+    IO.inspect(bulk_data, label: "BULK DATA ********")
+
     bulk_data =
       Enum.reduce(bulk_data, [], fn data, acc ->
         id = Map.get(data, :id)
