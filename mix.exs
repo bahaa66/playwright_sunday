@@ -58,6 +58,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:telemetry_poller, "~> 0.4"},
       {:elasticsearch, "~> 1.0.0"},
       {:exq, git: "git@github.com:akira/exq.git", branch: "master"},
+      {:libcluster, "~> 3.2.2"},
+      {:horde, "~> 0.8.3"},
       {:kafka,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "kafka",
@@ -100,7 +102,13 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :druid,
+<<<<<<< HEAD
         tag: "v1.14.3-beta", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
+=======
+        tag: "v1.14.5-beta",
+        git: "git@github.com:cogility/cogynt-common.git",
+        sparse: "druid"
+>>>>>>> develop
       }
     ]
   end

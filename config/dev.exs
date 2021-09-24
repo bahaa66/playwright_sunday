@@ -163,3 +163,17 @@ config :druid,
     ]
   ],
   schema_registry_url: System.get_env("SCHEMA_REGISTRY_URL") || "http://schemaregistry:8081"
+
+config :libcluster,
+  topologies: [
+    k8s_ws_ingest: [
+      strategy: Elixir.Cluster.Strategy.Kubernetes,
+      config: [
+        mode: :ip,
+        kubernetes_node_basename: System.get_env("NODE_ID") || "ws-ingest-otp",
+        kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
+        kubernetes_namespace:  System.get_env("NAMESPACE") || "cogynt-kots",
+        polling_interval: 10_000
+      ]
+    ]
+  ]

@@ -670,14 +670,38 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     Enum.each(fields, fn {key, val} ->
       case is_atom(key) do
         true ->
+          field_type =
+            case val.dataType do
+              "poly" ->
+                "geo"
+
+              "poly-array" ->
+                "geo-array"
+
+              _ ->
+                val.dataType
+            end
+
           create_event_definition_detail(%{
             event_definition_id: id,
             field_name: val.name,
             path: val.path,
-            field_type: val.dataType
+            field_type: field_type
           })
 
         false ->
+          field_type =
+            case val["dataType"] do
+              "poly" ->
+                "geo"
+
+              "poly-array" ->
+                "geo-array"
+
+              _ ->
+                val["dataType"]
+            end
+
           create_event_definition_detail(%{
             event_definition_id: id,
             field_name: val["name"],

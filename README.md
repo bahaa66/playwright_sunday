@@ -17,7 +17,6 @@ These are the list of services that you will need to have running in order to ru
 - ELasticsearch
 - Postgresql
 
-
 ## Learn more
 
   * Official website: http://www.phoenixframework.org/
