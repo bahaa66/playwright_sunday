@@ -183,7 +183,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     # Build elasticsearch documents
     elasticsearch_event_doc =
-      case CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder.build_document(%{
+      case EventDocumentBuilder.build_document(%{
              id: core_id,
              title: event_definition.title,
              event_definition_id: event_definition_id,
@@ -196,11 +196,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
              converted_risk_score: pg_event.risk_score
            }) do
         {:ok, event_doc} ->
-          IO.puts("******************************")
           event_doc
 
         _ ->
-          IO.puts("******************************")
           @defaults.event_document
       end
 

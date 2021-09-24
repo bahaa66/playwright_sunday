@@ -6,35 +6,82 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
 
 
   def index_exists?(index) do
-    with {:ok, _} <- Index.latest_starting_with(Cluster, index) do
-      true
-    else
-      {:error, _} ->
-        false
+    try do
+      with {:ok, _} <- Index.latest_starting_with(Cluster, index) do
+        {:ok, true}
+      else
+        {:error, _} ->
+          {:ok, false}
+      end
+    rescue
+      e in HTTPoison.Error ->
+        CogyntLogger.error(
+          "Elasticsearch Connection Failure",
+          "Unable to connect to elasticsearch while checking if index_exists. Index: #{index} Error: #{
+            e.reason
+          }"
+        )
+
+        {:error, e.reason}
     end
   end
 
   def create_index(index) do
     name = Index.build_name(index)
     #TBD get configs
-    case Elasticsearch.Index.create_from_file(Cluster, name, "priv/elasticsearch/event.active.json") do
-      :ok ->
-        Index.alias(Cluster, name, Config.event_index_alias())
-        :ok
+    try do
+      case Elasticsearch.Index.create_from_file(Cluster, name, "priv/elasticsearch/event.active.json") do
+        :ok ->
+          Index.alias(Cluster, name, Config.event_index_alias())
+          {:ok, true}
 
-        {:error, error} ->
-          CogyntLogger.error(
-            "Creating Elasticsearch Index Error",
-            "Failed to create index: #{index}. Error: #{inspect(error)}"
-          )
+          {:error, error} ->
+            CogyntLogger.error(
+              "Creating Elasticsearch Index Error",
+              "Failed to create index: #{index}. Error: #{inspect(error)}"
+            )
+            {:error, error}
+      end
+    rescue
+      e in HTTPoison.Error ->
+        CogyntLogger.error(
+          "Elasticsearch Connection Failure",
+          "Unable to connect to elasticsearch while creating index alias. Index: #{index} Error: #{
+            e.reason
+          }"
+        )
+
+        {:error, e.reason}
     end
-
   end
 
   def index_health(index) do
-   Elasticsearch.get(Cluster,
-      "_cluster/health/#{index}?wait_for_status=green&timeout=10s"
-    )
+    try do
+      case Elasticsearch.get(Cluster,
+        "_cluster/health/#{index}?wait_for_status=green&timeout=10s"
+      ) do
+        {:ok, _result} ->
+          {:ok, true}
+
+        {:error, error} ->
+          CogyntLogger.error(
+            "Checking Elasticsearch Index Health Error",
+            "Failed to return index health, index: #{index}. Error: #{inspect(error)}"
+          )
+
+          {:error, false}
+      end
+    rescue
+      e in HTTPoison.Error ->
+        CogyntLogger.error(
+          "Elasticsearch Connection Failure",
+          "Unable to connect to elasticsearch while checking index health. Index: #{index} Error: #{
+            e.reason
+          }"
+        )
+
+        {:error, false}
+    end
   end
 
   def reindex(index) do
@@ -61,8 +108,47 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
     end
   end
 
-  def delete_by_query() do
+  def delete_by_query(index, query_data) do
 
+    query = build_term_query(query_data)
+
+    url = url(
+      index,
+    "_delete_by_query?refresh=true&slices=auto&scroll_size=10000&requests_per_second=100"
+    )
+
+    try do
+      case Elasticsearch.post(Cluster, url, query)
+            do
+              {:ok, result} ->
+                deleted = Map.get(result, "deleted")
+
+                CogyntLogger.info(
+                  "Removed Record From Elastic",
+                  "delete_by_query removed #{deleted} records from Elasticsearch"
+                )
+
+                {:ok, deleted}
+
+              {:error, reason} ->
+                CogyntLogger.error(
+                  "Failed To Remove Record From Elasticsearch",
+                  "delete_by_query failed with reason #{inspect(reason)}"
+                )
+
+                {:error, reason}
+            end
+          rescue
+            e in HTTPoison.Error ->
+              CogyntLogger.error(
+                "Elasticsearch Connection Failure",
+                "Unable to connect to elasticsearch for delete_by_query. Index: #{index} Error: #{
+                  e.reason
+                }"
+              )
+
+              {:error, e.reason}
+          end
   end
 
   def search_query() do
@@ -106,24 +192,36 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
 
     bulk_delete_data = prepare_bulk_delete_data(index, bulk_delete_ids)
 
-    Elasticsearch.post(Cluster, "_bulk", bulk_delete_data)
+    try do
+      case Elasticsearch.post(Cluster, "_bulk", bulk_delete_data) do
+        {:ok, result} ->
+          {:ok, result}
+
+        {:error, error} ->
+          CogyntLogger.error(
+            "Elasticsearch Bulk Delete Error",
+            "Failed to bulk delete documents for index: #{index}. Error: #{inspect(error)}"
+          )
+
+          {:error, error}
+      end
+    rescue
+      e in HTTPoison.Error ->
+        CogyntLogger.error(
+          "Elasticsearch Connection Failure",
+          "Unable to connect to elasticsearch while bulk deleting document. Index: #{index} Error: #{
+            e.reason
+          }"
+        )
+
+        {:error, e.reason}
+    end
   end
 
 
     # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-
-  defp valid_core_id?(core_id) do
-    case is_nil(core_id) do
-      true ->
-        true
-
-      false ->
-        is_binary(core_id)
-    end
-  end
-
   defp encode!(struct, index, action \\ "create") do
     header = header(action, index, struct)
 
@@ -157,4 +255,19 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
     bulk_data <> "\n"
   end
 
+  defp url(index, action) when is_binary(action),
+  do: "/#{index}/#{action}"
+
+
+  defp build_term_query(%{field: field, value: value}) do
+    %{
+      query: %{
+        term: %{
+          "#{field}.keyword" => %{
+            value: "#{value}"
+          }
+        }
+      }
+    }
+  end
 end

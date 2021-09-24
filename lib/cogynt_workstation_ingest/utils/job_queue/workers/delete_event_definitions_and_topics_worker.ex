@@ -162,25 +162,24 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
       "Deleting Elasticsearch data for EventDefinitionId: #{event_definition.id}"
     )
 
-    # TBD delete 
-    # case Elasticsearch.delete_by_query(Config.event_index_alias(), %{
-    #        field: "event_definition_id",
-    #        value: event_definition.id
-    #      }) do
-    #   {:ok, _count} ->
-    #     CogyntLogger.info(
-    #       "#{__MODULE__}",
-    #       "Elasticsearch data deleted for EventDefinitionId: #{event_definition.id}"
-    #     )
+    case API.delete_by_query(Config.event_index_alias(), %{
+           field: "event_definition_id",
+           value: event_definition.id
+         }) do
+      {:ok, _count} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Elasticsearch data deleted for EventDefinitionId: #{event_definition.id}"
+        )
 
-    #   {:error, error} ->
-    #     CogyntLogger.error(
-    #       "#{__MODULE__}",
-    #       "There was an error deleting elasticsearch data for event definition: #{
-    #         event_definition.id
-    #       }\nError: #{inspect(error)}"
-    #     )
-    # end
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "There was an error deleting elasticsearch data for event definition: #{
+            event_definition.id
+          }\nError: #{inspect(error)}"
+        )
+    end
   end
 
   defp delete_druid_datasource(name) do

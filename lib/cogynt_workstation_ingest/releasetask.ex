@@ -74,13 +74,13 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
     IO.puts("Running indexes..")
 
     with {:ok, _} <- HTTPoison.start(),
-         false <- API.index_exists?(Config.event_index_alias()) do
+         {:ok, false} <- API.index_exists?(Config.event_index_alias()) do
          API.create_index(Config.event_index_alias())
-         IO.puts("The event_index for CogyntWorkstation have been created.")
+         IO.puts("The event_index for CogyntWorkstation has been created.")
          IO.puts("indexes complete..")
     else
-      true ->
-        case check_active_index_setting?() do
+      {:ok, true} ->
+        case is_active_index_setting?() do
           true ->
             IO.puts("event_index already exists.")
             IO.puts("indexes complete..")
@@ -110,22 +110,22 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
     Path.join([priv_dir(app), repo_underscore, filename])
   end
 
-  defp check_active_index_setting?() do
+  defp is_active_index_setting?() do
     #TBD add config variables
     filename = "priv/elasticsearch/event.active.json"
     config = Elasticsearch.Cluster.Config.get(Cluster)
-    %{settings: settings} = index_config = config[:indexes][:event]
+    %{settings: settings} = config[:indexes][:event]
 
     with {:ok, body} <- File.read(filename),
-    {:ok, config_body} <- File.read(settings),
-    {:ok, json} <- Poison.decode(body),
-    {:ok, config_json} <- Poison.decode(config_body) do
-      json |> Map.equal?(config_json)
+      {:ok, config_body} <- File.read(settings),
+      {:ok, json} <- Poison.decode(body),
+      {:ok, config_json} <- Poison.decode(config_body) do
+        json |> Map.equal?(config_json)
     else
       {:error, reason} ->
         IO.puts("Cannot read file #{filename} because #{reason}")
         false
-end
+    end
   end
 
   def priv_dir(app), do: "#{:code.priv_dir(app)}"
