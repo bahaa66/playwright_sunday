@@ -183,7 +183,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     # Build elasticsearch documents
     elasticsearch_event_doc =
-      case EventDocumentBuilder(%{
+      case CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder.build_document(%{
              id: core_id,
              title: event_definition.title,
              event_definition_id: event_definition_id,
