@@ -1,8 +1,4 @@
 defmodule CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder do
-  @moduledoc """
-  Formats and Builds a document for the Event Index
-  """
-
   @doc """
   Builds a document for the EventIndex
   """

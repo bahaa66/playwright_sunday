@@ -16,7 +16,8 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
 
   def create_index(index) do
     name = Index.build_name(index)
-    case Elasticsearch.Index.create_from_file(Cluster, name, "priv/elasticsearch/event.json") do
+    #TBD get configs
+    case Elasticsearch.Index.create_from_file(Cluster, name, "priv/elasticsearch/event.active.json") do
       :ok ->
         Index.alias(Cluster, name, Config.event_index_alias())
         :ok

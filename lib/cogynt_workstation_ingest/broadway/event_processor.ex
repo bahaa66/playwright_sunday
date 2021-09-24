@@ -10,6 +10,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias CogyntWorkstationIngest.Elasticsearch.API
   alias CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder
 
+
   @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
   @lexicons Application.get_env(:cogynt_workstation_ingest, :core_keys)[:lexicons]
   @defaults %{
@@ -182,7 +183,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     # Build elasticsearch documents
     elasticsearch_event_doc =
-      case EventDocumentBuilder.build_document(%{
+      case EventDocumentBuilder(%{
              id: core_id,
              title: event_definition.title,
              event_definition_id: event_definition_id,
@@ -195,9 +196,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
              converted_risk_score: pg_event.risk_score
            }) do
         {:ok, event_doc} ->
+          IO.puts("******************************")
           event_doc
 
         _ ->
+          IO.puts("******************************")
           @defaults.event_document
       end
 
