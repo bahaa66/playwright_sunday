@@ -59,6 +59,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:exq, git: "git@github.com:akira/exq.git", branch: "master"},
       {:libcluster, "~> 3.2.2"},
       {:horde, "~> 0.8.3"},
+      {:absinthe, "1.5.5", override: true},
+      {:absinthe_plug, "~> 1.5", override: true},
       {:kafka,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "kafka",
@@ -101,9 +103,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :druid,
-        tag: "v1.14.5-beta",
-        git: "git@github.com:cogility/cogynt-common.git",
-        sparse: "druid"
+        tag: "v1.14.5-beta", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
       }
     ]
   end

@@ -36,6 +36,17 @@ defmodule CogyntWorkstationIngestWeb.Router do
     get("/drilldown/:id", DrilldownController, :show)
   end
 
+  scope "/api" do
+    forward("/graphql", Absinthe.Plug, schema: CogyntWorkstationIngestWeb.Schema)
+
+    if Config.enable_dev_tools?() do
+      forward("/graphiql", Absinthe.Plug.GraphiQL,
+        schema: CogyntWorkstationIngestWeb.Schema,
+        interface: :advanced
+      )
+    end
+  end
+
   scope "/*path" do
     pipe_through(:api)
     get "/", FallbackController, {:error, :not_found}
