@@ -147,7 +147,7 @@ config :libcluster,
       strategy: Elixir.Cluster.Strategy.Kubernetes,
       config: [
         mode: :ip,
-        kubernetes_node_basename: System.get_env("NODE_ID") || "ws-ingest-otp",
+        kubernetes_node_basename: "ws-ingest-otp",
         kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
         kubernetes_namespace:  System.get_env("NAMESPACE") || "cogynt-kots",
         polling_interval: 10_000
