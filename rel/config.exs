@@ -29,17 +29,17 @@ environment :dev do
   set include_system_libs: true
   set include_erts: true
   set cookie: :"&TtWkBmOpfd9V>@D[:}hT*ibY$gR=`Bs9|5N9N%4na;DwM~{~~U3h$bTYVnTE894"
-  set vm_args: "rel/vm.args"
   set pre_start_hooks: "rel/hooks/pre_start"
+  set vm_args: "rel/vm.args"
 end
 
 environment :prod do
   set include_erts: true
   set include_system_libs: true
   set include_src: false
-  set cookie: :">CJ!Fd]3C?7RL%&F1%{F=6@;{i&HX4{XjhZ3vJCrV;9tg3bO|6:n5Oi9BtnI,A(h"
-  set vm_args: "rel/vm.args"
+  #set cookie: :">CJ!Fd]3C?7RL%&F1%{F=6@;{i&HX4{XjhZ3vJCrV;9tg3bO|6:n5Oi9BtnI,A(h"
   set pre_start_hooks: "rel/hooks/pre_start"
+  set vm_args: "rel/vm.args"
 end
 # You may define one or more releases in this file.
 # If you have not set a default release, or selected one
