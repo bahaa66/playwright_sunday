@@ -1,5 +1,7 @@
 defmodule CogyntWorkstationIngestWeb.Schema do
   use Absinthe.Schema
+  alias CogyntGraphql.Middleware.{ErrorHandler, ErrorException}
+  alias CogyntWorkstationIngestWeb.Dataloaders.Druid, as: DruidLoader
 
   import_types(Absinthe.Type.Custom)
 
@@ -7,6 +9,46 @@ defmodule CogyntWorkstationIngestWeb.Schema do
     Drilldown,
     LivenessCheck
   })
+
+  import_types(CogyntGraphql.Schema.Scalars.{
+    JSON
+  })
+
+  def context(ctx) do
+    loader =
+      Dataloader.new()
+      |> Dataloader.add_source(DruidLoader, DruidLoader.data())
+
+    Map.put(ctx, :loader, loader)
+  end
+
+  def plugins do
+    [Absinthe.Middleware.Dataloader] ++ Absinthe.Plugin.defaults()
+  end
+
+  def middleware(middleware, %{identifier: identifier} = field, object) do
+    middleware_spec =
+      Absinthe.Schema.replace_default(
+        middleware,
+        {{__MODULE__, :get_value}, identifier},
+        field,
+        object
+      )
+
+    (middleware_spec ++ [ErrorHandler])
+    |> Enum.map(&ErrorException.wrap/1)
+  end
+
+  def get_value(%{source: source} = res, key) do
+    string = key |> Atom.to_string()
+    camelized = string |> Macro.camelize()
+
+    %{
+      res
+      | state: :resolved,
+        value: Map.get(source, key, Map.get(source, string, Map.get(source, camelized)))
+    }
+  end
 
   query do
     import_fields(:drilldown_queries)

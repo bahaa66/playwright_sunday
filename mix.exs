@@ -61,6 +61,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:horde, "~> 0.8.3"},
       {:absinthe, "1.5.5", override: true},
       {:absinthe_plug, "~> 1.5", override: true},
+      {:dataloader, "~> 1.0.0"},
       {:kafka,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "kafka",
@@ -104,6 +105,10 @@ defmodule CogyntWorkstationIngest.MixProject do
       {
         :druid,
         tag: "v1.14.5-beta", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
+      },
+      {
+        :cogynt_graphql,
+        path: "../cogynt-common/cogynt_graphql"
       }
     ]
   end
