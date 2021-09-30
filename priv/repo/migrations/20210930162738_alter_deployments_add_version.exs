@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterDeploymentsAddVersion do
+  use Migrations.AlterDeploymentsAddVersion
+end

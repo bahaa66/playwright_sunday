@@ -178,7 +178,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
 
   defp process_event_type_object(deployment_message) do
     Map.put(deployment_message, :topic, deployment_message.filter)
-    |> Map.put(:event_details_id, deployment_message.id)
+    |> Map.put(:event_definition_details_id, deployment_message.id)
     |> Map.put(:title, deployment_message.name)
     |> Map.put(
       :manual_actions,
@@ -222,7 +222,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
         deployment_message.link_analysis_type
       end
     end)
-    |> Map.put(:event_details_id, deployment_message.user_data_schema_id)
+    |> Map.put(:event_definition_details_id, deployment_message.user_data_schema_id)
     |> EventsContext.upsert_event_definition_v2()
     |> case do
       {:ok, event_definition} ->

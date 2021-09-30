@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterEventDefinitionDetailsAddEventDetailsId do
+  use Migrations.AlterEventDefinitionDetailsAddEventDetailsId
+end
