@@ -37,6 +37,7 @@ environment :prod do
   set include_system_libs: true
   set include_src: false
   set cookie: :">CJ!Fd]3C?7RL%&F1%{F=6@;{i&HX4{XjhZ3vJCrV;9tg3bO|6:n5Oi9BtnI,A(h"
+  set pre_start_hooks: "rel/hooks/pre_start"
   set vm_args: "rel/vm.args"
 end
 # You may define one or more releases in this file.

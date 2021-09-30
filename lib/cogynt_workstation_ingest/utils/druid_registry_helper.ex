@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   alias CogyntWorkstationIngest.Config
 
   @lexions_expression ~s("$matches")
-  @status_check_interval 90_000
   @default_dimensions [
     %{
       type: "string",
@@ -104,48 +103,57 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   ]
 
   def start_druid_with_registry_lookup(name, event_definition) do
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
-        child_spec = build_druid_ingest_spec(name, event_definition)
+    case DruidSupervisor.whereis(name) do
+      nil ->
+        druid_spec = build_druid_ingest_spec(name, event_definition)
 
-        case DruidSupervisor.create_druid_supervisor(child_spec) do
+        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec) do
+          {:error, {:already_started, pid}} ->
+            {:ok, pid}
+
           {:error, error} ->
             CogyntLogger.error(
               "#{__MODULE__}",
-              "Failed to start Druid Supervisor: #{name}. Error: #{inspect(error)}"
+              "Failed to start Druid Supervisor, error: #{inspect(error)}"
             )
 
             {:error, nil}
 
-          _ ->
-            {:ok, :success}
+          {:ok, pid} ->
+            {:ok, pid}
         end
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          case SupervisorMonitor.supervisor_status(druid_supervisor_pid) do
-            %{state: "SUSPENDED"} ->
-              SupervisorMonitor.resume_supervisor(druid_supervisor_pid)
+      pid ->
+        state = SupervisorMonitor.supervisor_status(pid)
 
-            %{state: "RUNNING"} ->
-              CogyntLogger.warn(
-                "#{__MODULE__}",
-                "Druid supervisor: #{name} already running"
-              )
+        cond do
+          SupervisorMonitor.SupervisorStatus.is_suspended?(state) ->
+            SupervisorMonitor.resume_supervisor(pid)
 
-            _ ->
-              SupervisorMonitor.delete_data_and_reset_supervisor(druid_supervisor_pid)
-          end
-        end)
+          SupervisorMonitor.SupervisorStatus.is_running?(state) ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{name} already running"
+            )
 
-        {:ok, :success}
+          SupervisorMonitor.SupervisorStatus.is_pending?(state) ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{name} has a pending status and is already starting."
+            )
+
+          true ->
+            SupervisorMonitor.delete_data_and_reset_supervisor(pid)
+        end
+
+        {:ok, pid}
     end
   end
 
   def start_drilldown_druid_with_registry_lookup("template_solutions" = name) do
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
-        child_spec =
+    case DruidSupervisor.whereis(name) do
+      nil ->
+        druid_spec =
           build_drilldown_druid_ingestion_spec(
             [
               "id",
@@ -156,7 +164,10 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
             name
           )
 
-        case DruidSupervisor.create_druid_supervisor(child_spec) do
+        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec) do
+          {:error, {:already_started, pid}} ->
+            {:ok, pid}
+
           {:error, error} ->
             CogyntLogger.error(
               "#{__MODULE__}",
@@ -165,35 +176,24 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
 
             {:error, nil}
 
-          _ ->
-            {:ok, :success}
+          {:ok, pid} ->
+            {:ok, pid}
         end
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          case SupervisorMonitor.supervisor_status(druid_supervisor_pid) do
-            %{state: "SUSPENDED"} ->
-              SupervisorMonitor.resume_supervisor(druid_supervisor_pid)
+      pid ->
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "Druid supervisor: #{name} already started by another node"
+        )
 
-            %{state: "RUNNING"} ->
-              CogyntLogger.warn(
-                "#{__MODULE__}",
-                "Druid supervisor: #{name} already running"
-              )
-
-            _ ->
-              SupervisorMonitor.delete_data_and_reset_supervisor(druid_supervisor_pid)
-          end
-        end)
-
-        {:ok, :success}
+        {:ok, pid}
     end
   end
 
   def start_drilldown_druid_with_registry_lookup("template_solution_events" = name) do
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
-        child_spec =
+    case DruidSupervisor.whereis(name) do
+      nil ->
+        druid_spec =
           build_drilldown_druid_ingestion_spec(
             [
               "id",
@@ -206,7 +206,10 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
             name
           )
 
-        case DruidSupervisor.create_druid_supervisor(child_spec) do
+        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec) do
+          {:error, {:already_started, pid}} ->
+            {:ok, pid}
+
           {:error, error} ->
             CogyntLogger.error(
               "#{__MODULE__}",
@@ -215,37 +218,29 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
 
             {:error, nil}
 
-          _ ->
-            {:ok, :success}
+          {:ok, pid} ->
+            {:ok, pid}
         end
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          case SupervisorMonitor.supervisor_status(druid_supervisor_pid) do
-            %{state: "SUSPENDED"} ->
-              SupervisorMonitor.resume_supervisor(druid_supervisor_pid)
+      pid ->
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "Druid supervisor: #{name} already started by another node"
+        )
 
-            %{state: "RUNNING"} ->
-              CogyntLogger.warn(
-                "#{__MODULE__}",
-                "Druid supervisor: #{name} already running"
-              )
-
-            _ ->
-              SupervisorMonitor.delete_data_and_reset_supervisor(druid_supervisor_pid)
-          end
-        end)
-
-        {:ok, :success}
+        {:ok, pid}
     end
   end
 
   def update_druid_with_registry_lookup(name, event_definition) do
-    child_spec = build_druid_ingest_spec(name, event_definition)
+    druid_spec = build_druid_ingest_spec(name, event_definition)
 
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
-        case DruidSupervisor.create_druid_supervisor(child_spec) do
+    case DruidSupervisor.whereis(name) do
+      nil ->
+        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec) do
+          {:error, {:already_started, pid}} ->
+            {:ok, pid}
+
           {:error, error} ->
             CogyntLogger.error(
               "#{__MODULE__}",
@@ -254,91 +249,134 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
 
             {:error, nil}
 
-          _ ->
-            {:ok, :success}
+          {:ok, pid} ->
+            {:ok, pid}
         end
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          SupervisorMonitor.create_or_update_supervisor(druid_supervisor_pid, child_spec)
-        end)
-
-        {:ok, :success}
+      pid ->
+        SupervisorMonitor.create_or_update_supervisor(pid, druid_spec)
+        {:ok, pid}
     end
   end
 
   def resume_druid_with_registry_lookup(name) do
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
+    case DruidSupervisor.whereis(name) do
+      nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
           "resume_druid_with_registry_lookup/1. No PID registred for #{name}"
         )
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          SupervisorMonitor.resume_supervisor(druid_supervisor_pid)
-        end)
+        {:error, :not_found}
+
+      pid ->
+        state = SupervisorMonitor.supervisor_status(pid)
+
+        cond do
+          SupervisorMonitor.SupervisorStatus.is_suspended?(state) ->
+            SupervisorMonitor.resume_supervisor(pid)
+
+          SupervisorMonitor.SupervisorStatus.is_running?(state) ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{name} already running"
+            )
+
+          SupervisorMonitor.SupervisorStatus.is_pending?(state) ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{name} has a pending status and is already starting."
+            )
+
+          true ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{name} has an unhandled state #{state}."
+            )
+        end
     end
   end
 
   def suspend_druid_with_registry_lookup(name) do
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
+    case DruidSupervisor.whereis(name) do
+      nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
           "suspend_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
         )
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          SupervisorMonitor.suspend_supervisor(druid_supervisor_pid)
-        end)
+        {:error, :not_found}
+
+      pid ->
+        state = SupervisorMonitor.supervisor_status(pid)
+
+        cond do
+          SupervisorMonitor.SupervisorStatus.is_suspended?(state) ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{name} already suspended"
+            )
+
+          SupervisorMonitor.SupervisorStatus.is_running?(state) ->
+            SupervisorMonitor.suspend_supervisor(pid)
+
+          SupervisorMonitor.SupervisorStatus.is_pending?(state) ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{name} has a pending status you may want to wait and retry."
+            )
+
+          true ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{name} has an unhandled state #{state}."
+            )
+        end
     end
   end
 
   def reset_druid_with_registry_lookup(name) do
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
+    case DruidSupervisor.whereis(name) do
+      nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
           "reset_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
         )
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          SupervisorMonitor.delete_data_and_reset_supervisor(druid_supervisor_pid)
-        end)
+        {:error, :not_found}
+
+      pid ->
+        SupervisorMonitor.delete_data_and_reset_supervisor(pid)
     end
   end
 
   def terminate_druid_with_registry_lookup(name) do
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
+    case DruidSupervisor.whereis(name) do
+      nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
           "terminate_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
         )
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          SupervisorMonitor.terminate_and_shutdown(druid_supervisor_pid)
-        end)
+        {:error, :not_found}
+
+      pid ->
+        SupervisorMonitor.terminate_and_shutdown(pid)
     end
   end
 
   def check_status_with_registry_lookup(name) do
-    case Registry.lookup(DruidRegistry, name) do
-      [] ->
+    case DruidSupervisor.whereis(name) do
+      nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
           "check_status_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
         )
 
-      registered_processes ->
-        Enum.each(registered_processes, fn {druid_supervisor_pid, _} ->
-          Process.send_after(druid_supervisor_pid, :get_status, @status_check_interval)
-        end)
+        {:error, :not_found}
+
+      pid ->
+        Process.send(pid, :get_status, [:noconnect])
     end
   end
 
