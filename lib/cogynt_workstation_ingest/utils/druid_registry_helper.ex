@@ -387,7 +387,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     # Build the DimensionSpecs and FlattenSpecs based off of the defaults
     # and the EventDefinitionDetails
     {dimensions, fields} =
-      EventsContext.get_event_definition_details(event_definition.event_details_id)
+      EventsContext.get_event_definition_details(event_definition.event_definition_details_id)
       |> Enum.reduce({@default_dimensions, @default_fields}, fn %EventDefinitionDetail{
                                                                   field_type: field_type,
                                                                   path: field_path

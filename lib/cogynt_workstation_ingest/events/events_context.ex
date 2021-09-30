@@ -535,11 +535,11 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   @doc """
-  Will return all the EventDefintionDetails for the given event_details_id
+  Will return all the EventDefintionDetails for the given event_definition_details_id
   """
-  def get_event_definition_details(event_details_id) do
+  def get_event_definition_details(event_definition_details_id) do
     from(details in EventDefinitionDetail,
-      where: details.event_details_id == ^event_details_id
+      where: details.event_definition_details_id == ^event_definition_details_id
     )
     |> Repo.all()
   end
@@ -554,9 +554,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> hard_delete_event_definitions()
       {10, nil}
   """
-  def hard_delete_event_definition_details(event_details_id) do
+  def hard_delete_event_definition_details(event_definition_details_id) do
     from(details in EventDefinitionDetail,
-      where: details.event_details_id == ^event_details_id
+      where: details.event_definition_details_id == ^event_definition_details_id
     )
     |> Repo.delete_all(timeout: 120_000)
   end
@@ -598,7 +598,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           acc ++
             [
               %{
-                event_details_id: id,
+                event_definition_details_id: id,
                 field_name: val.name,
                 path: val.path,
                 field_type: field_type
@@ -621,7 +621,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           acc ++
             [
               %{
-                event_details_id: id,
+                event_definition_details_id: id,
                 field_name: val["name"],
                 path: val["path"],
                 field_type: field_type
@@ -650,7 +650,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           acc ++
             [
               %{
-                event_details_id: id,
+                event_definition_details_id: id,
                 field_name: val.name,
                 path: val.path,
                 field_type: field_type
