@@ -89,6 +89,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           Map.put(message, :data, %{
             event: decoded_data,
             event_definition_id: event_definition_id,
+            # TODO: authoring 2.0 internal field change support
             core_id: decoded_data["id"] || Ecto.UUID.generate(),
             pipeline_state: nil,
             retry_count: 0,

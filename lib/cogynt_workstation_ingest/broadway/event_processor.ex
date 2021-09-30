@@ -17,6 +17,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     notification_priority: 3
   }
 
+  # TODO: authoring 2.0 internal field change support
+
   @doc """
   process_event/1 for a CRUD: delete event. We just store the core_id of the event that needs
   to be deleted as part of the payload. When it hits the transactional step of the pipeline the
