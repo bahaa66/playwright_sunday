@@ -387,86 +387,86 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     # Build the DimensionSpecs and FlattenSpecs based off of the defaults
     # and the EventDefinitionDetails
     {dimensions, fields} =
-      EventsContext.get_event_definition_details(event_definition.id)
-      |> Enum.reduce({@default_dimensions, @default_fields}, fn
-        %EventDefinitionDetail{
-          field_type: field_type,
-          path: field_path
-        },
-        {acc_dimensions, acc_fields} ->
-          sigil_field_path = ~s("#{field_path}")
+      EventsContext.get_event_definition_details(event_definition.event_details_id)
+      |> Enum.reduce({@default_dimensions, @default_fields}, fn %EventDefinitionDetail{
+                                                                  field_type: field_type,
+                                                                  path: field_path
+                                                                },
+                                                                {acc_dimensions, acc_fields} ->
+        sigil_field_path = ~s("#{field_path}")
 
-          cond do
-            # Any type that is not supported by Native Druid types need to be matched here
-            field_type in ["geo", "array"] ->
-              acc_dimensions =
-                Enum.uniq(
-                  Enum.map(acc_dimensions, fn dimension ->
-                    if dimension.name == field_path,
-                      do: %{
-                        type: "string",
-                        name: field_path
-                      },
-                      else: dimension
-                  end) ++
-                    [
-                      %{
-                        type: "string",
-                        name: field_path
-                      }
-                    ]
-                )
+        cond do
+          # Any type that is not supported by Native Druid types need to be matched here
+          field_type == "geo" or
+              String.contains?(field_type, "array") ->
+            acc_dimensions =
+              Enum.uniq(
+                Enum.map(acc_dimensions, fn dimension ->
+                  if dimension.name == field_path,
+                    do: %{
+                      type: "string",
+                      name: field_path
+                    },
+                    else: dimension
+                end) ++
+                  [
+                    %{
+                      type: "string",
+                      name: field_path
+                    }
+                  ]
+              )
 
-              acc_fields =
-                Enum.uniq(
-                  acc_fields ++
-                    [
-                      %{
-                        type: "jq",
-                        name: field_path,
-                        expr: ".#{Enum.join(String.split(sigil_field_path, "|"), ".")} | tojson"
-                      }
-                    ]
-                )
+            acc_fields =
+              Enum.uniq(
+                acc_fields ++
+                  [
+                    %{
+                      type: "jq",
+                      name: field_path,
+                      expr: ".#{Enum.join(String.split(sigil_field_path, "|"), ".")} | tojson"
+                    }
+                  ]
+              )
 
-              {acc_dimensions, acc_fields}
+            {acc_dimensions, acc_fields}
 
-            field_type == "nil" or is_nil(field_type) ->
-              {acc_dimensions, acc_fields}
+          field_type == "nil" or is_nil(field_type) ->
+            {acc_dimensions, acc_fields}
 
-            true ->
-              acc_dimensions =
-                Enum.uniq(
-                  Enum.map(acc_dimensions, fn dimension ->
-                    if dimension.name == field_path,
-                      do: %{
-                        type: field_type,
-                        name: field_path
-                      },
-                      else: dimension
-                  end) ++
-                    [
-                      %{
-                        type: field_type,
-                        name: field_path
-                      }
-                    ]
-                )
+          true ->
+            acc_dimensions =
+              Enum.uniq(
+                Enum.map(acc_dimensions, fn dimension ->
+                  if dimension.name == field_path,
+                    do: %{
+                      type: field_type,
+                      name: field_path
+                    },
+                    else: dimension
+                end) ++
+                  [
+                    %{
+                      type: field_type,
+                      name: field_path
+                    }
+                  ]
+              )
 
-              acc_fields =
-                Enum.uniq(
-                  acc_fields ++
-                    [
-                      %{
-                        type: "path",
-                        name: field_path,
-                        expr: "$.#{Enum.join(String.split(field_path, "|"), ".")}"
-                      }
-                    ]
-                )
+            acc_fields =
+              Enum.uniq(
+                acc_fields ++
+                  [
+                    %{
+                      type: "path",
+                      name: field_path,
+                      expr: "$.#{Enum.join(String.split(field_path, "|"), ".")}"
+                    }
+                  ]
+              )
 
-              {acc_dimensions, acc_fields}
-          end
+            {acc_dimensions, acc_fields}
+        end
       end)
 
     # If the _timestamp field existed in the EventDefinitionDetails then use it as the

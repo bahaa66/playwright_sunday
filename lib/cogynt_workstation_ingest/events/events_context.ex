@@ -200,47 +200,72 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   Will create the EventDefinition if no record is found for the event_definition_id.
   If a record is found it updates the record with the new attrs.
   ## Examples
+      iex> upsert_event_definition_v2(%{field: value})
+      {:ok, %EventDefinition{}}
+      iex> upsert_event_definition_v2(%{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+  """
+  def upsert_event_definition_v2(attrs) do
+    case get_event_definition_by(%{
+           id: attrs.id,
+           deployment_id: attrs.deployment_id
+         }) do
+      nil ->
+        create_event_definition(attrs)
+
+      %EventDefinition{} = event_definition ->
+        update_event_definition(event_definition, attrs)
+    end
+  end
+
+  @doc """
+  Will create the EventDefinition if no record is found for the event_definition_id.
+  If a record is found it updates the record with the new attrs.
+  ## Examples
       iex> upsert_event_definition(%{field: value})
       {:ok, %EventDefinition{}}
       iex> upsert_event_definition(%{field: bad_value})
       {:error, %Ecto.Changeset{}}
   """
+  # *** This can be deprecated once Authoring 1.0 is no longer supported ***
   def upsert_event_definition(attrs) do
     case get_event_definition_by(%{
            id: attrs.id,
            deployment_id: attrs.deployment_id
          }) do
       nil ->
-        created_ed = create_event_definition(attrs)
+        new_event_def = create_event_definition(attrs)
 
-        case created_ed do
-          {:ok, %EventDefinition{id: id} = event_definition} ->
+        case new_event_def do
+          {:ok, %EventDefinition{id: id}} ->
             if Map.has_key?(attrs, :fields) do
-              create_event_definition_fields(id, attrs.fields)
+              process_event_definition_detail_fields(id, attrs.fields)
+              |> insert_all_event_details()
             end
 
-            {:ok, %EventDefinition{} = event_definition}
+            new_event_def
 
           _ ->
-            created_ed
+            new_event_def
         end
 
       %EventDefinition{} = event_definition ->
-        result = update_event_definition(event_definition, attrs)
+        updated_event_def = update_event_definition(event_definition, attrs)
 
-        case result do
-          {:ok, %EventDefinition{id: id} = event_definition} ->
-            # Delete all EventDefinitionDetails for id
+        case updated_event_def do
+          {:ok, %EventDefinition{id: id}} ->
+            # Delete all EventDefinitionDetails for event_definition_id
             hard_delete_event_definition_details(id)
-            # Create new EventDefinitionDetails for id
+            # Create new EventDefinitionDetails for event_definition_id
             if Map.has_key?(attrs, :fields) do
-              create_event_definition_fields(id, attrs.fields)
+              process_event_definition_detail_fields(id, attrs.fields)
+              |> insert_all_event_details()
             end
 
-            {:ok, %EventDefinition{} = event_definition}
+            updated_event_def
 
           _ ->
-            result
+            updated_event_def
         end
     end
   end
@@ -505,13 +530,16 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.insert()
   end
 
+  def insert_all_event_details(event_details) do
+    Repo.insert_all(EventDefinitionDetail, event_details)
+  end
+
   @doc """
-  Will return all the EventDefintionDetails that are assosciated with the EventDefinition
-  struct
+  Will return all the EventDefintionDetails for the given event_details_id
   """
-  def get_event_definition_details(event_definition_id) do
+  def get_event_definition_details(event_details_id) do
     from(details in EventDefinitionDetail,
-      where: details.event_definition_id == ^event_definition_id
+      where: details.event_details_id == ^event_details_id
     )
     |> Repo.all()
   end
@@ -526,9 +554,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> hard_delete_event_definitions()
       {10, nil}
   """
-  def hard_delete_event_definition_details(event_definition_id) do
+  def hard_delete_event_definition_details(event_details_id) do
     from(details in EventDefinitionDetail,
-      where: details.event_definition_id == ^event_definition_id
+      where: details.event_details_id == ^event_details_id
     )
     |> Repo.delete_all(timeout: 120_000)
   end
@@ -549,6 +577,110 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       Map.take(event_definition_detail, EventDefinitionDetail.__schema__(:fields))
       | remove_event_definition_detail_virtual_fields(tail)
     ]
+  end
+
+  def process_event_definition_detail_fields(id, fields) do
+    Enum.reduce(fields, [], fn {key, val}, acc ->
+      case is_atom(key) do
+        true ->
+          field_type =
+            case val.dataType do
+              "poly" ->
+                "geo"
+
+              "poly-array" ->
+                "geo-array"
+
+              _ ->
+                val.dataType
+            end
+
+          acc ++
+            [
+              %{
+                event_details_id: id,
+                field_name: val.name,
+                path: val.path,
+                field_type: field_type
+              }
+            ]
+
+        false ->
+          field_type =
+            case val["dataType"] do
+              "poly" ->
+                "geo"
+
+              "poly-array" ->
+                "geo-array"
+
+              _ ->
+                val["dataType"]
+            end
+
+          acc ++
+            [
+              %{
+                event_details_id: id,
+                field_name: val["name"],
+                path: val["path"],
+                field_type: field_type
+              }
+            ]
+      end
+    end)
+  end
+
+  def process_event_definition_detail_fields_v2(id, fields) do
+    Enum.reduce(fields, [], fn {key, val}, acc ->
+      case is_atom(key) do
+        true ->
+          field_type =
+            case val.data_type do
+              "poly" ->
+                "geo"
+
+              "poly-array" ->
+                "geo-array"
+
+              _ ->
+                val.data_type
+            end
+
+          acc ++
+            [
+              %{
+                event_details_id: id,
+                field_name: val.name,
+                path: val.path,
+                field_type: field_type
+              }
+            ]
+
+        false ->
+          field_type =
+            case val["data_type"] do
+              "poly" ->
+                "geo"
+
+              "poly-array" ->
+                "geo-array"
+
+              _ ->
+                val["data_type"]
+            end
+
+          acc ++
+            [
+              %{
+                event_definition_id: id,
+                field_name: val["name"],
+                path: val["path"],
+                field_type: field_type
+              }
+            ]
+      end
+    end)
   end
 
   # -------------------------------- #
@@ -666,52 +798,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp create_event_definition_fields(id, fields) do
-    Enum.each(fields, fn {key, val} ->
-      case is_atom(key) do
-        true ->
-          field_type =
-            case val.dataType do
-              "poly" ->
-                "geo"
-
-              "poly-array" ->
-                "geo-array"
-
-              _ ->
-                val.dataType
-            end
-
-          create_event_definition_detail(%{
-            event_definition_id: id,
-            field_name: val.name,
-            path: val.path,
-            field_type: field_type
-          })
-
-        false ->
-          field_type =
-            case val["dataType"] do
-              "poly" ->
-                "geo"
-
-              "poly-array" ->
-                "geo-array"
-
-              _ ->
-                val["dataType"]
-            end
-
-          create_event_definition_detail(%{
-            event_definition_id: id,
-            field_name: val["name"],
-            path: val["path"],
-            field_type: val["dataType"]
-          })
-      end
-    end)
-  end
-
   defp filter_events(filter, query) do
     Enum.reduce(filter, query, fn
       {:event_definition_id, event_definition_id}, q ->
