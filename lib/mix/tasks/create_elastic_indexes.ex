@@ -7,9 +7,7 @@ defmodule Mix.Tasks.CreateElasticIndexes do
 
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Elasticsearch.API
-  alias CogyntWorkstationIngest.Elasticsearch.Cluster
-  alias Elasticsearch.Index
-
+ 
   @impl Mix.Task
   def run(_) do
     with {:ok, _} <- HTTPoison.start(),

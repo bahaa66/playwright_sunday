@@ -151,9 +151,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
           end
   end
 
-  def search_query() do
-  end
-
   def bulk_upsert_document(index, bulk_docs) do
     {:ok, index} = Elasticsearch.Index.latest_starting_with(Cluster, index) |> IO.inspect()
 
@@ -219,7 +216,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.API do
   end
 
 
-    # ----------------------- #
+  # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
   defp encode!(struct, index, action \\ "create") do
