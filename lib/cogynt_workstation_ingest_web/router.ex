@@ -17,7 +17,7 @@ defmodule CogyntWorkstationIngestWeb.Router do
     plug(:put_secure_browser_headers)
   end
 
-  scope "/" do
+  scope "/ingest" do
     pipe_through(:browser)
 
     if Config.enable_dev_tools?() do
@@ -30,13 +30,13 @@ defmodule CogyntWorkstationIngestWeb.Router do
   ## Liveness Check route
   forward("/livenessCheck", LivenessCheck)
 
-  scope "/api", CogyntWorkstationIngestWeb do
+  scope "/ingest/api", CogyntWorkstationIngestWeb do
     pipe_through(:api)
     get("/drilldown/all/:id", DrilldownController, :index)
     get("/drilldown/:id", DrilldownController, :show)
   end
 
-  scope "/api" do
+  scope "/ingest/api" do
     forward("/graphql", Absinthe.Plug, schema: CogyntWorkstationIngestWeb.Schema)
 
     if Config.enable_dev_tools?() do
