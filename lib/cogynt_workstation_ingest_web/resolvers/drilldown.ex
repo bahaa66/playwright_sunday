@@ -178,7 +178,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     end)
   end
 
-  def drilldown_solution_outcomes(%{"id" => solution_id} = parent, _, %{
+  def drilldown_solution_outcomes(%{"id" => solution_id}, _, %{
         context: %{loader: loader}
       }) do
     get_outcomes(solution_id, loader, fn
@@ -294,6 +294,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
           :events,
           solution_ids
         )
+        |> List.flatten()
 
       callback.(
         events,
