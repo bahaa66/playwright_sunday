@@ -97,9 +97,8 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
       query: """
         SELECT id AS solution_id, event, aid
         FROM druid.template_solution_events
-        WHERE id=ANY(?) and aid IS NULL
-      """,
-      parameters: [%{type: "VARCHAR", value: "#{Enum.join(ids, "','")}"}]
+        WHERE id=ANY('#{Enum.join(ids, "','")}') and aid IS NULL
+      """
     }
 
     Druid.sql_query(sql_query)
@@ -140,9 +139,8 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
       query: """
         SELECT id AS solution_id, event, aid
         FROM druid.template_solution_events
-        WHERE id=ANY(?) AND aid IS NOT NULL
-      """,
-      parameters: [%{type: "VARCHAR", value: "#{Enum.join(ids, "','")}"}]
+        WHERE id=ANY('#{Enum.join(ids, "','")}') AND aid IS NOT NULL
+      """
     }
 
     Druid.sql_query(sql_query)

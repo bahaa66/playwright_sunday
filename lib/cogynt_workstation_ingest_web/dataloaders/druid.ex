@@ -40,7 +40,7 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
               |> Enum.group_by(&Map.get(&1, "solution_id"))
 
             for id <- solution_ids, into: %{} do
-              {id, events[id]}
+              {id, events[id] || []}
             end
 
           {:error, error} ->
@@ -49,7 +49,7 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
             end
         end
 
-      {:template_solution_events, type}, solution_ids ->
+      {:template_solution_events, _type}, solution_ids ->
         DrilldownContext.get_template_solution_events(MapSet.to_list(solution_ids))
         |> case do
           {:ok, events} ->
@@ -70,7 +70,7 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
               |> Enum.group_by(&Map.get(&1, "solution_id"))
 
             for id <- solution_ids, into: %{} do
-              {id, events[id]}
+              {id, events[id] || []}
             end
 
           {:error, error} ->

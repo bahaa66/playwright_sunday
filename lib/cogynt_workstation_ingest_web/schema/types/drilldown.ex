@@ -8,6 +8,12 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
 
       resolve(&DrilldownResolver.drilldown_solution/3)
     end
+
+    field :drilldown, non_null(:drilldown_graph) do
+      arg(:id, non_null(:id))
+
+      resolve(&DrilldownResolver.drilldown/3)
+    end
   end
 
   object :drilldown_solution do
@@ -36,5 +42,16 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
     field :attributes, non_null(:json) do
       resolve(&DrilldownResolver.event_attributes/3)
     end
+  end
+
+  object :drilldown_graph do
+    field(:edges, non_null(list_of(non_null(:drilldown_edge))))
+    field(:nodes, non_null(list_of(non_null(:drilldown_solution))))
+    field(:id, non_null(:id))
+  end
+
+  object :drilldown_edge do
+    field(:from, non_null(:string))
+    field(:to, non_null(:string))
   end
 end
