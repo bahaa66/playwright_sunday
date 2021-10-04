@@ -55,16 +55,20 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
 
   def get_drilldown(template_solutions, loader, callback) do
     exclude_solution_ids = Enum.map(template_solutions, &Map.get(&1, "id"))
+
     get_events(exclude_solution_ids, loader, fn
       events, events_loader ->
         solution_ids = event_solution_ids(events, exclude_solution_ids)
-        published_by_to_solution = Enum.reduce(events, %{}, fn
-          %{"published_by" => p, "solution_id" => s_id}, acc ->
-            Map.put(acc, p, s_id)
 
-          _, acc ->
-            acc
-        end)
+        published_by_to_solution =
+          Enum.reduce(events, %{}, fn
+            %{"published_by" => p, "solution_id" => s_id}, acc ->
+              Map.put(acc, p, s_id)
+
+            _, acc ->
+              acc
+          end)
+
         get_solutions(solution_ids, events_loader, fn
           [], template_solutions_loader ->
             callback.(
@@ -72,23 +76,24 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
               template_solutions_loader
             )
 
-          solutions, template_solutions_loader->
+          solutions, template_solutions_loader ->
             get_drilldown(solutions, template_solutions_loader, fn
-              %{nodes: nodes, edges: edges}, drilldown_loader->
-                edges_new = Enum.map(solutions, fn
-                  %{"id" => id} ->
-                    %{
-                      from: Map.get(published_by_to_solution, id),
-                      to: id
-                    }
-                end)
+              %{nodes: nodes, edges: edges}, drilldown_loader ->
+                edges_new =
+                  Enum.map(solutions, fn
+                    %{"id" => id} ->
+                      %{
+                        from: Map.get(published_by_to_solution, id),
+                        to: id
+                      }
+                  end)
+
                 callback.(
                   %{nodes: nodes ++ template_solutions, edges: edges ++ edges_new},
                   drilldown_loader
                 )
             end)
         end)
-
     end)
   end
 
@@ -144,7 +149,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
       [], _loader ->
         {:ok, []}
 
-      events, _loader ->
+      events, loader ->
         event_solution_ids(events, solution_id)
         |> get_solutions(loader, fn solutions, _loader -> {:ok, solutions} end)
     end)
@@ -156,17 +161,17 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     get_events(solution_id, loader, fn
       {:error, original_error}, _loader ->
         {:error,
-          Error.new(%{
-            message:
-              "An internal server occurred while querying for the drilldown solution events.",
-            code: :internal_server_error,
-            details:
-              "There was an error when querying for template solution events for template solution #{
-                solution_id
-              }. Druid may be down or the datasource may not exist.",
-            original_error: original_error,
-            module: "#{__MODULE__} line: #{__ENV__.line}"
-          })}
+         Error.new(%{
+           message:
+             "An internal server occurred while querying for the drilldown solution events.",
+           code: :internal_server_error,
+           details:
+             "There was an error when querying for template solution events for template solution #{
+               solution_id
+             }. Druid may be down or the datasource may not exist.",
+           original_error: original_error,
+           module: "#{__MODULE__} line: #{__ENV__.line}"
+         })}
 
       events, _loader ->
         {:ok, events || []}
@@ -176,22 +181,20 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   def drilldown_solution_outcomes(%{"id" => solution_id} = parent, _, %{
         context: %{loader: loader}
       }) do
-    IO.inspect(parent)
-    IO.inspect(loader)
     get_outcomes(solution_id, loader, fn
       {:error, original_error}, _loader ->
         {:error,
-          Error.new(%{
-            message:
-              "An internal server occurred while querying for the drilldown solution outcomes.",
-            code: :internal_server_error,
-            details:
-              "There was an error when querying for template solution outcomes for template solution #{
-                solution_id
-              }. Druid may be down or the datasource may not exist.",
-            original_error: original_error,
-            module: "#{__MODULE__} line: #{__ENV__.line}"
-          })}
+         Error.new(%{
+           message:
+             "An internal server occurred while querying for the drilldown solution outcomes.",
+           code: :internal_server_error,
+           details:
+             "There was an error when querying for template solution outcomes for template solution #{
+               solution_id
+             }. Druid may be down or the datasource may not exist.",
+           original_error: original_error,
+           module: "#{__MODULE__} line: #{__ENV__.line}"
+         })}
 
       outcomes, _loader ->
         {:ok, outcomes || []}
@@ -257,54 +260,43 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   end
 
   defp get_solutions(solution_ids, loader, callback) when is_list(solution_ids) do
-    solution_ids
-    |> Enum.reduce(loader, fn i, a ->
-      a
-      |> Dataloader.load(
-        DruidLoader,
-        :template_solutions,
-        i
-      )
-    end)
+    loader
+    |> Dataloader.load_many(
+      DruidLoader,
+      :template_solutions,
+      solution_ids
+    )
     |> on_load(fn loader ->
       solutions =
-        Enum.map(solution_ids, fn id ->
-          Dataloader.get(
-            loader,
-            DruidLoader,
-            :template_solutions,
-            id
-          )
-        end)
+        Dataloader.get_many(
+          loader,
+          DruidLoader,
+          :template_solutions,
+          solution_ids
+        )
 
       callback.(solutions, loader)
     end)
   end
 
   defp get_events(solution_ids, loader, callback) when is_list(solution_ids) do
-    Enum.reduce(solution_ids, loader, fn
-      id, l ->
-        Dataloader.load(
-          l,
-          DruidLoader,
-          {:template_solution_events, :events},
-          id
-        )
-    end)
+    Dataloader.load_many(
+      loader,
+      DruidLoader,
+      :events,
+      solution_ids
+    )
     |> on_load(fn loader ->
-      callback.(
-        Enum.reduce(solution_ids, [], fn
-          {:error, _}, events ->
-            events
+      events =
+        Dataloader.get_many(
+          loader,
+          DruidLoader,
+          :events,
+          solution_ids
+        )
 
-          id, acc_events ->
-            acc_events ++ Dataloader.get(
-              loader,
-              DruidLoader,
-              {:template_solution_events, :events},
-              id
-            )
-        end),
+      callback.(
+        events,
         loader
       )
     end)
@@ -314,16 +306,18 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     loader
     |> Dataloader.load(
       DruidLoader,
-      {:template_solution_events, :events},
+      :events,
       solution_id
     )
     |> on_load(fn loader ->
-      events = Dataloader.get(
+      events =
+        Dataloader.get(
           loader,
           DruidLoader,
-          {:template_solution_events, :events},
+          :events,
           solution_id
         )
+
       callback.(
         events,
         loader
@@ -335,17 +329,18 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     loader
     |> Dataloader.load(
       DruidLoader,
-      {:template_solution_events, :outcomes},
+      :outcomes,
       solution_id
     )
     |> on_load(fn loader ->
-      IO.inspect(loader)
-      outcomes = Dataloader.get(
-        loader,
-        DruidLoader,
-        {:template_solution_events, :outcomes},
-        solution_id
-      )
+      outcomes =
+        Dataloader.get(
+          loader,
+          DruidLoader,
+          :outcomes,
+          solution_id
+        )
+
       callback.(
         outcomes,
         loader

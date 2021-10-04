@@ -10,7 +10,7 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
 
   def druid_loader do
     fn
-      {:template_solution_events, :outcomes}, solution_ids ->
+      :outcomes, solution_ids ->
         DrilldownContext.get_template_solution_outcomes(MapSet.to_list(solution_ids))
         |> case do
           {:ok, events} ->
@@ -49,7 +49,7 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
             end
         end
 
-      {:template_solution_events, _type}, solution_ids ->
+      :events, solution_ids ->
         DrilldownContext.get_template_solution_events(MapSet.to_list(solution_ids))
         |> case do
           {:ok, events} ->
