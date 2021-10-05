@@ -17,7 +17,7 @@ defmodule CogyntWorkstationIngestWeb.Router do
     plug(:put_secure_browser_headers)
   end
 
-  scope "/ingest" do
+  scope "/api" do
     pipe_through(:browser)
 
     if Config.enable_dev_tools?() do
