@@ -243,6 +243,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         {AbsintheUtils.camelize(k, lower: true), v}
       end)
       |> Map.put("fields", fields)
+      |> IO.inspect()
 
     {:ok, attrs}
   end

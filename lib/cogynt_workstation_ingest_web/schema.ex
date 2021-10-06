@@ -2,6 +2,7 @@ defmodule CogyntWorkstationIngestWeb.Schema do
   use Absinthe.Schema
   alias CogyntGraphql.Middleware.{ErrorHandler, ErrorException}
   alias CogyntWorkstationIngestWeb.Dataloaders.Druid, as: DruidLoader
+  alias Absinthe.Utils, as: AbsintheUtils
 
   import_types(Absinthe.Type.Custom)
 
@@ -41,7 +42,7 @@ defmodule CogyntWorkstationIngestWeb.Schema do
 
   def get_value(%{source: source} = res, key) do
     string = key |> Atom.to_string()
-    camelized = string |> Macro.camelize()
+    camelized = string |> AbsintheUtils.camelize(lower: true)
 
     %{
       res

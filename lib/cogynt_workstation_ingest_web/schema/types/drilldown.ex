@@ -16,23 +16,24 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
     end
   end
 
-  interface :drilldown_entity do
-    field :id, non_null(:id)
-    field :attributes, non_null(:json)
+  object :drilldown_graph do
+    field(:edges, non_null(list_of(non_null(:drilldown_edge))))
+    field(:nodes, non_null(list_of(non_null(:drilldown_node))))
+    field(:id, non_null(:id))
+  end
 
+  union :drilldown_node do
+    types [:drilldown_solution, :drilldown_event]
     resolve_type(fn
-      %{"templateTypeId" => _} = i, _ ->
-        :drilldown_solution
-
-      i, _ ->
-        :drilldown_event
+      %{"templateTypeId" => _}, _ -> :drilldown_solution
+      _, _ -> :drilldown_event
     end)
   end
 
   object :drilldown_solution do
     field :id, non_null(:id)
 
-    field :attributes, non_null(:json) do
+    field :attributes, non_null(:drilldown_solution_attributes) do
       resolve(&DrilldownResolver.solution_attributes/3)
     end
 
@@ -47,24 +48,38 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
     field :children, non_null(list_of(non_null(:drilldown_solution))) do
       resolve(&DrilldownResolver.drilldown_solution_children/3)
     end
+  end
 
-    interface(:drilldown_entity)
+  object :drilldown_solution_attributes do
+    field :time, non_null(:string) do
+      resolve(fn %{"__time" => time}, _, _ ->
+        {:ok, time}
+      end)
+    end
+    field :id, non_null(:id)
+    field :retracted, non_null(:string)
+    field :template_type_id, non_null(:id)
+    field :template_type_name, non_null(:string)
   end
 
   object :drilldown_event do
     field :id, non_null(:id)
 
-    field :attributes, non_null(:json) do
+    field :attributes, non_null(:drilldown_event_attributes) do
       resolve(&DrilldownResolver.event_attributes/3)
     end
-
-    interface(:drilldown_entity)
   end
 
-  object :drilldown_graph do
-    field(:edges, non_null(list_of(non_null(:drilldown_edge))))
-    field(:nodes, non_null(list_of(non_null(:drilldown_entity))))
-    field(:id, non_null(:id))
+  object :drilldown_event_attributes do
+    field :assertion_id, :id
+    field :data_type, non_null(:string)
+    field :fields, non_null(:json)
+    field :processed_at, :string
+    field :published_at, non_null(:string)
+    field :published_by, non_null(:id)
+    field :publishing_template_type, non_null(:id)
+    field :publishing_template_type_name, non_null(:string)
+    field :source, non_null(:id)
   end
 
   object :drilldown_edge do
