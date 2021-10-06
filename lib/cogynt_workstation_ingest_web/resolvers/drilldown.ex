@@ -57,41 +57,49 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     exclude_solution_ids = Enum.map(template_solutions, &Map.get(&1, "id"))
 
     get_events(exclude_solution_ids, loader, fn
-      events, events_loader ->
+      events, events_and_outcomes_loader ->
         solution_ids = event_solution_ids(events, exclude_solution_ids)
 
-        published_by_to_solution =
-          Enum.reduce(events, %{}, fn
-            %{"published_by" => p, "solution_id" => s_id}, acc ->
-              Map.put(acc, p, s_id)
+        event_edges =
+          Enum.reduce(events, [], fn
+            %{"id" => id, "solution_id" => s_id}, edges ->
+              [%{from: id, to: s_id} | edges]
 
             _, acc ->
               acc
           end)
 
-        get_solutions(solution_ids, events_loader, fn
+        get_solutions(solution_ids, events_and_outcomes_loader, fn
           [], template_solutions_loader ->
             callback.(
-              %{nodes: template_solutions, edges: []},
+              %{nodes: template_solutions ++ events, edges: event_edges},
               template_solutions_loader
             )
 
           solutions, template_solutions_loader ->
-            get_drilldown(solutions, template_solutions_loader, fn
-              %{nodes: nodes, edges: edges}, drilldown_loader ->
-                edges_new =
-                  Enum.map(solutions, fn
-                    %{"id" => id} ->
+            get_outcomes(Enum.map(solutions, &Map.get(&1, "id")), template_solutions_loader, fn
+              outcomes, outcomes_loader ->
+                outcome_edges =
+                  Enum.map(outcomes, fn {s_id, outcomes} ->
+                    Enum.map(outcomes, fn %{"id" => o_id} ->
                       %{
-                        from: Map.get(published_by_to_solution, id),
-                        to: id
+                        from: s_id,
+                        to: o_id
                       }
+                    end)
                   end)
+                  |> List.flatten()
 
-                callback.(
-                  %{nodes: nodes ++ template_solutions, edges: edges ++ edges_new},
-                  drilldown_loader
-                )
+                get_drilldown(solutions, outcomes_loader, fn
+                  %{nodes: nodes, edges: edges}, drilldown_loader ->
+                    callback.(
+                      %{
+                        nodes: nodes ++ template_solutions ++ events,
+                        edges: edges ++ event_edges ++ outcome_edges
+                      },
+                      drilldown_loader
+                    )
+                end)
             end)
         end)
     end)
@@ -321,6 +329,29 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
 
       callback.(
         events,
+        loader
+      )
+    end)
+  end
+
+  defp get_outcomes(solution_ids, loader, callback) when is_list(solution_ids) do
+    loader
+    |> Dataloader.load_many(
+      DruidLoader,
+      :outcomes,
+      solution_ids
+    )
+    |> on_load(fn loader ->
+      outcomes =
+        Dataloader.get_many(
+          loader,
+          DruidLoader,
+          :outcomes,
+          solution_ids
+        )
+
+      callback.(
+        Enum.zip(solution_ids, outcomes) |> Enum.into(%{}),
         loader
       )
     end)

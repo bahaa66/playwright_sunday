@@ -16,8 +16,7 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
           {:ok, events} ->
             events =
               events
-              |> Enum.reduce(%{}, fn %{"solution_id" => solution_id, "event" => event} = evt,
-                                     acc ->
+              |> Enum.reduce(%{}, fn %{"solution_id" => solution_id, "event" => event}, acc ->
                 Jason.decode(event)
                 |> case do
                   {:ok, event} ->
@@ -32,7 +31,7 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
                     if(de == %{} or npa > epa, do: Map.put(acc, outcome["id"], outcome), else: acc)
 
                   {:error, error} ->
-                    Map.put(evt, "event", {:error, :json_decode_error, error})
+                    {:error, :json_decode_error, error}
                 end
               end)
               |> Map.values()
@@ -55,14 +54,14 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
           {:ok, events} ->
             events =
               events
-              |> Enum.map(fn %{"aid" => aid, "solution_id" => solution_id, "event" => event} = evt ->
+              |> Enum.map(fn %{"aid" => aid, "solution_id" => solution_id, "event" => event} ->
                 Jason.decode(event)
                 |> case do
                   {:ok, event} ->
                     event |> Map.put("solution_id", solution_id) |> Map.put("assertion_id", aid)
 
                   {:error, error} ->
-                    Map.put(evt, "event", {:error, :json_decode_error, error})
+                    {:error, :json_decode_error, error}
                 end
               end)
               |> Enum.filter(&(not (&1["$partial"] == true and &1["_confidence"] == 0.0)))
@@ -71,6 +70,67 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
 
             for id <- solution_ids, into: %{} do
               {id, events[id] || []}
+            end
+
+          {:error, error} ->
+            for id <- solution_ids, into: %{} do
+              {id, {:error, error}}
+            end
+        end
+
+      :events_and_outcomes, solution_ids ->
+        DrilldownContext.list_template_solution_events(MapSet.to_list(solution_ids))
+        |> case do
+          {:ok, events} ->
+            {events, outcomes} =
+              events
+              |> Enum.reduce({[], %{}}, fn
+                %{"aid" => aid, "solution_id" => solution_id, "event" => event},
+                {events, outcomes} = acc ->
+                  Jason.decode(event)
+                  |> case do
+                    {:ok, event} ->
+                      if aid == "" do
+                        de = Map.get(outcomes, Map.get(event, "id"), %{})
+
+                        outcome =
+                          Map.put(event, "assertion_id", nil)
+                          |> Map.put("solution_id", solution_id)
+
+                        epa = Map.get(de, "published_at", "1970-01-01T00:00:00Z")
+                        npa = Map.get(outcome, "published_at", "1970-01-01T00:00:00Z")
+
+                        if(de == %{} or npa > epa,
+                          do: {events, Map.put(outcomes, outcome["id"], outcome)},
+                          else: acc
+                        )
+                      else
+                        if not (event["$partial"] == true and event["_confidence"] == 0.0) do
+                          {[
+                             event
+                             |> Map.put("solution_id", solution_id)
+                             |> Map.put("assertion_id", aid)
+                             | events
+                           ], outcomes}
+                        else
+                          acc
+                        end
+                      end
+
+                    {:error, _error} ->
+                      acc
+                  end
+              end)
+
+            events_and_outcomes =
+              outcomes
+              |> Map.values()
+              |> Enum.concat(events)
+              |> Enum.sort_by(& &1["id"])
+              |> Enum.group_by(&Map.get(&1, "solution_id"))
+
+            for id <- solution_ids, into: %{} do
+              {id, Map.get(events_and_outcomes, id, [])}
             end
 
           {:error, error} ->

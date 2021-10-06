@@ -314,6 +314,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           "#{__MODULE__}",
           "Supervisor #{name} no longer exists in druid. Shutting down genserver."
         )
+
         {:stop, :normal, state}
 
       {:error, error} ->

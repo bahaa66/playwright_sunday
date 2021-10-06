@@ -16,6 +16,19 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
     end
   end
 
+  interface :drilldown_entity do
+    field :id, non_null(:id)
+    field :attributes, non_null(:json)
+
+    resolve_type(fn
+      %{"templateTypeId" => _} = i, _ ->
+        :drilldown_solution
+
+      i, _ ->
+        :drilldown_event
+    end)
+  end
+
   object :drilldown_solution do
     field :id, non_null(:id)
 
@@ -34,6 +47,8 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
     field :children, non_null(list_of(non_null(:drilldown_solution))) do
       resolve(&DrilldownResolver.drilldown_solution_children/3)
     end
+
+    interface(:drilldown_entity)
   end
 
   object :drilldown_event do
@@ -42,15 +57,21 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
     field :attributes, non_null(:json) do
       resolve(&DrilldownResolver.event_attributes/3)
     end
+
+    interface(:drilldown_entity)
   end
 
   object :drilldown_graph do
     field(:edges, non_null(list_of(non_null(:drilldown_edge))))
-    field(:nodes, non_null(list_of(non_null(:drilldown_solution))))
+    field(:nodes, non_null(list_of(non_null(:drilldown_entity))))
     field(:id, non_null(:id))
   end
 
   object :drilldown_edge do
+    field :id, non_null(:string) do
+      resolve(fn %{from: f, to: t}, _, _ -> {:ok, "#{f}:#{t}"} end)
+    end
+
     field(:from, non_null(:string))
     field(:to, non_null(:string))
   end
