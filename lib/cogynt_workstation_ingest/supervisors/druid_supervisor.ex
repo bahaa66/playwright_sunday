@@ -23,7 +23,8 @@ defmodule CogyntWorkstationIngest.Supervisors.DruidSupervisor do
 
     child_spec = %{
       id: SupervisorMonitor,
-      start: {SupervisorMonitor, :start_link, [new_opts]}
+      start: {SupervisorMonitor, :start_link, [new_opts]},
+      restart: :transient
     }
 
     Horde.DynamicSupervisor.start_child(__MODULE__, child_spec)
