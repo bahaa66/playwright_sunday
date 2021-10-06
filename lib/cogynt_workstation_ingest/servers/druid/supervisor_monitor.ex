@@ -300,7 +300,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       if SupervisorStatus.requires_reset?(status) do
         CogyntLogger.warn(
           "#{__MODULE__}",
-          "DruidSupervisor: #{id} in Error State: #{status}. Resetting Supervisor"
+          "DruidSupervisor: #{id} in Error State: #{inspect(status)}. Resetting Supervisor"
         )
 
         {:noreply, state, {:continue, :reset_and_get_supervisor}}
