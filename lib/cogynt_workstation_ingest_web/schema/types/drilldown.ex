@@ -30,6 +30,15 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
     end)
   end
 
+  object :drilldown_edge do
+    field :id, non_null(:string) do
+      resolve(fn %{from: f, to: t}, _, _ -> {:ok, "#{f}:#{t}"} end)
+    end
+
+    field(:from, non_null(:string))
+    field(:to, non_null(:string))
+  end
+
   object :drilldown_solution do
     field :id, non_null(:id)
 
@@ -70,11 +79,17 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
     end
   end
 
-  object :drilldown_event_attributes do
-    field :assertion_id, :id
+  union :drilldown_event_attributes do
+    types [:drilldown_input_event_attributes, :drilldown_outcome_event_attributes]
+    resolve_type(fn
+      %{"assertionId" => nil}, _ -> :drilldown_outcome_event_attributes
+      _, _ -> :drilldown_input_event_attributes
+    end)
+  end
+
+  object :drilldown_outcome_event_attributes do
     field :data_type, non_null(:string)
     field :fields, non_null(:json)
-    field :processed_at, :string
     field :published_at, non_null(:string)
     field :published_by, non_null(:id)
     field :publishing_template_type, non_null(:id)
@@ -82,12 +97,15 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
     field :source, non_null(:id)
   end
 
-  object :drilldown_edge do
-    field :id, non_null(:string) do
-      resolve(fn %{from: f, to: t}, _, _ -> {:ok, "#{f}:#{t}"} end)
-    end
-
-    field(:from, non_null(:string))
-    field(:to, non_null(:string))
+  object :drilldown_input_event_attributes do
+    field :assertion_id, non_null(:id)
+    field :data_type, non_null(:string)
+    field :fields, non_null(:json)
+    field :processed_at, non_null(:string)
+    field :published_at, :string
+    field :published_by, :id
+    field :publishing_template_type, :id
+    field :publishing_template_type_name, :string
+    field :source, non_null(:id)
   end
 end
