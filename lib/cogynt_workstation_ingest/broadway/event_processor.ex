@@ -339,16 +339,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         end)
       end)
 
-    # Elasticsearch Transactional Upserts
-    bulk_upsert_event_documents_with_transaction(bulk_transactional_data)
-
-    # IO.inspect(bulk_transactional_data.pg_event, label: "EVENTS")
-    # IO.inspect(bulk_transactional_data.pg_notifications, label: "NOTIFICATIONS")
-    # IO.inspect(bulk_transactional_data.pg_event_links, label: "EVENT LINKS")
-
     # Build a Multi transaction to insert all the pg records
     transaction_result =
       Multi.new()
+      |> Ecto.Multi.run(:bulk_upsert_event_documents, fn _repo, _ ->
+        bulk_upsert_event_documents(bulk_transactional_data)
+      end)
       |> NotificationsContext.delete_all_notifications_multi(
         Enum.uniq(
           bulk_transactional_data.delete_core_id ++
@@ -413,20 +409,20 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp bulk_upsert_event_documents_with_transaction(bulk_transactional_data) do
+  defp bulk_upsert_event_documents(bulk_transactional_data) do
     if !Enum.empty?(bulk_transactional_data.event_doc) do
       case Elasticsearch.bulk_upsert_document(
              Config.event_index_alias(),
              bulk_transactional_data.event_doc
            ) do
         {:ok, _} ->
-          :ok
+          {:ok, :success}
 
         _ ->
-          rollback_event_index_data(bulk_transactional_data)
-
-          raise "bulk_upsert_event_documents_with_transaction/1 failed"
+          {:error, :elasticsearch_insert_error}
       end
+    else
+      {:ok, :success}
     end
   end
 
