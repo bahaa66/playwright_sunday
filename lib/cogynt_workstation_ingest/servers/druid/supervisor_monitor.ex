@@ -290,7 +290,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   @impl GenServer
   def handle_continue(:shutdown_server, %{id: id} = _state) do
     CogyntLogger.info("#{__MODULE__}", "Shutting down Druid Supervisor Monitor for ID: #{id}")
-    Process.exit(self(), :normal)
+    {:stop, :normal}
   end
 
   @impl GenServer
@@ -309,6 +309,14 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
         {:noreply, %{state | supervisor_status: status}}
       end
     else
+      {:error, %{code: 400, error: "Cannot find any supervisor with id:" <> name}} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Supervisor #{name} no longer exists in druid. Shutting down genserver."
+        )
+
+        {:stop, :normal, state}
+
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
