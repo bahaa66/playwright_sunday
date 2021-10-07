@@ -108,7 +108,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :cogynt_graphql,
-        branch: "feat/CDST-1081-graphql-drilldown-backend",
+        tag: "v1.14.6-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt_graphql",
         override: true
