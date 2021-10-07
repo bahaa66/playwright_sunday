@@ -17,18 +17,18 @@ defmodule CogyntWorkstationIngestWeb.Router do
     plug(:put_secure_browser_headers)
   end
 
-  scope "/api" do
+  ## Health Check route
+  forward("/healthz", HealthCheckup)
+  ## Liveness Check route
+  forward("/livenessCheck", LivenessCheck)
+
+  scope "/ingest" do
     pipe_through(:browser)
 
     if Config.enable_dev_tools?() do
       live_dashboard("/dashboard", metrics: TelemetrySupervisor)
     end
   end
-
-  ## Health Check route
-  forward("/healthz", HealthCheckup)
-  ## Liveness Check route
-  forward("/livenessCheck", LivenessCheck)
 
   scope "/ingest/api", CogyntWorkstationIngestWeb do
     pipe_through(:api)
