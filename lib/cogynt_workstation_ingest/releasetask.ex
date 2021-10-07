@@ -1,5 +1,5 @@
 defmodule CogyntWorkstationIngest.ReleaseTasks do
-  alias CogyntWorkstationIngest.Elasticsearch.API
+  alias CogyntWorkstationIngest.ElasticsearchAPI
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Elasticsearch.Cluster
 
@@ -74,8 +74,8 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
     IO.puts("Running indexes..")
 
     with {:ok, _} <- HTTPoison.start(),
-         {:ok, false} <- API.index_exists?(Config.event_index_alias()) do
-         API.create_index(Config.event_index_alias())
+         {:ok, false} <- ElasticsearchAPI.index_exists?(Config.event_index_alias()) do
+          ElasticsearchAPI.create_index(Config.event_index_alias())
          IO.puts("The event_index for CogyntWorkstation has been created.")
          IO.puts("indexes complete..")
     else
@@ -86,7 +86,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
             IO.puts("indexes complete..")
 
           false ->
-            API.reindex(Config.event_index_alias())
+            ElasticsearchAPI.reindex(Config.event_index_alias())
             IO.puts("The event_index for CogyntWorkstation have been created.")
             IO.puts("indexes complete..")
         end

@@ -1,4 +1,4 @@
-defmodule CogyntWorkstationIngest.Elasticsearch.API do
+defmodule CogyntWorkstationIngest.ElasticsearchAPI do
 
   alias Elasticsearch.Index
   alias CogyntWorkstationIngest.Elasticsearch.Cluster

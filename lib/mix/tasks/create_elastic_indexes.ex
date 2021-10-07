@@ -6,13 +6,13 @@ defmodule Mix.Tasks.CreateElasticIndexes do
   use Mix.Task
 
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Elasticsearch.API
- 
+  alias CogyntWorkstationIngest.ElasticsearchAPI
+
   @impl Mix.Task
   def run(_) do
     with {:ok, _} <- HTTPoison.start(),
-         {:ok, false} <- API.index_exists?(Config.event_index_alias()),
-         {:ok, _ } <- API.create_index(Config.event_index_alias()) do
+         {:ok, false} <- ElasticsearchAPI.index_exists?(Config.event_index_alias()),
+         {:ok, _ } <- ElasticsearchAPI.create_index(Config.event_index_alias()) do
       Mix.shell().info("The index: #{Config.event_index_alias()} for Cogynt has been created.")
     else
       {:error, _} ->

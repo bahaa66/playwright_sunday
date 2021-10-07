@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
-  alias CogyntWorkstationIngest.Elasticsearch.API
+  alias CogyntWorkstationIngest.ElasticsearchAPI
   alias CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder
 
 
@@ -416,7 +416,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   # ----------------------- #
   defp bulk_upsert_event_documents_with_transaction(bulk_transactional_data) do
     if !Enum.empty?(bulk_transactional_data.event_doc) do
-      case API.bulk_upsert_document(
+      case ElasticsearchAPI.bulk_upsert_document(
              Config.event_index_alias(),
              bulk_transactional_data.event_doc
            ) do
@@ -437,7 +437,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       |> Enum.map(fn event_doc -> event_doc.id end)
 
 
-    API.bulk_delete(
+      ElasticsearchAPI.bulk_delete(
       Config.event_index_alias(),
       event_doc_ids
     )
