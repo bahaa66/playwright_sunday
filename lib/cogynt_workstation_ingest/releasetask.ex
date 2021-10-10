@@ -87,7 +87,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
 
           false ->
             ElasticsearchAPI.reindex(Config.event_index_alias())
-            IO.puts("The event_index for CogyntWorkstation have been created.")
+            IO.puts("The event_index for CogyntWorkstation have been created by reindexing.....")
             IO.puts("indexes complete..")
         end
 
@@ -120,6 +120,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
       {:ok, config_body} <- File.read(settings),
       {:ok, json} <- Poison.decode(body),
       {:ok, config_json} <- Poison.decode(config_body) do
+        IO.puts("Current Index mapping is not current....")
         json |> Map.equal?(config_json)
     else
       {:error, reason} ->

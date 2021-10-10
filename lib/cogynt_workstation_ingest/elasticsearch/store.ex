@@ -15,6 +15,6 @@ end)
 
   @impl true
   def transaction(fun) do
-    {:ok, result} = Repo.transaction(fun, timeout: :infinity)
+    {:ok, result} = Repo.transaction(fun, timeout: 60_000)
   end
 end

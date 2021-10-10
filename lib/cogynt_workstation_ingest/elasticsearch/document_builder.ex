@@ -1,4 +1,4 @@
-defmodule CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder do
+defmodule Elasticsearch.DocumentBuilders.EventDocumentBuilder do
   @moduledoc """
   Formats and Builds a document for the Event Index
   """
@@ -20,73 +20,17 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder do
     ],
     core_event_id: [type: :string],
     event_type: [type: {:one_of, ["none", "entity", "linkage"]}, required: true],
-    published_at: [type: :datetime, required: true],
     created_at: [type: :datetime, required: true],
     updated_at: [type: :datetime, required: true],
     occurred_at: [type: :datetime],
-    risk_score: [type: :float],
-    converted_risk_score: [type: :integer],
-    lexicons: [type: {:list, :string}]
+    risk_score: [type: :integer],
   }
 
-  @doc """
-  Builds a document for the EventIndex
-  """
-  @spec build_document(
-          core_id :: binary(),
-          title :: String.t(),
-          event_definition_id :: binary(),
-          event_details :: list(),
-          published_at :: binary(),
-          event_type :: atom()
-        ) :: {:ok, map()} | {:error, :invalid_data}
-  def build_document(
-        core_id,
-        title,
-        event_definition_id,
-        event_details,
-        published_at,
-        event_type \\ :none
-      ) do
-    published_at =
-      if is_nil(published_at) do
-        DateTime.truncate(DateTime.utc_now(), :second)
-      else
-        published_at
-      end
-
-    result = %{
-      id: core_id,
-      title: title,
-      core_event_id: core_id,
-      event_definition_id: event_definition_id,
-      event_details: event_details,
-      published_at: published_at,
-      created_at: DateTime.truncate(DateTime.utc_now(), :second),
-      updated_at: DateTime.truncate(DateTime.utc_now(), :second),
-      event_type: event_type
-    }
-
-    validate_document(result)
-    |> case do
-      {:error, message} ->
-        CogyntLogger.warn(
-          "#{__MODULE__}",
-          message
-        )
-
-        {:error, :invalid_data}
-
-      {:ok, result} ->
-        {:ok, result}
-    end
-  end
 
   def build_document(parameters) when is_map(parameters) do
     now = DateTime.truncate(DateTime.utc_now(), :second)
 
-    parameters =
-      Map.put(parameters, :published_at, Map.get(parameters, :published_at) || now)
+    parameters = parameters
       |> Map.put_new(:updated_at, now)
       |> Map.put(:created_at, now)
 

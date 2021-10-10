@@ -78,7 +78,7 @@ defimpl Elasticsearch.Document, for: Models.Events.Event do
       event_definition_id: event.event_definition_id,
       core_event_id: event.core_id,
       occurred_at: event.occurred_at,
-      converted_risk_score: event.risk_score,
+      risk_score: event.risk_score,
       created_at: event.created_at,
       updated_at: event.updated_at,
       title: event_definition.title,
