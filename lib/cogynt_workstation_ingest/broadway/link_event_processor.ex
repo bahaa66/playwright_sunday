@@ -49,31 +49,34 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
       ) do
     pg_event_links =
       Enum.reduce(entities, [], fn {edge_label, link_data_list}, acc ->
-        link_object = List.first(link_data_list) || %{}
+        links =
+          Enum.reduce(link_data_list, [], fn link_object, acc_1 ->
+            case link_object["id"] do
+              nil ->
+                CogyntLogger.warn(
+                  "#{__MODULE__}",
+                  "link object missing id field. LinkObject: #{inspect(link_object, pretty: true)}"
+                )
 
-        case link_object["id"] do
-          nil ->
-            CogyntLogger.warn(
-              "#{__MODULE__}",
-              "link object missing id field. LinkObject: #{inspect(link_object, pretty: true)}"
-            )
+                acc_1
 
-            acc
+              entity_core_id ->
+                now = DateTime.truncate(DateTime.utc_now(), :second)
 
-          entity_core_id ->
-            now = DateTime.truncate(DateTime.utc_now(), :second)
+                acc_1 ++
+                  [
+                    %{
+                      link_core_id: core_id,
+                      label: edge_label,
+                      entity_core_id: entity_core_id,
+                      created_at: now,
+                      updated_at: now
+                    }
+                  ]
+            end
+          end)
 
-            acc ++
-              [
-                %{
-                  link_core_id: core_id,
-                  label: edge_label,
-                  entity_core_id: entity_core_id,
-                  created_at: now,
-                  updated_at: now
-                }
-              ]
-        end
+        acc ++ links
       end)
 
     pg_event_links_delete =
