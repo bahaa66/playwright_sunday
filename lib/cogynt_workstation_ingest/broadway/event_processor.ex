@@ -189,11 +189,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
              event_definition_id: event_definition_id,
              event_details: elasticsearch_event_details,
              core_event_id: core_id,
-             published_at: published_at,
              event_type: event_type,
              occurred_at: occurred_at,
-             risk_score: risk_score,
-             converted_risk_score: pg_event.risk_score
+             risk_score: risk_score
+            #  converted_risk_score: pg_event.risk_score
            }) do
         {:ok, event_doc} ->
           event_doc

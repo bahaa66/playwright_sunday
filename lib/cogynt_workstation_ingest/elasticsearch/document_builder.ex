@@ -1,4 +1,4 @@
-defmodule Elasticsearch.DocumentBuilders.EventDocumentBuilder do
+defmodule CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder do
   @moduledoc """
   Formats and Builds a document for the Event Index
   """
@@ -27,7 +27,7 @@ defmodule Elasticsearch.DocumentBuilders.EventDocumentBuilder do
   }
 
 
-  def build_document(parameters) when is_map(parameters) do
+  def build_document(parameters) do
     now = DateTime.truncate(DateTime.utc_now(), :second)
 
     parameters = parameters
