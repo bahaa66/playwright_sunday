@@ -92,10 +92,22 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     end
   end
 
+  def get_template_solution_outcomes(ids) when is_list(ids) do
+    sql_query = %{
+      query: """
+        SELECT id AS solution_id, event, aid
+        FROM druid.template_solution_events
+        WHERE id=ANY('#{Enum.join(ids, "','")}') and aid IS NULL
+      """
+    }
+
+    Druid.sql_query(sql_query)
+  end
+
   def get_template_solution_outcomes(id) do
     sql_query = %{
       query: """
-        SELECT event
+        SELECT id AS solution_id, event, aid
         FROM druid.template_solution_events
         WHERE id=? and aid IS NULL
       """,
@@ -108,7 +120,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   def get_template_solution_outcomes!(id) do
     sql_query = %{
       query: """
-        SELECT event
+        SELECT id AS solution_id, event, aid
         FROM druid.template_solution_events
         WHERE id=? and aid IS NULL
       """,
@@ -122,11 +134,23 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     end
   end
 
+  def get_template_solution_events(ids) when is_list(ids) do
+    sql_query = %{
+      query: """
+        SELECT id AS solution_id, event, aid
+        FROM druid.template_solution_events
+        WHERE id=ANY('#{Enum.join(ids, "','")}') AND aid IS NOT NULL
+      """
+    }
+
+    Druid.sql_query(sql_query)
+  end
+
   def get_template_solution_events(id) do
     sql_query = %{
       query: """
-        SELECT *
-        FROM druid.template_solution_events
+        SELECT id AS solution_id, event, aid
+        FROM template_solution_events
         WHERE id=? and aid IS NOT NULL
       """,
       parameters: [%{type: "VARCHAR", value: id}]
@@ -138,7 +162,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   def get_template_solution_events!(id) do
     sql_query = %{
       query: """
-        SELECT *
+        SELECT id AS solution_id, *, aid
         FROM druid.template_solution_events
         WHERE id=? and aid IS NOT NULL
       """,
