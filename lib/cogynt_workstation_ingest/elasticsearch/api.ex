@@ -267,4 +267,5 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
       }
     }
   end
+
 end
