@@ -101,13 +101,11 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
             )
 
           solutions, template_solutions_loader ->
-            # id_key ? is this the id of the event ? or top level id ?
             get_outcomes(Enum.map(solutions, &Map.get(&1, "id")), template_solutions_loader, fn
               outcomes, outcomes_loader ->
                 outcome_edges =
                   Enum.map(outcomes, fn {s_id, outcomes} ->
-                    # id_key ? is this the id of the event ? or top level id ?
-                    Enum.map(outcomes, fn %{"id" => o_id} ->
+                    Enum.map(outcomes, fn %{@id_key => o_id} ->
                       %{
                         from: s_id,
                         to: o_id
@@ -258,8 +256,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         Enum.member?(@whitelist, k)
       end)
       |> Enum.into(%{})
-      # id_key ? is this the id of the event ? or top level id ?
-      |> Map.delete("id")
+      |> Map.delete(@id_key)
 
     attrs =
       event
