@@ -5,102 +5,108 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   alias Models.Events.EventDefinitionDetail
   alias CogyntWorkstationIngest.Config
 
-  @lexions_expression ~s("$matches")
-  @default_dimensions [
-    %{
-      type: "string",
-      name: "id"
-    },
-    %{
-      type: "string",
-      name: "published_by"
-    },
-    %{
-      type: "float",
-      name: "_confidence"
-    },
-    %{
-      type: "string",
-      name: "publishing_template_type_name"
-    },
-    %{
-      type: "string",
-      name: "data_type"
-    },
-    %{
-      type: "string",
-      name: "$crud"
-    },
-    %{
-      type: "string",
-      name: "source"
-    },
-    %{
-      type: "date",
-      name: "published_at"
-    },
-    %{
-      type: "string",
-      name: "$matches"
-    },
-    %{
-      type: "integer",
-      name: "$version"
-    }
-  ]
+  # ------------------------- #
+  # --- module attributes --- #
+  # ------------------------- #
 
-  @default_fields [
-    %{
-      type: "path",
-      name: "id",
-      expr: "$.id"
-    },
-    %{
-      type: "path",
-      name: "published_by",
-      expr: "$.path"
-    },
-    %{
-      type: "path",
-      name: "_confidence",
-      expr: "$._confidence"
-    },
-    %{
-      type: "path",
-      name: "publishing_template_type_name",
-      expr: "$.publishing_template_type_name"
-    },
-    %{
-      type: "path",
-      name: "data_type",
-      expr: "$.data_type"
-    },
-    %{
-      type: "path",
-      name: "$crud",
-      expr: "$.$crud"
-    },
-    %{
-      type: "path",
-      name: "source",
-      expr: "$.source"
-    },
-    %{
-      type: "path",
-      name: "published_at",
-      expr: "$.published_at"
-    },
-    %{
-      type: "path",
-      name: "$version",
-      expr: "$.$version"
-    },
-    %{
-      type: "jq",
-      name: "$matches",
-      expr: ".#{@lexions_expression} | tojson"
-    }
-  ]
+  @timestamp_default "1970-01-01T00:00:00Z"
+
+  Module.put_attribute(
+    __MODULE__,
+    :matches_sigil,
+    ~s(#{Config.matches_key()})
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :timestamp_key,
+    Config.timestamp_key()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :published_at_key,
+    Config.published_at_key()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :default_dimensions,
+    [
+      %{
+        type: "string",
+        name: Config.id_key()
+      },
+      %{
+        type: "string",
+        name: Config.published_by_key()
+      },
+      %{
+        type: "float",
+        name: Config.confidence_key()
+      },
+      %{
+        type: "string",
+        name: Config.crud_key()
+      },
+      %{
+        type: "date",
+        name: Config.published_at_key()
+      },
+      %{
+        type: "string",
+        name: Config.matches_key()
+      },
+      %{
+        type: "integer",
+        name: Config.version_key()
+      }
+    ]
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :default_fields,
+    [
+      %{
+        type: "path",
+        name: Config.id_key(),
+        expr: "$.#{Config.id_key()}"
+      },
+      %{
+        type: "path",
+        name: Config.published_by_key(),
+        expr: "$.#{Config.published_by_key()}"
+      },
+      %{
+        type: "path",
+        name: Config.confidence_key(),
+        expr: "$.#{Config.confidence_key()}"
+      },
+      %{
+        type: "path",
+        name: Config.crud_key(),
+        expr: "$.#{Config.crud_key()}"
+      },
+      %{
+        type: "path",
+        name: Config.published_at_key(),
+        expr: "$.#{Config.published_at_key()}"
+      },
+      %{
+        type: "path",
+        name: Config.version_key(),
+        expr: "$.#{Config.version_key()}"
+      },
+      %{
+        type: "jq",
+        name: Config.matches_key(),
+        expr: ".#{@matches_sigil} | tojson"
+      }
+    ]
+  )
+
+  # -------------------------- #
 
   def start_druid_with_registry_lookup(name, event_definition) do
     case DruidSupervisor.whereis(name) do
@@ -469,22 +475,22 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         end
       end)
 
-    # If the _timestamp field existed in the EventDefinitionDetails then use it as the
+    # If the timestamp_key() field existed in the EventDefinitionDetails then use it as the
     # Druid timestamp filter. Otherwise use published_at
     timestamp =
-      case Enum.find(dimensions, fn dimension -> dimension.name == "_timestamp" end) do
+      case Enum.find(dimensions, fn dimension -> dimension.name == @timestamp_key end) do
         nil ->
           %{
-            column: "published_at",
+            column: @published_at_key,
             format: "auto",
-            missingValue: "1970-01-01T00:00:00Z"
+            missingValue: @timestamp_default
           }
 
         _ ->
           %{
-            column: "_timestamp",
+            column: @timestamp_key,
             format: "auto",
-            missingValue: "1970-01-01T00:00:00Z"
+            missingValue: @timestamp_default
           }
       end
 
@@ -517,6 +523,11 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         |> Enum.join(","),
       dimensions_spec: %{
         dimensions: dimensions
+      },
+      timestamp_spec: %{
+        column: @timestamp_key,
+        format: "auto",
+        missingValue: @timestamp_default
       },
       topic: name
     }

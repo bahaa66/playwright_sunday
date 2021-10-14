@@ -86,14 +86,11 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
 
   object :drilldown_event_attributes do
     field :assertion_id, :id
-    field :data_type, non_null(:string)
+    # field :data_type, non_null(:string)
     field :fields, non_null(:json)
     field :processed_at, :string
     field :published_at, :string
     field :published_by, :id
-    field :publishing_template_type, :id
-    field :publishing_template_type_name, :string
-    field :source, non_null(:id)
     field :risk_score, :integer
   end
 end

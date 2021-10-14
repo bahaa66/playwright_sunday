@@ -14,7 +14,29 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Broadway.{EventProcessor, LinkEventProcessor}
 
-  @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
+  # ------------------------- #
+  # --- module attributes --- #
+  # ------------------------- #
+
+  Module.put_attribute(
+    __MODULE__,
+    :crud_key,
+    Config.crud_key()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :id_key,
+    Config.id_key()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :linkage_data_type_value,
+    Config.linkage_data_type_value()
+  )
+
+  # -------------------------- #
 
   def start_link(%{
         group_id: group_id,
@@ -89,8 +111,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           Map.put(message, :data, %{
             event: decoded_data,
             event_definition_id: event_definition_id,
-            # TODO: authoring 2.0 internal field change support
-            core_id: decoded_data["id"] || Ecto.UUID.generate(),
+            core_id: decoded_data[@id_key] || Ecto.UUID.generate(),
             pipeline_state: nil,
             retry_count: 0,
             event_type: event_type,
@@ -200,14 +221,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     message
     |> case do
-      %Message{data: %{event: %{@crud => _action}}} ->
+      %Message{data: %{event: %{@crud_key => _action}}} ->
         message
         |> Message.put_batcher(:crud)
 
       _ ->
         data =
           case event_type do
-            "linkage" ->
+            @linkage_data_type_value ->
               case message.data.pipeline_state do
                 :process_event ->
                   message.data
@@ -288,7 +309,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       last_crud_action_message = List.last(core_id_records)
 
       case event_type do
-        "linkage" ->
+        @linkage_data_type_value ->
           case last_crud_action_message.data.pipeline_state do
             :process_event ->
               data =

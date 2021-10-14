@@ -21,11 +21,21 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   alias Models.Enums.ConsumerStatusTypeEnum
   alias Models.Events.EventDefinition
 
-  @default_state %{
-    topic: nil,
-    status: ConsumerStatusTypeEnum.status()[:unknown],
-    prev_status: nil
-  }
+  # ------------------------- #
+  # --- module attributes --- #
+  # ------------------------- #
+
+  Module.put_attribute(
+    __MODULE__,
+    :default_state,
+    %{
+      topic: nil,
+      status: ConsumerStatusTypeEnum.status()[:unknown],
+      prev_status: nil
+    }
+  )
+
+  # ------------------------- #
 
   @doc """
   creates and or updates the consumer state in the Redis hashkey cs:

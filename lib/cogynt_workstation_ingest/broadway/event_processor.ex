@@ -9,23 +9,67 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
 
-  @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
-  @lexicons Application.get_env(:cogynt_workstation_ingest, :core_keys)[:lexicons]
-  @defaults %{
+  # ------------------------- #
+  # --- module attributes --- #
+  # ------------------------- #
+
+  Module.put_attribute(
+    __MODULE__,
+    :crud_key,
+    Config.crud_key()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :matches_key,
+    Config.matches_key()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :update,
+    Config.crud_update_value()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :delete,
+    Config.crud_delete_value()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :timestamp_key,
+    Config.timestamp_key()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :confidence_key,
+    Config.confidence_key()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :published_at_key,
+    Config.published_at_key()
+  )
+
+  Module.put_attribute(__MODULE__, :defaults, %{
     crud_action: nil,
     event_document: nil,
     notification_priority: 3
-  }
+  })
 
-  # TODO: authoring 2.0 internal field change support
+  # -------------------------- #
 
   @doc """
   process_event/1 for a CRUD: delete event. We just store the core_id of the event that needs
   to be deleted as part of the payload. When it hits the transactional step of the pipeline the
   event and its associated data will be removed
   """
-  def process_event(%{core_id: core_id, event: %{@crud => "delete"}} = data) do
-    Map.put(data, :crud_action, "delete")
+  def process_event(%{core_id: core_id, event: %{@crud_key => @delete}} = data) do
+    Map.put(data, :crud_action, @delete)
     |> Map.put(:delete_core_id, core_id)
     |> Map.put(:pipeline_state, :process_event)
   end
@@ -38,10 +82,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         %{event: event, event_definition_id: event_definition_id, core_id: core_id} = data
       ) do
     now = DateTime.truncate(DateTime.utc_now(), :second)
-    action = event[@crud]
+    action = event[@crud_key]
 
     occurred_at =
-      case event["_timestamp"] do
+      case event[@timestamp_key] do
         nil ->
           nil
 
@@ -54,11 +98,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     pg_event =
       case action do
-        "update" ->
+        @update ->
           %{
             core_id: core_id,
             occurred_at: occurred_at,
-            risk_score: format_risk_score(event["_confidence"]),
+            risk_score: format_risk_score(event[@confidence_key]),
             event_details: format_lexicon_data(event),
             event_definition_id: event_definition_id,
             created_at: now,
@@ -69,7 +113,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           %{
             core_id: core_id,
             occurred_at: occurred_at,
-            risk_score: format_risk_score(event["_confidence"]),
+            risk_score: format_risk_score(event[@confidence_key]),
             event_details: format_lexicon_data(event),
             event_definition_id: event_definition_id,
             created_at: now,
@@ -82,7 +126,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     |> Map.put(:pipeline_state, :process_event)
   end
 
-  def process_elasticsearch_documents(%{crud_action: "delete"} = data), do: data
+  def process_elasticsearch_documents(%{crud_action: @delete} = data), do: data
 
   @doc """
   process_elasticsearch_documents/1 will build the Event Elasticsearch document that Workstation
@@ -98,21 +142,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           event_type: event_type
         } = data
       ) do
-    published_at = event["published_at"]
-    risk_score = event["_confidence"]
+    published_at = event[@published_at_key]
+    risk_score = event[@confidence_key]
     event_definition_details = event_definition.event_definition_details
-
-    occurred_at =
-      case event["_timestamp"] do
-        nil ->
-          nil
-
-        date_string ->
-          {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
-
-          dt_struct
-          |> DateTime.truncate(:second)
-      end
 
     # Iterate over each event key value pair and build the pg and elastic search event
     # details.
@@ -190,7 +222,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
              core_event_id: core_id,
              published_at: published_at,
              event_type: event_type,
-             occurred_at: occurred_at,
+             occurred_at: pg_event.occurred_at,
              risk_score: risk_score,
              converted_risk_score: pg_event.risk_score
            }) do
@@ -205,7 +237,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     |> Map.put(:pipeline_state, :process_elasticsearch_documents)
   end
 
-  def process_notifications(%{crud_action: "delete"} = data), do: data
+  def process_notifications(%{crud_action: @delete} = data), do: data
 
   @doc """
   process_notifications/1 will build notifications objects for each valid notification_setting
@@ -438,17 +470,17 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   defp format_lexicon_data(event) do
-    case Map.get(event, @lexicons) do
+    case Map.get(event, @matches_key) do
       nil ->
         event
 
       lexicon_val ->
         try do
-          Map.put(event, @lexicons, List.flatten(lexicon_val))
+          Map.put(event, @matches_key, List.flatten(lexicon_val))
         rescue
           _ ->
             CogyntLogger.error("#{__MODULE__}", "Lexicon value incorrect format #{lexicon_val}")
-            Map.delete(event, @lexicons)
+            Map.delete(event, @matches_key)
         end
     end
   end

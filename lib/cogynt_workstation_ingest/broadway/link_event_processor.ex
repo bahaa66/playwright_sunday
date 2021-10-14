@@ -2,16 +2,40 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   @moduledoc """
   Module that acts as the Broadway Processor for the LinkEventPipeline.
   """
-  @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
+  alias CogyntWorkstationIngest.Config
+
+  # ------------------------- #
+  # --- module attributes --- #
+  # ------------------------- #
+
+  Module.put_attribute(
+    __MODULE__,
+    :update,
+    Config.crud_update_value()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :delete,
+    Config.crud_delete_value()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :entities_key,
+    Config.entities_key()
+  )
+
+  # ------------------------- #
 
   @doc """
   Checks to make sure if a valid link event was passed through authoring. If incomplete data
   then :validated is set to false. Otherwise it is set to true.
   """
-  def validate_link_event(%{crud_action: "delete"} = data), do: data
+  def validate_link_event(%{crud_action: @delete} = data), do: data
 
   def validate_link_event(%{event: event} = data) do
-    case Map.get(event, @entities) do
+    case Map.get(event, @entities_key) do
       nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
@@ -39,13 +63,13 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
   @doc """
   """
-  def process_entities(%{crud_action: "delete"} = data), do: data
+  def process_entities(%{crud_action: @delete} = data), do: data
 
   def process_entities(%{validated: false} = data),
     do: Map.put(data, :pipeline_state, :process_entities)
 
   def process_entities(
-        %{event: %{@entities => entities}, core_id: core_id, crud_action: crud_action} = data
+        %{event: %{@entities_key => entities}, core_id: core_id, crud_action: crud_action} = data
       ) do
     pg_event_links =
       Enum.reduce(entities, [], fn {edge_label, link_data_list}, acc ->
@@ -81,7 +105,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
     pg_event_links_delete =
       case crud_action do
-        "update" ->
+        @update ->
           [core_id]
 
         _ ->
