@@ -49,7 +49,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
               }"
             )
 
-            process_deployment_object(deployment_message)
+            process_deployment_object_v2(deployment_message)
             message
 
           "user_data_schema" ->
@@ -133,6 +133,52 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   # --- private methods --- #
   # ----------------------- #
   defp process_deployment_object(deployment_message) do
+    # Upsert Deployments
+    {:ok, %Deployment{} = _deployment} =
+      Map.put(deployment_message, :version, to_string(deployment_message.version))
+      |> DeploymentsContext.upsert_deployment()
+
+    # Fetch all event_definitions that exists and are assosciated with
+    # the deployment_id
+    EventsContext.query_event_definitions(
+      filter: %{
+        deployment_id: deployment_message.id
+      }
+    )
+    # If any of these event_definition_id are not in the list of event_definition_ids
+    # passed in the deployment message, mark them as inactive and shut off the consumer.
+    # If they are in the list make sure to update the DeploymentStatus if it needs to be changed
+    |> Enum.each(fn %EventDefinition{
+                      deployment_status: deployment_status,
+                      id: event_definition_id
+                    } = current_event_definition ->
+      case Enum.member?(
+             deployment_message.event_type_ids,
+             event_definition_id
+           ) do
+        true ->
+          if deployment_status == DeploymentStatusType.status()[:inactive] or
+               deployment_status == DeploymentStatusType.status()[:not_deployed] do
+            EventsContext.update_event_definition(current_event_definition, %{
+              deployment_status: DeploymentStatusType.status()[:active]
+            })
+          end
+
+        false ->
+          EventsContext.update_event_definition(current_event_definition, %{
+            active: false,
+            deployment_status: DeploymentStatusType.status()[:inactive]
+          })
+
+          Redis.publish_async("ingest_channel", %{
+            stop_consumer:
+              EventsContext.remove_event_definition_virtual_fields(current_event_definition)
+          })
+      end
+    end)
+  end
+
+  defp process_deployment_object_v2(deployment_message) do
     # Upsert Deployments
     {:ok, %Deployment{} = _deployment} = DeploymentsContext.upsert_deployment(deployment_message)
 
