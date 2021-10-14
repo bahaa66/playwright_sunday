@@ -66,8 +66,7 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
                 end
               end)
               |> Map.values()
-              # id_key ? is this the id of the event ? or top level id ?
-              |> Enum.sort_by(& &1["id"])
+              |> Enum.sort_by(& &1[@id_key])
               |> Enum.group_by(&Map.get(&1, "solution_id"))
 
             for id <- solution_ids, into: %{} do
@@ -97,8 +96,7 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
                 end
               end)
               |> Enum.filter(&(not (&1[@partial_key] == true and &1[@confidence_key] == 0.0)))
-              # id_key ? is this the id of the event ? or top level id ?
-              |> Enum.sort_by(& &1["id"])
+              |> Enum.sort_by(& &1[@id_key])
               |> Enum.group_by(&Map.get(&1, "solution_id"))
 
             for id <- solution_ids, into: %{} do
@@ -118,7 +116,6 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
             solutions_map =
               solutions
               |> Enum.into(%{}, fn
-                # id_key ? is this the id of the event ? or top level id ?
                 %{"id" => id} = e ->
                   {id, e}
               end)

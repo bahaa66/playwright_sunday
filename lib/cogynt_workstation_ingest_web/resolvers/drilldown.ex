@@ -287,8 +287,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         Enum.member?(@whitelist, k)
       end)
       |> Enum.into(%{})
-      # id_key ? is this the id of the event ? or top level id ?
-      |> Map.delete("id")
+      |> Map.delete(@id_key)
 
     attrs =
       event
