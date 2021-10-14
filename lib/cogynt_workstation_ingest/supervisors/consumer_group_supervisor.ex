@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   use DynamicSupervisor
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
-  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
+  alias CogyntWorkstationIngest.Utils.{DruidRegistryHelper, ConsumerStateManager}
 
   alias CogyntWorkstationIngest.Broadway.{
     EventPipeline,
@@ -34,13 +34,13 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       cgid = "#{UUID.uuid1()}"
 
       consumer_group_id =
-        case Redis.hash_set_if_not_exists("ecgid", "EventDefinition-#{event_definition.id}", cgid) do
+        case Redis.hash_set_if_not_exists("ecgid", "#{topic}-#{event_definition.id}", cgid) do
           {:ok, 0} ->
-            {:ok, existing_id} = Redis.hash_get("ecgid", "EventDefinition-#{event_definition.id}")
-            "EventDefinition-#{event_definition.id}" <> "-" <> existing_id
+            {:ok, existing_id} = Redis.hash_get("ecgid", "#{topic}-#{event_definition.id}")
+            "#{topic}-#{event_definition.id}" <> "-" <> existing_id
 
           {:ok, 1} ->
-            "EventDefinition-#{event_definition.id}" <> "-" <> cgid
+            "#{topic}-#{event_definition.id}" <> "-" <> cgid
         end
 
       child_spec = %{
@@ -160,13 +160,32 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def fetch_event_cgid(event_definition_id) do
-    case Redis.hash_get("ecgid", "EventDefinition-#{event_definition_id}") do
+  def fetch_event_cgid(event_definition_id, topic \\ nil) do
+    topic =
+      if is_nil(topic) do
+        case ConsumerStateManager.get_consumer_state(event_definition_id) do
+          {:ok, consumer_state} ->
+            if is_nil(consumer_state.topic) do
+              event_definition = EventsContext.get_event_definition(event_definition_id)
+              event_definition.topic
+            else
+              consumer_state.topic
+            end
+
+          {:error, _} ->
+            event_definition = EventsContext.get_event_definition(event_definition_id)
+            event_definition.topic
+        end
+      else
+        topic
+      end
+
+    case Redis.hash_get("ecgid", "#{topic}-#{event_definition_id}") do
       {:ok, nil} ->
         ""
 
       {:ok, consumer_group_id} ->
-        "EventDefinition-#{event_definition_id}" <> "-" <> consumer_group_id
+        "#{topic}-#{event_definition_id}" <> "-" <> consumer_group_id
     end
   end
 end
