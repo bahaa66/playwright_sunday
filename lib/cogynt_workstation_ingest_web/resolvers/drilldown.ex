@@ -1,20 +1,44 @@
 defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   import Absinthe.Resolution.Helpers, only: [on_load: 2]
   alias Absinthe.Utils, as: AbsintheUtils
+  alias CogyntWorkstationIngest.Config
   alias CogyntGraphql.Utils.Error
   alias CogyntWorkstationIngestWeb.Dataloaders.Druid, as: DruidLoader
 
-  @whitelist [
-    "source",
-    "published_by",
-    "publishing_template_type",
-    "publishing_template_type_name",
-    "published_at",
-    "processed_at",
-    "source_type",
-    "data_type",
-    "assertion_id"
-  ]
+  # ------------------------- #
+  # --- module attributes --- #
+  # ------------------------- #
+  Module.put_attribute(
+    __MODULE__,
+    :published_by_key,
+    Config.published_by_key()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :id_key,
+    Config.id_key()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :confidence_key,
+    Config.confidence_key()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :whitelist,
+    [
+      Config.published_by_key(),
+      Config.published_at_key(),
+      "processed_at",
+      "source_type",
+      "assertion_id"
+    ]
+  )
+
+  # ------------------------- #
 
   def drilldown(_, %{id: solution_id}, %{
         context: %{loader: loader}
@@ -62,7 +86,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
 
         event_edges =
           Enum.reduce(events, [], fn
-            %{"id" => id, "solution_id" => s_id}, edges ->
+            %{@id_key => id, "solution_id" => s_id}, edges ->
               [%{from: id, to: s_id} | edges]
 
             _, acc ->
@@ -77,10 +101,12 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
             )
 
           solutions, template_solutions_loader ->
+            # id_key ? is this the id of the event ? or top level id ?
             get_outcomes(Enum.map(solutions, &Map.get(&1, "id")), template_solutions_loader, fn
               outcomes, outcomes_loader ->
                 outcome_edges =
                   Enum.map(outcomes, fn {s_id, outcomes} ->
+                    # id_key ? is this the id of the event ? or top level id ?
                     Enum.map(outcomes, fn %{"id" => o_id} ->
                       %{
                         from: s_id,
@@ -232,6 +258,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         Enum.member?(@whitelist, k)
       end)
       |> Enum.into(%{})
+      # id_key ? is this the id of the event ? or top level id ?
       |> Map.delete("id")
 
     attrs =
@@ -383,7 +410,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
 
   defp event_solution_ids(events, exclude_solution_ids) when is_list(exclude_solution_ids) do
     Enum.reduce(events, MapSet.new(), fn
-      %{"published_by" => id}, a ->
+      %{@published_by_key => id}, a ->
         if(id in exclude_solution_ids, do: a, else: MapSet.put(a, id))
 
       _, a ->
@@ -394,7 +421,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
 
   defp event_solution_ids(events, exclude_solution_id) do
     Enum.reduce(events, MapSet.new(), fn
-      %{"published_by" => id}, a ->
+      %{@published_by_key => id}, a ->
         if(id == exclude_solution_id, do: a, else: MapSet.put(a, id))
 
       _, a ->

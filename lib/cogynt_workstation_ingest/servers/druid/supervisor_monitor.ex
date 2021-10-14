@@ -50,9 +50,9 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     GenServer.call(pid, :delete_data_and_reset_supervisor)
   end
 
-  # # ------------------------ #
-  # # --- server callbacks --- #
-  # # ------------------------ #
+  # ------------------------ #
+  # --- server callbacks --- #
+  # ------------------------ #
   @impl GenServer
   def init(%{supervisor_id: supervisor_id} = args) do
     Druid.status_health()

@@ -1,15 +1,6 @@
 defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor.SupervisorStatus do
   alias __MODULE__
 
-  # @supervisor_states [
-  #   "UNHEALTHY_SUPERVISOR",
-  #   "UNHEALTHY_TASKS",
-  #   "PENDING",
-  #   "RUNNING",
-  #   "SUSPENDED",
-  #   "STOPPING"
-  # ]
-
   # Detailed supervisor states
   @unhealthy_supervisor_states [
     "UNHEALTHY_SUPERVISOR",
