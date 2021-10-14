@@ -7,6 +7,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   use DynamicSupervisor
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
+  alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.{DruidRegistryHelper, ConsumerStateManager}
 
   alias CogyntWorkstationIngest.Broadway.{
