@@ -15,6 +15,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
 config :migrations, :application, repo: CogyntWorkstationIngest.Repo
 
 config :cogynt_workstation_ingest, :clients,
+  json_rpc_client: CogyntWorkstationIngestWeb.Clients.JsonRpcHTTPClient,
   http_client: HTTPoison,
   elasticsearch_client: Elasticsearch
 

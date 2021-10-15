@@ -154,3 +154,9 @@ config :libcluster,
       ]
     ]
   ]
+
+# RPC configurations
+config :cogynt, :rpc,
+  cogynt_auth_service_name: System.get_env("COGYNT_AUTH_SERVICE_NAME") || "http://localhost",
+  cogynt_auth_service_port:
+    (System.get_env("COGYNT_AUTH_SERVICE_PORT") || "4999") |> String.to_integer()

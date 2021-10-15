@@ -1,17 +1,20 @@
 defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
   use Absinthe.Schema.Notation
+  alias CogyntGraphql.Middleware.Authentication
   alias CogyntWorkstationIngestWeb.Resolvers.Drilldown, as: DrilldownResolver
 
   object :drilldown_queries do
     field :drilldown_solution, non_null(:drilldown_solution) do
       arg(:id, non_null(:id))
 
+      middleware(Authentication)
       resolve(&DrilldownResolver.drilldown_solution/3)
     end
 
     field :drilldown, non_null(:drilldown_graph) do
       arg(:id, non_null(:id))
 
+      middleware(Authentication)
       resolve(&DrilldownResolver.drilldown/3)
     end
   end
