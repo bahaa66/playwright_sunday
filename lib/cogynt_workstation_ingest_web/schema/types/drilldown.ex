@@ -94,5 +94,6 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
     field :publishing_template_type, :id
     field :publishing_template_type_name, :string
     field :source, non_null(:id)
+    field :risk_score, :integer
   end
 end

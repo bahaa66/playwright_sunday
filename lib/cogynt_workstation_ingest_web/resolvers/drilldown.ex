@@ -248,6 +248,15 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   end
 
   def event_attributes(event, _, _) do
+    # TODO: Update to use the config to work with auth 2 changes.
+    risk_score =
+      Map.get(event, "_confidence")
+      |> case do
+        risk_score when is_integer(risk_score) -> risk_score
+        risk_score when is_float(risk_score) -> (risk_score * 100) |> trunc()
+        risk_score -> risk_score
+      end
+
     fields =
       event
       |> Enum.reject(fn {k, _v} ->
@@ -265,6 +274,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         {AbsintheUtils.camelize(k, lower: true), v}
       end)
       |> Map.put("fields", fields)
+      |> Map.put("risk_score", risk_score)
 
     {:ok, attrs}
   end
@@ -304,6 +314,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
           :template_solutions,
           solution_ids
         )
+        |> Enum.filter(&(!is_nil(&1)))
 
       callback.(solutions, loader)
     end)
