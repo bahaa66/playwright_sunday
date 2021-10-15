@@ -111,12 +111,12 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     @doc """
   Gets the most recent index name with the given prefix.
   ## Examples
-      iex> Index.create_from_file("posts_1", "test/support/settings/posts.json")
-      ...> Index.create_from_file("posts_2", "test/support/settings/posts.json")
-      ...> Index.latest_starting_with("posts")
+      iex> create_from_file("posts_1", "test/support/settings/posts.json")
+      ...> create_from_file("posts_2", "test/support/settings/posts.json")
+      ...> latest_starting_with("posts")
       {:ok, "posts-2"}
   If there are no indexes matching that prefix:
-      iex> Index.latest_starting_with("nonexistent")
+      iex> latest_starting_with("nonexistent")
       {:error, :not_found}
   """
   @spec latest_starting_with(String.t() | atom) ::
@@ -205,8 +205,6 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   end
 
   def bulk_upsert_document(index, bulk_docs) do
-    {:ok, index} = latest_starting_with(index)
-
     encoded_data = bulk_docs
     |> Enum.map(&encode!(&1, index))
     |> Enum.join("\n")
@@ -252,8 +250,6 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
 
 
   def bulk_delete(index, bulk_delete_ids) do
-    {:ok, index} = Elasticsearch.Index.latest_starting_with(Cluster, index) |> IO.inspect()
-
     bulk_delete_data = prepare_bulk_delete_data(index, bulk_delete_ids)
 
     try do
