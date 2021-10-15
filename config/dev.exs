@@ -61,13 +61,13 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster
       settings: "priv/elasticsearch/event.active.json",
       store: CogyntWorkstationIngest.Elasticsearch.Store,
       sources: [Models.Events.Event],
-      bulk_page_size: 5000,
-      bulk_wait_interval: 15_000
+      bulk_page_size: 1000,
+      bulk_wait_interval: 0
     }
   },
   default_options: [
-    timeout: 10_000,
-    recv_timeout: 5_000,
+    timeout: 60_000,
+    recv_timeout: 120_000,
     hackney: [pool: :elasticsearh_pool],
     ssl: [versions: [:"tlsv1.2"]]
   ]

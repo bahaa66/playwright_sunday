@@ -1,7 +1,7 @@
 defmodule CogyntWorkstationIngest.ReleaseTasks do
   alias CogyntWorkstationIngest.ElasticsearchAPI
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Elasticsearch.Cluster
+
 
   @apps [
     :cogynt_workstation_ingest
@@ -80,17 +80,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
          IO.puts("indexes complete..")
     else
       {:ok, true} ->
-        case is_active_index_setting?() do
-          true ->
-            IO.puts("event_index already exists.")
-            IO.puts("indexes complete..")
-
-          false ->
-            ElasticsearchAPI.reindex(Config.event_index_alias())
-            IO.puts("The event_index for CogyntWorkstation have been created by reindexing.....")
-            IO.puts("indexes complete..")
-        end
-
+        ElasticsearchAPI.check_to_reindex()
       {:error, %Elasticsearch.Exception{raw: %{"error" => error}}} ->
         reason = Map.get(error, "reason")
         IO.puts("Failed to create event index #{reason}")
@@ -108,25 +98,6 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
     app = Keyword.get(repo.config, :otp_app)
     repo_underscore = repo |> Module.split() |> List.last() |> Macro.underscore()
     Path.join([priv_dir(app), repo_underscore, filename])
-  end
-
-  defp is_active_index_setting?() do
-    #TBD add config variables
-    filename = "priv/elasticsearch/event.active.json"
-    config = Elasticsearch.Cluster.Config.get(Cluster)
-    %{settings: settings} = config[:indexes][:event]
-
-    with {:ok, body} <- File.read(filename),
-      {:ok, config_body} <- File.read(settings),
-      {:ok, json} <- Poison.decode(body),
-      {:ok, config_json} <- Poison.decode(config_body) do
-        IO.puts("Current Index mapping is not current....")
-        json |> Map.equal?(config_json)
-    else
-      {:error, reason} ->
-        IO.puts("Cannot read file #{filename} because #{reason}")
-        false
-    end
   end
 
   def priv_dir(app), do: "#{:code.priv_dir(app)}"

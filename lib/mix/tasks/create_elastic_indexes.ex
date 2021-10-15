@@ -15,6 +15,7 @@ defmodule Mix.Tasks.CreateElasticIndexes do
          {:ok, _ } <- ElasticsearchAPI.create_index(Config.event_index_alias()) do
       Mix.shell().info("The index: #{Config.event_index_alias()} for Cogynt has been created.")
     else
+      
       {:error, _} ->
         CogyntLogger.error(
           "#{__MODULE__}",
