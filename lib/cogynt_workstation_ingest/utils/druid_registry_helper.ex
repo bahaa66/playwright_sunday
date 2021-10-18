@@ -10,7 +10,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   # ------------------------- #
 
   @timestamp_default "1970-01-01T00:00:00Z"
-  @matches_sigil ~s(#{Config.matches_key()})
+  @matches_sigil ~s("#{Config.matches_key()}")
 
   Module.put_attribute(
     __MODULE__,
