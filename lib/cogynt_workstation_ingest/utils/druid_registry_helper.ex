@@ -238,21 +238,12 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
 
     case DruidSupervisor.whereis(name) do
       nil ->
-        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec) do
-          {:error, {:already_started, pid}} ->
-            {:ok, pid}
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "update_druid_with_registry_lookup/2 No supervisor running. No need to update"
+        )
 
-          {:error, error} ->
-            CogyntLogger.error(
-              "#{__MODULE__}",
-              "Failed to start Druid Supervisor: #{name}. Error: #{inspect(error)}"
-            )
-
-            {:error, nil}
-
-          {:ok, pid} ->
-            {:ok, pid}
-        end
+        {:ok, nil}
 
       pid ->
         SupervisorMonitor.create_or_update_supervisor(pid, druid_spec)
