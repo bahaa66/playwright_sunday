@@ -34,13 +34,13 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       cgid = "#{UUID.uuid1()}"
 
       consumer_group_id =
-        case Redis.hash_set_if_not_exists("ecgid", "EventDefinition-#{event_definition.id}", cgid) do
+        case Redis.hash_set_if_not_exists("ecgid", "ED-#{event_definition.id}", cgid) do
           {:ok, 0} ->
-            {:ok, existing_id} = Redis.hash_get("ecgid", "EventDefinition-#{event_definition.id}")
-            "EventDefinition-#{event_definition.id}" <> "-" <> existing_id
+            {:ok, existing_id} = Redis.hash_get("ecgid", "ED-#{event_definition.id}")
+            "ED-#{event_definition.id}" <> "-" <> existing_id
 
           {:ok, 1} ->
-            "EventDefinition-#{event_definition.id}" <> "-" <> cgid
+            "ED-#{event_definition.id}" <> "-" <> cgid
         end
 
       child_spec = %{
@@ -161,12 +161,12 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def fetch_event_cgid(event_definition_id) do
-    case Redis.hash_get("ecgid", "EventDefinition-#{event_definition_id}") do
+    case Redis.hash_get("ecgid", "ED-#{event_definition_id}") do
       {:ok, nil} ->
         ""
 
       {:ok, consumer_group_id} ->
-        "EventDefinition-#{event_definition_id}" <> "-" <> consumer_group_id
+        "ED-#{event_definition_id}" <> "-" <> consumer_group_id
     end
   end
 end
