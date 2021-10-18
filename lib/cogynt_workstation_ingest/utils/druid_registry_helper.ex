@@ -101,7 +101,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
       %{
         type: "jq",
         name: Config.matches_key(),
-        expr: ".#{@matches_sigil} | tojson"
+        expr: ".~s(#{Config.matches_key()}) | tojson"
       }
     ]
   )
