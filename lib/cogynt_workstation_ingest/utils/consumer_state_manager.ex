@@ -603,6 +603,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   end
 
   defp delete_notifications(notification_setting_id) do
+    IO.puts("CONSUMER STATE MANAGER DELETE NOTIFICATIONS")
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
     event_definition_id = notification_setting.event_definition_id
@@ -622,6 +623,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
                 consumer_state.status ==
                   ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
+              IO.puts("CONSUMER STATE MANAGER create_and_enqueue tasks running")
+
               ExqHelpers.create_and_enqueue(
                 "notifications",
                 event_definition_id,
@@ -640,6 +643,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
                 status: ConsumerStatusTypeEnum.status()[:delete_notification_task_running],
                 prev_status: consumer_state.status
               )
+
+              IO.puts("CONSUMER STATE MANAGER create_and_enqueue")
 
               case ExqHelpers.create_and_enqueue(
                      "notifications",
