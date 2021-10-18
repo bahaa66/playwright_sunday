@@ -242,6 +242,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
         IO.puts("indexes complete..")
 
       false ->
+        IO.puts("Current Index mapping is not current....")
         reindex(Config.event_index_alias())
         IO.puts("The event_index for CogyntWorkstation have been created by reindexing.....")
         IO.puts("indexes complete..")
@@ -335,8 +336,9 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     with {:ok, body} <- File.read(Config.elastic_index_settings_file()),
     {:ok, settings} <- get_index_mappings(),
       {:ok, json} <- Poison.decode(body)  do
-        IO.puts("Current Index mapping is not current....")
-        json |> Map.equal?(settings)
+        #compare settings, mappings separately as comparing json |> Map.equal?(settings) returns false as its compared using ===
+        Map.equal?(Map.get(json, "settings"), Map.get(settings, "settings"))
+        || Map.equal?(Map.get(json, "mappings"), Map.get(settings, "mappings"))
     else
       {:error, reason} ->
         IO.puts("Cannot read file because #{reason}")
@@ -345,7 +347,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   end
 
   defp get_index_mappings() do
-    with {:ok, index} = latest_starting_with(Config.event_index_alias()),
+    with {:ok, index} <- latest_starting_with(Config.event_index_alias()),
     {:ok, %{ ^index => %{"settings" => settings }} } <- Elasticsearch.get(Cluster, "#{Config.event_index_alias}/_settings"),
     {:ok, %{^index => mappings} } <- Elasticsearch.get(Cluster, "#{Config.event_index_alias}/_mapping") do
       index = settings |> Map.get("index") |> Map.drop(["creation_date", "provided_name", "uuid", "version"])
