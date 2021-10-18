@@ -187,7 +187,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   def handle_call(:suspend_supervisor, _from, %{id: id} = state) do
     with {:ok, suspend_response} <- Druid.suspend_supervisor(id),
          {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id),
-         %SupervisorStatus{} = status <- SupervisorStatus.new(payload) do
+         %SupervisorStatus{} = status <- SupervisorStatus.new(payload),
+         {:ok, status} <- wait_while_pending(id, status) do
       {:reply, suspend_response, %{state | supervisor_status: status}}
     else
       {:error, error} ->
@@ -204,7 +205,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   def handle_call(:resume_supervisor, _from, %{id: id} = state) do
     with {:ok, resume_response} <- Druid.resume_supervisor(id),
          {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id),
-         %SupervisorStatus{} = status <- SupervisorStatus.new(payload) do
+         %SupervisorStatus{} = status <- SupervisorStatus.new(payload),
+         {:ok, status} <- wait_while_pending(id, status) do
       {:reply, resume_response, %{state | supervisor_status: status}}
     else
       {:error, error} ->
@@ -222,7 +224,6 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     Druid.terminate_supervisor(id)
     |> case do
       {:ok, response} ->
-        IO.inspect(response, label: "\n\nTERMINATED THE SUPERVISOR")
         {:reply, response, state, {:continue, :shutdown_server}}
 
       {:error, error} ->
@@ -326,6 +327,31 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
         schedule("ERROR")
         {:noreply, state}
+    end
+  end
+
+  defp wait_while_pending(id, status, counter \\ 0) do
+    if counter >= 10 do
+      CogyntLogger.warn(
+        "#{__MODULE__}",
+        "wait_while_pending/3 exceeded the number of retry attempts. Druid Supervisor is still in PENDING state for ID: #{
+          id
+        }"
+      )
+
+      {:ok, status}
+    else
+      case SupervisorStatus.is_pending?(status) do
+        true ->
+          # Give Druid some time to execute whatever it is PENDING for
+          Process.sleep(1000)
+          {:ok, %{"payload" => payload}} = Druid.get_supervisor_status(id)
+          %SupervisorStatus{} = status = SupervisorStatus.new(payload)
+          wait_while_pending(id, status, counter + 1)
+
+        false ->
+          {:ok, status}
+      end
     end
   end
 
