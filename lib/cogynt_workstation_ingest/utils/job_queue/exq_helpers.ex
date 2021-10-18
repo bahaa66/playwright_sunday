@@ -11,8 +11,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers do
       ) do
     case create_job_queue_if_not_exists(queue_prefix, queue_id, concurrency) do
       {:ok, queue_name} ->
-        IO.inspect(queue_name, label: "QUEUE NAME")
-
         {:ok, _job_id} =
           Exq.enqueue(Exq, queue_name, worker, [
             args

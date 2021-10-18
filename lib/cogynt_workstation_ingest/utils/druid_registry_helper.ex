@@ -368,7 +368,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         {:error, :not_found}
 
       pid ->
-        Process.send(pid, :get_status, [:noconnect])
+        SupervisorMonitor.supervisor_status(pid)
     end
   end
 
