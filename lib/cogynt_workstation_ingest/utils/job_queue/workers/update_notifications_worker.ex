@@ -134,7 +134,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.UpdateNotificationsWork
 
   defp process_notifications(
          %{entries: notifications, page_number: page_number, total_pages: total_pages},
-         %{tag_id: tag_id, id: id, title: ns_title, assigned_to: assigned_to} =
+         %{tag_id: tag_id, id: id, assigned_to: assigned_to} =
            notification_setting
        ) do
     notification_ids = Enum.map(notifications, fn n -> n.id end)
@@ -142,9 +142,9 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.UpdateNotificationsWork
     NotificationsContext.update_notifcations(
       %{
         filter: %{notification_ids: notification_ids},
-        select: [:id, :tag_id, :title, :assigned_to]
+        select: [:id, :tag_id, :assigned_to]
       },
-      set: [tag_id: tag_id, title: ns_title, assigned_to: assigned_to]
+      set: [tag_id: tag_id, assigned_to: assigned_to]
     )
 
     if page_number >= total_pages do
