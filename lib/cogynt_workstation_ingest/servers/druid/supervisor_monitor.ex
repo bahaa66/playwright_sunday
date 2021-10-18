@@ -35,11 +35,11 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   end
 
   def suspend_supervisor(pid) do
-    GenServer.call(pid, :suspend_supervisor)
+    GenServer.call(pid, :suspend_supervisor, 10000)
   end
 
   def resume_supervisor(pid) do
-    GenServer.call(pid, :resume_supervisor)
+    GenServer.call(pid, :resume_supervisor, 10000)
   end
 
   def terminate_and_shutdown(pid) do
@@ -344,7 +344,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       case SupervisorStatus.is_pending?(status) do
         true ->
           # Give Druid some time to execute whatever it is PENDING for
-          Process.sleep(1000)
+          Process.sleep(500)
           {:ok, %{"payload" => payload}} = Druid.get_supervisor_status(id)
           %SupervisorStatus{} = status = SupervisorStatus.new(payload)
           wait_while_pending(id, status, counter + 1)
