@@ -131,7 +131,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     for x <- ["fem", "emi"], do: Redis.key_delete("#{x}:#{event_definition_id}")
 
     Redis.hash_delete("cs", event_definition_id)
-    Redis.hash_delete("ecgid", "EventDefinition-#{event_definition_id}")
+    Redis.hash_delete("ecgid", "ED-#{event_definition_id}")
 
     case Redis.get("dd") do
       {:ok, values} when is_list(values) ->
