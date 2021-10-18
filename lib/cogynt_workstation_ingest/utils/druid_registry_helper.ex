@@ -10,12 +10,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   # ------------------------- #
 
   @timestamp_default "1970-01-01T00:00:00Z"
-
-  Module.put_attribute(
-    __MODULE__,
-    :matches_sigil,
-    ~s(#{Config.matches_key()})
-  )
+  @matches_sigil ~s(#{Config.matches_key()})
 
   Module.put_attribute(
     __MODULE__,
@@ -101,7 +96,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
       %{
         type: "jq",
         name: Config.matches_key(),
-        expr: ".~s(#{Config.matches_key()}) | tojson"
+        expr: ".#{@matches_sigil} | tojson"
       }
     ]
   )
