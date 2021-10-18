@@ -32,7 +32,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
           },
           select: [:id]
         })
-        |> Enum.map(fn n -> n.id end)
 
       # 3) delete all Notes linked to the notifications removed for the notification_setting_id
       # TODO: move this to NoteContext module and remove reference to CogyntWorkstationIngest.Repo
