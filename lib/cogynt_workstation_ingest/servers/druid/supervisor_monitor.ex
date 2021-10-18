@@ -344,7 +344,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       case SupervisorStatus.is_pending?(status) do
         true ->
           # Give Druid some time to execute whatever it is PENDING for
-          Process.sleep(500)
+          Process.sleep(800)
           {:ok, %{"payload" => payload}} = Druid.get_supervisor_status(id)
           %SupervisorStatus{} = status = SupervisorStatus.new(payload)
           wait_while_pending(id, status, counter + 1)
