@@ -46,8 +46,6 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
                 ConsumerStateManager.manage_request(%{update_notifications: field_value})
 
               :delete_notifications ->
-                IO.puts("**** INGEST GOT MESSAGE TO DELETE NOTIFICATIONS SETTING")
-
                 ConsumerStateManager.manage_request(%{
                   delete_notifications: field_value
                 })
