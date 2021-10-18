@@ -13,7 +13,9 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
   alias Models.Notes.Note
+
   alias CogyntWorkstationIngest.Repo
+  import Ecto.Query, warn: false
 
   def perform(notification_setting_id) do
     with %NotificationSetting{} = notification_setting <-
@@ -32,10 +34,12 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
           },
           select: [:id]
         })
+        |> Enum.map(fn n -> n.id end)
 
       # 3) delete all Notes linked to the notifications removed for the notification_setting_id
       # TODO: move this to NoteContext module and remove reference to CogyntWorkstationIngest.Repo
-      Repo.delete_all(Note, notification_ids)
+      from(n in Note, where: n.parent_id in ^notification_ids)
+      |> Repo.delete_all()
 
       # 4) delete all notifications linked to the notification_setting_id
       NotificationsContext.hard_delete_notifications(notification_setting_id)
