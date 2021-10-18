@@ -240,11 +240,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
     |> EventsContext.upsert_event_definition()
     |> case do
       {:ok, event_definition} ->
-        with name <-
-               ConsumerGroupSupervisor.fetch_event_cgid(
-                 event_definition.id,
-                 event_definition.topic
-               ),
+        with name <- ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id),
              true <- name != "" do
           DruidRegistryHelper.update_druid_with_registry_lookup(name, event_definition)
         end
@@ -276,11 +272,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
     |> EventsContext.upsert_event_definition_v2()
     |> case do
       {:ok, event_definition} ->
-        with name <-
-               ConsumerGroupSupervisor.fetch_event_cgid(
-                 event_definition.id,
-                 event_definition.topic
-               ),
+        with name <- ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id),
              true <- name != "" do
           DruidRegistryHelper.update_druid_with_registry_lookup(name, event_definition)
         end
