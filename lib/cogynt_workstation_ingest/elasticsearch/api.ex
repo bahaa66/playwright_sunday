@@ -27,7 +27,8 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   end
 
   def create_index(index) do
-    name = build_name(index)
+    IO.puts("*******INSIDE CREATE+INDEX**********")
+    name = build_name(index) |> IO.inspect()
     try do
       case Elasticsearch.Index.create_from_file(Cluster, name, Config.elastic_index_settings_file()) do
         :ok ->
@@ -354,7 +355,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
       {:ok, Map.merge(%{"settings" => %{"index" => index }}, mappings)}
     else
       {:error, reason} ->
-        IO.puts("Cannot get Elasticsearch Index Settings or Mappings because #{reason}")
+        IO.puts("Cannot get Elasticsearch Index Settings or Mappings because " <> reason)
         {:error, reason}
     end
   end
