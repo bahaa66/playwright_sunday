@@ -222,6 +222,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     Druid.terminate_supervisor(id)
     |> case do
       {:ok, response} ->
+        IO.inspect(response, label: "\n\nTERMINATED THE SUPERVISOR")
         {:reply, response, state, {:continue, :shutdown_server}}
 
       {:error, error} ->
@@ -288,9 +289,9 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   end
 
   @impl GenServer
-  def handle_continue(:shutdown_server, %{id: id} = _state) do
+  def handle_continue(:shutdown_server, %{id: id} = state) do
     CogyntLogger.info("#{__MODULE__}", "Shutting down Druid Supervisor Monitor for ID: #{id}")
-    {:stop, :normal}
+    {:stop, :normal, state}
   end
 
   @impl GenServer
