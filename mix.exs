@@ -48,7 +48,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:plug_cowboy, "~> 2.0"},
       {:health_checkup, "~> 0.1.0"},
       {:ecto_enum, "~> 1.4"},
-      {:broadway_kafka, "~> 0.2.0 ", override: true},
+      {:broadway_kafka, "~> 0.3.0 ", override: true},
       {:httpoison, "~> 1.7"},
       {:junit_formatter, "~> 3.0"},
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
@@ -69,14 +69,14 @@ defmodule CogyntWorkstationIngest.MixProject do
        override: true},
       {
         :models,
-        tag: "v1.14.2-beta",
+        tag: "v1.14.8-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.14.2-beta",
+        tag: "v1.14.8-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
@@ -104,11 +104,11 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :druid,
-        tag: "v1.14.5-beta", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
+        tag: "v1.14.8-beta", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
       },
       {
         :cogynt_graphql,
-        tag: "v1.14.6-beta",
+        tag: "v1.14.8-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt_graphql",
         override: true
