@@ -10,9 +10,8 @@ defmodule Mix.Tasks.CreateElasticIndexes do
 
   @impl Mix.Task
   def run(_) do
-     Ecto.Migrator.with_repo(CogyntWorkstationIngest.Repo, &Ecto.Migrator.run(&1, :up, all: true))
     with {:ok, _} <- HTTPoison.start(),
-    {:ok, _} <- CogyntWorkstationIngest.Repo.start_link(),
+        {:ok, _fun_return, _apps } <- Ecto.Migrator.with_repo(CogyntWorkstationIngest.Repo, &Ecto.Migrator.run(&1, :up, all: true)),
         {:ok, _} <- CogyntWorkstationIngest.Elasticsearch.Cluster.start_link(),
         {:ok, false} <- ElasticsearchAPI.index_exists?(Config.event_index_alias()),
          {:ok, _ } <- ElasticsearchAPI.create_index(Config.event_index_alias()) do
@@ -20,6 +19,8 @@ defmodule Mix.Tasks.CreateElasticIndexes do
     else
       {:ok, true} ->
         ElasticsearchAPI.check_to_reindex()
+        #TBD: should you stop the services that were started?
+        # [:connection, :db_connection, :decimal, :ecto, :ecto_sql, :postgrex]
         Mix.shell().info("The index: #{Config.event_index_alias()} already exists.")
 
       {:error, _} ->
