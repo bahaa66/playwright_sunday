@@ -584,14 +584,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       case is_atom(key) do
         true ->
           field_type =
-            case val.dataType do
-              "poly" ->
+            cond do
+              val.dataType == "poly" or val.dataType == "poly-array" or
+                  val.dataType == "geo-array" ->
                 "geo"
 
-              "poly-array" ->
-                "geo-array"
-
-              _ ->
+              true ->
                 val.dataType
             end
 
@@ -607,14 +605,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
         false ->
           field_type =
-            case val["dataType"] do
-              "poly" ->
+            cond do
+              val["dataType"] == "poly" or val["dataType"] == "poly-array" or
+                  val["dataType"] == "geo-array" ->
                 "geo"
 
-              "poly-array" ->
-                "geo-array"
-
-              _ ->
+              true ->
                 val["dataType"]
             end
 
