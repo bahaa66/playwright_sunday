@@ -15,6 +15,6 @@ end)
 
   @impl true
   def transaction(fun) do
-    {:ok, result} = Repo.transaction(fun, timeout: 180_000) #3 minutes works for 2.43 million records in es
+    {:ok, _result} = Repo.transaction(fun, timeout: 180_000) #3 minutes works for 2.43 million records in es
   end
 end

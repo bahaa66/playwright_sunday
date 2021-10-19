@@ -54,7 +54,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     end
   end
 
-  def index_health(index) do
+  def index_health?(index) do
     try do
       case Elasticsearch.get(Cluster,
         "_cluster/health/#{index}?wait_for_status=green&timeout=10s"

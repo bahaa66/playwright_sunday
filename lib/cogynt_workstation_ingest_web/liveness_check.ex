@@ -87,7 +87,7 @@ defmodule LivenessCheck do
   end
 
   defp event_index_health?() do
-    with {:ok, true} <- ElasticsearchAPI.index_health(Config.event_index_alias()) do
+    with {:ok, true} <- ElasticsearchAPI.index_health?(Config.event_index_alias()) do
           IO.puts("LivenessCheck Event Index Passed")
           true
     else
