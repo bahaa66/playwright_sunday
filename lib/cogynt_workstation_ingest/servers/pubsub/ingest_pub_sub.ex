@@ -4,7 +4,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
   """
   use GenServer
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Utils.{ConsumerStateManager, DruidRegistryHelper}
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Broadway.DeploymentPipeline
 

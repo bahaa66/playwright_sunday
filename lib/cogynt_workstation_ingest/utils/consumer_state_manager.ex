@@ -614,7 +614,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
           cond do
             consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] ->
-              IO.puts("CONSUMER STATUS IS UNKNOWN")
               handle_unknown_status(event_definition_id)
 
             consumer_state.status ==

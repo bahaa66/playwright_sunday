@@ -70,16 +70,14 @@ defmodule CogyntWorkstationIngest.MixProject do
        override: true},
       {
         :models,
-        # tag: "v1.14.2-beta",
-        branch: "feat/CDST-984-authoring-2-deployment-support",
+        tag: "v1.14.8-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        # tag: "v1.14.2-beta",
-        branch: "feat/CDST-984-authoring-2-deployment-support",
+        tag: "v1.14.8-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
@@ -107,14 +105,11 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :druid,
-        #tag: "v1.14.5-beta",
-        git: "git@github.com:cogility/cogynt-common.git",
-        branch: "feat/CDST-984-authoring-2-deployment-support",
-        sparse: "druid"
+        tag: "v1.14.8-beta", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
       },
       {
         :cogynt_graphql,
-        tag: "v1.14.7-beta",
+        tag: "v1.14.8-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt_graphql",
         override: true
