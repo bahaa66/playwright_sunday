@@ -38,13 +38,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:phoenix_live_dashboard, "~> 0.1"},
       {:distillery, "~> 2.1"},
       {:phoenix_ecto, "~> 4.0"},
-<<<<<<< HEAD
-      {:ecto_sql, "~> 3.0"},
-      {:postgrex, "0.15.8"},
-=======
       {:ecto_sql, "~> 3.6.2"},
-      {:postgrex, "~> 0.15.8"},
->>>>>>> 0aafeee (fix(deps): fixing deps versions)
+      {:postgrex, "0.15.8"},
       {:gettext, "~> 0.11"},
       {:jason, "~> 1.0"},
       {:ja_serializer, "~> 0.13.0"},
