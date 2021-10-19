@@ -27,8 +27,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   end
 
   def create_index(index) do
-    IO.puts("*******INSIDE CREATE+INDEX**********")
-    name = build_name(index) |> IO.inspect()
+    name = build_name(index)
     try do
       case Elasticsearch.Index.create_from_file(Cluster, name, Config.elastic_index_settings_file()) do
         :ok ->
@@ -147,8 +146,9 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     with :ok <- Elasticsearch.Index.create_from_file(config, name, settings_file),
          bulk_upload(config, name, index_config),
          :ok <- Elasticsearch.Index.alias(config, name, alias),
-         :ok <- clean_starting_with(config, alias, 2),
+         :ok <- clean_starting_with(config, alias, 1),
          :ok <- Elasticsearch.Index.refresh(config, name) do
+
           :ok
          end
   end

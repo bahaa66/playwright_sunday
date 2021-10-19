@@ -61,7 +61,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster
       settings: "priv/elasticsearch/event.active.json",
       store: CogyntWorkstationIngest.Elasticsearch.Store,
       sources: [Models.Events.Event],
-      bulk_page_size: 1000,
+      bulk_page_size: 500,
       bulk_wait_interval: 0
     }
   },
@@ -149,7 +149,10 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   database: System.get_env("POSTGRESQL_DATABASE") || "cogynt_dev",
   hostname: System.get_env("POSTGRESQL_HOST") || "localhost",
   pool_size: (System.get_env("POSTGRESQL_POOL_SIZE") || "20") |> String.to_integer(),
-  telemetry_prefix: [:cogynt_workstation_ingest, :repo]
+  telemetry_prefix: [:cogynt_workstation_ingest, :repo],
+  queue_target: 5_000,
+  queue_interval: 2_000,
+  ownership_timeout: 60_000
 
 config :druid,
   request_timeout: (System.get_env("DRUID_REQUEST_TIMEOUT") || "120000") |> String.to_integer(),
