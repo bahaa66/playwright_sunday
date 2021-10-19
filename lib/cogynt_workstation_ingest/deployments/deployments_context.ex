@@ -153,4 +153,83 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
         {:ok, uris}
     end
   end
+
+  @doc """
+  Parses the Brokers out of the data_sources json value stored in the
+  Deployments table. Example of the data_sources object that is being parsed.
+    "data_sources":[
+      {
+        "spec": {
+          "brokers": "kafka:9071,kafka:9072"
+        },
+        "kind": "kafka",
+        "lock_version": 2,
+        "version": 1
+      }
+    ]
+
+    Responses:
+    {:ok, [{host, port}, {host, port}, {host, port}]} | {:error, :does_not_exist}
+  """
+  def get_kafka_brokers(deployment_id) do
+    case get_deployment(deployment_id) do
+      nil ->
+        {:error, :does_not_exist}
+
+      %Deployment{data_sources: data_sources, version: version} ->
+        case version do
+          "2.0" ->
+            {:ok, parse_kafka_brokers_v2(data_sources)}
+
+          _ ->
+            # *** This can be deprecated once Authoring 1.0 is no longer supported ***
+            {:ok, parse_kafka_brokers(data_sources)}
+        end
+    end
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  # *** This can be deprecated once Authoring 1.0 is no longer supported ***
+  defp parse_kafka_brokers(data_sources) do
+    uris =
+      Enum.reduce(data_sources, [], fn data_source, acc ->
+        case data_source["kind"] == "kafka" do
+          true ->
+            if is_list(data_source["spec"]["brokers"]) do
+              acc ++
+                Enum.reduce(data_source["spec"]["brokers"], [], fn %{
+                                                                     "host" => host,
+                                                                     "port" => port
+                                                                   },
+                                                                   acc_1 ->
+                  acc_1 ++ [{host, String.to_integer(port)}]
+                end)
+            else
+              acc ++ Config.parse_kafka_brokers(data_source["spec"]["brokers"])
+            end
+
+          false ->
+            acc
+        end
+      end)
+
+    {:ok, uris}
+  end
+
+  def parse_kafka_brokers_v2(data_sources) do
+    uris =
+      Enum.reduce(data_sources, [], fn data_source, acc ->
+        case data_source["type"] == "kafka" do
+          true ->
+            acc ++ Config.parse_kafka_brokers(data_source["connect_string"])
+
+          false ->
+            acc
+        end
+      end)
+
+    {:ok, uris}
+  end
 end

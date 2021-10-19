@@ -4,7 +4,9 @@ use Mix.Config
 config :cogynt_workstation_ingest,
   session_domain: System.get_env("COGYNT_SESSION_DOMAIN") || "localhost",
   session_key: System.get_env("COGYNT_AUTH_SESSION_KEY") || "_cogynt_auth_key",
-  signing_salt: System.get_env("COGYNT_AUTH_SALT") || "I45Kpw9a"
+  signing_salt: System.get_env("COGYNT_AUTH_SALT") || "I45Kpw9a",
+  enable_dev_tools: (System.get_env("ENABLE_DEV_TOOLS") || "true") == "true",
+  authoring_version: System.get_env("COGYNT_AUTHORING_VERSION") || "1"
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   load_from_system_env: true,
@@ -172,7 +174,7 @@ config :libcluster,
         mode: :ip,
         kubernetes_node_basename: "ws-ingest-otp",
         kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
-        kubernetes_namespace:  System.get_env("NAMESPACE") || "cogynt-kots",
+        kubernetes_namespace: System.get_env("NAMESPACE") || "cogynt-kots",
         polling_interval: 10_000
       ]
     ]

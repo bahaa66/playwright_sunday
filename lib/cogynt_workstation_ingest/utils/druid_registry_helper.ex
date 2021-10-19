@@ -5,102 +5,103 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   alias Models.Events.EventDefinitionDetail
   alias CogyntWorkstationIngest.Config
 
-  @lexions_expression ~s("$matches")
-  @default_dimensions [
-    %{
-      type: "string",
-      name: "id"
-    },
-    %{
-      type: "string",
-      name: "published_by"
-    },
-    %{
-      type: "float",
-      name: "_confidence"
-    },
-    %{
-      type: "string",
-      name: "publishing_template_type_name"
-    },
-    %{
-      type: "string",
-      name: "data_type"
-    },
-    %{
-      type: "string",
-      name: "$crud"
-    },
-    %{
-      type: "string",
-      name: "source"
-    },
-    %{
-      type: "date",
-      name: "published_at"
-    },
-    %{
-      type: "string",
-      name: "$matches"
-    },
-    %{
-      type: "integer",
-      name: "$version"
-    }
-  ]
+  # ------------------------- #
+  # --- module attributes --- #
+  # ------------------------- #
 
-  @default_fields [
-    %{
-      type: "path",
-      name: "id",
-      expr: "$.id"
-    },
-    %{
-      type: "path",
-      name: "published_by",
-      expr: "$.path"
-    },
-    %{
-      type: "path",
-      name: "_confidence",
-      expr: "$._confidence"
-    },
-    %{
-      type: "path",
-      name: "publishing_template_type_name",
-      expr: "$.publishing_template_type_name"
-    },
-    %{
-      type: "path",
-      name: "data_type",
-      expr: "$.data_type"
-    },
-    %{
-      type: "path",
-      name: "$crud",
-      expr: "$.$crud"
-    },
-    %{
-      type: "path",
-      name: "source",
-      expr: "$.source"
-    },
-    %{
-      type: "path",
-      name: "published_at",
-      expr: "$.published_at"
-    },
-    %{
-      type: "path",
-      name: "$version",
-      expr: "$.$version"
-    },
-    %{
-      type: "jq",
-      name: "$matches",
-      expr: ".#{@lexions_expression} | tojson"
-    }
-  ]
+  @timestamp_default "1970-01-01T00:00:00Z"
+  @matches_sigil ~s("#{Config.matches_key()}")
+
+  Module.put_attribute(
+    __MODULE__,
+    :timestamp_key,
+    Config.timestamp_key()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :published_at_key,
+    Config.published_at_key()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :default_dimensions,
+    [
+      %{
+        type: "string",
+        name: Config.id_key()
+      },
+      %{
+        type: "string",
+        name: Config.published_by_key()
+      },
+      %{
+        type: "float",
+        name: Config.confidence_key()
+      },
+      %{
+        type: "string",
+        name: Config.crud_key()
+      },
+      %{
+        type: "date",
+        name: Config.published_at_key()
+      },
+      %{
+        type: "string",
+        name: Config.matches_key()
+      },
+      %{
+        type: "integer",
+        name: Config.version_key()
+      }
+    ]
+  )
+
+  Module.put_attribute(
+    __MODULE__,
+    :default_fields,
+    [
+      %{
+        type: "path",
+        name: Config.id_key(),
+        expr: "$.#{Config.id_key()}"
+      },
+      %{
+        type: "path",
+        name: Config.published_by_key(),
+        expr: "$.#{Config.published_by_key()}"
+      },
+      %{
+        type: "path",
+        name: Config.confidence_key(),
+        expr: "$.#{Config.confidence_key()}"
+      },
+      %{
+        type: "path",
+        name: Config.crud_key(),
+        expr: "$.#{Config.crud_key()}"
+      },
+      %{
+        type: "path",
+        name: Config.published_at_key(),
+        expr: "$.#{Config.published_at_key()}"
+      },
+      %{
+        type: "path",
+        name: Config.version_key(),
+        expr: "$.#{Config.version_key()}"
+      },
+      %{
+        type: "jq",
+        name: Config.matches_key(),
+        expr: ".#{@matches_sigil} | tojson"
+      }
+    ]
+  )
+
+  # -------------------------- #
 
   def start_druid_with_registry_lookup(name, event_definition) do
     case DruidSupervisor.whereis(name) do
@@ -237,21 +238,12 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
 
     case DruidSupervisor.whereis(name) do
       nil ->
-        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec) do
-          {:error, {:already_started, pid}} ->
-            {:ok, pid}
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "update_druid_with_registry_lookup/2 No supervisor running. No need to update"
+        )
 
-          {:error, error} ->
-            CogyntLogger.error(
-              "#{__MODULE__}",
-              "Failed to start Druid Supervisor: #{name}. Error: #{inspect(error)}"
-            )
-
-            {:error, nil}
-
-          {:ok, pid} ->
-            {:ok, pid}
-        end
+        {:ok, nil}
 
       pid ->
         SupervisorMonitor.create_or_update_supervisor(pid, druid_spec)
@@ -376,7 +368,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         {:error, :not_found}
 
       pid ->
-        Process.send(pid, :get_status, [:noconnect])
+        SupervisorMonitor.supervisor_status(pid)
     end
   end
 
@@ -387,104 +379,104 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     # Build the DimensionSpecs and FlattenSpecs based off of the defaults
     # and the EventDefinitionDetails
     {dimensions, fields} =
-      EventsContext.get_event_definition_details(event_definition.id)
-      |> Enum.reduce({@default_dimensions, @default_fields}, fn
-        %EventDefinitionDetail{
-          field_type: field_type,
-          path: field_path
-        },
-        {acc_dimensions, acc_fields} ->
-          sigil_field_path = ~s("#{field_path}")
+      EventsContext.get_event_definition_details(event_definition.event_definition_details_id)
+      |> Enum.reduce({@default_dimensions, @default_fields}, fn %EventDefinitionDetail{
+                                                                  field_type: field_type,
+                                                                  path: field_path
+                                                                },
+                                                                {acc_dimensions, acc_fields} ->
+        sigil_field_path = ~s("#{field_path}")
 
-          cond do
-            # Any type that is not supported by Native Druid types need to be matched here
-            field_type in ["geo", "array"] ->
-              acc_dimensions =
-                Enum.uniq(
-                  Enum.map(acc_dimensions, fn dimension ->
-                    if dimension.name == field_path,
-                      do: %{
-                        type: "string",
-                        name: field_path
-                      },
-                      else: dimension
-                  end) ++
-                    [
-                      %{
-                        type: "string",
-                        name: field_path
-                      }
-                    ]
-                )
+        cond do
+          # Any type that is not supported by Native Druid types need to be matched here
+          field_type == "geo" or
+              String.contains?(field_type, "array") ->
+            acc_dimensions =
+              Enum.uniq(
+                Enum.map(acc_dimensions, fn dimension ->
+                  if dimension.name == field_path,
+                    do: %{
+                      type: "string",
+                      name: field_path
+                    },
+                    else: dimension
+                end) ++
+                  [
+                    %{
+                      type: "string",
+                      name: field_path
+                    }
+                  ]
+              )
 
-              acc_fields =
-                Enum.uniq(
-                  acc_fields ++
-                    [
-                      %{
-                        type: "jq",
-                        name: field_path,
-                        expr: ".#{Enum.join(String.split(sigil_field_path, "|"), ".")} | tojson"
-                      }
-                    ]
-                )
+            acc_fields =
+              Enum.uniq(
+                acc_fields ++
+                  [
+                    %{
+                      type: "jq",
+                      name: field_path,
+                      expr: ".#{Enum.join(String.split(sigil_field_path, "|"), ".")} | tojson"
+                    }
+                  ]
+              )
 
-              {acc_dimensions, acc_fields}
+            {acc_dimensions, acc_fields}
 
-            field_type == "nil" or is_nil(field_type) ->
-              {acc_dimensions, acc_fields}
+          field_type == "nil" or is_nil(field_type) ->
+            {acc_dimensions, acc_fields}
 
-            true ->
-              acc_dimensions =
-                Enum.uniq(
-                  Enum.map(acc_dimensions, fn dimension ->
-                    if dimension.name == field_path,
-                      do: %{
-                        type: field_type,
-                        name: field_path
-                      },
-                      else: dimension
-                  end) ++
-                    [
-                      %{
-                        type: field_type,
-                        name: field_path
-                      }
-                    ]
-                )
+          true ->
+            acc_dimensions =
+              Enum.uniq(
+                Enum.map(acc_dimensions, fn dimension ->
+                  if dimension.name == field_path,
+                    do: %{
+                      type: field_type,
+                      name: field_path
+                    },
+                    else: dimension
+                end) ++
+                  [
+                    %{
+                      type: field_type,
+                      name: field_path
+                    }
+                  ]
+              )
 
-              acc_fields =
-                Enum.uniq(
-                  acc_fields ++
-                    [
-                      %{
-                        type: "path",
-                        name: field_path,
-                        expr: "$.#{Enum.join(String.split(field_path, "|"), ".")}"
-                      }
-                    ]
-                )
+            acc_fields =
+              Enum.uniq(
+                acc_fields ++
+                  [
+                    %{
+                      type: "path",
+                      name: field_path,
+                      expr: "$.#{Enum.join(String.split(field_path, "|"), ".")}"
+                    }
+                  ]
+              )
 
-              {acc_dimensions, acc_fields}
-          end
+            {acc_dimensions, acc_fields}
+        end
       end)
 
-    # If the _timestamp field existed in the EventDefinitionDetails then use it as the
+    # If the timestamp_key() field existed in the EventDefinitionDetails then use it as the
     # Druid timestamp filter. Otherwise use published_at
     timestamp =
-      case Enum.find(dimensions, fn dimension -> dimension.name == "_timestamp" end) do
+      case Enum.find(dimensions, fn dimension -> dimension.name == @timestamp_key end) do
         nil ->
           %{
-            column: "published_at",
+            column: @published_at_key,
             format: "auto",
-            missingValue: "1970-01-01T00:00:00Z"
+            missingValue: @timestamp_default
           }
 
         _ ->
           %{
-            column: "_timestamp",
+            column: @timestamp_key,
             format: "auto",
-            missingValue: "1970-01-01T00:00:00Z"
+            missingValue: @timestamp_default
           }
       end
 
@@ -517,6 +509,11 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         |> Enum.join(","),
       dimensions_spec: %{
         dimensions: dimensions
+      },
+      timestamp_spec: %{
+        column: @timestamp_key,
+        format: "auto",
+        missingValue: @timestamp_default
       },
       topic: name
     }

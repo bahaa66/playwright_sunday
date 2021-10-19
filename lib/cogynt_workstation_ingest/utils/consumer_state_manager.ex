@@ -12,6 +12,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
   alias CogyntWorkstationIngest.Utils.JobQueue.Workers.{
     BackfillNotificationsWorker,
+    UpdateNotificationsWorker,
     DeleteNotificationsWorker
   }
 
@@ -20,11 +21,21 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   alias Models.Enums.ConsumerStatusTypeEnum
   alias Models.Events.EventDefinition
 
-  @default_state %{
-    topic: nil,
-    status: ConsumerStatusTypeEnum.status()[:unknown],
-    prev_status: nil
-  }
+  # ------------------------- #
+  # --- module attributes --- #
+  # ------------------------- #
+
+  Module.put_attribute(
+    __MODULE__,
+    :default_state,
+    %{
+      topic: nil,
+      status: ConsumerStatusTypeEnum.status()[:unknown],
+      prev_status: nil
+    }
+  )
+
+  # ------------------------- #
 
   @doc """
   creates and or updates the consumer state in the Redis hashkey cs:
@@ -120,7 +131,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     for x <- ["fem", "emi"], do: Redis.key_delete("#{x}:#{event_definition_id}")
 
     Redis.hash_delete("cs", event_definition_id)
-    Redis.hash_delete("ecgid", "EventDefinition-#{event_definition_id}")
+    Redis.hash_delete("ecgid", "ED-#{event_definition_id}")
 
     case Redis.get("dd") do
       {:ok, values} when is_list(values) ->
@@ -164,6 +175,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         {:backfill_notifications, notification_setting_id}, _acc ->
           backfill_notifications(notification_setting_id)
 
+        {:update_notifications, notification_setting_id}, _acc ->
+          update_notifications(notification_setting_id)
+
         {:delete_notifications, notification_setting_id}, _acc ->
           delete_notifications(notification_setting_id)
 
@@ -190,6 +204,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
           cond do
             consumer_state.status ==
               ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
+              consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
                 consumer_state.status ==
                   ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
               upsert_consumer_state(
@@ -270,6 +286,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
         consumer_state.status ==
           ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
+          consumer_state.status ==
+            ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
             consumer_state.status ==
               ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
           case EventPipeline.pipeline_running?(event_definition.id) do
@@ -337,6 +355,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
         consumer_state.status ==
           ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
+          consumer_state.status ==
+            ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
             consumer_state.status ==
               ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
           case EventPipeline.pipeline_running?(event_definition.id) do
@@ -426,6 +446,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
             consumer_state.status ==
               ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
+              consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
                 consumer_state.status ==
                   ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
               ExqHelpers.create_and_enqueue(
@@ -494,6 +516,92 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
   end
 
+  defp update_notifications(notification_setting_id) do
+    notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
+
+    event_definition_id = notification_setting.event_definition_id
+
+    try do
+      case event_definition_task_running?(event_definition_id) do
+        false ->
+          {:ok, consumer_state} = get_consumer_state(event_definition_id)
+
+          cond do
+            consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] ->
+              handle_unknown_status(event_definition_id)
+
+            consumer_state.status ==
+              ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
+              consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
+                consumer_state.status ==
+                  ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
+              ExqHelpers.create_and_enqueue(
+                "notifications",
+                event_definition_id,
+                UpdateNotificationsWorker,
+                notification_setting.id
+              )
+
+              %{
+                response: {:ok, consumer_state.status}
+              }
+
+            true ->
+              upsert_consumer_state(
+                event_definition_id,
+                topic: consumer_state.topic,
+                status: ConsumerStatusTypeEnum.status()[:update_notification_task_running],
+                prev_status: consumer_state.status
+              )
+
+              case ExqHelpers.create_and_enqueue(
+                     "notifications",
+                     event_definition_id,
+                     UpdateNotificationsWorker,
+                     notification_setting.id
+                   ) do
+                {:ok, _} ->
+                  %{
+                    response:
+                      {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
+                  }
+
+                _ ->
+                  # Something failed when queueing the job. Reset the consumer_state
+                  upsert_consumer_state(
+                    event_definition_id,
+                    topic: consumer_state.topic,
+                    status: consumer_state.status,
+                    prev_status: consumer_state.prev_status
+                  )
+
+                  %{
+                    response:
+                      {:ok, ConsumerStatusTypeEnum.status()[:update_notification_task_running]}
+                  }
+              end
+          end
+
+        true ->
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "Failed to run update_notifications/1. DevDelete task pending or running. Must to wait until it is finished"
+          )
+
+          %{response: {:error, :internal_server_error}}
+      end
+    rescue
+      error ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "UpdateNotifications failed with error: #{inspect(error, pretty: true)}"
+        )
+
+        internal_error_state(event_definition_id)
+    end
+  end
+
   defp delete_notifications(notification_setting_id) do
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
@@ -510,6 +618,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
 
             consumer_state.status ==
               ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
+              consumer_state.status ==
+                ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
                 consumer_state.status ==
                   ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
               ExqHelpers.create_and_enqueue(
