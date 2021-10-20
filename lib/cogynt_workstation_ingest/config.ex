@@ -122,5 +122,5 @@ defmodule CogyntWorkstationIngest.Config do
 
   defp clients(), do: Application.get_env(:cogynt_workstation_ingest, :clients)
 
-  defp rpc(), do: Application.get_env(:cogynt, :rpc)
+  defp rpc(), do: Application.get_env(:cogynt_workstation_ingest, :rpc)
 end
