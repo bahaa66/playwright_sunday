@@ -144,22 +144,6 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
 
         ConsumerGroupSupervisor.stop_child(:deployment)
 
-      {:ok, %{start_template_solutions_druid_supervisor: name} = request} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
-        )
-
-        DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(name)
-
-      {:ok, %{start_template_solution_events_druid_supervisor: name} = request} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Channel: #{inspect(channel)}, Received message: #{inspect(request, pretty: true)}"
-        )
-
-        DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(name)
-
       {:ok, _} ->
         CogyntLogger.warn(
           "#{__MODULE__}",
