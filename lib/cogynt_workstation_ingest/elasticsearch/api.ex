@@ -415,7 +415,8 @@ def clean_starting_with(cluster, prefix, num_to_keep) when is_integer(num_to_kee
   end
 
   defp system_timestamp do
-    DateTime.to_unix(DateTime.utc_now(), :microsecond)
+    # 2021-10-20 18:37:13Z --> "20211020183713"
+    DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_string() |> String.replace(["-", ":", " ", "Z"], "")
   end
 
 end

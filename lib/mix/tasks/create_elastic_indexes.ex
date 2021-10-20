@@ -12,6 +12,7 @@ defmodule Mix.Tasks.CreateElasticIndexes do
   def run(_) do
     with {:ok, _} <- HTTPoison.start(),
         {:ok, _fun_return, _apps } <- Ecto.Migrator.with_repo(CogyntWorkstationIngest.Repo, &Ecto.Migrator.run(&1, :up, all: true)),
+        {:ok, _} <- CogyntWorkstationIngest.Repo.start_link(),
         {:ok, _} <- CogyntWorkstationIngest.Elasticsearch.Cluster.start_link(),
         {:ok, false} <- ElasticsearchAPI.index_exists?(Config.event_index_alias()),
          {:ok, _ } <- ElasticsearchAPI.create_index(Config.event_index_alias()) do
