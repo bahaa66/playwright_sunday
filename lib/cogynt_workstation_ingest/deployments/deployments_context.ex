@@ -130,11 +130,11 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
       %Deployment{data_sources: data_sources, version: version} ->
         case version do
           "2.0" ->
-            {:ok, parse_kafka_brokers_v2(data_sources)}
+            parse_kafka_brokers_v2(data_sources)
 
           _ ->
             # *** This can be deprecated once Authoring 1.0 is no longer supported ***
-            {:ok, parse_kafka_brokers(data_sources)}
+            parse_kafka_brokers(data_sources)
         end
     end
   end
