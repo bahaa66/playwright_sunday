@@ -412,9 +412,27 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     case transaction_result do
       {:ok, %{upsert_notifications: {_count_created, upserted_notifications}}} ->
+        Redis.publish_async(
+          "events_changed_listener",
+          %{
+            event_type: event_type,
+            deleted: bulk_transactional_data.delete_core_id,
+            upserted: bulk_transactional_data.pg_event
+          }
+        )
+
         SystemNotificationContext.bulk_insert_system_notifications(upserted_notifications)
 
       {:ok, _} ->
+        Redis.publish_async(
+          "events_changed_listener",
+          %{
+            event_type: event_type,
+            deleted: bulk_transactional_data.delete_core_id,
+            upserted: bulk_transactional_data.pg_event
+          }
+        )
+
         nil
 
       {:error, reason} ->
@@ -427,15 +445,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
         raise "execute_transaction/1 failed"
     end
-
-    Redis.publish_async(
-      "events_changed_listener",
-      %{
-        event_type: event_type,
-        deleted: bulk_transactional_data.delete_core_id,
-        upserted: bulk_transactional_data.pg_event
-      }
-    )
   end
 
   # ----------------------- #
