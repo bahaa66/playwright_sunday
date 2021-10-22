@@ -15,7 +15,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   def start_link(opts) do
     name = Keyword.get(opts, :name, __MODULE__)
     druid_spec = Keyword.get(opts, :druid_spec, %{})
-    GenServer.start_link(__MODULE__, druid_spec, name: name)
+    force_update = Keyword.get(opts, :force_update, false)
+    GenServer.start_link(__MODULE__, [druid_spec, force_update], name: name)
   end
 
   def supervisor_status(pid) do
@@ -54,7 +55,12 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   # --- server callbacks --- #
   # ------------------------ #
   @impl GenServer
-  def init(%{supervisor_id: supervisor_id} = args) do
+  def init([%{supervisor_id: supervisor_id} = args, true]) do
+    handle_supervisor(supervisor_id, args)
+  end
+
+  @impl GenServer
+  def init([%{supervisor_id: supervisor_id} = args, false]) do
     Druid.status_health()
     |> case do
       {:ok, true} ->
@@ -65,47 +71,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
         else
           {:error, %{code: 400, error: message} = error} when is_binary(message) ->
             if message =~ "Cannot find any supervisor with id" do
-              brokers = Map.get(args, :brokers)
-              schema = Map.get(args, :schema, :json)
-
-              supervisor_specs =
-                Map.take(args, [
-                  :dimensions_spec,
-                  :supervisor_id,
-                  :io_config,
-                  :parse_spec,
-                  :flatten_spec,
-                  :granularity_spec,
-                  :timestamp_spec,
-                  :schema_registry_url,
-                  :topic
-                ])
-                |> Keyword.new()
-
-              supervisor_spec =
-                Druid.Utils.build_kafka_supervisor(
-                  supervisor_id,
-                  brokers,
-                  schema,
-                  supervisor_specs
-                )
-
-              with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
-                   {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id),
-                   %SupervisorStatus{} = status <- SupervisorStatus.new(payload) do
-                schedule(status)
-                {:ok, %{id: id, supervisor_status: status}}
-              else
-                {:error, error} ->
-                  CogyntLogger.error(
-                    "#{__MODULE__}",
-                    "Unable to create/fetch Druid supervisor information for #{supervisor_id}: #{
-                      inspect(error)
-                    }"
-                  )
-
-                  {:stop, :failed_to_create_druid_supervisor}
-              end
+              handle_supervisor(supervisor_id, args)
             else
               CogyntLogger.error(
                 "#{__MODULE__}",
@@ -143,6 +109,50 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
         )
 
         {:stop, :druid_server_connection_error}
+    end
+  end
+
+  defp handle_supervisor(supervisor_id, args) do
+    brokers = Map.get(args, :brokers)
+    schema = Map.get(args, :schema, :json)
+
+    supervisor_specs =
+      Map.take(args, [
+        :dimensions_spec,
+        :supervisor_id,
+        :io_config,
+        :parse_spec,
+        :flatten_spec,
+        :granularity_spec,
+        :timestamp_spec,
+        :schema_registry_url,
+        :topic
+      ])
+      |> Keyword.new()
+
+    supervisor_spec =
+      Druid.Utils.build_kafka_supervisor(
+        supervisor_id,
+        brokers,
+        schema,
+        supervisor_specs
+      )
+
+    with {:ok, %{"id" => id}} <- Druid.create_or_update_supervisor(supervisor_spec),
+         {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id),
+         %SupervisorStatus{} = status <- SupervisorStatus.new(payload) do
+      schedule(status)
+      {:ok, %{id: id, supervisor_status: status}}
+    else
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Unable to create/fetch Druid supervisor information for #{supervisor_id}: #{
+            inspect(error)
+          }"
+        )
+
+        {:stop, :failed_to_create_druid_supervisor}
     end
   end
 
@@ -307,7 +317,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
         {:noreply, state, {:continue, :reset_and_get_supervisor}}
       else
-        schedule(state)
+        schedule(status)
         {:noreply, %{state | supervisor_status: status}}
       end
     else
