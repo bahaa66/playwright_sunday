@@ -1,5 +1,5 @@
 defmodule CogyntWorkstationIngestWeb.Clients.JsonRpcHTTPClient do
-  @behaviour CogyntWorkstationIngestWeb.Clients.JsonRpcHTTPClient
+  @behaviour CogyntWorkstationIngestWeb.Clients.JsonRpcClient
 
   @default_headers [{"content-type", "application/json"}]
   def call(
