@@ -1,6 +1,5 @@
 defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   import Absinthe.Resolution.Helpers, only: [on_load: 2]
-  alias Absinthe.Utils, as: AbsintheUtils
   alias CogyntWorkstationIngest.Config
   alias CogyntGraphql.Utils.Error
   alias CogyntWorkstationIngestWeb.Dataloaders.Druid, as: DruidLoader
@@ -34,7 +33,9 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
       Config.published_at_key(),
       "processed_at",
       "source_type",
-      "assertion_id"
+      "assertion_id",
+      "templateTypeId",
+      Config.version_key()
     ]
   )
 
@@ -70,12 +71,13 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
          })}
 
       template_solution, ts_loader ->
+        IO.inspect(template_solution, label: "INITIAL SOLUTION")
         get_drilldown([template_solution], ts_loader, fn
           %{solutions: solutions, events: events, edges: edges}, _loader ->
             {:ok,
              %{
                id: template_solution["id"],
-               nodes: [template_solution | solutions] ++ Map.values(events),
+               nodes: solutions ++ Map.values(events),
                edges: MapSet.to_list(edges)
              }}
         end)
@@ -83,13 +85,14 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   end
 
   def get_drilldown(template_solutions, loader, callback) do
+    IO.inspect(template_solutions, label: "NEXT LEVEL OF SOLUTIONS")
     exclude_solution_ids = Enum.map(template_solutions, &Map.get(&1, "id"))
 
     get_events(exclude_solution_ids, loader, fn
       events, events_and_outcomes_loader ->
         get_outcomes(exclude_solution_ids, events_and_outcomes_loader, fn
           outcomes, outcomes_loader ->
-            solution_ids = event_solution_ids(events, exclude_solution_ids)
+            solution_ids = event_solution_ids(events, exclude_solution_ids) |> IO.inspect(label: "NEW SOLUTION IDS")
 
             outcome_edges =
               Enum.map(outcomes, fn {s_id, outcomes} ->
@@ -272,35 +275,22 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   end
 
   def event_attributes(event, _, _) do
-    # TODO: Update to use the config to work with auth 2 changes.
-    risk_score =
-      Map.get(event, "_confidence")
-      |> case do
-        risk_score when is_integer(risk_score) -> risk_score
-        risk_score when is_float(risk_score) -> (risk_score * 100) |> trunc()
-        risk_score -> risk_score
-      end
-
-    fields =
-      event
-      |> Enum.reject(fn {k, _v} ->
-        Enum.member?(@whitelist, k)
-      end)
-      |> Enum.into(%{})
-      |> Map.delete(@id_key)
-
-    attrs =
-      event
-      |> Enum.filter(fn {k, _v} ->
-        Enum.member?(@whitelist, k)
-      end)
-      |> Enum.into(%{}, fn {k, v} ->
-        {AbsintheUtils.camelize(k, lower: true), v}
-      end)
-      |> Map.put("fields", fields)
-      |> Map.put("risk_score", risk_score)
-
-    {:ok, attrs}
+    {:ok,
+     %{
+       assertion_id: Map.get(event, "assertion_id"),
+       fields:
+         event
+         |> Enum.reject(fn {k, _v} ->
+           Enum.member?(@whitelist, k)
+         end)
+         |> Enum.into(%{})
+         |> Map.delete(@id_key),
+       processed_at: Map.get(event, "processed_at"),
+       published_at: Map.get(event, Config.published_at_key()),
+       published_by: Map.get(event, Config.published_by_key()),
+       risk_score: Map.get(event, Config.confidence_key()),
+       version: Map.get(event, Config.version_key())
+     }}
   end
 
   defp get_solution(solution_id, loader, callback) do
@@ -338,7 +328,11 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
           :template_solutions,
           solution_ids
         )
+<<<<<<< HEAD
         |> Enum.filter(&(!is_nil(&1)))
+=======
+        |> Enum.reject(&is_nil(&1))
+>>>>>>> 550b0c1 (Include new fields)
 
       callback.(solutions, loader)
     end)
