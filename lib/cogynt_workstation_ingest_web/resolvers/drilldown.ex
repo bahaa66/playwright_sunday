@@ -328,11 +328,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
           :template_solutions,
           solution_ids
         )
-<<<<<<< HEAD
-        |> Enum.filter(&(!is_nil(&1)))
-=======
         |> Enum.reject(&is_nil(&1))
->>>>>>> 550b0c1 (Include new fields)
 
       callback.(solutions, loader)
     end)
