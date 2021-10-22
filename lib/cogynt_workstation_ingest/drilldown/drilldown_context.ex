@@ -95,7 +95,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   def get_template_solution_outcomes(ids) when is_list(ids) do
     sql_query = %{
       query: """
-        SELECT id AS solution_id, event, aid
+        SELECT id AS solution_id, *
         FROM druid.template_solution_events
         WHERE id=ANY('#{Enum.join(ids, "','")}') and aid IS NULL
       """
@@ -107,7 +107,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   def get_template_solution_outcomes(id) do
     sql_query = %{
       query: """
-        SELECT id AS solution_id, event, aid
+        SELECT id AS solution_id, *
         FROM druid.template_solution_events
         WHERE id=? and aid IS NULL
       """,
@@ -120,7 +120,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   def get_template_solution_outcomes!(id) do
     sql_query = %{
       query: """
-        SELECT id AS solution_id, event, aid
+        SELECT id AS solution_id, *
         FROM druid.template_solution_events
         WHERE id=? and aid IS NULL
       """,
@@ -137,7 +137,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   def get_template_solution_events(ids) when is_list(ids) do
     sql_query = %{
       query: """
-        SELECT id AS solution_id, event, aid
+        SELECT id AS solution_id, *
         FROM druid.template_solution_events
         WHERE id=ANY('#{Enum.join(ids, "','")}') AND aid IS NOT NULL
       """
@@ -149,7 +149,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   def get_template_solution_events(id) do
     sql_query = %{
       query: """
-        SELECT id AS solution_id, event, aid
+        SELECT id AS solution_id, *
         FROM template_solution_events
         WHERE id=? and aid IS NOT NULL
       """,
@@ -162,7 +162,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   def get_template_solution_events!(id) do
     sql_query = %{
       query: """
-        SELECT id AS solution_id, *, aid
+        SELECT id AS solution_id, *
         FROM druid.template_solution_events
         WHERE id=? and aid IS NOT NULL
       """,
