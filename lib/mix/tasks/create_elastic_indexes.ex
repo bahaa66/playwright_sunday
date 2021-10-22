@@ -10,19 +10,23 @@ defmodule Mix.Tasks.CreateElasticIndexes do
 
   @impl Mix.Task
   def run(_) do
+    Application.ensure_started(CogyntWorkstation.Repo, [] ) |> IO.inspect
        with {:ok, _} <- HTTPoison.start(),
-       {:ok, _} <- Application.ensure_all_started(:ecto),
-       {:ok, _} <- Application.ensure_all_started(:postgrex),
-       {:ok, _} <- CogyntWorkstationIngest.Repo.start_link(),
        {:ok, _} <- CogyntWorkstationIngest.Elasticsearch.Cluster.start_link(),
        {:ok, false} <- ElasticsearchAPI.index_exists?(Config.event_index_alias()),
        {:ok, _ } <- ElasticsearchAPI.create_index(Config.event_index_alias()) do
         Mix.shell().info("The index: #{Config.event_index_alias()} for Cogynt has been created.")
       else
         {:ok, true} ->
-          ElasticsearchAPI.check_to_reindex()
-          #TBD: should you stop the services that were started?
-          # [:connection, :db_connection, :decimal, :ecto, :postgrex]
+          with {:ok, _} <- Application.ensure_all_started(:ecto),
+          {:ok, _} <- Application.ensure_all_started(:postgrex),
+          {:ok, _} <- CogyntWorkstationIngest.Repo.start_link() do
+            ElasticsearchAPI.check_to_reindex()
+          else
+            {:error, _ } -> CogyntLogger.error(
+              "#{__MODULE__}",
+              "An error occured trying to reindex  #{Config.event_index_alias()}")
+          end
           Mix.shell().info("The index: #{Config.event_index_alias()} already exists.")
 
         {:error, _} ->
