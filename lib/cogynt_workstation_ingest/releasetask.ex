@@ -1,4 +1,8 @@
 defmodule CogyntWorkstationIngest.ReleaseTasks do
+  alias CogyntWorkstationIngest.ElasticsearchAPI
+  alias CogyntWorkstationIngest.Config
+
+
   @apps [
     :cogynt_workstation_ingest
   ]
@@ -12,9 +16,6 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
   ]
 
   def repos(app), do: Application.get_env(app, :ecto_repos, []) |> IO.inspect()
-
-  alias Elasticsearch.IndexMappings.EventIndexMapping
-  alias CogyntWorkstationIngest.Config
 
   def premigrate do
     start_services()
@@ -73,22 +74,16 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
     IO.puts("Running indexes..")
 
     with {:ok, _} <- HTTPoison.start(),
-         {:ok, false} <- Elasticsearch.index_exists?(Config.event_index_alias()),
-         {:ok, _} <-
-           Elasticsearch.create_index(
-             Config.event_index_alias(),
-             EventIndexMapping.event_index_settings()
-           ) do
-      IO.puts("The event_index for CogyntWorkstation have been created.")
-
-      IO.puts("indexes complete..")
+         {:ok, false} <- ElasticsearchAPI.index_exists?(Config.event_index_alias()) do
+          ElasticsearchAPI.create_index(Config.event_index_alias())
+         IO.puts("The event_index for CogyntWorkstation has been created.")
+         IO.puts("indexes complete..")
     else
-      {:error, _} ->
-        IO.puts("Failed to create event index")
-
       {:ok, true} ->
-        IO.puts("event_index already exists.")
-        IO.puts("indexes complete..")
+        ElasticsearchAPI.check_to_reindex()
+      {:error, %Elasticsearch.Exception{raw: %{"error" => error}}} ->
+        reason = Map.get(error, "reason")
+        IO.puts("Failed to create event index #{reason}")
     end
   end
 

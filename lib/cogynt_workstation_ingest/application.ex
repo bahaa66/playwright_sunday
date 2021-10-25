@@ -50,6 +50,8 @@ defmodule CogyntWorkstationIngest.Application do
       child_spec_supervisor(ServerSupervisor, ServerSupervisor),
       # Start the DynamicSupervisor for Kafka ConsumerGroups
       ConsumerGroupSupervisor,
+      # Start the Cluster for Elasticsearch library
+      CogyntWorkstationIngest.Elasticsearch.Cluster,
       # The supervisor for all Task workers
       child_spec_supervisor(TaskSupervisor, TaskSupervisor)
     ]
