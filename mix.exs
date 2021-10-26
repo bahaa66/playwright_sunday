@@ -56,6 +56,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:quiet_logger, "~> 0.2.0"},
       {:telemetry, "~> 0.4.0"},
       {:telemetry_poller, "~> 0.4"},
+      {:elasticsearch, "~> 1.0.0"},
       {:exq, git: "git@github.com:akira/exq.git", branch: "master"},
       {:libcluster, "~> 3.2.2"},
       {:horde, "~> 0.8.3"},
@@ -86,13 +87,6 @@ defmodule CogyntWorkstationIngest.MixProject do
         tag: "v1.10.10",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "utils",
-        override: true
-      },
-      {
-        :elasticsearch,
-        tag: "v1.14.4-beta",
-        git: "git@github.com:cogility/cogynt-common.git",
-        sparse: "elasticsearch",
         override: true
       },
       {

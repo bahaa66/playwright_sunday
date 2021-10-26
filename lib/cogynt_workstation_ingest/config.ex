@@ -153,6 +153,7 @@ defmodule CogyntWorkstationIngest.Config do
 
   def event_index_alias(), do: elasticsearch()[:event_index_alias]
   def elasticsearch_host(), do: elasticsearch()[:host]
+  def elastic_index_settings_file(), do: elasticsearch_cluster()[:indexes][:event][:settings]
 
   def http_client(), do: clients()[:http_client]
   def elasticsearch_client(), do: clients()[:elasticsearch_client]
@@ -228,6 +229,8 @@ defmodule CogyntWorkstationIngest.Config do
   defp startup(), do: Application.get_env(:cogynt_workstation_ingest, :startup)
 
   defp elasticsearch(), do: Application.get_env(:elasticsearch, :application)
+
+  defp elasticsearch_cluster(), do: Application.get_env(:cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster)
 
   defp clients(), do: Application.get_env(:cogynt_workstation_ingest, :clients)
 end
