@@ -71,7 +71,6 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
          })}
 
       template_solution, ts_loader ->
-        IO.inspect(template_solution, label: "INITIAL SOLUTION")
         get_drilldown([template_solution], ts_loader, fn
           %{solutions: solutions, events: events, edges: edges}, _loader ->
             {:ok,
@@ -85,14 +84,13 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   end
 
   def get_drilldown(template_solutions, loader, callback) do
-    IO.inspect(template_solutions, label: "NEXT LEVEL OF SOLUTIONS")
     exclude_solution_ids = Enum.map(template_solutions, &Map.get(&1, "id"))
 
     get_events(exclude_solution_ids, loader, fn
       events, events_and_outcomes_loader ->
         get_outcomes(exclude_solution_ids, events_and_outcomes_loader, fn
           outcomes, outcomes_loader ->
-            solution_ids = event_solution_ids(events, exclude_solution_ids) |> IO.inspect(label: "NEW SOLUTION IDS")
+            solution_ids = event_solution_ids(events, exclude_solution_ids)
 
             outcome_edges =
               Enum.map(outcomes, fn {s_id, outcomes} ->
@@ -275,6 +273,14 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   end
 
   def event_attributes(event, _, _) do
+    risk_score =
+      Map.get(event, Config.confidence_key())
+      |> case do
+        nil -> nil
+        score when is_integer(score) -> score * 100
+        score when is_float(score) -> trunc(Float.round(score * 100))
+      end
+
     {:ok,
      %{
        assertion_id: Map.get(event, "assertion_id"),
@@ -288,7 +294,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
        processed_at: Map.get(event, "processed_at"),
        published_at: Map.get(event, Config.published_at_key()),
        published_by: Map.get(event, Config.published_by_key()),
-       risk_score: Map.get(event, Config.confidence_key()),
+       risk_score: risk_score,
        version: Map.get(event, Config.version_key())
      }}
   end

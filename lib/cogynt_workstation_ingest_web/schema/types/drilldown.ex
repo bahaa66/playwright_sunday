@@ -77,6 +77,7 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
   end
 
   object :drilldown_event do
+    @desc "The core id of the event. This translates to the core id stored for events in workstation."
     field :id, non_null(:id)
 
     field :attributes, non_null(:drilldown_event_attributes) do
@@ -90,8 +91,8 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
     field :processed_at, :string
     field :published_at, :string
     field :published_by, :id
-    field :risk_score, :string
-    field :version, :integer
+    field :risk_score, :integer
+    field :version, non_null(:integer)
     field :template_type_id, :string
   end
 end

@@ -162,6 +162,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         ],
         name
       )
+
     case DruidSupervisor.whereis(name) do
       nil ->
         case DruidSupervisor.start_child(name: name, druid_spec: druid_spec, force_update: true) do
@@ -201,6 +202,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         ],
         name
       )
+
     case DruidSupervisor.whereis(name) do
       nil ->
         case DruidSupervisor.start_child(name: name, druid_spec: druid_spec, force_update: true) do
