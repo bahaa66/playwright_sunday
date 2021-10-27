@@ -628,6 +628,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   def process_event_definition_detail_fields_v2(id, fields) do
+    IO.inspect(id, label: "event definition details id")
+    IO.inspect(fields, label: "event definition details fields")
+
     Enum.reduce(fields, [], fn {key, val}, acc ->
       case is_atom(key) do
         true ->
