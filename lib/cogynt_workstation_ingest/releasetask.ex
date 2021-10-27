@@ -51,6 +51,9 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
       IO.puts("Starting dependencies..")
       Enum.each(@start_apps, &Application.ensure_all_started/1)
 
+      #explicitly start the Elasticsearch Cluster so it can run the reindexing check.
+      CogyntWorkstationIngest.Elasticsearch.Cluster.start_link()
+
       # Start the Repo(s) for app
       IO.puts("Starting repos..")
       Enum.each(repos(app), & &1.start_link(pool_size: 2))
