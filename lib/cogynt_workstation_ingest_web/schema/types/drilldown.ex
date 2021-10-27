@@ -1,7 +1,14 @@
 defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
   use Absinthe.Schema.Notation
   alias CogyntGraphql.Middleware.Authentication
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngestWeb.Resolvers.Drilldown, as: DrilldownResolver
+
+  Module.put_attribute(
+    __MODULE__,
+    :published_by_key,
+    Config.published_by_key()
+  )
 
   object :drilldown_queries do
     field :drilldown_solution, non_null(:drilldown_solution) do
@@ -26,28 +33,31 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
   end
 
   union :drilldown_node do
-    types([:drilldown_solution, :drilldown_event])
+    types([:drilldown_solution, :drilldown_event, :drilldown_outcome])
 
     resolve_type(fn
       %{"templateTypeId" => _}, _ -> :drilldown_solution
-      _, _ -> :drilldown_event
+      %{"assertion_id" => aid}, _ when not is_nil(aid) -> :drilldown_event
+      _, _ -> :drilldown_outcome
     end)
   end
 
   object :drilldown_edge do
-    field :id, non_null(:string) do
-      resolve(fn %{from: f, to: t}, _, _ -> {:ok, "#{f}:#{t}"} end)
-    end
-
+    field :id, non_null(:string)
     field(:from, non_null(:string))
     field(:to, non_null(:string))
   end
 
   object :drilldown_solution do
     field :id, non_null(:id)
+    field :retracted, non_null(:string)
+    field :template_type_id, non_null(:id)
+    field :template_type_name, non_null(:string)
 
-    field :attributes, non_null(:drilldown_solution_attributes) do
-      resolve(&DrilldownResolver.solution_attributes/3)
+    field :time, non_null(:string) do
+      resolve(fn %{"__time" => time}, _, _ ->
+        {:ok, time}
+      end)
     end
 
     field :events, non_null(list_of(non_null(:drilldown_event))) do
@@ -63,36 +73,32 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
     end
   end
 
-  object :drilldown_solution_attributes do
-    field :time, non_null(:string) do
-      resolve(fn %{"__time" => time}, _, _ ->
-        {:ok, time}
-      end)
-    end
-
-    field :id, non_null(:id)
-    field :retracted, non_null(:string)
-    field :template_type_id, non_null(:id)
-    field :template_type_name, non_null(:string)
-  end
-
   object :drilldown_event do
     @desc "The core id of the event. This translates to the core id stored for events in workstation."
     field :id, non_null(:id)
+    field :assertion_id, non_null(:id)
 
-    field :attributes, non_null(:drilldown_event_attributes) do
-      resolve(&DrilldownResolver.event_attributes/3)
+    field :fields, non_null(:json) do
+      resolve(&DrilldownResolver.get_fields/3)
     end
+
+    field :processed_at, non_null(:string)
+    field :version, non_null(:integer), do: resolve(&DrilldownResolver.get_version/3)
+    field :source, non_null(:string)
   end
 
-  object :drilldown_event_attributes do
-    field :assertion_id, :id
-    field :fields, non_null(:json)
-    field :processed_at, :string
-    field :published_at, :string
-    field :published_by, :id
-    field :risk_score, :integer
-    field :version, non_null(:integer)
-    field :template_type_id, :string
+  object :drilldown_outcome do
+    @desc "The core id of the event. This translates to the core id stored for events in workstation."
+    field :id, non_null(:id)
+
+    field :fields, non_null(:json) do
+      resolve(&DrilldownResolver.get_fields/3)
+    end
+
+    field :published_at, non_null(:string)
+    field :published_by, non_null(:id)
+    field :version, non_null(:integer), do: resolve(&DrilldownResolver.get_version/3)
+    field :source, non_null(:string)
+    field :risk_score, :integer, do: resolve(&DrilldownResolver.get_risk_score/3)
   end
 end
