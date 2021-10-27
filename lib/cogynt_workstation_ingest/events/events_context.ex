@@ -627,54 +627,27 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     end)
   end
 
-  def process_event_definition_detail_fields_v2(id, fields) do
-    IO.inspect(id, label: "event definition details id")
-    IO.inspect(fields, label: "event definition details fields")
+  def process_event_definition_detail_fields_v2(fields) do
+    Enum.reduce(fields, [], fn details, acc ->
+      field_type =
+        cond do
+          details.data_type == "poly" or details.data_type == "poly-array" or
+              details.data_type == "geo-array" ->
+            "geo"
 
-    Enum.reduce(fields, [], fn {key, val}, acc ->
-      case is_atom(key) do
-        true ->
-          field_type =
-            cond do
-              val.dataType == "poly" or val.dataType == "poly-array" or
-                  val.dataType == "geo-array" ->
-                "geo"
+          true ->
+            details.data_type
+        end
 
-              true ->
-                val.dataType
-            end
-
-          acc ++
-            [
-              %{
-                event_definition_details_id: id,
-                field_name: val.name,
-                path: val.path,
-                field_type: field_type
-              }
-            ]
-
-        false ->
-          field_type =
-            cond do
-              val["dataType"] == "poly" or val["dataType"] == "poly-array" or
-                  val["dataType"] == "geo-array" ->
-                "geo"
-
-              true ->
-                val["dataType"]
-            end
-
-          acc ++
-            [
-              %{
-                event_definition_id: id,
-                field_name: val["name"],
-                path: val["path"],
-                field_type: field_type
-              }
-            ]
-      end
+      acc ++
+        [
+          %{
+            event_definition_details_id: details.id,
+            field_name: details.name,
+            path: details.path,
+            field_type: field_type
+          }
+        ]
     end)
   end
 
