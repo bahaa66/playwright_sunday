@@ -291,12 +291,11 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_user_data_schema_object(deployment_message) do
-    IO.inspect(deployment_message, label: "USER DATA V2 SCHEMA MESSAGE OBJECT")
     # 1) if any PG record exists with id. Remove all records for it
-    EventsContext.hard_delete_event_definition_details(deployment_message.id)
+    EventsContext.hard_delete_event_definition_details(deployment_message.deployment_id)
     # 2) insert new user data schema into PG
     EventsContext.process_event_definition_detail_fields_v2(
-      deployment_message.id,
+      deployment_message.deployment_id,
       deployment_message.fields
     )
     |> EventsContext.insert_all_event_details()
