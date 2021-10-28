@@ -259,9 +259,9 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
 
   defp process_event_type_object_v2(deployment_message) do
     IO.inspect(deployment_message, label: "EVENT TYPE SCHEMA V2 MESSAGE OBJECT")
-    ## missing
-    # Map.put(deployment_message, :topic, deployment_message.filter)
-    Map.put(deployment_message, :title, deployment_message.name)
+
+    Map.put(deployment_message, :topic, deployment_message.source.topic)
+    |> Map.put(:title, deployment_message.name)
     |> Map.put(
       :manual_actions,
       Map.get(deployment_message, :manualActions, nil)
@@ -294,7 +294,10 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
     # 1) if any PG record exists with id. Remove all records for it
     EventsContext.hard_delete_event_definition_details(deployment_message.id)
     # 2) insert new user data schema into PG
-    EventsContext.process_event_definition_detail_fields_v2(deployment_message.fields)
+    EventsContext.process_event_definition_detail_fields_v2(
+      deployment_message.id,
+      deployment_message.fields
+    )
     |> EventsContext.insert_all_event_details()
   end
 end

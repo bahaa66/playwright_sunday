@@ -627,7 +627,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     end)
   end
 
-  def process_event_definition_detail_fields_v2(fields) do
+  def process_event_definition_detail_fields_v2(event_def_details_id, fields) do
     Enum.reduce(fields, [], fn details, acc ->
       field_type =
         cond do
@@ -642,7 +642,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       acc ++
         [
           %{
-            event_definition_details_id: details.id,
+            event_definition_details_id: event_def_details_id,
             field_name: details.name,
             path: details.path,
             field_type: field_type
