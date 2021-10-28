@@ -133,6 +133,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   # --- private methods --- #
   # ----------------------- #
   defp process_deployment_object(deployment_message) do
+    IO.inspect(deployment_message, label: "DEPLOYMENT DATA SCHEMA MESSAGE OBJECT")
     # Upsert Deployments
     {:ok, %Deployment{} = _deployment} =
       Map.put(deployment_message, :version, to_string(deployment_message.version))
@@ -179,6 +180,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_deployment_object_v2(deployment_message) do
+    IO.inspect(deployment_message, label: "DEPLOYMENT DATA V2 SCHEMA MESSAGE OBJECT")
     # Upsert Deployments
     {:ok, %Deployment{} = _deployment} = DeploymentsContext.upsert_deployment(deployment_message)
 
@@ -223,6 +225,8 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_event_type_object(deployment_message) do
+    IO.inspect(deployment_message, label: "EVENT TYPE SCHEMA MESSAGE OBJECT")
+
     Map.put(deployment_message, :topic, deployment_message.filter)
     |> Map.put(:event_definition_details_id, deployment_message.id)
     |> Map.put(:title, deployment_message.name)
@@ -254,9 +258,10 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_event_type_object_v2(deployment_message) do
-    ## missing
-    # Map.put(deployment_message, :topic, deployment_message.filter)
-    Map.put(deployment_message, :title, deployment_message.name)
+    IO.inspect(deployment_message, label: "EVENT TYPE SCHEMA V2 MESSAGE OBJECT")
+
+    Map.put(deployment_message, :topic, deployment_message.source.topic)
+    |> Map.put(:title, deployment_message.name)
     |> Map.put(
       :manual_actions,
       Map.get(deployment_message, :manualActions, nil)

@@ -10,7 +10,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias CogyntWorkstationIngest.ElasticsearchAPI
   alias CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder
 
-
   # ------------------------- #
   # --- module attributes --- #
   # ------------------------- #
@@ -145,7 +144,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         } = data
       ) do
     published_at = event[@published_at_key]
-    risk_score = event[@confidence_key]
     event_definition_details = event_definition.event_definition_details
 
     # Iterate over each event key value pair and build the pg and elastic search event
@@ -174,6 +172,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                   end)
                   |> case do
                     nil ->
+                      # add topoc to log
                       CogyntLogger.warn(
                         "#{__MODULE__}",
                         "Could not find value at given Path: #{inspect(path)}"
@@ -224,7 +223,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
              core_event_id: core_id,
              event_type: event_type,
              occurred_at: pg_event.occurred_at,
-             risk_score: risk_score
+             risk_score: pg_event.risk_score
            }) do
         {:ok, event_doc} ->
           event_doc
@@ -472,8 +471,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       bulk_transactional_data.event_doc
       |> Enum.map(fn event_doc -> event_doc.id end)
 
-
-      ElasticsearchAPI.bulk_delete(
+    ElasticsearchAPI.bulk_delete(
       Config.event_index_alias(),
       event_doc_ids
     )
