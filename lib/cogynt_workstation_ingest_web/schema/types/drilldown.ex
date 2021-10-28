@@ -37,8 +37,7 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
 
     resolve_type(fn
       %{"templateTypeId" => _}, _ -> :drilldown_solution
-      %{"assertion_id" => aid}, _ when not is_nil(aid) -> :drilldown_event
-      _, _ -> :drilldown_outcome
+      _, _ -> :drilldown_event
     end)
   end
 
@@ -76,27 +75,11 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
   object :drilldown_event do
     @desc "The core id of the event. This translates to the core id stored for events in workstation."
     field :id, non_null(:id)
-    field :assertion_id, non_null(:id)
-
-    field :fields, non_null(:json) do
-      resolve(&DrilldownResolver.get_fields/3)
-    end
-
-    field :processed_at, non_null(:string)
-    field :version, non_null(:integer), do: resolve(&DrilldownResolver.get_version/3)
-    field :source, non_null(:string)
-  end
-
-  object :drilldown_outcome do
-    @desc "The core id of the event. This translates to the core id stored for events in workstation."
-    field :id, non_null(:id)
-
-    field :fields, non_null(:json) do
-      resolve(&DrilldownResolver.get_fields/3)
-    end
-
-    field :published_at, non_null(:string)
-    field :published_by, non_null(:id)
+    field :assertion_id, :id
+    field :fields, non_null(:json), do: resolve(&DrilldownResolver.get_fields/3)
+    field :processed_at, :string
+    field :published_at, :string
+    field :published_by, :id
     field :version, non_null(:integer), do: resolve(&DrilldownResolver.get_version/3)
     field :source, non_null(:string)
     field :risk_score, :integer, do: resolve(&DrilldownResolver.get_risk_score/3)
