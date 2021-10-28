@@ -28,8 +28,11 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
 
   def create_index(index) do
     name = build_name(index)
+    priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
+    settings_file = Path.join(priv_folder, "event.active.json")
+
     try do
-      case Elasticsearch.Index.create_from_file(Cluster, name, Config.elastic_index_settings_file()) do
+      case Elasticsearch.Index.create_from_file(Cluster, name, settings_file) do
         :ok ->
           Index.alias(Cluster, name, Config.event_index_alias())
           IO.puts("Created index: #{name}")
@@ -142,7 +145,10 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     config = Elasticsearch.Cluster.Config.get(Cluster)
     alias = String.to_existing_atom(index)
     name = build_name(alias)
-    %{settings: settings_file} = index_config = config[:indexes][alias]
+    #%{settings: settings_file} = index_config = config[:indexes][alias]
+    index_config = config[:indexes][alias]
+    priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
+    settings_file = Path.join(priv_folder, "event.active.json")
 
     with :ok <- Elasticsearch.Index.create_from_file(config, name, settings_file),
          bulk_upload(config, name, index_config),
@@ -151,6 +157,9 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
          :ok <- Elasticsearch.Index.refresh(config, name) do
           IO.puts("The event index #{name} for CogyntWorkstation have been created by reindexing.....")
           :ok
+         else
+          {:error, errors} ->
+            IO.puts("Error while Reindexing #{inspect errors}")
          end
   end
 
