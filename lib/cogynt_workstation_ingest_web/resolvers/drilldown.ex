@@ -76,11 +76,11 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
 
       template_solution, ts_loader ->
         get_drilldown([template_solution["id"]], ts_loader, fn
-          %{solutions: solutions, events: events, outcomes: outcomes, edges: edges}, _loader ->
+          %{solutions: solutions, events: events, edges: edges}, _loader ->
             {:ok,
              %{
                id: template_solution["id"],
-               nodes: solutions ++ Map.values(events) ++ Map.values(outcomes),
+               nodes: solutions ++ Map.values(events),
                edges:
                  for {id, edge} <- edges, into: [] do
                    Map.put(edge, :id, id)
@@ -94,7 +94,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     get_solutions(solution_ids, loader, fn
       [], solutions_loader ->
         callback.(
-          %{solutions: [], events: %{}, outcomes: %{}, edges: %{}},
+          %{solutions: [], events: %{}, edges: %{}},
           solutions_loader
         )
 
@@ -106,15 +106,14 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
                 new_solution_ids = event_solution_ids(events, solution_ids)
 
                 get_drilldown(new_solution_ids, outcomes_loader, fn
-                  %{edges: edges, events: e, outcomes: o, solutions: s}, drilldown_loader ->
-                    {edges, events} = process_solution_events(events, edges)
-                    {edges, outcomes} = process_solution_outcomes(outcomes, edges)
+                  %{edges: edges, events: e, solutions: s}, drilldown_loader ->
+                    {edges, events} = process_solution_events(events, e, edges)
+                    {edges, events} = process_solution_outcomes(outcomes, events, edges)
 
                     callback.(
                       %{
                         edges: edges,
-                        events: Map.merge(e, events),
-                        outcomes: Map.merge(o, outcomes),
+                        events: events,
                         solutions: s ++ solutions
                       },
                       drilldown_loader
@@ -406,16 +405,16 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     |> MapSet.to_list()
   end
 
-  defp process_solution_events(events, existing_edges) do
-    Enum.reduce(events, {existing_edges, %{}}, fn
+  defp process_solution_events(events, existing_events, edges) do
+    Enum.reduce(events, {edges, existing_events}, fn
       %{
         @id_key => id,
         "solution_id" => solution_id
       } = event,
-      {edges, events} ->
+      {edges, existing_events} ->
         {
           Map.put(edges, id <> ":" <> solution_id, %{from: id, to: solution_id}),
-          Map.put(events, id, event)
+          Map.put(existing_events, id, Map.merge(Map.get(existing_events, id, %{}), event))
         }
 
       _, a ->
@@ -423,38 +422,25 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     end)
   end
 
-  defp process_solution_outcomes(outcomes, existing_edges) do
-    Enum.reduce(outcomes, {existing_edges, %{}}, fn
+  defp process_solution_outcomes(outcomes, events, existing_edges) do
+    # IO.inspect(events)
+    Enum.reduce(outcomes, {existing_edges, events}, fn
       {_, []}, acc ->
         acc
 
       {solution_id, outcomes}, {edges, outcome_acc} ->
         Enum.reduce(outcomes, {edges, outcome_acc}, fn
           %{@id_key => id} = o, {edges_a, outcome_a} ->
+            IO.inspect(o, label: "LOOKING FOR")
+            Map.get(outcome_a, id, %{}) |> IO.inspect(label: "EXISITNG EVENT")
             {
               Map.put(edges_a, solution_id <> ":" <> id, %{
                 from: solution_id,
                 to: id
               }),
-              Map.put(outcome_a, id, 0)
+              Map.put(outcome_a, id, Map.merge(Map.get(outcome_a, id, %{}), o))
             }
         end)
-        |> IO.inspect()
-        {
-          Enum.reduce(
-            outcomes,
-            edges,
-            &Map.put(&2, solution_id <> ":" <> &1[@id_key], %{
-              from: solution_id,
-              to: &1[@id_key]
-            })
-          ),
-          Enum.reduce(
-            outcomes,
-            outcome_acc,
-            &Map.put(&2, Map.get(&1, @id_key), &1)
-          )
-        }
     end)
   end
 end

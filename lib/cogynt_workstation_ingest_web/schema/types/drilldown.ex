@@ -33,7 +33,7 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
   end
 
   union :drilldown_node do
-    types([:drilldown_solution, :drilldown_event, :drilldown_outcome])
+    types([:drilldown_solution, :drilldown_event])
 
     resolve_type(fn
       %{"templateTypeId" => _}, _ -> :drilldown_solution
