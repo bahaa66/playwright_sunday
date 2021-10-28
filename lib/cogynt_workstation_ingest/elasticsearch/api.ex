@@ -334,7 +334,9 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   end
 
   defp is_active_index_setting?() do
-    with {:ok, body} <- File.read(Config.elastic_index_settings_file()),
+    priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
+    settings_file = Path.join(priv_folder, "event.active.json")
+    with {:ok, body} <- File.read(settings_file),
     {:ok, settings} <- get_index_mappings(),
       {:ok, json} <- Poison.decode(body)  do
         #compare settings, mappings separately as comparing json |> Map.equal?(settings) returns false as its compared using ===
