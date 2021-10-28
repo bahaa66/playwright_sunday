@@ -32,6 +32,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
       case Elasticsearch.Index.create_from_file(Cluster, name, Config.elastic_index_settings_file()) do
         :ok ->
           Index.alias(Cluster, name, Config.event_index_alias())
+          IO.puts("Created index: #{name}")
           {:ok, true}
 
           {:error, error} ->
@@ -148,7 +149,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
          :ok <- Elasticsearch.Index.alias(config, name, alias),
          :ok <- clean_starting_with(config, alias, 1),
          :ok <- Elasticsearch.Index.refresh(config, name) do
-
+          IO.puts("The event index #{name} for CogyntWorkstation have been created by reindexing.....")
           :ok
          end
   end
@@ -240,13 +241,10 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     case is_active_index_setting?() do
       true ->
         IO.puts("event_index already exists.")
-        IO.puts("indexes complete..")
 
       false ->
         IO.puts("Current Index mapping is not current....")
         reindex(Config.event_index_alias())
-        IO.puts("The event_index for CogyntWorkstation have been created by reindexing.....")
-        IO.puts("indexes complete..")
     end
   end
 
