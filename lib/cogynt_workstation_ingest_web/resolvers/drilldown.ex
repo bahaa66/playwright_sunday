@@ -107,44 +107,8 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
 
                 get_drilldown(new_solution_ids, outcomes_loader, fn
                   %{edges: edges, events: e, outcomes: o, solutions: s}, drilldown_loader ->
-                    {edges, events} =
-                      Enum.reduce(events, {edges, %{}}, fn
-                        %{
-                          @id_key => id,
-                          "solution_id" => solution_id
-                        } = event,
-                        {edges, events} ->
-                          {
-                            Map.put(edges, id <> ":" <> solution_id, %{from: id, to: solution_id}),
-                            Map.put(events, id, event)
-                          }
-
-                        _, a ->
-                          a
-                      end)
-
-                    {edges, outcomes} =
-                      Enum.reduce(outcomes, {edges, %{}}, fn
-                        {_, []}, acc ->
-                          acc
-
-                        {solution_id, outcomes}, {edges, outcome_acc} ->
-                          {
-                            Enum.reduce(
-                              outcomes,
-                              edges,
-                              &Map.put(&2, solution_id <> ":" <> &1[@id_key], %{
-                                from: solution_id,
-                                to: &1[@id_key]
-                              })
-                            ),
-                            Enum.reduce(
-                              outcomes,
-                              outcome_acc,
-                              &Map.put(&2, Map.get(&1, @id_key), &1)
-                            )
-                          }
-                      end)
+                    {edges, events} = process_solution_events(events, edges)
+                    {edges, outcomes} = process_solution_outcomes(outcomes, edges)
 
                     callback.(
                       %{
@@ -440,5 +404,57 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         a
     end)
     |> MapSet.to_list()
+  end
+
+  defp process_solution_events(events, existing_edges) do
+    Enum.reduce(events, {existing_edges, %{}}, fn
+      %{
+        @id_key => id,
+        "solution_id" => solution_id
+      } = event,
+      {edges, events} ->
+        {
+          Map.put(edges, id <> ":" <> solution_id, %{from: id, to: solution_id}),
+          Map.put(events, id, event)
+        }
+
+      _, a ->
+        a
+    end)
+  end
+
+  defp process_solution_outcomes(outcomes, existing_edges) do
+    Enum.reduce(outcomes, {existing_edges, %{}}, fn
+      {_, []}, acc ->
+        acc
+
+      {solution_id, outcomes}, {edges, outcome_acc} ->
+        Enum.reduce(outcomes, {edges, outcome_acc}, fn
+          %{@id_key => id} = o, {edges_a, outcome_a} ->
+            {
+              Map.put(edges_a, solution_id <> ":" <> id, %{
+                from: solution_id,
+                to: id
+              }),
+              Map.put(outcome_a, id, 0)
+            }
+        end)
+        |> IO.inspect()
+        {
+          Enum.reduce(
+            outcomes,
+            edges,
+            &Map.put(&2, solution_id <> ":" <> &1[@id_key], %{
+              from: solution_id,
+              to: &1[@id_key]
+            })
+          ),
+          Enum.reduce(
+            outcomes,
+            outcome_acc,
+            &Map.put(&2, Map.get(&1, @id_key), &1)
+          )
+        }
+    end)
   end
 end
