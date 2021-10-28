@@ -84,6 +84,8 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
     else
       {:ok, true} ->
         ElasticsearchAPI.check_to_reindex()
+        IO.puts("indexes complete..")
+        
       {:error, %Elasticsearch.Exception{raw: %{"error" => error}}} ->
         reason = Map.get(error, "reason")
         IO.puts("Failed to create event index #{reason}")
