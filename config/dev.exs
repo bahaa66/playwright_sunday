@@ -51,6 +51,29 @@ config :elasticsearch, :application,
   shards: (System.get_env("ELASTIC_SHARDS") || "1") |> String.to_integer(),
   replicas: (System.get_env("ELASTIC_REPLICAS") || "0") |> String.to_integer()
 
+
+config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster,
+  username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",
+  password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
+  json_library: Jason,
+  url: System.get_env("ELASTIC_URL") || "http://localhost:9200",
+  api: Elasticsearch.API.HTTP,
+  indexes: %{
+    event: %{
+      settings: "priv/elasticsearch/event.active.json",
+      store: CogyntWorkstationIngest.Elasticsearch.Store,
+      sources: [Models.Events.Event],
+      bulk_page_size: 500,
+      bulk_wait_interval: 0
+    }
+  },
+  default_options: [
+    timeout: 60_000,
+    recv_timeout: 120_000,
+    hackney: [pool: :elasticsearh_pool],
+    ssl: [versions: [:"tlsv1.2"]]
+  ]
+
 # Redis configurations
 config :redis, :application,
   host: System.get_env("COGYNT_REDIS_HOST") || "127.0.0.1",

@@ -5,9 +5,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias Ecto.Multi
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
-  alias Elasticsearch.DocumentBuilders.EventDocumentBuilder
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
+  alias CogyntWorkstationIngest.ElasticsearchAPI
+  alias CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder
 
   # ------------------------- #
   # --- module attributes --- #
@@ -143,7 +144,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         } = data
       ) do
     published_at = event[@published_at_key]
-    risk_score = event[@confidence_key]
     event_definition_details = event_definition.event_definition_details
 
     # Iterate over each event key value pair and build the pg and elastic search event
@@ -172,6 +172,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                   end)
                   |> case do
                     nil ->
+                      # add topoc to log
                       CogyntLogger.warn(
                         "#{__MODULE__}",
                         "Could not find value at given Path: #{inspect(path)}"
@@ -220,11 +221,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
              event_definition_id: event_definition_id,
              event_details: elasticsearch_event_details,
              core_event_id: core_id,
-             published_at: published_at,
              event_type: event_type,
              occurred_at: pg_event.occurred_at,
-             risk_score: risk_score,
-             converted_risk_score: pg_event.risk_score
+             risk_score: pg_event.risk_score
            }) do
         {:ok, event_doc} ->
           event_doc
@@ -412,9 +411,27 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     case transaction_result do
       {:ok, %{upsert_notifications: {_count_created, upserted_notifications}}} ->
+        Redis.publish_async(
+          "events_changed_listener",
+          %{
+            event_type: event_type,
+            deleted: bulk_transactional_data.delete_core_id,
+            upserted: bulk_transactional_data.pg_event
+          }
+        )
+
         SystemNotificationContext.bulk_insert_system_notifications(upserted_notifications)
 
       {:ok, _} ->
+        Redis.publish_async(
+          "events_changed_listener",
+          %{
+            event_type: event_type,
+            deleted: bulk_transactional_data.delete_core_id,
+            upserted: bulk_transactional_data.pg_event
+          }
+        )
+
         nil
 
       {:error, reason} ->
@@ -427,15 +444,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
         raise "execute_transaction/1 failed"
     end
-
-    Redis.publish_async(
-      "events_changed_listener",
-      %{
-        event_type: event_type,
-        deleted: bulk_transactional_data.delete_core_id,
-        upserted: bulk_transactional_data.pg_event
-      }
-    )
   end
 
   # ----------------------- #
@@ -443,7 +451,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   # ----------------------- #
   defp bulk_upsert_event_documents(bulk_transactional_data) do
     if !Enum.empty?(bulk_transactional_data.event_doc) do
-      case Elasticsearch.bulk_upsert_document(
+      case ElasticsearchAPI.bulk_upsert_document(
              Config.event_index_alias(),
              bulk_transactional_data.event_doc
            ) do
@@ -463,7 +471,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       bulk_transactional_data.event_doc
       |> Enum.map(fn event_doc -> event_doc.id end)
 
-    Elasticsearch.bulk_delete_document(
+    ElasticsearchAPI.bulk_delete(
       Config.event_index_alias(),
       event_doc_ids
     )

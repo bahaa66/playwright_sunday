@@ -147,68 +147,73 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   again.
   """
   @impl true
-  def handle_failed(messages, context) do
-    event_definition_id = Keyword.get(context, :event_definition_id, nil)
+  def handle_failed(messages, _context) do
+    # event_definition_id = Keyword.get(context, :event_definition_id, nil)
 
-    incr_total_processed_message_count(event_definition_id, Enum.count(messages))
+    # incr_total_processed_message_count(event_definition_id, Enum.count(messages))
 
-    failed_messages =
-      Enum.reduce(messages, [], fn %Broadway.Message{
-                                     data:
-                                       %{
-                                         event_definition_id: id,
-                                         retry_count: retry_count
-                                       } = data
-                                   } = message,
-                                   acc ->
-        if retry_count < Config.failed_messages_max_retry() do
-          new_retry_count = retry_count + 1
+    # failed_messages =
+    #   Enum.reduce(messages, [], fn %Broadway.Message{
+    #                                  data:
+    #                                    %{
+    #                                      event_definition_id: id,
+    #                                      retry_count: retry_count
+    #                                    } = data
+    #                                } = message,
+    #                                acc ->
+    #     if retry_count < Config.failed_messages_max_retry() do
+    #       new_retry_count = retry_count + 1
 
-          CogyntLogger.warn(
-            "#{__MODULE__}",
-            "Retrying Failed EventPipeline Message. EventDefinitionId: #{id}. Attempt: #{
-              new_retry_count
-            }"
-          )
+    #       CogyntLogger.warn(
+    #         "#{__MODULE__}",
+    #         "Retrying Failed EventPipeline Message. EventDefinitionId: #{id}. Attempt: #{
+    #           new_retry_count
+    #         }"
+    #       )
 
-          data = Map.put(data, :retry_count, new_retry_count)
+    #       data = Map.put(data, :retry_count, new_retry_count)
 
-          message =
-            Map.from_struct(message)
-            |> Map.put(:data, data)
-            |> Map.drop([:status, :acknowledger])
+    #       message =
+    #         Map.from_struct(message)
+    #         |> Map.put(:data, data)
+    #         |> Map.drop([:status, :acknowledger])
 
-          metadata =
-            Map.get(message, :metadata)
-            |> Map.put(:key, "")
+    #       metadata =
+    #         Map.get(message, :metadata)
+    #         |> Map.put(:key, "")
 
-          message = Map.put(message, :metadata, metadata)
+    #       message = Map.put(message, :metadata, metadata)
 
-          acc ++ [message]
-        else
-          acc
-        end
-      end)
+    #       acc ++ [message]
+    #     else
+    #       acc
+    #     end
+    #   end)
 
-    key =
-      if is_nil(event_definition_id) do
-        "fem:"
-      else
-        "fem:#{event_definition_id}"
-      end
+    # key =
+    #   if is_nil(event_definition_id) do
+    #     "fem:"
+    #   else
+    #     "fem:#{event_definition_id}"
+    #   end
 
-    case Redis.list_length(key) do
-      {:ok, length} when length >= 50_000 ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Failed Event messages for key #{key} have reached the limit of 50_000 in Redis. Dropping future messages from getting queued"
-        )
+    # case Redis.list_length(key) do
+    #   {:ok, length} when length >= 50_000 ->
+    #     CogyntLogger.error(
+    #       "#{__MODULE__}",
+    #       "Failed Event messages for key #{key} have reached the limit of 50_000 in Redis. Dropping future messages from getting queued"
+    #     )
 
-      _ ->
-        Redis.list_append_pipeline(key, failed_messages)
-        # 30 min TTL
-        Redis.key_pexpire(key, 1_800_000)
-    end
+    #   _ ->
+    #     Redis.list_append_pipeline(key, failed_messages)
+    #     # 30 min TTL
+    #     Redis.key_pexpire(key, 1_800_000)
+    # end
+
+    CogyntLogger.warn(
+      "#{__MODULE__}",
+      "handle_failed/2 #{Enum.count(messages)} Failed for EventPipeline. Check logs to for error."
+    )
 
     messages
   end
