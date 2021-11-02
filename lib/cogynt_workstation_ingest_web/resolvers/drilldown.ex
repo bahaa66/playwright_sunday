@@ -249,6 +249,12 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     end
   end
 
+  def get_source(event, _, _), do: {:ok, Map.get(event, Config.source_key())}
+
+  def get_published_by(event, _, _), do: {:ok, Map.get(event, Config.published_by_key())}
+
+  def get_published_at(event, _, _), do: {:ok, Map.get(event, Config.published_at_key())}
+
   defp get_solution(solution_id, loader, callback) do
     loader
     |> Dataloader.load(
