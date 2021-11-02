@@ -136,7 +136,8 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
 
       case index do
         nil -> {:error, :not_found}
-        index -> {:ok, index}
+        index -> IO.puts("The latest index is #{index}")
+        {:ok, index}
       end
     end
   end
@@ -158,6 +159,8 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
           IO.puts("The event index #{name} for CogyntWorkstation have been created by reindexing.....")
           :ok
          else
+          errors ->
+            IO.puts("Error while Reindexing #{inspect errors}")
           {:error, errors} ->
             IO.puts("Error while Reindexing #{inspect errors}")
          end
@@ -166,9 +169,12 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   def bulk_upload(config, index, index_config) do
     case Elasticsearch.Index.Bulk.upload(config, index, index_config) do
       :ok ->
+        IO.puts("Bulk upload complete for index #{index}")
         :ok
 
-      {:error, errors} -> errors
+      {:error, errors} ->
+        IO.puts("Error while bulk uploading #{inspect errors}")
+        errors
     end
   end
 
