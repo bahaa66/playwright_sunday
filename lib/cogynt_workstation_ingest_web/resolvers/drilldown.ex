@@ -31,6 +31,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     [
       Config.published_by_key(),
       Config.published_at_key(),
+      Config.source_key(),
       "processed_at",
       "source_type",
       "assertion_id",
@@ -38,7 +39,6 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
       Config.version_key(),
       # TODO: May be able to remove below at some point
       "solution_id",
-      "source",
       "data_type"
     ]
   )
@@ -423,7 +423,6 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   end
 
   defp process_solution_outcomes(outcomes, events, existing_edges) do
-    # IO.inspect(events)
     Enum.reduce(outcomes, {existing_edges, events}, fn
       {_, []}, acc ->
         acc
@@ -431,8 +430,6 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
       {solution_id, outcomes}, {edges, outcome_acc} ->
         Enum.reduce(outcomes, {edges, outcome_acc}, fn
           %{@id_key => id} = o, {edges_a, outcome_a} ->
-            IO.inspect(o, label: "LOOKING FOR")
-            Map.get(outcome_a, id, %{}) |> IO.inspect(label: "EXISITNG EVENT")
             {
               Map.put(edges_a, solution_id <> ":" <> id, %{
                 from: solution_id,

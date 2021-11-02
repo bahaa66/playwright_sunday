@@ -152,6 +152,14 @@ defmodule CogyntWorkstationIngest.Config do
     end
   end
 
+  def source_key() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:source]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:source]
+    end
+  end
+
   def startup_delay(), do: startup()[:init_delay]
 
   def event_index_alias(), do: elasticsearch()[:event_index_alias]
