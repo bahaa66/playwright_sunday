@@ -73,9 +73,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
             # 4) delete the event definition data
             delete_event_definition(event_definition)
 
-            # 5) one last call to remove elasticsearch data to ensure all data has been removed from all shards
-            delete_elasticsearch_data(event_definition)
-
             # 6) remove Druid datasource
             delete_druid_datasource(datasource_name)
         end
