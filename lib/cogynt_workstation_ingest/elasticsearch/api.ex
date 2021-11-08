@@ -184,7 +184,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
 
     url = url(
       index,
-    "_delete_by_query?refresh=true&slices=auto&scroll_size=10000&requests_per_second=100"
+    "_delete_by_query?refresh=true&slices=auto&scroll_size=10000"
     )
 
     try do
