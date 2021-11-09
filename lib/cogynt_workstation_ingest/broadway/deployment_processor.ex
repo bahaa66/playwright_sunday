@@ -266,13 +266,10 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
       :manual_actions,
       Map.get(deployment_message, :manualActions, nil)
     )
-    |> Map.put_new_lazy(:event_type, fn ->
-      if is_nil(deployment_message.linkAnalysisType) do
-        :none
-      else
-        deployment_message.linkAnalysisType
-      end
-    end)
+    |> Map.put(
+      :event_type,
+      Map.get(deployment_message, :linkAnalysisType, :none)
+    )
     |> Map.put(:event_definition_details_id, deployment_message.userDataSchemaId)
     |> Map.put(:deployment_id, deployment_message.v1DeploymentId)
     |> EventsContext.upsert_event_definition_v2()

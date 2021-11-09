@@ -631,12 +631,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     Enum.reduce(fields, [], fn details, acc ->
       field_type =
         cond do
-          details.data_type == "poly" or details.data_type == "poly-array" or
-              details.data_type == "geo-array" ->
+          details.dataType == "poly" or details.dataType == "poly-array" or
+              details.dataType == "geo-array" ->
             "geo"
 
           true ->
-            details.data_type
+            details.dataType
         end
 
       acc ++
