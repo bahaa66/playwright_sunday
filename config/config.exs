@@ -1,5 +1,7 @@
 use Mix.Config
 
+config :cogynt_workstation_ingest, env: Mix.env()
+
 config :cogynt_workstation_ingest,
   ecto_repos: [CogyntWorkstationIngest.Repo]
 
