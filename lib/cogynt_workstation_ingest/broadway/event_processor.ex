@@ -143,7 +143,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           event_type: event_type
         } = data
       ) do
-    published_at = event[@published_at_key]
     event_definition_details = event_definition.event_definition_details
 
     # Iterate over each event key value pair and build the pg and elastic search event

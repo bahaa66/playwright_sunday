@@ -29,11 +29,11 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
     case Map.get(deployment_message, :version) do
       # Use the Authoring 2.0 deployment message schemas
       "2.0" ->
-        case Map.get(deployment_message, :object_type, nil) do
+        case Map.get(deployment_message, :objectType, nil) do
           "event_type" ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Received deployment message for object_type: event_type, version: 2.0, id: #{
+              "Received deployment message for objectType: event_type, version: 2.0, id: #{
                 deployment_message.id
               }"
             )
@@ -44,7 +44,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           "deployment" ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Received deployment message for object_type: deployment, version: 2.0, id: #{
+              "Received deployment message for objectType: deployment, version: 2.0, id: #{
                 deployment_message.id
               }"
             )
@@ -55,7 +55,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           "user_data_schema" ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Received deployment message for object_type: user_data_schema, version: 2.0, id: #{
+              "Received deployment message for objectType: user_data_schema, version: 2.0, id: #{
                 deployment_message.id
               }"
             )
@@ -66,7 +66,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           nil ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "process_deployment_message/1 `object_type` key is missing from Deployment Stream message. #{
+              "process_deployment_message/1 `objectType` key is missing from Deployment Stream message. #{
                 inspect(deployment_message, pretty: true)
               }"
             )
@@ -76,7 +76,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           other ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "process_deployment_message/1 `object_type` key: #{other} not yet supported."
+              "process_deployment_message/1 `objectType` key: #{other} not yet supported."
             )
 
             message
@@ -133,7 +133,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   # --- private methods --- #
   # ----------------------- #
   defp process_deployment_object(deployment_message) do
-    IO.inspect(deployment_message, label: "DEPLOYMENT DATA SCHEMA MESSAGE OBJECT")
     # Upsert Deployments
     {:ok, %Deployment{} = _deployment} =
       Map.put(deployment_message, :version, to_string(deployment_message.version))
@@ -182,13 +181,16 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   defp process_deployment_object_v2(deployment_message) do
     IO.inspect(deployment_message, label: "DEPLOYMENT DATA V2 SCHEMA MESSAGE OBJECT")
     # Upsert Deployments
-    {:ok, %Deployment{} = _deployment} = DeploymentsContext.upsert_deployment(deployment_message)
+    # Temp override of the ID value with a backwards compatible v1DeploymentId field that is an INT
+    {:ok, %Deployment{} = _deployment} =
+      Map.put(deployment_message, :id, deployment_message.v1DeploymentId)
+      |> DeploymentsContext.upsert_deployment()
 
     # Fetch all event_definitions that exists and are assosciated with
     # the deployment_id
     EventsContext.query_event_definitions(
       filter: %{
-        deployment_id: deployment_message.id
+        deployment_id: deployment_message.v1DeploymentId
       }
     )
     # If any of these event_definition_id are not in the list of event_definition_ids
@@ -199,7 +201,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
                       id: event_definition_id
                     } = current_event_definition ->
       case Enum.member?(
-             deployment_message.event_type_ids,
+             deployment_message.eventTypeIds,
              event_definition_id
            ) do
         true ->
@@ -225,8 +227,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_event_type_object(deployment_message) do
-    IO.inspect(deployment_message, label: "EVENT TYPE SCHEMA MESSAGE OBJECT")
-
     Map.put(deployment_message, :topic, deployment_message.filter)
     |> Map.put(:event_definition_details_id, deployment_message.id)
     |> Map.put(:title, deployment_message.name)
@@ -267,13 +267,14 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
       Map.get(deployment_message, :manualActions, nil)
     )
     |> Map.put_new_lazy(:event_type, fn ->
-      if is_nil(deployment_message.link_analysis_type) do
+      if is_nil(deployment_message.linkAnalysisType) do
         :none
       else
-        deployment_message.link_analysis_type
+        deployment_message.linkAnalysisType
       end
     end)
-    |> Map.put(:event_definition_details_id, deployment_message.user_data_schema_id)
+    |> Map.put(:event_definition_details_id, deployment_message.userDataSchemaId)
+    |> Map.put(:deployment_id, deployment_message.v1DeploymentId)
     |> EventsContext.upsert_event_definition_v2()
     |> case do
       {:ok, event_definition} ->
@@ -291,6 +292,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_user_data_schema_object(deployment_message) do
+    IO.inspect(deployment_message, label: "USER DATA SCHEMA SCHEMA V2 MESSAGE OBJECT")
     # 1) if any PG record exists with id. Remove all records for it
     EventsContext.hard_delete_event_definition_details(deployment_message.id)
     # 2) insert new user data schema into PG
