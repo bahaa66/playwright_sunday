@@ -1,4 +1,5 @@
 defmodule CogyntWorkstationIngest.ElasticsearchAPI do
+  @env Mix.env()
 
   alias Elasticsearch.Index
   alias CogyntWorkstationIngest.Elasticsearch.Cluster
@@ -29,8 +30,17 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   def create_index(index) do
     name = build_name(index)
     priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
-    settings_file = Path.join(priv_folder, "event.active.json")
+    IO.puts("@env #{@env}")
+    IO.puts("Config.env() #{Config.env()}")
+    settings_file = if Config.env() == :dev do
+      CogyntLogger.info("Create index", "In DEV env")
+      Path.join(priv_folder, "event.dev.active.json")
+    else
+      CogyntLogger.info("Create Index", "In PROD env")
+      Path.join(priv_folder, "event.prod.active.json")
+    end
 
+    IO.puts("Settings file path #{settings_file}")
     try do
       case Elasticsearch.Index.create_from_file(Cluster, name, settings_file) do
         :ok ->

@@ -1,0 +1,142 @@
+{
+    "settings":  {
+        "index": {
+          "analysis": {
+            "analyzer": {
+                "keyword_lowercase": {
+                    "type": "custom",
+                    "tokenizer": "keyword",
+                    "filter": [
+                        "lowercase"
+                    ]
+                }
+            }
+        },
+          "max_result_window": 1000000,
+          "refresh_interval": "1s",
+          "number_of_replicas": "1"
+      }
+    },
+    "mappings": {
+        "dynamic_templates": [
+          {
+            "fields_with_custom_analyzer" :{
+              "mapping": {
+                "fields": {
+                  "keyword" :{"type" : "keyword"},
+                  "lowercase" :{
+                    "analyzer" : "keyword_lowercase",
+                    "type" : "text"
+                  }
+                },
+                "type" : "text"
+              },
+              "match_mapping_type" : "*",
+              "unmatch" : "*_at"
+            }
+          }
+        ],
+        "properties" :{
+          "core_event_id" :{
+            "fields" :{
+              "keyword" :{"type" : "keyword"},
+              "lowercase" :{
+                "analyzer" : "keyword_lowercase",
+                "type" : "text"
+              }
+            },
+            "type" : "text"
+          },
+          "created_at" :{"type" : "date"},
+          "event_definition_id" :{
+            "fields" :{
+              "keyword" :{"type" : "keyword"},
+              "lowercase" :{
+                "analyzer" : "keyword_lowercase",
+                "type" : "text"
+              }
+            },
+            "type" : "text"
+          },
+          "event_details" :{
+            "properties" :{
+              "event_detail" :{"type" : "object"},
+              "field_name" :{
+                "fields" :{
+                  "keyword" :{"type" : "keyword"},
+                  "lowercase" :{
+                    "analyzer" : "keyword_lowercase",
+                    "type" : "text"
+                  }
+                },
+                "type" : "text"
+              },
+              "field_type" :{
+                "fields" :{
+                  "keyword" :{"type" : "keyword"},
+                  "lowercase" :{
+                    "analyzer" : "keyword_lowercase",
+                    "type" : "text"
+                  }
+                },
+                "type" : "text"
+              },
+              "field_value" :{
+                "fields" :{
+                  "keyword" :{"type" : "keyword"}, 
+                  "lowercase" :{
+                    "analyzer" : "keyword_lowercase",
+                    "type" : "text"
+                  }
+                },
+                "type" : "text"
+              },
+              "path" :{
+                "fields" :{
+                  "keyword" :{"type" : "keyword"},
+                  "lowercase" :{
+                    "analyzer" : "keyword_lowercase",
+                    "type" : "text"
+                  }
+                },
+                "type" : "text"
+              }
+            },
+            "type" : "nested"
+          },
+          "event_type" :{
+            "fields" :{
+              "keyword" :{"type" : "keyword"},
+              "lowercase" :{
+                "analyzer" : "keyword_lowercase",
+                "type" : "text"
+              }
+            },
+            "type" : "text"
+          },
+          "id" :{
+            "fields" :{
+              "keyword" :{"type" : "keyword"},
+              "lowercase" :{
+                "analyzer" : "keyword_lowercase",
+                "type" : "text"
+              }
+            },
+            "type" : "text"
+          },
+          "risk_score" :{"type" : "integer"},
+          "title" :{
+            "fields" :{
+              "keyword" :{"type" : "keyword"},
+              "lowercase" :{
+                "analyzer" : "keyword_lowercase",
+                "type" : "text"
+              }
+            },
+            "type" : "text"
+          },
+          "updated_at" :{"type" : "date"},
+          "occurred_at" :{"type" : "date"}
+        }
+      }
+}
