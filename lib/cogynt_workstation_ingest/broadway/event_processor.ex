@@ -135,7 +135,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   """
   def process_elasticsearch_documents(
         %{
-          event: event,
+          event: _event,
           pg_event: pg_event,
           core_id: core_id,
           event_definition: event_definition,
