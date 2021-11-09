@@ -14,7 +14,7 @@
         },
           "max_result_window": 1000000,
           "refresh_interval": "1s",
-          "number_of_replicas": "1"
+          "number_of_replicas": "2"
       }
     },
     "mappings": {
