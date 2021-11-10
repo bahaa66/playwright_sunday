@@ -159,7 +159,13 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     #%{settings: settings_file} = index_config = config[:indexes][alias]
     index_config = config[:indexes][alias]
     priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
-    settings_file = Path.join(priv_folder, "event.active.json")
+    settings_file = if Config.env() == :dev do
+      CogyntLogger.info("Create index", "In DEV env")
+      Path.join(priv_folder, "event.dev.active.json")
+    else
+      CogyntLogger.info("Create Index", "In PROD env")
+      Path.join(priv_folder, "event.prod.active.json")
+    end
 
     with :ok <- Elasticsearch.Index.create_from_file(config, name, settings_file),
          bulk_upload(config, name, index_config),
@@ -358,7 +364,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
 
   defp is_active_index_setting?() do
     priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
-    
+
     settings_file = if Config.env() == :dev do
       CogyntLogger.info("Create index", "In DEV env")
       Path.join(priv_folder, "event.dev.active.json")
