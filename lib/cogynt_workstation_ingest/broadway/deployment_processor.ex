@@ -184,6 +184,8 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
     # Temp override of the ID value with a backwards compatible v1DeploymentId field that is an INT
     {:ok, %Deployment{} = _deployment} =
       Map.put(deployment_message, :id, deployment_message.v1DeploymentId)
+      |> Map.put(:event_type_ids, deployment_message.eventTypeIds)
+      |> Map.put(:data_sources, deployment_message.dataSources)
       |> DeploymentsContext.upsert_deployment()
 
     # Fetch all event_definitions that exists and are assosciated with
