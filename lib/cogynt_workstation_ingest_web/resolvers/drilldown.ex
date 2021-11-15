@@ -1,6 +1,5 @@
 defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   import Absinthe.Resolution.Helpers, only: [on_load: 2]
-  alias Absinthe.Utils, as: AbsintheUtils
   alias CogyntWorkstationIngest.Config
   alias CogyntGraphql.Utils.Error
   alias CogyntWorkstationIngestWeb.Dataloaders.Druid, as: DruidLoader
@@ -32,9 +31,15 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     [
       Config.published_by_key(),
       Config.published_at_key(),
+      Config.source_key(),
       "processed_at",
       "source_type",
-      "assertion_id"
+      "assertion_id",
+      "templateTypeId",
+      Config.version_key(),
+      # TODO: May be able to remove below at some point
+      "solution_id",
+      "data_type"
     ]
   )
 
@@ -70,56 +75,46 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
          })}
 
       template_solution, ts_loader ->
-        get_drilldown([template_solution], ts_loader, fn
-          accumulator, _loader ->
-            {:ok, Map.put(accumulator, :id, template_solution["id"])}
+        get_drilldown([template_solution["id"]], ts_loader, fn
+          %{solutions: solutions, events: events, edges: edges}, _loader ->
+            {:ok,
+             %{
+               id: template_solution["id"],
+               nodes: solutions ++ Map.values(events),
+               edges:
+                 for {id, edge} <- edges, into: [] do
+                   Map.put(edge, :id, id)
+                 end
+             }}
         end)
     end)
   end
 
-  def get_drilldown(template_solutions, loader, callback) do
-    exclude_solution_ids = Enum.map(template_solutions, &Map.get(&1, "id"))
+  def get_drilldown(solution_ids, loader, callback) do
+    get_solutions(solution_ids, loader, fn
+      [], solutions_loader ->
+        callback.(
+          %{solutions: [], events: %{}, edges: %{}},
+          solutions_loader
+        )
 
-    get_events(exclude_solution_ids, loader, fn
-      events, events_and_outcomes_loader ->
-        solution_ids = event_solution_ids(events, exclude_solution_ids)
-
-        event_edges =
-          Enum.reduce(events, [], fn
-            %{@id_key => id, "solution_id" => s_id}, edges ->
-              [%{from: id, to: s_id} | edges]
-
-            _, acc ->
-              acc
-          end)
-
-        get_solutions(solution_ids, events_and_outcomes_loader, fn
-          [], template_solutions_loader ->
-            callback.(
-              %{nodes: template_solutions ++ events, edges: event_edges},
-              template_solutions_loader
-            )
-
-          solutions, template_solutions_loader ->
-            get_outcomes(Enum.map(solutions, &Map.get(&1, "id")), template_solutions_loader, fn
+      solutions, solutions_loader ->
+        get_events(solution_ids, solutions_loader, fn
+          events, events_loader ->
+            get_outcomes(solution_ids, events_loader, fn
               outcomes, outcomes_loader ->
-                outcome_edges =
-                  Enum.map(outcomes, fn {s_id, outcomes} ->
-                    Enum.map(outcomes, fn %{@id_key => o_id} ->
-                      %{
-                        from: s_id,
-                        to: o_id
-                      }
-                    end)
-                  end)
-                  |> List.flatten()
+                new_solution_ids = event_solution_ids(events, solution_ids)
 
-                get_drilldown(solutions, outcomes_loader, fn
-                  %{nodes: nodes, edges: edges}, drilldown_loader ->
+                get_drilldown(new_solution_ids, outcomes_loader, fn
+                  %{edges: edges, events: e, solutions: s}, drilldown_loader ->
+                    {edges, events} = process_solution_events(events, e, edges)
+                    {edges, events} = process_solution_outcomes(outcomes, events, edges)
+
                     callback.(
                       %{
-                        nodes: nodes ++ template_solutions ++ events,
-                        edges: edges ++ event_edges ++ outcome_edges
+                        edges: edges,
+                        events: events,
+                        solutions: s ++ solutions
                       },
                       drilldown_loader
                     )
@@ -233,44 +228,32 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     end)
   end
 
-  def solution_attributes(template_solution, _, _) do
-    {:ok, Map.drop(template_solution, ["id0"])}
+  def get_fields(event, _, _) do
+    {:ok,
+     event
+     |> Enum.reject(fn {k, _v} ->
+       Enum.member?(@whitelist, k)
+     end)
+     |> Enum.into(%{})
+     |> Map.delete(@id_key)}
   end
 
-  def event_attributes(%{"event" => {:error, :json_decode_error, original_error}}, _, _) do
-    {:error,
-     Error.new(%{
-       message:
-         "An internal server occurred while processing the template solution event fields.",
-       code: :internal_server_error,
-       details: "There was an error json decoding the event fields.",
-       original_error: original_error,
-       module: "#{__MODULE__} line: #{__ENV__.line}"
-     })}
+  def get_version(event, _, _), do: {:ok, Map.get(event, Config.version_key())}
+
+  def get_risk_score(event, _, _) do
+    Map.get(event, Config.confidence_key())
+    |> case do
+      nil -> {:ok, nil}
+      score when is_integer(score) -> {:ok, score * 100}
+      score when is_float(score) -> {:ok, trunc(Float.round(score * 100))}
+    end
   end
 
-  def event_attributes(event, _, _) do
-    fields =
-      event
-      |> Enum.reject(fn {k, _v} ->
-        Enum.member?(@whitelist, k)
-      end)
-      |> Enum.into(%{})
-      |> Map.delete(@id_key)
+  def get_source(event, _, _), do: {:ok, Map.get(event, Config.source_key())}
 
-    attrs =
-      event
-      |> Enum.filter(fn {k, _v} ->
-        Enum.member?(@whitelist, k)
-      end)
-      |> Enum.into(%{}, fn {k, v} ->
-        {AbsintheUtils.camelize(k, lower: true), v}
-      end)
-      |> Map.put("fields", fields)
-      |> IO.inspect()
+  def get_published_by(event, _, _), do: {:ok, Map.get(event, Config.published_by_key())}
 
-    {:ok, attrs}
-  end
+  def get_published_at(event, _, _), do: {:ok, Map.get(event, Config.published_at_key())}
 
   defp get_solution(solution_id, loader, callback) do
     loader
@@ -307,6 +290,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
           :template_solutions,
           solution_ids
         )
+        |> Enum.reject(&is_nil(&1))
 
       callback.(solutions, loader)
     end)
@@ -425,5 +409,41 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         a
     end)
     |> MapSet.to_list()
+  end
+
+  defp process_solution_events(events, existing_events, edges) do
+    Enum.reduce(events, {edges, existing_events}, fn
+      %{
+        @id_key => id,
+        "solution_id" => solution_id
+      } = event,
+      {edges, existing_events} ->
+        {
+          Map.put(edges, id <> ":" <> solution_id, %{from: id, to: solution_id}),
+          Map.put(existing_events, id, Map.merge(Map.get(existing_events, id, %{}), event))
+        }
+
+      _, a ->
+        a
+    end)
+  end
+
+  defp process_solution_outcomes(outcomes, events, existing_edges) do
+    Enum.reduce(outcomes, {existing_edges, events}, fn
+      {_, []}, acc ->
+        acc
+
+      {solution_id, outcomes}, {edges, outcome_acc} ->
+        Enum.reduce(outcomes, {edges, outcome_acc}, fn
+          %{@id_key => id} = o, {edges_a, outcome_a} ->
+            {
+              Map.put(edges_a, solution_id <> ":" <> id, %{
+                from: solution_id,
+                to: id
+              }),
+              Map.put(outcome_a, id, Map.merge(Map.get(outcome_a, id, %{}), o))
+            }
+        end)
+    end)
   end
 end

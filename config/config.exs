@@ -16,6 +16,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
 config :migrations, :application, repo: CogyntWorkstationIngest.Repo
 
 config :cogynt_workstation_ingest, :clients,
+  json_rpc_client: CogyntWorkstationIngestWeb.Clients.JsonRpcHTTPClient,
   http_client: HTTPoison,
   elasticsearch_client: Elasticsearch
 
@@ -52,7 +53,8 @@ config :cogynt_workstation_ingest, :cogynt_keys,
   confidence: "_confidence",
   partial: "$partial",
   entities: "$$entities",
-  matches: "$matches"
+  matches: "$matches",
+  source: "source"
 
 config :cogynt_workstation_ingest, :cogynt_keys_v2,
   link_data_type: "linkage",
@@ -68,7 +70,8 @@ config :cogynt_workstation_ingest, :cogynt_keys_v2,
   confidence: "COG_confidence",
   partial: "COG_partial",
   entities: "COG_entities",
-  matches: "COG_matches"
+  matches: "COG_matches",
+  source: "COG_source"
 
 config :cogynt_workstation_ingest, :failed_messages,
   retry_timer: 300_000,

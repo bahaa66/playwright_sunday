@@ -11,23 +11,6 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     Druid.sql_query(sql_query)
   end
 
-  def list_template_solutions!(%{ids: ids}) do
-    sql_query = %{
-      query: """
-        SELECT DISTINCT id, *
-        FROM druid.template_solutions
-        WHERE id=ANY('#{Enum.join(ids, "','")}')
-        GROUP BY id
-      """
-    }
-
-    Druid.sql_query(sql_query)
-    |> case do
-      {:ok, template_solutions} -> {:ok, template_solutions}
-      {:error, error} -> raise "Error querying for template solutions: #{inspect(error)}"
-    end
-  end
-
   def list_template_solutions() do
     sql_query = %{
       query: """
@@ -37,21 +20,6 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     }
 
     Druid.sql_query(sql_query)
-  end
-
-  def list_template_solutions!() do
-    sql_query = %{
-      query: """
-        SELECT DISTINCT id, *
-        FROM druid.template_solutions
-      """
-    }
-
-    Druid.sql_query(sql_query)
-    |> case do
-      {:ok, template_solutions} -> {:ok, template_solutions}
-      {:error, error} -> raise "Error querying for template solutions: #{inspect(error)}"
-    end
   end
 
   def get_template_solution(id) do
@@ -73,29 +41,10 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     end
   end
 
-  def get_template_solution!(id) do
-    sql_query = %{
-      query: """
-        SELECT *
-        FROM druid.template_solutions
-        WHERE id=?
-        LIMIT 1
-      """,
-      parameters: [%{type: "VARCHAR", value: id}]
-    }
-
-    Druid.sql_query(sql_query)
-    |> case do
-      {:ok, []} -> {:ok, nil}
-      {:ok, [template_solution]} -> {:ok, template_solution}
-      {:error, error} -> raise "Error querying for template solution #{id}: #{inspect(error)}"
-    end
-  end
-
   def get_template_solution_outcomes(ids) when is_list(ids) do
     sql_query = %{
       query: """
-        SELECT id AS solution_id, event, aid
+        SELECT id AS solution_id, *
         FROM druid.template_solution_events
         WHERE id=ANY('#{Enum.join(ids, "','")}') and aid IS NULL
       """
@@ -107,7 +56,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   def get_template_solution_outcomes(id) do
     sql_query = %{
       query: """
-        SELECT id AS solution_id, event, aid
+        SELECT id AS solution_id, *
         FROM druid.template_solution_events
         WHERE id=? and aid IS NULL
       """,
@@ -115,29 +64,12 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     }
 
     Druid.sql_query(sql_query)
-  end
-
-  def get_template_solution_outcomes!(id) do
-    sql_query = %{
-      query: """
-        SELECT id AS solution_id, event, aid
-        FROM druid.template_solution_events
-        WHERE id=? and aid IS NULL
-      """,
-      parameters: [%{type: "VARCHAR", value: id}]
-    }
-
-    Druid.sql_query(sql_query)
-    |> case do
-      {:ok, outcomes} -> {:ok, outcomes}
-      {:error, error} -> raise "Error querying for outcomes for #{id}: #{inspect(error)}"
-    end
   end
 
   def get_template_solution_events(ids) when is_list(ids) do
     sql_query = %{
       query: """
-        SELECT id AS solution_id, event, aid
+        SELECT id AS solution_id, *
         FROM druid.template_solution_events
         WHERE id=ANY('#{Enum.join(ids, "','")}') AND aid IS NOT NULL
       """
@@ -149,7 +81,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
   def get_template_solution_events(id) do
     sql_query = %{
       query: """
-        SELECT id AS solution_id, event, aid
+        SELECT id AS solution_id, *
         FROM template_solution_events
         WHERE id=? and aid IS NOT NULL
       """,
@@ -157,23 +89,6 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     }
 
     Druid.sql_query(sql_query)
-  end
-
-  def get_template_solution_events!(id) do
-    sql_query = %{
-      query: """
-        SELECT id AS solution_id, *, aid
-        FROM druid.template_solution_events
-        WHERE id=? and aid IS NOT NULL
-      """,
-      parameters: [%{type: "VARCHAR", value: id}]
-    }
-
-    Druid.sql_query(sql_query)
-    |> case do
-      {:ok, template_solutions} -> {:ok, template_solutions}
-      {:error, _error} -> raise "Error querying for events for #{id}: #{inspect(id)}"
-    end
   end
 
   def process_template_solutions(data) when is_list(data) do

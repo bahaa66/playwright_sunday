@@ -152,20 +152,20 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   end
 
   def start_drilldown_druid_with_registry_lookup("template_solutions" = name) do
+    druid_spec =
+      build_drilldown_druid_ingestion_spec(
+        [
+          "id",
+          "templateTypeName",
+          "templateTypeId",
+          "retracted"
+        ],
+        name
+      )
+
     case DruidSupervisor.whereis(name) do
       nil ->
-        druid_spec =
-          build_drilldown_druid_ingestion_spec(
-            [
-              "id",
-              "templateTypeName",
-              "templateTypeId",
-              "retracted"
-            ],
-            name
-          )
-
-        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec) do
+        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec, force_update: true) do
           {:error, {:already_started, pid}} ->
             {:ok, pid}
 
@@ -182,32 +182,30 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         end
 
       pid ->
-        CogyntLogger.warn(
-          "#{__MODULE__}",
-          "Druid supervisor: #{name} already started by another node"
-        )
-
+        SupervisorMonitor.create_or_update_supervisor(pid, druid_spec)
         {:ok, pid}
     end
   end
 
   def start_drilldown_druid_with_registry_lookup("template_solution_events" = name) do
+    druid_spec =
+      build_drilldown_druid_ingestion_spec(
+        [
+          "id",
+          "templateTypeName",
+          "templateTypeId",
+          "event",
+          "eventId",
+          "version",
+          "aid",
+          "assertionName"
+        ],
+        name
+      )
+
     case DruidSupervisor.whereis(name) do
       nil ->
-        druid_spec =
-          build_drilldown_druid_ingestion_spec(
-            [
-              "id",
-              "templateTypeName",
-              "templateTypeId",
-              "event",
-              "aid",
-              "assertionName"
-            ],
-            name
-          )
-
-        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec) do
+        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec, force_update: true) do
           {:error, {:already_started, pid}} ->
             {:ok, pid}
 
@@ -224,11 +222,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         end
 
       pid ->
-        CogyntLogger.warn(
-          "#{__MODULE__}",
-          "Druid supervisor: #{name} already started by another node"
-        )
-
+        SupervisorMonitor.create_or_update_supervisor(pid, druid_spec)
         {:ok, pid}
     end
   end

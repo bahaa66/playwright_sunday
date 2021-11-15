@@ -43,6 +43,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:gettext, "~> 0.11"},
       {:jason, "~> 1.0"},
       {:ja_serializer, "~> 0.13.0"},
+      {:jsonrpc2, "~> 1.0"},
       {:plug, "~> 1.8"},
       {:cowboy, "~> 2.6"},
       {:plug_cowboy, "~> 2.0"},
