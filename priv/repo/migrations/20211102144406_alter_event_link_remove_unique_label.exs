@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterEventLinkRemoveUniqueLabel do
+  use Migrations.AlterEventLinksRemoveUniqueLabel
+end
