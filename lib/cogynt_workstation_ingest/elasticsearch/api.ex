@@ -30,13 +30,9 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   def create_index(index) do
     name = build_name(index)
     priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
-    IO.puts("@env #{@env}")
-    IO.puts("Config.env() #{Config.env()}")
     settings_file = if Config.env() == :dev do
-      CogyntLogger.info("Create index", "In DEV env")
       Path.join(priv_folder, "event.dev.active.json")
     else
-      CogyntLogger.info("Create Index", "In PROD env")
       Path.join(priv_folder, "event.prod.active.json")
     end
 
@@ -156,14 +152,11 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     config = Elasticsearch.Cluster.Config.get(Cluster)
     alias = String.to_existing_atom(index)
     name = build_name(alias)
-    #%{settings: settings_file} = index_config = config[:indexes][alias]
     index_config = config[:indexes][alias]
     priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
     settings_file = if Config.env() == :dev do
-      CogyntLogger.info("Create index", "In DEV env")
       Path.join(priv_folder, "event.dev.active.json")
     else
-      CogyntLogger.info("Create Index", "In PROD env")
       Path.join(priv_folder, "event.prod.active.json")
     end
 
@@ -366,10 +359,8 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
 
     settings_file = if Config.env() == :dev do
-      CogyntLogger.info("Create index", "In DEV env")
       Path.join(priv_folder, "event.dev.active.json")
     else
-      CogyntLogger.info("Create Index", "In PROD env")
       Path.join(priv_folder, "event.prod.active.json")
     end
 
