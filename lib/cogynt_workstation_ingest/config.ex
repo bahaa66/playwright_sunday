@@ -27,6 +27,9 @@ defmodule CogyntWorkstationIngest.Config do
   def deployment_topic(), do: kafka()[:deployment_topic]
   def kafka_connect_host, do: kafka()[:kafka_connect_host]
 
+  def auth_service_name(), do: rpc()[:cogynt_auth_service_name]
+  def auth_service_port(), do: rpc()[:cogynt_auth_service_port]
+
   def redis_host(), do: redis()[:host]
   def redis_port(), do: redis()[:port]
   def redis_sentinels(), do: redis()[:sentinels]
@@ -151,6 +154,14 @@ defmodule CogyntWorkstationIngest.Config do
     end
   end
 
+  def source_key() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:source]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:source]
+    end
+  end
+
   def startup_delay(), do: startup()[:init_delay]
 
   def event_index_alias(), do: elasticsearch()[:event_index_alias]
@@ -159,6 +170,7 @@ defmodule CogyntWorkstationIngest.Config do
 
   def http_client(), do: clients()[:http_client]
   def elasticsearch_client(), do: clients()[:elasticsearch_client]
+  def rpc_client(), do: clients()[:json_rpc_client]
 
   def enable_dev_tools?(), do: Application.get_env(:cogynt_workstation_ingest, :enable_dev_tools)
 
@@ -235,4 +247,6 @@ defmodule CogyntWorkstationIngest.Config do
   defp elasticsearch_cluster(), do: Application.get_env(:cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster)
 
   defp clients(), do: Application.get_env(:cogynt_workstation_ingest, :clients)
+
+  defp rpc(), do: Application.get_env(:cogynt_workstation_ingest, :rpc)
 end

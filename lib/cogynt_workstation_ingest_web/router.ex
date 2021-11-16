@@ -8,6 +8,13 @@ defmodule CogyntWorkstationIngestWeb.Router do
   pipeline :api do
     plug(:accepts, ["json"])
     plug(:fetch_session)
+
+    plug(Plug.Parsers,
+      parsers: [:urlencoded, :multipart, :json, Absinthe.Plug.Parser],
+      json_decoder: Jason
+    )
+
+    plug(CogyntWorkstationIngestWeb.Context)
   end
 
   pipeline :browser do
@@ -21,6 +28,8 @@ defmodule CogyntWorkstationIngestWeb.Router do
   forward("/healthz", HealthCheckup)
   ## Liveness Check route
   forward("/livenessCheck", LivenessCheck)
+
+  forward("/rpc/cogynt", JSONRPC2.Servers.HTTP.Plug, CogyntWorkstationIngestWeb.Rpc.CogyntHandler)
 
   scope "/ingest" do
     pipe_through(:browser)
@@ -37,6 +46,8 @@ defmodule CogyntWorkstationIngestWeb.Router do
   end
 
   scope "/ingest/api" do
+    pipe_through(:api)
+
     forward("/graphql", Absinthe.Plug, schema: CogyntWorkstationIngestWeb.Schema)
 
     if Config.enable_dev_tools?() do
