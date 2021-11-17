@@ -179,7 +179,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_deployment_object_v2(deployment_message) do
-    IO.inspect(deployment_message, label: "DEPLOYMENT DATA V2 SCHEMA MESSAGE OBJECT")
     # Upsert Deployments
     # Temp override of the ID value with a backwards compatible v1DeploymentId field that is an INT
     {:ok, %Deployment{} = _deployment} =
@@ -260,8 +259,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_event_type_object_v2(deployment_message) do
-    IO.inspect(deployment_message, label: "EVENT TYPE SCHEMA V2 MESSAGE OBJECT")
-
     Map.put(deployment_message, :topic, deployment_message.source.topic)
     |> Map.put(:title, deployment_message.name)
     |> Map.put(
@@ -291,7 +288,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_user_data_schema_object(deployment_message) do
-    IO.inspect(deployment_message, label: "USER DATA SCHEMA SCHEMA V2 MESSAGE OBJECT")
     # 1) if any PG record exists with id. Remove all records for it
     EventsContext.hard_delete_event_definition_details(deployment_message.id)
     # 2) insert new user data schema into PG
