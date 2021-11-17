@@ -483,7 +483,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
       lexicon_val ->
         try do
-          Map.put(event, @matches_key, List.flatten(lexicon_val))
+          Map.put(event, @matches_key, List.flatten(lexicon_val) |> Enum.filter(&is_binary(&1)))
         rescue
           _ ->
             CogyntLogger.error("#{__MODULE__}", "Lexicon value incorrect format #{lexicon_val}")
