@@ -269,6 +269,15 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
       false ->
         IO.puts("Current Index mapping is not current....")
         reindex(Config.event_index_alias())
+
+      {:error, error} ->
+        {:error, error} ->
+          CogyntLogger.error(
+            "Elasticsearch Check to Reindex",
+            "Failed to read settings/mappings. #{inspect(error)}"
+          )
+
+          {:error, error}
     end
   end
 
@@ -376,7 +385,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     else
       {:error, reason} ->
         IO.puts("Cannot read file because #{reason}")
-        false
+        {:error, reason}
     end
   end
 
