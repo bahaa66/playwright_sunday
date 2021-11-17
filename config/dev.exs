@@ -6,7 +6,7 @@ config :cogynt_workstation_ingest,
   session_key: System.get_env("COGYNT_AUTH_SESSION_KEY") || "_cogynt_auth_key",
   signing_salt: System.get_env("COGYNT_AUTH_SALT") || "I45Kpw9a",
   enable_dev_tools: (System.get_env("ENABLE_DEV_TOOLS") || "true") == "true",
-  authoring_version: System.get_env("COGYNT_AUTHORING_VERSION") || "2"
+  authoring_version: System.get_env("COGYNT_AUTHORING_VERSION") || "1"
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   load_from_system_env: true,
