@@ -1,5 +1,4 @@
 defmodule CogyntWorkstationIngest.ElasticsearchAPI do
-  @env Mix.env()
 
   alias Elasticsearch.Index
   alias CogyntWorkstationIngest.Elasticsearch.Cluster
