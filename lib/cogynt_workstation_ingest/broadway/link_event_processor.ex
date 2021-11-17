@@ -16,6 +16,12 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
   Module.put_attribute(
     __MODULE__,
+    :id,
+    Config.id_key()
+  )
+
+  Module.put_attribute(
+    __MODULE__,
     :delete,
     Config.crud_delete_value()
   )
@@ -75,7 +81,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
       Enum.reduce(entities, [], fn {edge_label, link_data_list}, acc ->
         links =
           Enum.reduce(link_data_list, [], fn link_object, acc_1 ->
-            case link_object["id"] do
+            case link_object[@id] do
               nil ->
                 CogyntLogger.warn(
                   "#{__MODULE__}",
