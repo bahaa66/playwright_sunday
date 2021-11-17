@@ -51,7 +51,14 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
         Enum.find(event_definition.event_definition_details, fn
           %{field_name: name} ->
             name == ns.title
+            # %{path: path} ->
+            #   path == ns.title
         end) != nil
+
+        IO.inspect(has_event_definition_detail, label: "has_event_definition_detail")
+        IO.inspect(risk_score, label: "risk_score")
+        IO.inspect(ns.risk_range. label: "risk_range")
+        IO.inspect(in_risk_range?(risk_score, ns.risk_range), label: "in_risk_range")
 
       has_event_definition_detail and in_risk_range?(risk_score, ns.risk_range)
     end)
@@ -67,6 +74,8 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
         Enum.find(event_definition.event_definition_details, fn
           %{field_name: name} ->
             name == ns.title
+            # %{path: path} ->
+            #   path == ns.title
         end) != nil
 
       !has_event_definition_detail or !in_risk_range?(risk_score, ns.risk_range)
