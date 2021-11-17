@@ -55,11 +55,6 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
             #   path == ns.title
         end) != nil
 
-      IO.inspect(has_event_definition_detail, label: "has_event_definition_detail")
-      IO.inspect(risk_score, label: "risk_score")
-      IO.inspect(ns.risk_range, label: "risk_range")
-      IO.inspect(in_risk_range?(risk_score, ns.risk_range), label: "in_risk_range")
-
       has_event_definition_detail and in_risk_range?(risk_score, ns.risk_range)
     end)
   end
