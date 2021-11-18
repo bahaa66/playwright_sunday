@@ -174,7 +174,7 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
       Enum.reduce(data_sources, [], fn data_source, acc ->
         case data_source["type"] == "kafka" do
           true ->
-            acc ++ Config.parse_kafka_brokers(data_source["connect_string"])
+            acc ++ Config.parse_kafka_brokers(data_source["connectString"])
 
           false ->
             acc
