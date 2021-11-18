@@ -5,6 +5,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder do
 
   @document_schema %{
     id: [type: :string, required: true],
+    event_definition_hash_id: [type: :string, required: true],
     event_definition_id: [type: :string, required: true],
     title: [type: :string, required: true],
     event_details: [
@@ -23,14 +24,14 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder do
     created_at: [type: :datetime, required: true],
     updated_at: [type: :datetime, required: true],
     occurred_at: [type: :datetime],
-    risk_score: [type: :integer],
+    risk_score: [type: :integer]
   }
-
 
   def build_document(parameters) do
     now = DateTime.truncate(DateTime.utc_now(), :second)
 
-    parameters = parameters
+    parameters =
+      parameters
       |> Map.put_new(:updated_at, now)
       |> Map.put(:created_at, now)
 

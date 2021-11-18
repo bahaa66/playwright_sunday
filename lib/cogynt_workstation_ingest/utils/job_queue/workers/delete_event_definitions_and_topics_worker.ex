@@ -11,7 +11,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   alias Models.Enums.ConsumerStatusTypeEnum
 
   def perform(%{
-        "event_definition_ids" => event_definition_ids,
+        "event_definition_hash_ids" => event_definition_hash_ids,
         "hard_delete" => hard_delete_event_definitions,
         "delete_topics" => delete_topics
       }) do
@@ -43,15 +43,15 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
 
       CogyntLogger.info(
         "#{__MODULE__}",
-        "Finished deleting data for EventDefinitionIds: #{inspect(event_definition_ids)}"
+        "Finished deleting data for EventDefinitionHashIds: #{inspect(event_definition_hash_ids)}"
       )
     else
-      Enum.each(event_definition_ids, fn event_definition_id ->
-        case EventsContext.get_event_definition(event_definition_id) do
+      Enum.each(event_definition_hash_ids, fn event_definition_hash_id ->
+        case EventsContext.get_event_definition(event_definition_hash_id) do
           nil ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "EventDefinition not found for event_definition_id: #{event_definition_id}"
+              "EventDefinition not found for event_definition_hash_id: #{event_definition_hash_id}"
             )
 
           event_definition ->
@@ -122,12 +122,11 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
     # delete data
     CogyntLogger.info(
       "#{__MODULE__}",
-      "Deleting data for EventDefinitionId: #{event_definition.id}"
+      "Deleting data for EventDefinitionHashId: #{event_definition.id}"
     )
 
-    # Sixth delete all event_definition_data. Anything linked to the
-    # event_definition_id
-    EventsContext.hard_delete_by_event_definition_id(event_definition.id)
+    # Sixth delete all event_definition_data. Anything linked to the event_definition_hash_id
+    EventsContext.hard_delete_by_event_definition_hash_id(event_definition.id)
 
     # Finally update the EventDefintion to be inactive
     case EventsContext.update_event_definition(event_definition, %{
@@ -157,17 +156,17 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   defp delete_elasticsearch_data(event_definition) do
     CogyntLogger.info(
       "#{__MODULE__}",
-      "Deleting Elasticsearch data for EventDefinitionId: #{event_definition.id}"
+      "Deleting Elasticsearch data for EventDefinitionHashId: #{event_definition.id}"
     )
 
     case ElasticsearchAPI.delete_by_query(Config.event_index_alias(), %{
-           field: "event_definition_id",
+           field: "event_definition_hash_id",
            value: event_definition.id
          }) do
       {:ok, _count} ->
         CogyntLogger.info(
           "#{__MODULE__}",
-          "Elasticsearch data deleted for EventDefinitionId: #{event_definition.id}"
+          "Elasticsearch data deleted for EventDefinitionHashId: #{event_definition.id}"
         )
 
       {:error, error} ->
@@ -198,31 +197,32 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
     end
   end
 
-  defp ensure_pipeline_shutdown(event_definition_id, count \\ 1) do
+  defp ensure_pipeline_shutdown(event_definition_hash_id, count \\ 1) do
     if count >= 30 do
       CogyntLogger.info(
         "#{__MODULE__}",
         "ensure_pipeline_shutdown/1 exceeded number of attempts. Moving forward with DeleteEventDefinitionsAndTopics"
       )
     else
-      {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition_id)
+      {_status, consumer_state} =
+        ConsumerStateManager.get_consumer_state(event_definition_hash_id)
 
-      case EventPipeline.pipeline_started?(event_definition_id) or
-             not EventPipeline.pipeline_finished_processing?(event_definition_id) or
+      case EventPipeline.pipeline_started?(event_definition_hash_id) or
+             not EventPipeline.pipeline_finished_processing?(event_definition_hash_id) or
              consumer_state.status != ConsumerStatusTypeEnum.status()[:unknown] do
         true ->
           CogyntLogger.info(
             "#{__MODULE__}",
-            "EventPipeline #{event_definition_id} still running... waiting for it to shutdown before resetting data"
+            "EventPipeline #{event_definition_hash_id} still running... waiting for it to shutdown before resetting data"
           )
 
           Process.sleep(1000)
-          ensure_pipeline_shutdown(event_definition_id, count + 1)
+          ensure_pipeline_shutdown(event_definition_hash_id, count + 1)
 
         false ->
           CogyntLogger.info(
             "#{__MODULE__}",
-            "EventPipeline #{event_definition_id} shutdown"
+            "EventPipeline #{event_definition_hash_id} shutdown"
           )
       end
     end

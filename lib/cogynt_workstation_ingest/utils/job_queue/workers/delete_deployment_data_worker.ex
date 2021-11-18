@@ -41,7 +41,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
 
     # Fourth reset all the data for each event_definition
     DeleteEventDefinitionsAndTopicsWorker.perform(%{
-      "event_definition_ids" => [],
+      "event_definition_hash_ids" => [],
       "hard_delete" => true,
       "delete_topics" => delete_topics_for_deployments
     })

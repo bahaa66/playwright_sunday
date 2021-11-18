@@ -80,7 +80,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   of the pipeline
   """
   def process_event(
-        %{event: event, event_definition_id: event_definition_id, core_id: core_id} = data
+        %{event: event, event_definition_hash_id: event_definition_hash_id, core_id: core_id} =
+          data
       ) do
     now = DateTime.truncate(DateTime.utc_now(), :second)
     action = event[@crud_key]
@@ -105,7 +106,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             occurred_at: occurred_at,
             risk_score: format_risk_score(event[@confidence_key]),
             event_details: format_lexicon_data(event),
-            event_definition_id: event_definition_id,
+            event_definition_hash_id: event_definition_hash_id,
             created_at: now,
             updated_at: now
           }
@@ -116,7 +117,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             occurred_at: occurred_at,
             risk_score: format_risk_score(event[@confidence_key]),
             event_details: format_lexicon_data(event),
-            event_definition_id: event_definition_id,
+            event_definition_hash_id: event_definition_hash_id,
             created_at: now,
             updated_at: now
           }
@@ -139,7 +140,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           pg_event: pg_event,
           core_id: core_id,
           event_definition: event_definition,
-          event_definition_id: event_definition_id,
+          event_definition_hash_id: event_definition_hash_id,
           event_type: event_type
         } = data
       ) do
@@ -217,7 +218,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       case EventDocumentBuilder.build_document(%{
              id: core_id,
              title: event_definition.title,
-             event_definition_id: event_definition_id,
+             event_definition_hash_id: event_definition_hash_id,
              event_details: elasticsearch_event_details,
              core_event_id: core_id,
              event_type: event_type,
@@ -254,7 +255,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     pg_notifications =
       NotificationsContext.fetch_valid_notification_settings(
         %{
-          event_definition_id: event_definition.id,
+          event_definition_hash_id: event_definition.id,
           active: true
         },
         pg_event.risk_score,
@@ -282,7 +283,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     invalid_notification_settings =
       NotificationsContext.fetch_invalid_notification_settings(
         %{
-          event_definition_id: event_definition.id,
+          event_definition_hash_id: event_definition.id,
           active: true
         },
         pg_event.risk_score,
@@ -331,7 +332,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             :crud_action,
             :event,
             :event_definition,
-            :event_definition_id,
+            :event_definition_hash_id,
             :retry_count,
             :pipeline_state
           ])
