@@ -270,7 +270,6 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
         reindex(Config.event_index_alias())
 
       {:error, error} ->
-        {:error, error} ->
           CogyntLogger.error(
             "Elasticsearch Check to Reindex",
             "Failed to read settings/mappings. #{inspect(error)}"
