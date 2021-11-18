@@ -64,6 +64,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:absinthe, "1.5.5", override: true},
       {:absinthe_plug, "~> 1.5", override: true},
       {:dataloader, "~> 1.0.0"},
+      {:elixir_uuid, "~> 1.2"},
       {:kafka,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "kafka",

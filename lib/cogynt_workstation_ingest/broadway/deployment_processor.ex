@@ -3,6 +3,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   Module that acts as the Broadway Processor for the DeploymentPipeline.
   """
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
+  CogyntWorkstationIngest.DataSources.DataSourcesContext
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
@@ -10,6 +11,8 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   alias Models.Enums.DeploymentStatusType
   alias Models.Events.EventDefinition
   alias Broadway.Message
+
+  @deployment_target_hash_constant "INT_TO_UUID"
 
   @doc """
   process_deployment_message/1
@@ -50,6 +53,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
             )
 
             process_deployment_object_v2(deployment_message)
+            process_data_sources_v2(deployment_message)
             message
 
           "user_data_schema" ->
@@ -116,6 +120,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
             )
 
             process_deployment_object(deployment_message)
+            process_data_sources(deployment_message)
             message
 
           other ->
@@ -150,7 +155,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
     # If they are in the list make sure to update the DeploymentStatus if it needs to be changed
     |> Enum.each(fn %EventDefinition{
                       deployment_status: deployment_status,
-                      id: event_definition_id
+                      event_definition_id: event_definition_id
                     } = current_event_definition ->
       case Enum.member?(
              deployment_message.event_type_ids,
@@ -199,7 +204,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
     # If they are in the list make sure to update the DeploymentStatus if it needs to be changed
     |> Enum.each(fn %EventDefinition{
                       deployment_status: deployment_status,
-                      id: event_definition_id
+                      event_definition_id: event_definition_id
                     } = current_event_definition ->
       case Enum.member?(
              deployment_message.eventTypeIds,
@@ -227,8 +232,60 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
     end)
   end
 
+  defp process_data_sources(deployment_message) do
+    Enum.each(
+      data_sources(fn data_source ->
+        case data_source["type"] == "kafka" do
+          true ->
+            primary_key =
+              UUID.uuid5(data_source.deployment_target_id, @deployment_target_hash_constant)
+
+            Map.put(deployment_message, :id, primary_key)
+            |> Map.put(:data_source_name, data_source.name)
+            |> Map.put(:connect_string, data_source.brokers)
+            |> DataSourcesContext.upsert_datasource()
+
+          false ->
+            CogymtLogger.warn(
+              "#{__MODULE__}",
+              "process_data_sources_v2/1 data_source type: #{inspect(data_source["type"])} not supported "
+            )
+        end
+      end)
+    )
+  end
+
+  defp process_data_sources_v2(deployment_message) do
+    Enum.each(
+      data_sources(fn data_source ->
+        case data_source["type"] == "kafka" do
+          true ->
+            Map.put(deployment_message, :id, data_source.deploymentTargetId)
+            |> Map.put(:data_source_name, data_source.name)
+            |> Map.put(:connect_string, data_source.connectString)
+            |> DataSourcesContext.upsert_datasource()
+
+          false ->
+            CogymtLogger.warn(
+              "#{__MODULE__}",
+              "process_data_sources_v2/1 data_source type: #{inspect(data_source["type"])} not supported "
+            )
+        end
+      end)
+    )
+  end
+
   defp process_event_type_object(deployment_message) do
-    Map.put(deployment_message, :topic, deployment_message.filter)
+    deployment_target_uuid =
+      UUID.uuid5(deployment_message.deployment_target_id, @deployment_target_hash_constant)
+
+    primary_key = UUID.uuid5(deployment_message.id, deployment_target_uuid)
+
+    Map.put(deployment_message, :event_definition_id, deployment_message.id)
+    |> Map.put(:id, primary_key)
+    |> Map.put(:data_source_id, deployment_target_uuid)
+    |> Map.put(:project_name, "COG_Project_Placeholder")
+    |> Map.put(:topic, deployment_message.filter)
     |> Map.put(:event_definition_details_id, deployment_message.id)
     |> Map.put(:title, deployment_message.name)
     |> Map.put(
@@ -259,7 +316,13 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_event_type_object_v2(deployment_message) do
-    Map.put(deployment_message, :topic, deployment_message.source.topic)
+    primary_key = UUID.uuid5(deployment_message.id, deployment_message.deploymentTargetId)
+
+    Map.put(deployment_message, :event_definition_id, deployment_message.id)
+    |> Map.put(:id, primary_key)
+    |> Map.put(:data_source_id, deployment_message.deploymentTargetId)
+    |> Map.put(:project_name, deployment_message.projectName)
+    |> Map.put(:topic, deployment_message.source.topic)
     |> Map.put(:title, deployment_message.name)
     |> Map.put(
       :manual_actions,
