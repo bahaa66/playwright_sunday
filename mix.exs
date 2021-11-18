@@ -72,15 +72,17 @@ defmodule CogyntWorkstationIngest.MixProject do
        override: true},
       {
         :models,
-        tag: "v1.14.9-beta",
+        # tag: "v1.14.9-beta",
         git: "git@github.com:cogility/cogynt-common.git",
+        branch: "feat/CDST-1146-db-authoring-2-project-support",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.14.9-beta",
+        # tag: "v1.14.9-beta",
         git: "git@github.com:cogility/cogynt-common.git",
+        branch: "feat/CDST-1146-db-authoring-2-project-support",
         sparse: "migrations",
         override: true
       },

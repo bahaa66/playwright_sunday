@@ -3,7 +3,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   Module that acts as the Broadway Processor for the DeploymentPipeline.
   """
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
-  CogyntWorkstationIngest.DataSources.DataSourcesContext
+  alias CogyntWorkstationIngest.DataSources.DataSourcesContext
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
@@ -234,7 +234,8 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
 
   defp process_data_sources(deployment_message) do
     Enum.each(
-      data_sources(fn data_source ->
+      deployment_message.data_sources,
+      fn data_source ->
         case data_source["type"] == "kafka" do
           true ->
             primary_key =
@@ -246,18 +247,22 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
             |> DataSourcesContext.upsert_datasource()
 
           false ->
-            CogymtLogger.warn(
+            CogyntLogger.warn(
               "#{__MODULE__}",
               "process_data_sources_v2/1 data_source type: #{inspect(data_source["type"])} not supported "
             )
         end
-      end)
+      end
     )
   end
 
   defp process_data_sources_v2(deployment_message) do
     Enum.each(
-      data_sources(fn data_source ->
+      deployment_message.dataSources,
+      fn data_source ->
+        # TODO: verify what the data_source object looks like. To see if keys are atoms or strings
+        IO.inspect(data_source, label: "Authoring 2 data_source object")
+
         case data_source["type"] == "kafka" do
           true ->
             Map.put(deployment_message, :id, data_source.deploymentTargetId)
@@ -266,12 +271,12 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
             |> DataSourcesContext.upsert_datasource()
 
           false ->
-            CogymtLogger.warn(
+            CogyntLogger.warn(
               "#{__MODULE__}",
               "process_data_sources_v2/1 data_source type: #{inspect(data_source["type"])} not supported "
             )
         end
-      end)
+      end
     )
   end
 
