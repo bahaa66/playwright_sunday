@@ -380,6 +380,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
           mappings_equal? = Map.equal?(Map.get(json, "mappings"), Map.get(settings, "mappings"))
           IO.puts("Settings are equal? #{settings_equal?}")
           IO.puts("Mappings are equal? #{mappings_equal?}")
+          #if either one is not equal return false.
           settings_equal? && mappings_equal?
     else
       {:error, reason} ->
