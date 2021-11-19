@@ -238,7 +238,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
     Enum.each(
       deployment_message.data_sources,
       fn data_source ->
-        case data_source["kind"] == "kafka" do
+        case data_source.kind == "kafka" do
           true ->
             primary_key =
               UUID.uuid5(data_source.deployment_target_id, @deployment_target_hash_constant)
@@ -267,7 +267,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
         # TODO: verify what the data_source object looks like. To see if keys are atoms or strings
         IO.inspect(data_source, label: "Authoring 2 data_source object")
 
-        case data_source["type"] == "kafka" do
+        case data_source.type == "kafka" do
           true ->
             Map.put(deployment_message, :id, data_source.deploymentTargetId)
             |> Map.put(:data_source_name, data_source.name)
