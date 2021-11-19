@@ -238,7 +238,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
     Enum.each(
       deployment_message.data_sources,
       fn data_source ->
-        case data_source["type"] == "kafka" do
+        case data_source["kind"] == "kafka" do
           true ->
             primary_key =
               UUID.uuid5(data_source.deployment_target_id, @deployment_target_hash_constant)
@@ -251,7 +251,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           false ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "process_data_sources_v2/1 data_source type: #{inspect(data_source["type"])} not supported "
+              "process_data_sources/1 data_source type: #{inspect(data_source["type"])} not supported "
             )
         end
       end
@@ -285,6 +285,8 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_event_type_object(deployment_message) do
+    IO.inspect(deployment_message, label: "MSG for Event-type")
+
     deployment_target_uuid =
       UUID.uuid5(deployment_message.deployment_target_id, @deployment_target_hash_constant)
 
@@ -325,6 +327,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_event_type_object_v2(deployment_message) do
+    IO.inspect(deployment_message, label: "MSG for Event-type")
     primary_key = UUID.uuid5(deployment_message.id, deployment_message.deploymentTargetId)
 
     Map.put(deployment_message, :event_definition_id, deployment_message.id)
