@@ -233,6 +233,8 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_data_sources(deployment_message) do
+    IO.inspect(deployment_message, label: "MSG for DataSources")
+
     Enum.each(
       deployment_message.data_sources,
       fn data_source ->
@@ -257,6 +259,8 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_data_sources_v2(deployment_message) do
+    IO.inspect(deployment_message, label: "MSG for DataSources")
+
     Enum.each(
       deployment_message.dataSources,
       fn data_source ->
