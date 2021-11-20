@@ -241,11 +241,11 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
         case data_source.kind == "kafka" do
           true ->
             primary_key =
-              UUID.uuid5(data_source.deployment_target_id, @deployment_target_hash_constant)
+              UUID.uuid5(data_source.spec.deployment_target_id, @deployment_target_hash_constant)
 
             Map.put(deployment_message, :id, primary_key)
-            |> Map.put(:data_source_name, data_source.name)
-            |> Map.put(:connect_string, data_source.brokers)
+            |> Map.put(:data_source_name, data_source.spec.name)
+            |> Map.put(:connect_string, data_source.spec.brokers)
             |> DataSourcesContext.upsert_datasource()
 
           false ->
