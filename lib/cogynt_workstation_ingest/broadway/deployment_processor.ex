@@ -251,7 +251,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           false ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "process_data_sources/1 data_source type: #{inspect(data_source["type"])} not supported "
+              "process_data_sources/1 data_source type: #{inspect(data_source.kind)} not supported "
             )
         end
       end
@@ -277,7 +277,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           false ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "process_data_sources_v2/1 data_source type: #{inspect(data_source["type"])} not supported "
+              "process_data_sources_v2/1 data_source type: #{inspect(data_source.type)} not supported "
             )
         end
       end
