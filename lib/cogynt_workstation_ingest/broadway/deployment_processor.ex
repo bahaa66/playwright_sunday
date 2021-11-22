@@ -244,6 +244,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
               UUID.uuid5(data_source.spec.deployment_target_id, @deployment_target_hash_constant)
 
             Map.put(deployment_message, :id, primary_key)
+            |> Map.put(:type, data_source.kind)
             |> Map.put(:data_source_name, data_source.spec.name)
             |> Map.put(:connect_string, data_source.spec.brokers)
             |> DataSourcesContext.upsert_datasource()
@@ -259,7 +260,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_data_sources_v2(deployment_message) do
-    IO.inspect(deployment_message, label: "MSG for DataSources")
+    IO.inspect(deployment_message, label: "MSG for DataSources Authoring v2")
 
     Enum.each(
       deployment_message.dataSources,
@@ -270,6 +271,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
         case data_source.type == "kafka" do
           true ->
             Map.put(deployment_message, :id, data_source.deploymentTargetId)
+            |> Map.put(:type, data_source.type)
             |> Map.put(:data_source_name, data_source.name)
             |> Map.put(:connect_string, data_source.connectString)
             |> DataSourcesContext.upsert_datasource()
