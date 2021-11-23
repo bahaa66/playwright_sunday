@@ -237,9 +237,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         new_event_def = create_event_definition(attrs)
 
         case new_event_def do
-          {:ok, %EventDefinition{id: id}} ->
+          {:ok, %EventDefinition{event_definition_details_id: event_definition_details_id}} ->
             if Map.has_key?(attrs, :fields) do
-              process_event_definition_detail_fields(id, attrs.fields)
+              process_event_definition_detail_fields(event_definition_details_id, attrs.fields)
               |> insert_all_event_details()
             end
 
@@ -581,7 +581,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     ]
   end
 
-  def process_event_definition_detail_fields(id, fields) do
+  def process_event_definition_detail_fields(event_def_details_id, fields) do
     Enum.reduce(fields, [], fn {key, val}, acc ->
       case is_atom(key) do
         true ->
@@ -598,7 +598,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           acc ++
             [
               %{
-                event_definition_details_id: id,
+                event_definition_details_id: event_def_details_id,
                 field_name: val.name,
                 path: val.path,
                 field_type: field_type
@@ -619,7 +619,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           acc ++
             [
               %{
-                event_definition_details_id: id,
+                event_definition_details_id: event_def_details_id,
                 field_name: val["name"],
                 path: val["path"],
                 field_type: field_type

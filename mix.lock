@@ -50,7 +50,7 @@
   "migrations": {:git, "git@github.com:cogility/cogynt-common.git", "1967057593b9bfa369d44c5755f0b8406260ae9e", [branch: "feat/CDST-1146-db-authoring-2-project-support", sparse: "migrations"]},
   "mime": {:hex, :mime, "1.6.0", "dabde576a497cef4bbdd60aceee8160e02a6c89250d6c0b29e56c0dfb00db3d2", [:mix], [], "hexpm", "31a1a8613f8321143dde1dafc36006a17d28d02bdfecb9e95a880fa7aabd19a7"},
   "mimerl": {:hex, :mimerl, "1.2.0", "67e2d3f571088d5cfd3e550c383094b47159f3eee8ffa08e64106cdf5e981be3", [:rebar3], [], "hexpm", "f278585650aa581986264638ebf698f8bb19df297f66ad91b18910dfc6e19323"},
-  "models": {:git, "git@github.com:cogility/cogynt-common.git", "1967057593b9bfa369d44c5755f0b8406260ae9e", [branch: "feat/CDST-1146-db-authoring-2-project-support", sparse: "models"]},
+  "models": {:git, "git@github.com:cogility/cogynt-common.git", "9d2a169e7a2fbcf52c055acc4d257d2c48afd924", [branch: "feat/CDST-1146-db-authoring-2-project-support", sparse: "models"]},
   "msgpax": {:hex, :msgpax, "2.2.4", "7b3790ef684089076b63c0f08c2f4b079c6311daeb006b69e4ed2bf67518291e", [:mix], [{:plug, "~> 1.0", [hex: :plug, repo: "hexpm", optional: true]}], "hexpm", "b351b6d992d79624a8430a99d21a41b36b1b90edf84326a294e9f4a2de11f089"},
   "nimble_options": {:hex, :nimble_options, "0.3.7", "1e52dd7673d36138b1a5dede183b5d86dff175dc46d104a8e98e396b85b04670", [:mix], [], "hexpm", "2086907e6665c6b6579be54ef5001928df5231f355f71ed258f80a55e9f63633"},
   "nimble_parsec": {:hex, :nimble_parsec, "1.1.0", "3a6fca1550363552e54c216debb6a9e95bd8d32348938e13de5eda962c0d7f89", [:mix], [], "hexpm", "08eb32d66b706e913ff748f11694b17981c0b04a33ef470e33e11b3d3ac8f54b"},

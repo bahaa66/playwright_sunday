@@ -12,7 +12,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   alias Models.Events.EventDefinition
   alias Broadway.Message
 
-  @deployment_target_hash_constant "INT_TO_UUID"
+  @deployment_target_hash_constant "00000000-0000-0000-0000-000000000000"
 
   @doc """
   process_deployment_message/1
@@ -241,7 +241,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
         case data_source.kind == "kafka" do
           true ->
             primary_key =
-              UUID.uuid5(data_source.spec.deployment_target_id, @deployment_target_hash_constant)
+              UUID.uuid5(@deployment_target_hash_constant, data_source.spec.deployment_target_id)
 
             Map.put(deployment_message, :id, primary_key)
             |> Map.put(:type, data_source.kind)
@@ -289,8 +289,9 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   defp process_event_type_object(deployment_message) do
     IO.inspect(deployment_message, label: "MSG for Event-type")
 
+    # TODO: The deployment_target_id is a string. Should it be converted to an int?
     deployment_target_uuid =
-      UUID.uuid5(deployment_message.deployment_target_id, @deployment_target_hash_constant)
+      UUID.uuid5(@deployment_target_hash_constant, deployment_message.deployment_target_id)
 
     primary_key = UUID.uuid5(deployment_message.id, deployment_target_uuid)
 
@@ -299,7 +300,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
     |> Map.put(:data_source_id, deployment_target_uuid)
     |> Map.put(:project_name, "COG_Project_Placeholder")
     |> Map.put(:topic, deployment_message.filter)
-    |> Map.put(:event_definition_details_id, deployment_message.id)
+    |> Map.put(:event_definition_details_id, primary_key)
     |> Map.put(:title, deployment_message.name)
     |> Map.put(
       :manual_actions,
