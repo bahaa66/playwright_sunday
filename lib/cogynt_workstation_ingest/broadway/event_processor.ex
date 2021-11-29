@@ -218,6 +218,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       case EventDocumentBuilder.build_document(%{
              id: core_id,
              title: event_definition.title,
+             event_definition: event_definition.event_definition_id,
              event_definition_hash_id: event_definition_hash_id,
              event_details: elasticsearch_event_details,
              core_event_id: core_id,
