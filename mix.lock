@@ -47,7 +47,7 @@
   "libring": {:hex, :libring, "1.5.0", "44313eb6862f5c9168594a061e9d5f556a9819da7c6444706a9e2da533396d70", [:mix], [], "hexpm", "04e843d4fdcff49a62d8e03778d17c6cb2a03fe2d14020d3825a1761b55bd6cc"},
   "merkle_map": {:hex, :merkle_map, "0.2.1", "01a88c87a6b9fb594c67c17ebaf047ee55ffa34e74297aa583ed87148006c4c8", [:mix], [], "hexpm", "fed4d143a5c8166eee4fa2b49564f3c4eace9cb252f0a82c1613bba905b2d04d"},
   "metrics": {:hex, :metrics, "1.0.1", "25f094dea2cda98213cecc3aeff09e940299d950904393b2a29d191c346a8486", [:rebar3], [], "hexpm", "69b09adddc4f74a40716ae54d140f93beb0fb8978d8636eaded0c31b6f099f16"},
-  "migrations": {:git, "git@github.com:cogility/cogynt-common.git", "1967057593b9bfa369d44c5755f0b8406260ae9e", [branch: "feat/CDST-1146-db-authoring-2-project-support", sparse: "migrations"]},
+  "migrations": {:git, "git@github.com:cogility/cogynt-common.git", "650abdee727375b343feaf52908ab0660f323328", [branch: "feat/CDST-1146-db-authoring-2-project-support", sparse: "migrations"]},
   "mime": {:hex, :mime, "1.6.0", "dabde576a497cef4bbdd60aceee8160e02a6c89250d6c0b29e56c0dfb00db3d2", [:mix], [], "hexpm", "31a1a8613f8321143dde1dafc36006a17d28d02bdfecb9e95a880fa7aabd19a7"},
   "mimerl": {:hex, :mimerl, "1.2.0", "67e2d3f571088d5cfd3e550c383094b47159f3eee8ffa08e64106cdf5e981be3", [:rebar3], [], "hexpm", "f278585650aa581986264638ebf698f8bb19df297f66ad91b18910dfc6e19323"},
   "models": {:git, "git@github.com:cogility/cogynt-common.git", "9d2a169e7a2fbcf52c055acc4d257d2c48afd924", [branch: "feat/CDST-1146-db-authoring-2-project-support", sparse: "models"]},

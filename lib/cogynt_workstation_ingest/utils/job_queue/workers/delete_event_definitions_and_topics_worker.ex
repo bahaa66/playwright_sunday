@@ -21,7 +21,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         # have to fetch the consumer_group_name before we shutdown the pipeline. That action
         # removes the consumer_group_name from Redis and we wont be able to fetch it after it
         # completes
-        datasource_name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id)
+        druid_datasource_name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id)
         # 1) stop the EventPipeline if there is one running for the event_definition
         shutdown_event_pipeline(event_definition)
 
@@ -34,7 +34,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         delete_elasticsearch_data(event_definition)
 
         # 4) remove Druid datasource
-        delete_druid_datasource(datasource_name)
+        delete_druid_datasource(druid_datasource_name)
 
         ConsumerStateManager.remove_consumer_state(event_definition.id)
       end)
@@ -58,7 +58,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
             # have to fetch the consumer_group_name before we shutdown the pipeline. That action
             # removes the consumer_group_name from Redis and we wont be able to fetch it after it
             # completes
-            datasource_name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id)
+            druid_datasource_name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id)
             # 1) stop the EventPipeline if there is one running for the event_definition
             shutdown_event_pipeline(event_definition)
 
@@ -74,7 +74,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
             delete_event_definition(event_definition)
 
             # 6) remove Druid datasource
-            delete_druid_datasource(datasource_name)
+            delete_druid_datasource(druid_datasource_name)
         end
       end)
     end

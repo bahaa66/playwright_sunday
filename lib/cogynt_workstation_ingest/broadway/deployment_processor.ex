@@ -241,7 +241,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
         case data_source.kind == "kafka" do
           true ->
             primary_key =
-              UUID.uuid5(@deployment_target_hash_constant, data_source.spec.deployment_target_id)
+              UUID.uuid5(@deployment_target_hash_constant, data_source.spec.data_source_id)
 
             Map.put(deployment_message, :id, primary_key)
             |> Map.put(:type, data_source.kind)
@@ -265,12 +265,11 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
     Enum.each(
       deployment_message.dataSources,
       fn data_source ->
-        # TODO: verify what the data_source object looks like. To see if keys are atoms or strings
         IO.inspect(data_source, label: "Authoring 2 data_source object")
 
         case data_source.type == "kafka" do
           true ->
-            Map.put(deployment_message, :id, data_source.deploymentTargetId)
+            Map.put(deployment_message, :id, data_source.dataSourceId)
             |> Map.put(:type, data_source.type)
             |> Map.put(:data_source_name, data_source.name)
             |> Map.put(:connect_string, data_source.connectString)
@@ -289,15 +288,14 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   defp process_event_type_object(deployment_message) do
     IO.inspect(deployment_message, label: "MSG for Event-type")
 
-    # TODO: The deployment_target_id is a string. Should it be converted to an int?
-    deployment_target_uuid =
-      UUID.uuid5(@deployment_target_hash_constant, deployment_message.deployment_target_id)
+    data_source_id_uuid =
+      UUID.uuid5(@deployment_target_hash_constant, deployment_message.data_source_id)
 
-    primary_key = UUID.uuid5(deployment_message.id, deployment_target_uuid)
+    primary_key = UUID.uuid5(deployment_message.id, data_source_id_uuid)
 
     Map.put(deployment_message, :event_definition_id, deployment_message.id)
     |> Map.put(:id, primary_key)
-    |> Map.put(:data_source_id, deployment_target_uuid)
+    |> Map.put(:data_source_id, data_source_id_uuid)
     |> Map.put(:project_name, "COG_Project_Placeholder")
     |> Map.put(:topic, deployment_message.filter)
     |> Map.put(:event_definition_details_id, primary_key)
@@ -330,12 +328,12 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_event_type_object_v2(deployment_message) do
-    IO.inspect(deployment_message, label: "MSG for Event-type")
-    primary_key = UUID.uuid5(deployment_message.id, deployment_message.deploymentTargetId)
+    IO.inspect(deployment_message, label: "MSG for Event-type V2")
+    primary_key = UUID.uuid5(deployment_message.id, deployment_message.dataSourceId)
 
     Map.put(deployment_message, :event_definition_id, deployment_message.id)
     |> Map.put(:id, primary_key)
-    |> Map.put(:data_source_id, deployment_message.deploymentTargetId)
+    |> Map.put(:data_source_id, deployment_message.dataSourceId)
     |> Map.put(:project_name, deployment_message.projectName)
     |> Map.put(:topic, deployment_message.source.topic)
     |> Map.put(:title, deployment_message.name)

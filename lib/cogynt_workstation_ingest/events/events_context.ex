@@ -702,7 +702,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   def hard_delete_by_event_definition_hash_id(event_definition_hash_id, limit \\ 50000) do
     try do
       case Repo.query(
-             "SELECT hard_delete_by_event_definition_id(
+             "SELECT hard_delete_by_event_definition_hash_id(
         CAST('#{event_definition_hash_id}' as UUID),
         CAST('#{limit}' as INT)
       )",

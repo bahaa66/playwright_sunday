@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterTruncateAllTablesFunction do
+  use Migrations.AlterTruncateAllTablesFunction
+end
