@@ -260,13 +260,9 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_data_sources_v2(deployment_message) do
-    IO.inspect(deployment_message, label: "MSG for DataSources Authoring v2")
-
     Enum.each(
       deployment_message.dataSources,
       fn data_source ->
-        IO.inspect(data_source, label: "Authoring 2 data_source object")
-
         case data_source.type == "kafka" do
           true ->
             Map.put(deployment_message, :id, data_source.dataSourceId)
@@ -328,7 +324,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_event_type_object_v2(deployment_message) do
-    IO.inspect(deployment_message, label: "MSG for Event-type V2")
     primary_key = UUID.uuid5(deployment_message.id, deployment_message.dataSourceId)
 
     Map.put(deployment_message, :event_definition_id, deployment_message.id)
