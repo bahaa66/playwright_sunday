@@ -21,7 +21,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
     with %NotificationSetting{} = notification_setting <-
            NotificationsContext.get_notification_setting_by(%{id: notification_setting_id}),
          %EventDefinition{} = event_definition <-
-           EventsContext.get_event_definition(notification_setting.event_definition_id,
+           EventsContext.get_event_definition(notification_setting.event_definition_hash_id,
              preload_details: true
            ) do
       # First pause the pipeline and ensure that it finishes processing its messages
@@ -32,7 +32,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
       # of events and backfill of notifications
       EventsContext.get_page_of_events(
         %{
-          filter: %{event_definition_id: event_definition.id},
+          filter: %{event_definition_hash_id: event_definition.id},
           select: [:core_id, :risk_score, :created_at]
         },
         page_number: 1,
@@ -102,28 +102,28 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
     end
   end
 
-  defp ensure_pipeline_drained(event_definition_id, count \\ 1) do
+  defp ensure_pipeline_drained(event_definition_hash_id, count \\ 1) do
     if count >= 30 do
       CogyntLogger.info(
         "#{__MODULE__}",
         "ensure_pipeline_drained/1 exceeded number of attempts. Moving forward with BackfillNotifications"
       )
     else
-      case EventPipeline.pipeline_running?(event_definition_id) or
-             not EventPipeline.pipeline_finished_processing?(event_definition_id) do
+      case EventPipeline.pipeline_running?(event_definition_hash_id) or
+             not EventPipeline.pipeline_finished_processing?(event_definition_hash_id) do
         true ->
           CogyntLogger.info(
             "#{__MODULE__}",
-            "EventPipeline #{event_definition_id} still draining... waiting for it to finish draining before running NotificationBackfill"
+            "EventPipeline #{event_definition_hash_id} still draining... waiting for it to finish draining before running NotificationBackfill"
           )
 
           Process.sleep(1000)
-          ensure_pipeline_drained(event_definition_id, count + 1)
+          ensure_pipeline_drained(event_definition_hash_id, count + 1)
 
         false ->
           CogyntLogger.info(
             "#{__MODULE__}",
-            "EventPipeline #{event_definition_id} Drained"
+            "EventPipeline #{event_definition_hash_id} Drained"
           )
       end
     end
@@ -139,7 +139,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
       valid_notification_setting =
         NotificationsContext.fetch_valid_notification_settings(
           %{
-            event_definition_id: event_definition.id,
+            event_definition_hash_id: event_definition.id,
             active: true
           },
           event.risk_score,
@@ -208,7 +208,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
     else
       EventsContext.get_page_of_events(
         %{
-          filter: %{event_definition_id: event_definition.id},
+          filter: %{event_definition_hash_id: event_definition.id},
           select: [:core_id, :created_at]
         },
         page_number: page_number + 1,

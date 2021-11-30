@@ -64,6 +64,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:absinthe, "1.5.5", override: true},
       {:absinthe_plug, "~> 1.5", override: true},
       {:dataloader, "~> 1.0.0"},
+      {:elixir_uuid, "~> 1.2"},
       {:kafka,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "kafka",
@@ -71,15 +72,17 @@ defmodule CogyntWorkstationIngest.MixProject do
        override: true},
       {
         :models,
-        tag: "v1.14.9-beta",
+        # tag: "v1.14.9-beta",
         git: "git@github.com:cogility/cogynt-common.git",
+        branch: "feat/CDST-1146-db-authoring-2-project-support",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.14.9-beta",
+        # tag: "v1.14.9-beta",
         git: "git@github.com:cogility/cogynt-common.git",
+        branch: "feat/CDST-1146-db-authoring-2-project-support",
         sparse: "migrations",
         override: true
       },

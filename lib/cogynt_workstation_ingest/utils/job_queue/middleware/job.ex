@@ -160,7 +160,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     pipeline
   end
 
-  defp fetch_all_event_definition_ids() do
+  defp fetch_all_event_definition_hash_ids() do
     EventsContext.list_event_definitions()
     |> Enum.group_by(fn ed -> ed.id end)
     |> Map.keys()
@@ -224,7 +224,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
         end
 
       worker_module == to_string(DeleteDeploymentDataWorker) ->
-        ids = fetch_all_event_definition_ids()
+        ids = fetch_all_event_definition_hash_ids()
         update_dev_delete_key(ids)
         IO.inspect(ids, label: "***** DEV DELETE STARTING FOR IDS")
         Redis.publish_async("dev_delete_subscription", %{ids: ids, action: "start"})
@@ -243,26 +243,26 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
 
       worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
         %{
-          "event_definition_ids" => event_definition_ids
+          "event_definition_hash_ids" => event_definition_hash_ids
         } = args
 
-        case is_list(event_definition_ids) do
+        case is_list(event_definition_hash_ids) do
           true ->
-            update_dev_delete_key(event_definition_ids)
-            IO.inspect(event_definition_ids, label: "***** DEV DELETE STARTING FOR IDS")
+            update_dev_delete_key(event_definition_hash_ids)
+            IO.inspect(event_definition_hash_ids, label: "***** DEV DELETE STARTING FOR IDS")
 
             Redis.publish_async("dev_delete_subscription", %{
-              ids: event_definition_ids,
+              ids: event_definition_hash_ids,
               action: "start"
             })
 
           false ->
-            update_dev_delete_key([event_definition_ids])
+            update_dev_delete_key([event_definition_hash_ids])
 
-            IO.inspect([event_definition_ids], label: "***** DEV DELETE STARTING FOR IDS")
+            IO.inspect([event_definition_hash_ids], label: "***** DEV DELETE STARTING FOR IDS")
 
             Redis.publish_async("dev_delete_subscription", %{
-              ids: [event_definition_ids],
+              ids: [event_definition_hash_ids],
               action: "start"
             })
         end
@@ -320,7 +320,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
         end
 
       worker_module == to_string(DeleteDeploymentDataWorker) ->
-        ids = fetch_all_event_definition_ids()
+        ids = fetch_all_event_definition_hash_ids()
         remove_from_dev_delete_key(ids)
         IO.inspect(ids, label: "***** DEV DELETE STOPING FOR IDS")
         Redis.publish_async("dev_delete_subscription", %{ids: [ids], action: "stop"})
@@ -342,25 +342,25 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
 
       worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
         %{
-          "event_definition_ids" => event_definition_ids
+          "event_definition_hash_ids" => event_definition_hash_ids
         } = args
 
-        remove_from_dev_delete_key(event_definition_ids)
+        remove_from_dev_delete_key(event_definition_hash_ids)
 
-        case is_list(event_definition_ids) do
+        case is_list(event_definition_hash_ids) do
           true ->
-            IO.inspect(event_definition_ids, label: "***** DEV DELETE STOPING FOR IDS")
+            IO.inspect(event_definition_hash_ids, label: "***** DEV DELETE STOPING FOR IDS")
 
             Redis.publish_async("dev_delete_subscription", %{
-              ids: event_definition_ids,
+              ids: event_definition_hash_ids,
               action: "stop"
             })
 
           false ->
-            IO.inspect([event_definition_ids], label: "***** DEV DELETE STOPING FOR IDS")
+            IO.inspect([event_definition_hash_ids], label: "***** DEV DELETE STOPING FOR IDS")
 
             Redis.publish_async("dev_delete_subscription", %{
-              ids: [event_definition_ids],
+              ids: [event_definition_hash_ids],
               action: "stop"
             })
         end

@@ -62,7 +62,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
                       delete_topics: delete_topics_for_deployments
                     },
                     event_definitions: %{
-                      event_definition_ids: event_definition_ids,
+                      event_definition_hash_ids: event_definition_hash_ids,
                       delete_topics: delete_topics
                     }
                   } ->
@@ -86,13 +86,13 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
                           )
                         end
 
-                        if length(event_definition_ids) > 0 do
+                        if length(event_definition_hash_ids) > 0 do
                           ExqHelpers.create_and_enqueue(
                             "DevDelete",
                             nil,
                             DeleteEventDefinitionsAndTopicsWorker,
                             %{
-                              event_definition_ids: event_definition_ids,
+                              event_definition_hash_ids: event_definition_hash_ids,
                               hard_delete: false,
                               delete_topics: delete_topics
                             },

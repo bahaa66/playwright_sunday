@@ -41,7 +41,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.ConsumerRetryWorker do
               start_deployment_consumer(key)
 
             true ->
-              CogyntLogger.warn("#{__MODULE__}", "Unknown key found in CRW Redis hash")
+              CogyntLogger.warn("#{__MODULE__}", "Unknown key: #{key} found in CRW Redis hash")
               Redis.hash_delete("crw", key)
           end
         end)
@@ -59,18 +59,18 @@ defmodule CogyntWorkstationIngest.Servers.Workers.ConsumerRetryWorker do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp start_event_type_consumers(event_definition_id) do
+  defp start_event_type_consumers(event_definition_hash_id) do
     with %EventDefinition{} = event_definition <-
-           EventsContext.get_event_definition(event_definition_id),
+           EventsContext.get_event_definition(event_definition_hash_id),
          true <- event_definition.active do
-      Redis.hash_delete("crw", event_definition_id)
+      Redis.hash_delete("crw", event_definition_hash_id)
 
       Redis.publish_async("ingest_channel", %{
         start_consumer: EventsContext.remove_event_definition_virtual_fields(event_definition)
       })
     else
       _ ->
-        Redis.hash_delete("crw", event_definition_id)
+        Redis.hash_delete("crw", event_definition_hash_id)
     end
   end
 

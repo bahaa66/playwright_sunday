@@ -83,7 +83,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       iex> query_notification_settings(
         %{
           filter: %{
-            event_definition_id: "c1607818-7f32-11ea-bc55-0242ac130003"
+            event_definition_hash_id: "c1607818-7f32-11ea-bc55-0242ac130003"
           }
         }
       )
@@ -157,7 +157,7 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
       iex> query_notifications(
         %{
           filter: %{
-            event_definition_id: "c1607818-7f32-11ea-bc55-0242ac130003"
+            event_definition_hash_id: "c1607818-7f32-11ea-bc55-0242ac130003"
           }
         }
       )
@@ -378,8 +378,8 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
 
   defp filter_notification_settings(filter, query) do
     Enum.reduce(filter, query, fn
-      {:event_definition_id, event_definition_id}, q ->
-        where(q, [ns], ns.event_definition_id == ^event_definition_id)
+      {:event_definition_hash_id, event_definition_hash_id}, q ->
+        where(q, [ns], ns.event_definition_hash_id == ^event_definition_hash_id)
 
       {:active, active}, q ->
         where(q, [ns], ns.active == ^active)

@@ -47,7 +47,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> query_events(
         %{
           filter: %{
-            event_definition_id: "c1607818-7f32-11ea-bc55-0242ac130003"
+            event_definition_hash_id: "c1607818-7f32-11ea-bc55-0242ac130003"
           }
         }
       )
@@ -71,13 +71,13 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   @doc """
-  Paginates through Events based on the event_definition_id.
+  Paginates through Events based on the event_definition_hash_id.
   Returns the page_number as a %Scrivener.Page{} object.
   ## Examples
       iex> get_page_of_events(
         %{
           filter: %{
-            event_definition_id: "dec1dcda-7f32-11ea-bc55-0242ac130003"
+            event_definition_hash_id: "dec1dcda-7f32-11ea-bc55-0242ac130003"
           }
         },
         page_number: 1
@@ -111,7 +111,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> update_events(
         %{
           filter: %{
-            event_definition_id: "c1607818-7f32-11ea-bc55-0242ac130003"
+            event_definition_hash_id: "c1607818-7f32-11ea-bc55-0242ac130003"
           }
         }
       )
@@ -197,7 +197,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   @doc """
-  Will create the EventDefinition if no record is found for the event_definition_id.
+  Will create the EventDefinition if no record is found for the event_definition_hash_id.
   If a record is found it updates the record with the new attrs.
   ## Examples
       iex> upsert_event_definition_v2(%{field: value})
@@ -219,7 +219,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   end
 
   @doc """
-  Will create the EventDefinition if no record is found for the event_definition_id.
+  Will create the EventDefinition if no record is found for the event_definition_hash_id.
   If a record is found it updates the record with the new attrs.
   ## Examples
       iex> upsert_event_definition(%{field: value})
@@ -227,7 +227,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> upsert_event_definition(%{field: bad_value})
       {:error, %Ecto.Changeset{}}
   """
-  # *** This can be deprecated once Authoring 1.0 is no longer supported ***
+  # *** TODO: This can be deprecated once Authoring 1.0 is no longer supported ***
   def upsert_event_definition(attrs) do
     case get_event_definition_by(%{
            id: attrs.id,
@@ -237,9 +237,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         new_event_def = create_event_definition(attrs)
 
         case new_event_def do
-          {:ok, %EventDefinition{id: id}} ->
+          {:ok, %EventDefinition{event_definition_details_id: event_definition_details_id}} ->
             if Map.has_key?(attrs, :fields) do
-              process_event_definition_detail_fields(id, attrs.fields)
+              process_event_definition_detail_fields(event_definition_details_id, attrs.fields)
               |> insert_all_event_details()
             end
 
@@ -254,9 +254,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
         case updated_event_def do
           {:ok, %EventDefinition{id: id}} ->
-            # Delete all EventDefinitionDetails for event_definition_id
+            # Delete all EventDefinitionDetails for event_definition_hash_id
             hard_delete_event_definition_details(id)
-            # Create new EventDefinitionDetails for event_definition_id
+            # Create new EventDefinitionDetails for event_definition_hash_id
             if Map.has_key?(attrs, :fields) do
               process_event_definition_detail_fields(id, attrs.fields)
               |> insert_all_event_details()
@@ -269,6 +269,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         end
     end
   end
+
+  # ***********************************************************************
 
   @doc """
   Returns the EventDefinition for id. Raises an error if it does
@@ -326,7 +328,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> query_event_definitions(
         %{
           filter: %{
-            event_definition_id: "c1607818-7f32-11ea-bc55-0242ac130003"
+            event_definition_hash_id: "c1607818-7f32-11ea-bc55-0242ac130003"
           }
         }
       )
@@ -361,7 +363,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       iex> update_event_definitions(
         %{
           filter: %{
-            event_definition_id: "c1607818-7f32-11ea-bc55-0242ac130003"
+            event_definition_hash_id: "c1607818-7f32-11ea-bc55-0242ac130003"
           }
         }
       )
@@ -454,17 +456,17 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
   @doc """
   Given an %EventDefinition{} struct and a deleted_at timestamp it will update all
-  %EventDetailTemplate{} for the event_definition_id to be deleted
+  %EventDetailTemplate{} for the event_definition_hash_id to be deleted
     ## Examples
-      iex> delete_event_definition_event_detail_templates(%{id: event_definition_id}, deleted_at)
+      iex> delete_event_definition_event_detail_templates(%{id: event_definition_hash_id}, deleted_at)
       {count, [%EventDetailTemplate{...}]}
       iex> delete_event_definition_event_detail_templates(%{id: invalid_id}, deleted_at)
       nil
   """
-  def delete_event_definition_event_detail_templates(%{id: definition_id}, deleted_at) do
+  def delete_event_definition_event_detail_templates(%{id: event_definition_hash_id}, deleted_at) do
     queryable =
       from(et in EventDetailTemplate)
-      |> where([et], et.event_definition_id == ^definition_id)
+      |> where([et], et.event_definition_hash_id == ^event_definition_hash_id)
       |> where([et], is_nil(et.deleted_at))
       |> select([et], et)
 
@@ -579,7 +581,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     ]
   end
 
-  def process_event_definition_detail_fields(id, fields) do
+  def process_event_definition_detail_fields(event_def_details_id, fields) do
     Enum.reduce(fields, [], fn {key, val}, acc ->
       case is_atom(key) do
         true ->
@@ -596,7 +598,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           acc ++
             [
               %{
-                event_definition_details_id: id,
+                event_definition_details_id: event_def_details_id,
                 field_name: val.name,
                 path: val.path,
                 field_type: field_type
@@ -617,7 +619,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           acc ++
             [
               %{
-                event_definition_details_id: id,
+                event_definition_details_id: event_def_details_id,
                 field_name: val["name"],
                 path: val["path"],
                 field_type: field_type
@@ -697,11 +699,11 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # ---------------------- #
   # --- PSQL Functions --- #
   # ---------------------- #
-  def hard_delete_by_event_definition_id(event_definition_id, limit \\ 50000) do
+  def hard_delete_by_event_definition_hash_id(event_definition_hash_id, limit \\ 50000) do
     try do
       case Repo.query(
-             "SELECT hard_delete_by_event_definition_id(
-        CAST('#{event_definition_id}' as UUID),
+             "SELECT hard_delete_by_event_definition_hash_id(
+        CAST('#{event_definition_hash_id}' as UUID),
         CAST('#{limit}' as INT)
       )",
              [],
@@ -711,23 +713,25 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           if Enum.empty?(List.flatten(rows)) do
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Finished deleting data linked to #{event_definition_id}."
+              "Finished deleting data linked to #{event_definition_hash_id}."
             )
 
             {:ok, :success}
           else
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Deleting data linked to EventDefinitionId: #{event_definition_id}. Limit: #{limit}"
+              "Deleting data linked to EventDefinitionHashId: #{event_definition_hash_id}. Limit: #{
+                limit
+              }"
             )
 
-            hard_delete_by_event_definition_id(event_definition_id, limit)
+            hard_delete_by_event_definition_hash_id(event_definition_hash_id, limit)
           end
 
         {:error, error} ->
           CogyntLogger.error(
             "#{__MODULE__}",
-            "hard_delete_by_event_definition_id/2 failed with Error: #{inspect(error)}"
+            "hard_delete_by_event_definition_hash_id/2 failed with Error: #{inspect(error)}"
           )
 
           {:error, error}
@@ -736,7 +740,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       error ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "hard_delete_by_event_definition_id/2 failed with Error: #{inspect(error)}"
+          "hard_delete_by_event_definition_hash_id/2 failed with Error: #{inspect(error)}"
         )
 
         {:error, :internal_server_error}
@@ -768,11 +772,11 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # ----------------------- #
   defp filter_events(filter, query) do
     Enum.reduce(filter, query, fn
-      {:event_definition_id, event_definition_id}, q ->
-        where(q, [e], e.event_definition_id == ^event_definition_id)
+      {:event_definition_hash_id, event_definition_hash_id}, q ->
+        where(q, [e], e.event_definition_hash_id == ^event_definition_hash_id)
 
-      {:event_definition_ids, event_definition_ids}, q ->
-        where(q, [e], e.event_definition_id in ^event_definition_ids)
+      {:event_definition_hash_ids, event_definition_hash_ids}, q ->
+        where(q, [e], e.event_definition_hash_id in ^event_definition_hash_ids)
 
       {:core_ids, core_ids}, q ->
         where(q, [e], e.core_id in ^core_ids)
@@ -781,11 +785,17 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
   defp filter_event_definitions(filter, query) do
     Enum.reduce(filter, query, fn
+      {:event_definition_hash_id, event_definition_hash_id}, q ->
+        where(q, [ed], ed.id == ^event_definition_hash_id)
+
+      {:event_definition_hash_ids, event_definition_hash_ids}, q ->
+        where(q, [ed], ed.id in ^event_definition_hash_ids)
+
       {:event_definition_id, event_definition_id}, q ->
-        where(q, [ed], ed.id == ^event_definition_id)
+        where(q, [ed], ed.event_definition_id == ^event_definition_id)
 
       {:event_definition_ids, event_definition_ids}, q ->
-        where(q, [ed], ed.id in ^event_definition_ids)
+        where(q, [ed], ed.event_definition_id in ^event_definition_ids)
 
       {:deployment_id, deployment_id}, q ->
         where(q, [ed], ed.deployment_id == ^deployment_id)
