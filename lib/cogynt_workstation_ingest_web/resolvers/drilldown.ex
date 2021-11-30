@@ -443,6 +443,9 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
               }),
               Map.put(outcome_a, id, Map.merge(Map.get(outcome_a, id, %{}), o))
             }
+
+          _, acc ->
+            acc
         end)
     end)
   end
