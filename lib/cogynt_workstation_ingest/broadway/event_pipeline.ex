@@ -26,12 +26,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
   Module.put_attribute(
     __MODULE__,
-    :id_key,
-    Config.id_key()
-  )
-
-  Module.put_attribute(
-    __MODULE__,
     :linkage_data_type_value,
     Config.linkage_data_type_value()
   )
@@ -106,14 +100,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       case Jason.decode(encoded_data) do
         {:ok, decoded_data} ->
           IO.inspect(decoded_data, label: "RAW EVENT MESSAGE")
-          IO.inspect(decoded_data[@id_key], label: "COG_ID Val")
+          IO.inspect(decoded_data[Config.id_key()], label: "#{Config.id_key()} Val")
           # Incr the total message count that has been consumed from kafka
           incr_total_fetched_message_count(event_definition_hash_id)
 
           Map.put(message, :data, %{
             event: decoded_data,
             event_definition_hash_id: event_definition_hash_id,
-            core_id: decoded_data[@id_key] || Ecto.UUID.generate(),
+            core_id: decoded_data[Config.id_key()] || Ecto.UUID.generate(),
             pipeline_state: nil,
             retry_count: 0,
             event_type: event_type,
