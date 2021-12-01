@@ -105,6 +105,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     else
       case Jason.decode(encoded_data) do
         {:ok, decoded_data} ->
+          IO.inspect(decoded_data, label: "RAW EVENT MESSAGE")
           # Incr the total message count that has been consumed from kafka
           incr_total_fetched_message_count(event_definition_hash_id)
 
