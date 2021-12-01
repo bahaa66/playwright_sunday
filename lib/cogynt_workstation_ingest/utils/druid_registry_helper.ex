@@ -455,6 +455,8 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         end
       end)
 
+    IO.inspect(dimensions, label: "DRUID DIMENSIONS")
+
     # If the timestamp_key() field existed in the EventDefinitionDetails then use it as the
     # Druid timestamp filter. Otherwise use published_at
     timestamp =
@@ -473,6 +475,8 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
             missingValue: @timestamp_default
           }
       end
+
+    IO.inspect(timestamp, label: "DRUID TIMESTAMP")
 
     %{
       supervisor_id: name,
