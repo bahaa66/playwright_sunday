@@ -241,7 +241,10 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
         case data_source.kind == "kafka" do
           true ->
             primary_key =
-              UUID.uuid5(@deployment_target_hash_constant, data_source.spec.data_source_id)
+              UUID.uuid5(
+                @deployment_target_hash_constant,
+                to_string(data_source.spec.data_source_id)
+              )
 
             Map.put(deployment_message, :id, primary_key)
             |> Map.put(:type, data_source.kind)
@@ -285,7 +288,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
     IO.inspect(deployment_message, label: "MSG for Event-type")
 
     data_source_id_uuid =
-      UUID.uuid5(@deployment_target_hash_constant, deployment_message.data_source_id)
+      UUID.uuid5(@deployment_target_hash_constant, to_string(deployment_message.data_source_id))
 
     primary_key = UUID.uuid5(deployment_message.id, data_source_id_uuid)
 
