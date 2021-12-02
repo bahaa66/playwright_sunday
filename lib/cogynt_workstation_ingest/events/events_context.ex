@@ -206,10 +206,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       {:error, %Ecto.Changeset{}}
   """
   def upsert_event_definition_v2(attrs) do
-    case get_event_definition_by(%{
-           id: attrs.id,
-           deployment_id: attrs.deployment_id
-         }) do
+    case get_event_definition(attrs.id) do
       nil ->
         create_event_definition(attrs)
 
