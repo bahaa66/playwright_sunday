@@ -4,46 +4,19 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   alias CogyntGraphql.Utils.Error
   alias CogyntWorkstationIngestWeb.Dataloaders.Druid, as: DruidLoader
 
-  # ------------------------- #
-  # --- module attributes --- #
-  # ------------------------- #
-  Module.put_attribute(
-    __MODULE__,
-    :published_by_key,
-    Config.published_by_key()
-  )
-
-  Module.put_attribute(
-    __MODULE__,
-    :id_key,
-    Config.id_key()
-  )
-
-  Module.put_attribute(
-    __MODULE__,
-    :confidence_key,
-    Config.confidence_key()
-  )
-
-  Module.put_attribute(
-    __MODULE__,
-    :whitelist,
-    [
-      Config.published_by_key(),
-      Config.published_at_key(),
-      Config.source_key(),
-      "processed_at",
-      "source_type",
-      "assertion_id",
-      "templateTypeId",
-      Config.version_key(),
-      # TODO: May be able to remove below at some point
-      "solution_id",
-      "data_type"
-    ]
-  )
-
-  # ------------------------- #
+  @whitelist [
+    Config.published_by_key(),
+    Config.published_at_key(),
+    Config.source_key(),
+    "processed_at",
+    "source_type",
+    "assertion_id",
+    "templateTypeId",
+    Config.version_key(),
+    # TODO: May be able to remove below at some point
+    "solution_id",
+    "data_type"
+  ]
 
   def drilldown(_, %{id: solution_id}, %{
         context: %{loader: loader}
@@ -235,7 +208,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
        Enum.member?(@whitelist, k)
      end)
      |> Enum.into(%{})
-     |> Map.delete(@id_key)}
+     |> Map.delete(Config.id_key())}
   end
 
   def get_version(event, _, _), do: {:ok, Map.get(event, Config.version_key())}
@@ -391,40 +364,46 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
 
   defp event_solution_ids(events, exclude_solution_ids) when is_list(exclude_solution_ids) do
     Enum.reduce(events, MapSet.new(), fn
-      %{@published_by_key => id}, a ->
-        if(id in exclude_solution_ids, do: a, else: MapSet.put(a, id))
+      event, a ->
+        case Map.get(event, Config.published_by_key(), nil) do
+          nil ->
+            a
 
-      _, a ->
-        a
+          id ->
+            if(id in exclude_solution_ids, do: a, else: MapSet.put(a, id))
+        end
     end)
     |> MapSet.to_list()
   end
 
   defp event_solution_ids(events, exclude_solution_id) do
     Enum.reduce(events, MapSet.new(), fn
-      %{@published_by_key => id}, a ->
-        if(id == exclude_solution_id, do: a, else: MapSet.put(a, id))
+      event, a ->
+        case Map.get(event, Config.published_by_key(), nil) do
+          nil ->
+            a
 
-      _, a ->
-        a
+          id ->
+            if(id == exclude_solution_id, do: a, else: MapSet.put(a, id))
+        end
     end)
     |> MapSet.to_list()
   end
 
   defp process_solution_events(events, existing_events, edges) do
     Enum.reduce(events, {edges, existing_events}, fn
-      %{
-        @id_key => id,
-        "solution_id" => solution_id
-      } = event,
-      {edges, existing_events} ->
-        {
-          Map.put(edges, id <> ":" <> solution_id, %{from: id, to: solution_id}),
-          Map.put(existing_events, id, Map.merge(Map.get(existing_events, id, %{}), event))
-        }
+      event, {edges, existing_events} = a ->
+        id = Map.get(event, Config.id_key())
+        solution_id = Map.get(event, "solution_id")
 
-      _, a ->
-        a
+        if is_nil(id) or is_nil(solution_id) do
+          a
+        else
+          {
+            Map.put(edges, id <> ":" <> solution_id, %{from: id, to: solution_id}),
+            Map.put(existing_events, id, Map.merge(Map.get(existing_events, id, %{}), event))
+          }
+        end
     end)
   end
 
@@ -435,17 +414,20 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
 
       {solution_id, outcomes}, {edges, outcome_acc} ->
         Enum.reduce(outcomes, {edges, outcome_acc}, fn
-          %{@id_key => id} = o, {edges_a, outcome_a} ->
-            {
-              Map.put(edges_a, solution_id <> ":" <> id, %{
-                from: solution_id,
-                to: id
-              }),
-              Map.put(outcome_a, id, Map.merge(Map.get(outcome_a, id, %{}), o))
-            }
+          o, {edges_a, outcome_a} = acc ->
+            case Map.get(o, Config.id_key(), nil) do
+              nil ->
+                acc
 
-          _, acc ->
-            acc
+              id ->
+                {
+                  Map.put(edges_a, solution_id <> ":" <> id, %{
+                    from: solution_id,
+                    to: id
+                  }),
+                  Map.put(outcome_a, id, Map.merge(Map.get(outcome_a, id, %{}), o))
+                }
+            end
         end)
     end)
   end
