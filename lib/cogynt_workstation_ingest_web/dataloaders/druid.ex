@@ -2,36 +2,6 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
   alias CogyntWorkstationIngest.Drilldown.DrilldownContext
   alias CogyntWorkstationIngest.Config
 
-  # ------------------------- #
-  # --- module attributes --- #
-  # ------------------------- #
-
-  Module.put_attribute(
-    __MODULE__,
-    :published_at_key,
-    Config.published_at_key()
-  )
-
-  Module.put_attribute(
-    __MODULE__,
-    :id_key,
-    Config.id_key()
-  )
-
-  Module.put_attribute(
-    __MODULE__,
-    :partial_key,
-    Config.partial_key()
-  )
-
-  Module.put_attribute(
-    __MODULE__,
-    :confidence_key,
-    Config.confidence_key()
-  )
-
-  # ------------------------- #
-
   @doc """
   Creates a new kv Dataloader source
   """
@@ -51,13 +21,13 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
                 Jason.decode(event)
                 |> case do
                   {:ok, event} ->
-                    de = Map.get(acc, Map.get(event, @id_key), %{})
+                    de = Map.get(acc, Map.get(event, Config.id_key()), %{})
 
                     outcome =
                       Map.put(event, "assertion_id", nil) |> Map.put("solution_id", solution_id)
 
-                    epa = Map.get(de, @published_at_key, "1970-01-01T00:00:00Z")
-                    npa = Map.get(outcome, @published_at_key, "1970-01-01T00:00:00Z")
+                    epa = Map.get(de, Config.published_at_key(), "1970-01-01T00:00:00Z")
+                    npa = Map.get(outcome, Config.published_at_key(), "1970-01-01T00:00:00Z")
 
                     if(de == %{} or npa > epa, do: Map.put(acc, outcome["id"], outcome), else: acc)
 
@@ -66,7 +36,7 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
                 end
               end)
               |> Map.values()
-              |> Enum.sort_by(& &1[@id_key])
+              |> Enum.sort_by(& &1[Config.id_key()])
               |> Enum.group_by(&Map.get(&1, "solution_id"))
 
             for id <- solution_ids, into: %{} do
@@ -95,8 +65,10 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
                     {:error, :json_decode_error, error}
                 end
               end)
-              |> Enum.filter(&(not (&1[@partial_key] == true and &1[@confidence_key] == 0.0)))
-              |> Enum.sort_by(& &1[@id_key])
+              |> Enum.filter(
+                &(not (&1[Config.partial_key()] == true and &1[Config.confidence_key()] == 0.0))
+              )
+              |> Enum.sort_by(& &1[Config.id_key()])
               |> Enum.group_by(&Map.get(&1, "solution_id"))
 
             for id <- solution_ids, into: %{} do
