@@ -1,4 +1,6 @@
 defmodule CogyntWorkstationIngest.Config do
+
+  def env(), do: Application.get_env(:cogynt_workstation_ingest, :env)
   def deployment_processor_stages(), do: deployment_pipeline()[:processor_stages]
   def deployment_producer_stages(), do: deployment_pipeline()[:producer_stages]
 
@@ -25,6 +27,9 @@ defmodule CogyntWorkstationIngest.Config do
   def deployment_topic(), do: kafka()[:deployment_topic]
   def kafka_connect_host, do: kafka()[:kafka_connect_host]
 
+  def auth_service_name(), do: rpc()[:cogynt_auth_service_name]
+  def auth_service_port(), do: rpc()[:cogynt_auth_service_port]
+
   def redis_host(), do: redis()[:host]
   def redis_port(), do: redis()[:port]
   def redis_sentinels(), do: redis()[:sentinels]
@@ -35,15 +40,137 @@ defmodule CogyntWorkstationIngest.Config do
   def session_key(), do: Application.get_env(:cogynt_workstation_ingest, :session_key)
   def session_domain(), do: Application.get_env(:cogynt_workstation_ingest, :session_domain)
   def signing_salt(), do: Application.get_env(:cogynt_workstation_ingest, :signing_salt)
+  def authoring_version(), do: Application.get_env(:cogynt_workstation_ingest, :authoring_version)
+
+  def crud_key() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:crud]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:crud]
+    end
+  end
+
+  def linkage_data_type_value() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:link_data_type]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:link_data_type]
+    end
+  end
+
+  def crud_update_value() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:update]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:update]
+    end
+  end
+
+  def crud_create_value() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:create]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:create]
+    end
+  end
+
+  def crud_delete_value() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:delete]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:delete]
+    end
+  end
+
+  def published_by_key() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:published_by]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:published_by]
+    end
+  end
+
+  def published_at_key() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:published_at]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:published_at]
+    end
+  end
+
+  def timestamp_key() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:timestamp]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:timestamp]
+    end
+  end
+
+  def version_key() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:version]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:version]
+    end
+  end
+
+  def id_key() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:id]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:id]
+    end
+  end
+
+  def confidence_key() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:confidence]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:confidence]
+    end
+  end
+
+  def partial_key() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:partial]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:partial]
+    end
+  end
+
+  def entities_key() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:entities]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:entities]
+    end
+  end
+
+  def matches_key() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:matches]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:matches]
+    end
+  end
+
+  def source_key() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:source]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:source]
+    end
+  end
 
   def startup_delay(), do: startup()[:init_delay]
 
   def event_index_alias(), do: elasticsearch()[:event_index_alias]
-  def risk_history_index_alias(), do: elasticsearch()[:risk_history_index_alias]
   def elasticsearch_host(), do: elasticsearch()[:host]
+  # def elastic_index_settings_file(), do: elasticsearch()[:settings_file]
 
   def http_client(), do: clients()[:http_client]
   def elasticsearch_client(), do: clients()[:elasticsearch_client]
+  def rpc_client(), do: clients()[:json_rpc_client]
 
   def enable_dev_tools?(), do: Application.get_env(:cogynt_workstation_ingest, :enable_dev_tools)
 
@@ -88,6 +215,8 @@ defmodule CogyntWorkstationIngest.Config do
     end)
   end
 
+  def libcluster_topologies(), do: Application.get_env(:libcluster, :topologies)
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
@@ -115,5 +244,9 @@ defmodule CogyntWorkstationIngest.Config do
 
   defp elasticsearch(), do: Application.get_env(:elasticsearch, :application)
 
+  defp elasticsearch_cluster(), do: Application.get_env(:cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster)
+
   defp clients(), do: Application.get_env(:cogynt_workstation_ingest, :clients)
+
+  defp rpc(), do: Application.get_env(:cogynt_workstation_ingest, :rpc)
 end

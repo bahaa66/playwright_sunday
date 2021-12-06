@@ -2,110 +2,104 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   @moduledoc """
   Module that acts as the Broadway Processor for the LinkEventPipeline.
   """
-  alias CogyntWorkstationIngest.Events.EventsContext
-  alias Broadway.Message
-  alias Models.Enums.DeletedByValue
-
-  @entities Application.get_env(:cogynt_workstation_ingest, :core_keys)[:entities]
-  @delete Application.get_env(:cogynt_workstation_ingest, :core_keys)[:delete]
+  alias CogyntWorkstationIngest.Config
 
   @doc """
   Checks to make sure if a valid link event was passed through authoring. If incomplete data
   then :validated is set to false. Otherwise it is set to true.
   """
-  def validate_link_event(%Message{data: %{event: event} = data} = message) do
-    case Map.get(event, @entities) do
-      nil ->
-        CogyntLogger.warn(
-          "#{__MODULE__}",
-          "link event missing entities field. LinkEvent: #{inspect(event, pretty: true)}"
-        )
+  def validate_link_event(%{event: event, crud_action: action} = data) do
+    cond do
+      action == Config.crud_delete_value() ->
+        data
 
-        data =
-          Map.put(data, :validated, false)
-          |> Map.put(:pipeline_state, :validate_link_event)
-
-        Map.put(message, :data, data)
-
-      entities ->
-        data =
-          if Enum.empty?(entities) do
+      true ->
+        case Map.get(event, Config.entities_key()) do
+          nil ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "entity field is empty. Entity: #{inspect(entities, pretty: true)}"
+              "link event missing entities field. LinkEvent: #{inspect(event, pretty: true)}"
             )
 
             Map.put(data, :validated, false)
             |> Map.put(:pipeline_state, :validate_link_event)
-          else
-            Map.put(data, :validated, true)
-            |> Map.put(:pipeline_state, :validate_link_event)
-          end
 
-        Map.put(message, :data, data)
+          entities ->
+            if Enum.empty?(entities) do
+              CogyntLogger.warn(
+                "#{__MODULE__}",
+                "entity field is empty. Entity: #{inspect(entities, pretty: true)}"
+              )
+
+              Map.put(data, :validated, false)
+              |> Map.put(:pipeline_state, :validate_link_event)
+            else
+              Map.put(data, :validated, true)
+              |> Map.put(:pipeline_state, :validate_link_event)
+            end
+        end
     end
   end
 
   @doc """
-  Requires event fields in the data map. process_entities/1 will parse the entities keys value
-  and pull out just the "id" fields. Ex: ${"locations" => [1, 2, 3], "accounts" => [5, 6]}. Will
-  udpate the data map with a new :link_entities value storing the return value.
   """
-  def process_entities(%Message{data: %{validated: false} = data} = message) do
-    data = Map.put(data, :pipeline_state, :process_entities)
-    Map.put(message, :data, data)
-  end
+  def process_entities(%{validated: false} = data),
+    do: Map.put(data, :pipeline_state, :process_entities)
 
-  def process_entities(%Message{data: %{event_id: nil} = data} = message) do
-    data = Map.put(data, :pipeline_state, :process_entities)
-    Map.put(message, :data, data)
-  end
+  def process_entities(%{event: event, core_id: core_id, crud_action: crud_action} = data) do
+    cond do
+      crud_action == Config.crud_delete_value() ->
+        data
 
-  def process_entities(
-        %Message{
-          data: %{event: %{@entities => entities}, event_id: event_id, crud_action: action} = data
-        } = message
-      ) do
-    {deleted_at, deleted_by} =
-      if action == @delete do
-        {DateTime.truncate(DateTime.utc_now(), :second), DeletedByValue.Crud}
-      else
-        {nil, nil}
-      end
+      true ->
+        entities = Map.get(event, Config.entities_key())
 
-    Enum.reduce(entities, [], fn {edge_label, link_data_list}, acc ->
-      links =
-        Enum.reduce(link_data_list, [], fn link_object, acc_1 ->
-          case link_object["id"] do
-            nil ->
-              CogyntLogger.warn(
-                "#{__MODULE__}",
-                "link object missing id field. LinkObject: #{inspect(link_object, pretty: true)}"
-              )
+        pg_event_links =
+          Enum.reduce(entities, [], fn {edge_label, link_data_list}, acc ->
+            links =
+              Enum.reduce(link_data_list, [], fn link_object, acc_1 ->
+                case link_object[Config.id_key()] do
+                  nil ->
+                    CogyntLogger.warn(
+                      "#{__MODULE__}",
+                      "link object missing id field. LinkObject: #{
+                        inspect(link_object, pretty: true)
+                      }"
+                    )
 
-              acc_1
+                    acc_1
 
-            core_id ->
-              now = DateTime.truncate(DateTime.utc_now(), :second)
+                  entity_core_id ->
+                    now = DateTime.truncate(DateTime.utc_now(), :second)
 
-              acc_1 ++
-                [
-                  %{
-                    linkage_event_id: event_id,
-                    label: edge_label,
-                    core_id: core_id,
-                    deleted_at: deleted_at,
-                    deleted_by: deleted_by
-                  }
-                ]
+                    acc_1 ++
+                      [
+                        %{
+                          link_core_id: core_id,
+                          label: edge_label,
+                          entity_core_id: entity_core_id,
+                          created_at: now,
+                          updated_at: now
+                        }
+                      ]
+                end
+              end)
+
+            acc ++ links
+          end)
+
+        pg_event_links_delete =
+          cond do
+            crud_action == Config.crud_update_value() ->
+              [core_id]
+
+            true ->
+              []
           end
-        end)
 
-      acc ++ links
-    end)
-    |> EventsContext.insert_all_event_links()
-
-    data = Map.put(data, :pipeline_state, :process_entities)
-    Map.put(message, :data, data)
+        Map.put(data, :pg_event_links, pg_event_links)
+        |> Map.put(:pg_event_links_delete, pg_event_links_delete)
+        |> Map.put(:pipeline_state, :process_entities)
+    end
   end
 end

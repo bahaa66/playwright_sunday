@@ -1,8 +1,9 @@
 use Mix.Config
 
+config :cogynt_workstation_ingest, env: Mix.env()
+
 config :cogynt_workstation_ingest,
-  ecto_repos: [CogyntWorkstationIngest.Repo],
-  enable_dev_tools: (System.get_env("ENABLE_DEV_TOOLS") || "true") == "true"
+  ecto_repos: [CogyntWorkstationIngest.Repo]
 
 # Configures the endpoint
 config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
@@ -15,6 +16,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
 config :migrations, :application, repo: CogyntWorkstationIngest.Repo
 
 config :cogynt_workstation_ingest, :clients,
+  json_rpc_client: CogyntWorkstationIngestWeb.Clients.JsonRpcHTTPClient,
   http_client: HTTPoison,
   elasticsearch_client: Elasticsearch
 
@@ -30,7 +32,6 @@ config :elasticsearch, :application,
   elasticsearch_client: Elasticsearch,
   http_client: HTTPoison,
   event_index_alias: "event",
-  risk_history_index_alias: "risk_history",
   retry_on_conflict: 5,
   utc_offset: 0
 
@@ -38,18 +39,39 @@ config :elasticsearch, :application,
 config :redis, :application, port: 6379
 
 # Configurations for keys in Cogynt Core events
-config :cogynt_workstation_ingest, :core_keys,
-  crud: "$crud",
-  risk_score: "_confidence",
-  partial: "$partial",
-  events: "$$events",
-  description: "$description",
-  entities: "$$entities",
-  lexicons: "$matches",
+config :cogynt_workstation_ingest, :cogynt_keys,
   link_data_type: "linkage",
   update: "update",
   delete: "delete",
-  create: "create"
+  create: "create",
+  published_by: "published_by",
+  published_at: "published_at",
+  timestamp: "_timestamp",
+  id: "id",
+  version: "$version",
+  crud: "$crud",
+  confidence: "_confidence",
+  partial: "$partial",
+  entities: "$$entities",
+  matches: "$matches",
+  source: "source"
+
+config :cogynt_workstation_ingest, :cogynt_keys_v2,
+  link_data_type: "linkage",
+  update: "update",
+  delete: "delete",
+  create: "create",
+  published_by: "COG_published_by",
+  published_at: "COG_published_at",
+  timestamp: "COG_timestamp",
+  id: "COG_id",
+  version: "COG_version",
+  crud: "COG_crud",
+  confidence: "COG_confidence",
+  partial: "COG_partial",
+  entities: "COG_entities",
+  matches: "COG_matches",
+  source: "COG_source"
 
 config :cogynt_workstation_ingest, :failed_messages,
   retry_timer: 300_000,
@@ -73,6 +95,14 @@ config :phoenix, :format_encoders, "json-api": Jason
 config :plug, :types, %{
   "application/vnd.api+json" => ["json-api"]
 }
+
+# Default libcluster configs.
+config :libcluster,
+  topologies: [
+    ingest: [
+      strategy: Cluster.Strategy.Gossip
+    ]
+  ]
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.DatabaseSchemaChangesWorkstationV2 do
+  use Migrations.DataBaseSchemaChangesWorkstationV2
+end

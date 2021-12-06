@@ -4,14 +4,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   """
   use Supervisor
 
-  alias CogyntWorkstationIngest.Servers.Druid.{
-    TemplateSolutions,
-    TemplateSolutionEvents
-  }
-
   alias CogyntWorkstationIngest.Servers.Workers.{
     ConsumerRetryWorker,
-    FailedMessagesRetryWorker,
     RedisStreamsConsumerGroupWorker
   }
 
@@ -32,12 +26,10 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
 
     children = [
       child_spec(ConsumerRetryWorker),
-      child_spec(FailedMessagesRetryWorker),
+      # child_spec(FailedMessagesRetryWorker),
       child_spec(RedisStreamsConsumerGroupWorker),
       child_spec(ConsumerMonitor, restart: :permanent),
-      child_spec(IngestPubSub, start_link_opts: [pubsub]),
-      child_spec(TemplateSolutions, restart: :permanent),
-      child_spec(TemplateSolutionEvents, restart: :permanent)
+      child_spec(IngestPubSub, start_link_opts: [pubsub])
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

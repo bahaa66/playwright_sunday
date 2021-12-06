@@ -1,4 +1,8 @@
 defmodule CogyntWorkstationIngest.ReleaseTasks do
+  alias CogyntWorkstationIngest.ElasticsearchAPI
+  alias CogyntWorkstationIngest.Config
+
+
   @apps [
     :cogynt_workstation_ingest
   ]
@@ -12,9 +16,6 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
   ]
 
   def repos(app), do: Application.get_env(app, :ecto_repos, []) |> IO.inspect()
-
-  alias Elasticsearch.IndexMappings.{EventIndexMapping, RiskHistoryIndexMapping}
-  alias CogyntWorkstationIngest.Config
 
   def premigrate do
     start_services()
@@ -50,6 +51,9 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
       IO.puts("Starting dependencies..")
       Enum.each(@start_apps, &Application.ensure_all_started/1)
 
+      #explicitly start the Elasticsearch Cluster so it can run the reindexing check.
+      CogyntWorkstationIngest.Elasticsearch.Cluster.start_link()
+
       # Start the Repo(s) for app
       IO.puts("Starting repos..")
       Enum.each(repos(app), & &1.start_link(pool_size: 2))
@@ -73,42 +77,18 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
     IO.puts("Running indexes..")
 
     with {:ok, _} <- HTTPoison.start(),
-         {:ok, false} <- Elasticsearch.index_exists?(Config.event_index_alias()),
-         {:ok, _} <-
-           Elasticsearch.create_index(
-             Config.event_index_alias(),
-             EventIndexMapping.event_index_settings()
-           ) do
-      IO.puts("The event_index for CogyntWorkstation have been created.")
-
-      IO.puts("indexes complete..")
+         {:ok, false} <- ElasticsearchAPI.index_exists?(Config.event_index_alias()) do
+          ElasticsearchAPI.create_index(Config.event_index_alias())
+         IO.puts("The event_index for CogyntWorkstation has been created.")
+         IO.puts("indexes complete..")
     else
-      {:error, _} ->
-        IO.puts("Failed to create event index")
-
       {:ok, true} ->
-        IO.puts("event_index already exists.")
+        ElasticsearchAPI.check_to_reindex()
         IO.puts("indexes complete..")
-    end
-
-    with {:ok, _} <- HTTPoison.start(),
-         {:ok, false} <- Elasticsearch.index_exists?(Config.risk_history_index_alias()),
-         {:ok, _} <-
-           Elasticsearch.create_index(
-             Config.risk_history_index_alias(),
-             RiskHistoryIndexMapping.risk_history_index_settings()
-           ) do
-      IO.puts("The risk_history_index for CogyntWorkstation have been created.")
-
-      IO.puts("indexes complete..")
-    else
-      {:error, _} ->
-        IO.puts("Failed to create risk_history index")
-
-      {:ok, true} ->
-        IO.puts("risk_history_index already exists.")
-
-        IO.puts("indexes complete..")
+        
+      {:error, %Elasticsearch.Exception{raw: %{"error" => error}}} ->
+        reason = Map.get(error, "reason")
+        IO.puts("Failed to create event index #{reason}")
     end
   end
 

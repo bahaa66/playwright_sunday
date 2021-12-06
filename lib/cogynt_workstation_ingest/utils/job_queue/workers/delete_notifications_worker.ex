@@ -12,28 +12,40 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
   alias Models.Notifications.NotificationSetting
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
+  alias Models.Notes.Note
 
-  @page_size 2000
+  alias CogyntWorkstationIngest.Repo
+  import Ecto.Query, warn: false
 
   def perform(notification_setting_id) do
     with %NotificationSetting{} = notification_setting <-
            NotificationsContext.get_notification_setting(notification_setting_id),
          %EventDefinition{} = event_definition <-
-           EventsContext.get_event_definition(notification_setting.event_definition_id) do
-      # First stop the pipeline and ensure that if finishes processing its messages in the pipeline
+           EventsContext.get_event_definition(notification_setting.event_definition_hash_id) do
+      # 1) pause the pipeline and ensure that if finishes processing its messages
       # before starting the delete of notifications
-      stop_event_pipeline(event_definition)
+      pause_event_pipeline(event_definition)
 
-      # Second once the pipeline has been stopped and the finished processing start the pagination
-      # of events and delete of notifications
-      NotificationsContext.get_page_of_notifications(
-        %{
-          filter: %{notification_setting_id: notification_setting_id},
+      # 2) fetch all notifications for the Notification Setting ID
+      notification_ids =
+        NotificationsContext.query_notifications(%{
+          filter: %{
+            notification_setting_id: notification_setting_id
+          },
           select: [:id]
-        },
-        page_size: @page_size
-      )
-      |> process_notifications(notification_setting.id)
+        })
+        |> Enum.map(fn n -> n.id end)
+
+      # 3) delete all Notes linked to the notifications removed for the notification_setting_id
+      # TODO: move this to NoteContext module and remove reference to CogyntWorkstationIngest.Repo
+      from(n in Note, where: n.parent_id in ^notification_ids)
+      |> Repo.delete_all()
+
+      # 4) delete all notifications linked to the notification_setting_id
+      NotificationsContext.hard_delete_notifications(notification_setting_id)
+
+      # 5) delete the notification setting
+      NotificationsContext.hard_delete_notification_setting(notification_setting_id)
 
       # Finally check to see if consumer should be started back up again
       start_event_pipeline(event_definition)
@@ -59,7 +71,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
   # ----------------------- #
   # --- Private Methods --- #
   # ----------------------- #
-  defp stop_event_pipeline(event_definition) do
+  defp pause_event_pipeline(event_definition) do
     CogyntLogger.info(
       "#{__MODULE__}",
       "Stopping EventPipeline for #{event_definition.topic}"
@@ -108,59 +120,30 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
     end
   end
 
-  defp ensure_pipeline_drained(event_definition_id, count \\ 1) do
+  defp ensure_pipeline_drained(event_definition_hash_id, count \\ 1) do
     if count >= 30 do
       CogyntLogger.info(
         "#{__MODULE__}",
         "ensure_pipeline_drained/1 exceeded number of attempts. Moving forward with DeleteNotifications"
       )
     else
-      case EventPipeline.pipeline_running?(event_definition_id) or
-             not EventPipeline.pipeline_finished_processing?(event_definition_id) do
+      case EventPipeline.pipeline_running?(event_definition_hash_id) or
+             not EventPipeline.pipeline_finished_processing?(event_definition_hash_id) do
         true ->
           CogyntLogger.info(
             "#{__MODULE__}",
-            "EventPipeline #{event_definition_id} still draining... waiting for pipeline to drain before running DeleteNotifications"
+            "EventPipeline #{event_definition_hash_id} still draining... waiting for pipeline to drain before running DeleteNotifications"
           )
 
           Process.sleep(1000)
-          ensure_pipeline_drained(event_definition_id, count + 1)
+          ensure_pipeline_drained(event_definition_hash_id, count + 1)
 
         false ->
           CogyntLogger.info(
             "#{__MODULE__}",
-            "EventPipeline #{event_definition_id} drained"
+            "EventPipeline #{event_definition_hash_id} drained"
           )
       end
-    end
-  end
-
-  defp process_notifications(
-         %{entries: notifications, page_number: page_number, total_pages: total_pages},
-         notification_setting_id
-       ) do
-    notification_ids = Enum.map(notifications, fn n -> n.id end)
-
-    NotificationsContext.update_notifcations(
-      %{
-        filter: %{notification_ids: notification_ids},
-        select: [:id, :deleted_at]
-      },
-      set: [deleted_at: DateTime.truncate(DateTime.utc_now(), :second)]
-    )
-
-    if page_number >= total_pages do
-      {:ok, :success}
-    else
-      NotificationsContext.get_page_of_notifications(
-        %{
-          filter: %{notification_setting_id: notification_setting_id},
-          select: [:id]
-        },
-        page_number: page_number + 1,
-        page_size: @page_size
-      )
-      |> process_notifications(notification_setting_id)
     end
   end
 end

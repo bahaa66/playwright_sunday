@@ -10,17 +10,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
+  alias CogyntWorkstationIngest.Utils.{ConsumerStateManager, DruidRegistryHelper}
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Broadway.{EventProcessor, LinkEventProcessor}
-
-  @crud Application.get_env(:cogynt_workstation_ingest, :core_keys)[:crud]
 
   def start_link(%{
         group_id: group_id,
         topics: topics,
         hosts: hosts,
-        event_definition_id: event_definition_id
+        event_definition_hash_id: event_definition_hash_id,
+        event_type: event_type
       }) do
     Broadway.start_link(__MODULE__,
       name: String.to_atom(group_id <> "Pipeline"),
@@ -41,7 +40,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              ]
            ]},
         concurrency: Config.event_producer_stages(),
-        transformer: {__MODULE__, :transform, [event_definition_id: event_definition_id]}
+        transformer:
+          {__MODULE__, :transform,
+           [event_definition_hash_id: event_definition_hash_id, event_type: event_type]}
       ],
       processors: [
         default: [
@@ -50,11 +51,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       ],
       batchers: [
         default: [
-          batch_size: 1_000,
+          batch_size: 600,
+          concurrency: 10
+        ],
+        crud: [
+          batch_size: 600,
           concurrency: 10
         ]
       ],
-      context: [event_definition_id: event_definition_id]
+      context: [event_definition_hash_id: event_definition_hash_id, event_type: event_type]
     )
   end
 
@@ -63,12 +68,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
   def transform(%Message{data: encoded_data} = message, opts) do
-    event_definition_id = Keyword.get(opts, :event_definition_id, nil)
+    event_definition_hash_id = Keyword.get(opts, :event_definition_hash_id, nil)
+    event_type = Keyword.get(opts, :event_type, "none")
 
-    if is_nil(event_definition_id) do
+    if is_nil(event_definition_hash_id) do
       CogyntLogger.error(
         "#{__MODULE__}",
-        "event_definition_id not passed to EventPipeline."
+        "event_definition_hash_id was not passed to EventPipeline. Passing empty data object to the EventPipeline"
       )
 
       Map.put(message, :data, nil)
@@ -76,16 +82,17 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       case Jason.decode(encoded_data) do
         {:ok, decoded_data} ->
           # Incr the total message count that has been consumed from kafka
-          incr_total_fetched_message_count(event_definition_id)
+          incr_total_fetched_message_count(event_definition_hash_id)
 
           Map.put(message, :data, %{
             event: decoded_data,
-            event_definition_id: event_definition_id,
-            event_id: nil,
+            event_definition_hash_id: event_definition_hash_id,
+            core_id: decoded_data[Config.id_key()] || Ecto.UUID.generate(),
             pipeline_state: nil,
             retry_count: 0,
+            event_type: event_type,
             event_definition:
-              EventsContext.get_event_definition(event_definition_id, preload_details: true)
+              EventsContext.get_event_definition(event_definition_hash_id, preload_details: true)
               |> EventsContext.remove_event_definition_virtual_fields(
                 include_event_definition_details: true
               )
@@ -116,179 +123,261 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   again.
   """
   @impl true
-  def handle_failed(messages, context) do
-    event_definition_id = Keyword.get(context, :event_definition_id, nil)
+  def handle_failed(messages, _context) do
+    # event_definition_hash_id = Keyword.get(context, :event_definition_hash_id, nil)
 
-    incr_total_processed_message_count(event_definition_id, Enum.count(messages))
+    # incr_total_processed_message_count(event_definition_hash_id, Enum.count(messages))
 
-    failed_messages =
-      Enum.reduce(messages, [], fn %Broadway.Message{
-                                     data:
-                                       %{
-                                         event_definition_id: id,
-                                         retry_count: retry_count
-                                       } = data
-                                   } = message,
-                                   acc ->
-        if retry_count < Config.failed_messages_max_retry() do
-          new_retry_count = retry_count + 1
+    # failed_messages =
+    #   Enum.reduce(messages, [], fn %Broadway.Message{
+    #                                  data:
+    #                                    %{
+    #                                      event_definition_hash_id: event_definition_hash_id,
+    #                                      retry_count: retry_count
+    #                                    } = data
+    #                                } = message,
+    #                                acc ->
+    #     if retry_count < Config.failed_messages_max_retry() do
+    #       new_retry_count = retry_count + 1
 
-          CogyntLogger.warn(
-            "#{__MODULE__}",
-            "Retrying Failed EventPipeline Message. EventDefinitionId: #{id}. Attempt: #{
-              new_retry_count
-            }"
-          )
+    #       CogyntLogger.warn(
+    #         "#{__MODULE__}",
+    #         "Retrying Failed EventPipeline Message. EventDefinitionHashId: #{event_definition_hash_id}. Attempt: #{
+    #           new_retry_count
+    #         }"
+    #       )
 
-          data = Map.put(data, :retry_count, new_retry_count)
+    #       data = Map.put(data, :retry_count, new_retry_count)
 
-          message =
-            Map.from_struct(message)
-            |> Map.put(:data, data)
-            |> Map.drop([:status, :acknowledger])
+    #       message =
+    #         Map.from_struct(message)
+    #         |> Map.put(:data, data)
+    #         |> Map.drop([:status, :acknowledger])
 
-          metadata =
-            Map.get(message, :metadata)
-            |> Map.put(:key, "")
+    #       metadata =
+    #         Map.get(message, :metadata)
+    #         |> Map.put(:key, "")
 
-          message = Map.put(message, :metadata, metadata)
+    #       message = Map.put(message, :metadata, metadata)
 
-          acc ++ [message]
-        else
-          acc
-        end
-      end)
+    #       acc ++ [message]
+    #     else
+    #       acc
+    #     end
+    #   end)
 
-    key =
-      if is_nil(event_definition_id) do
-        "fem:"
-      else
-        "fem:#{event_definition_id}"
-      end
+    # key =
+    #   if is_nil(event_definition_hash_id) do
+    #     "fem:"
+    #   else
+    #     "fem:#{event_definition_hash_id}"
+    #   end
 
-    case Redis.list_length(key) do
-      {:ok, length} when length >= 50_000 ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Failed Event messages for key #{key} have reached the limit of 50_000 in Redis. Dropping future messages from getting queued"
-        )
+    # case Redis.list_length(key) do
+    #   {:ok, length} when length >= 50_000 ->
+    #     CogyntLogger.error(
+    #       "#{__MODULE__}",
+    #       "Failed Event messages for key #{key} have reached the limit of 50_000 in Redis. Dropping future messages from getting queued"
+    #     )
 
-      _ ->
-        Redis.list_append_pipeline(key, failed_messages)
-        # 30 min TTL
-        Redis.key_pexpire(key, 1_800_000)
-    end
+    #   _ ->
+    #     Redis.list_append_pipeline(key, failed_messages)
+    #     # 30 min TTL
+    #     Redis.key_pexpire(key, 1_800_000)
+    # end
+
+    CogyntLogger.warn(
+      "#{__MODULE__}",
+      "handle_failed/2 #{Enum.count(messages)} Failed for EventPipeline. Check logs to for error."
+    )
 
     messages
   end
 
   @doc """
-  Handle_message callback. Takes the Broadway.Message.t() from the
-  transform callback and processes the data object. Runs the data through
-  a process_event/1, process_event_details_and_elasticsearch_docs/1,
-  process_notifications/1 and execute_transaction/1.
   """
   @impl true
-  def handle_message(_processor, %Message{data: nil} = message, _context), do: message
-
-  @impl true
-  def handle_message(
-        _processor,
-        %Message{
-          data: %{
-            event_definition: %{event_type: :linkage},
-            pipeline_state: pipeline_state
-          }
-        } = message,
-        _context
-      ) do
-    message =
-      case pipeline_state do
-        :process_event ->
-          message
-          |> EventProcessor.process_event_details_and_elasticsearch_docs()
-          |> EventProcessor.process_notifications()
-          |> LinkEventProcessor.validate_link_event()
-          |> LinkEventProcessor.process_entities()
-
-        :process_event_details_and_elasticsearch_docs ->
-          message
-          |> EventProcessor.process_notifications()
-          |> LinkEventProcessor.validate_link_event()
-          |> LinkEventProcessor.process_entities()
-
-        :process_notifications ->
-          message
-          |> LinkEventProcessor.validate_link_event()
-          |> LinkEventProcessor.process_entities()
-
-        :validate_link_event ->
-          message
-          |> LinkEventProcessor.process_entities()
-
-        _ ->
-          message
-          |> EventProcessor.process_event()
-          |> EventProcessor.process_event_details_and_elasticsearch_docs()
-          |> EventProcessor.process_notifications()
-          |> LinkEventProcessor.validate_link_event()
-          |> LinkEventProcessor.process_entities()
-      end
+  def handle_message(_processor_name, message, context) do
+    event_type = Keyword.get(context, :event_type, nil)
 
     message
-  end
-
-  @impl true
-  def handle_message(
-        _processor,
-        %Message{data: %{pipeline_state: pipeline_state}} = message,
-        _context
-      ) do
-    message =
-      case pipeline_state do
-        :process_event ->
-          message
-          |> EventProcessor.process_event_details_and_elasticsearch_docs()
-          |> EventProcessor.process_notifications()
-
-        :process_event_details_and_elasticsearch_docs ->
-          message
-          |> EventProcessor.process_notifications()
-
-        _ ->
-          message
-          |> EventProcessor.process_event()
-          |> EventProcessor.process_event_details_and_elasticsearch_docs()
-          |> EventProcessor.process_notifications()
-      end
-
-    message
-  end
-
-  @impl true
-  def handle_batch(_, messages, _batch_info, context) do
-    event_definition_id = Keyword.get(context, :event_definition_id, nil)
-
-    List.first(messages)
     |> case do
-      %Message{data: %{event: %{@crud => _action}}} ->
-        messages
-        |> Enum.group_by(fn message -> message.data.event["id"] end)
-        |> EventProcessor.execute_batch_transaction_for_crud()
+      %Message{data: %{event: event}} ->
+        case Map.get(event, Config.crud_key(), nil) do
+          nil ->
+            data =
+              cond do
+                event_type == Config.linkage_data_type_value() ->
+                  case message.data.pipeline_state do
+                    :process_event ->
+                      message.data
+                      |> EventProcessor.process_elasticsearch_documents()
+                      |> EventProcessor.process_notifications()
+                      |> LinkEventProcessor.validate_link_event()
+                      |> LinkEventProcessor.process_entities()
 
-      _ ->
-        messages
-        |> Enum.map(fn message -> message.data end)
-        |> EventProcessor.execute_batch_transaction()
+                    :process_event_details_and_elasticsearch_docs ->
+                      message.data
+                      |> EventProcessor.process_notifications()
+                      |> LinkEventProcessor.validate_link_event()
+                      |> LinkEventProcessor.process_entities()
+
+                    :process_notifications ->
+                      message.data
+                      |> LinkEventProcessor.validate_link_event()
+                      |> LinkEventProcessor.process_entities()
+
+                    :validate_link_event ->
+                      message.data
+                      |> LinkEventProcessor.process_entities()
+
+                    _ ->
+                      message.data
+                      |> EventProcessor.process_event()
+                      |> EventProcessor.process_elasticsearch_documents()
+                      |> EventProcessor.process_notifications()
+                      |> LinkEventProcessor.validate_link_event()
+                      |> LinkEventProcessor.process_entities()
+                  end
+
+                true ->
+                  case message.data.pipeline_state do
+                    :process_event ->
+                      message.data
+                      |> EventProcessor.process_elasticsearch_documents()
+                      |> EventProcessor.process_notifications()
+
+                    :process_event_details_and_elasticsearch_docs ->
+                      message.data
+                      |> EventProcessor.process_notifications()
+
+                    _ ->
+                      message.data
+                      |> EventProcessor.process_event()
+                      |> EventProcessor.process_elasticsearch_documents()
+                      |> EventProcessor.process_notifications()
+                  end
+              end
+
+            Map.put(message, :data, data)
+            |> Message.put_batcher(:default)
+
+          _ ->
+            message
+            |> Message.put_batcher(:crud)
+        end
     end
+  end
 
-    incr_total_processed_message_count(event_definition_id, Enum.count(messages))
+  @impl true
+  def handle_batch(:default, messages, _batch_info, context) do
+    event_definition_hash_id = Keyword.get(context, :event_definition_hash_id, nil)
+    event_type = Keyword.get(context, :event_type, nil)
+
+    messages
+    |> Enum.map(fn message -> message.data end)
+    |> EventProcessor.execute_batch_transaction(event_type)
+
+    incr_total_processed_message_count(event_definition_hash_id, Enum.count(messages))
+    messages
+  end
+
+  @impl true
+  def handle_batch(:crud, messages, _batch_info, context) do
+    event_definition_hash_id = Keyword.get(context, :event_definition_hash_id, nil)
+    event_type = Keyword.get(context, :event_type, nil)
+
+    messages
+    |> Enum.group_by(fn message -> message.data.core_id end)
+    |> Enum.reduce([], fn {_core_id, core_id_records}, acc ->
+      last_crud_action_message = List.last(core_id_records)
+
+      cond do
+        event_type == Config.linkage_data_type_value() ->
+          case last_crud_action_message.data.pipeline_state do
+            :process_event ->
+              data =
+                last_crud_action_message.data
+                |> EventProcessor.process_elasticsearch_documents()
+                |> EventProcessor.process_notifications()
+                |> LinkEventProcessor.validate_link_event()
+                |> LinkEventProcessor.process_entities()
+
+              acc ++ [data]
+
+            :process_event_details_and_elasticsearch_docs ->
+              data =
+                last_crud_action_message.data
+                |> EventProcessor.process_notifications()
+                |> LinkEventProcessor.validate_link_event()
+                |> LinkEventProcessor.process_entities()
+
+              acc ++ [data]
+
+            :process_notifications ->
+              data =
+                last_crud_action_message.data
+                |> LinkEventProcessor.validate_link_event()
+                |> LinkEventProcessor.process_entities()
+
+              acc ++ [data]
+
+            :validate_link_event ->
+              data =
+                last_crud_action_message.data
+                |> LinkEventProcessor.process_entities()
+
+              acc ++ [data]
+
+            _ ->
+              data =
+                last_crud_action_message.data
+                |> EventProcessor.process_event()
+                |> EventProcessor.process_elasticsearch_documents()
+                |> EventProcessor.process_notifications()
+                |> LinkEventProcessor.validate_link_event()
+                |> LinkEventProcessor.process_entities()
+
+              acc ++ [data]
+          end
+
+        true ->
+          case last_crud_action_message.data.pipeline_state do
+            :process_event ->
+              data =
+                last_crud_action_message.data
+                |> EventProcessor.process_elasticsearch_documents()
+                |> EventProcessor.process_notifications()
+
+              acc ++ [data]
+
+            :process_event_details_and_elasticsearch_docs ->
+              data =
+                last_crud_action_message.data
+                |> EventProcessor.process_notifications()
+
+              acc ++ [data]
+
+            _ ->
+              data =
+                last_crud_action_message.data
+                |> EventProcessor.process_event()
+                |> EventProcessor.process_elasticsearch_documents()
+                |> EventProcessor.process_notifications()
+
+              acc ++ [data]
+          end
+      end
+    end)
+    |> EventProcessor.execute_batch_transaction(event_type)
+
+    incr_total_processed_message_count(event_definition_hash_id, Enum.count(messages))
     messages
   end
 
   @doc false
-  def pipeline_started?(event_definition_id) do
-    (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline")
+  def pipeline_started?(event_definition_hash_id) do
+    (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_hash_id) <> "Pipeline")
     |> String.to_atom()
     |> Process.whereis()
     |> case do
@@ -301,9 +390,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   @doc false
-  def pipeline_running?(event_definition_id) do
-    if pipeline_started?(event_definition_id) do
-      (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline")
+  def pipeline_running?(event_definition_hash_id) do
+    if pipeline_started?(event_definition_hash_id) do
+      (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_hash_id) <> "Pipeline")
       |> String.to_atom()
       |> Broadway.producer_names()
       |> Enum.reduce(true, fn producer, acc ->
@@ -323,19 +412,21 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @doc false
   # TODO: look into GenStage.estimate_buffered_count(stage, timeout \\ 5000)
   # to see if we can replace the redis message_info key with this.
-  def pipeline_finished_processing?(event_definition_id) do
-    case Redis.key_exists?("emi:#{event_definition_id}") do
+  def pipeline_finished_processing?(event_definition_hash_id) do
+    case Redis.key_exists?("emi:#{event_definition_hash_id}") do
       {:ok, false} ->
         true
 
       {:ok, true} ->
-        {:ok, tmc} = Redis.hash_get("emi:#{event_definition_id}", "tmc")
-        {:ok, tmp} = Redis.hash_get("emi:#{event_definition_id}", "tmp")
+        {:ok, tmc} = Redis.hash_get("emi:#{event_definition_hash_id}", "tmc")
+        {:ok, tmp} = Redis.hash_get("emi:#{event_definition_hash_id}", "tmp")
 
         if is_nil(tmc) or is_nil(tmp) do
           CogyntLogger.info(
             "#{__MODULE__}",
-            "TMC or TMP returned NIL, key has expired. EventDefinitionId: #{event_definition_id}"
+            "TMC or TMP returned NIL, key has expired. EventDefinitionHashId: #{
+              event_definition_hash_id
+            }"
           )
 
           true
@@ -346,9 +437,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   @doc false
-  def suspend_pipeline(event_definition_id) do
-    (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline")
-    |> String.to_atom()
+  def suspend_pipeline(event_definition_hash_id) do
+    name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_hash_id)
+    DruidRegistryHelper.suspend_druid_with_registry_lookup(name)
+
+    String.to_atom(name <> "Pipeline")
     |> Broadway.producer_names()
     |> Enum.each(fn producer ->
       GenStage.demand(producer, :accumulate)
@@ -356,9 +449,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   @doc false
-  def resume_pipeline(event_definition_id) do
-    (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline")
-    |> String.to_atom()
+  def resume_pipeline(event_definition_hash_id) do
+    name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_hash_id)
+    DruidRegistryHelper.resume_druid_with_registry_lookup(name)
+
+    String.to_atom(name <> "Pipeline")
     |> Broadway.producer_names()
     |> Enum.each(fn producer ->
       GenStage.demand(producer, :forward)
@@ -366,8 +461,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   @doc false
-  def estimated_buffer_count(event_definition_id) do
-    (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id) <> "Pipeline")
+  def estimated_buffer_count(event_definition_hash_id) do
+    (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_hash_id) <> "Pipeline")
     |> String.to_atom()
     |> Broadway.producer_names()
     |> Enum.reduce(0, fn producer, acc ->
@@ -378,43 +473,45 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp finished_processing(event_definition_id) do
+  defp finished_processing(event_definition_hash_id) do
     {:ok, %{status: status, topic: topic}} =
-      ConsumerStateManager.get_consumer_state(event_definition_id)
+      ConsumerStateManager.get_consumer_state(event_definition_hash_id)
 
     if status == ConsumerStatusTypeEnum.status()[:paused_and_processing] do
-      ConsumerStateManager.upsert_consumer_state(event_definition_id,
+      ConsumerStateManager.upsert_consumer_state(event_definition_hash_id,
         topic: topic,
         status: ConsumerStatusTypeEnum.status()[:paused_and_finished]
       )
     end
 
-    Redis.publish_async("event_definitions_subscription", %{updated: event_definition_id})
+    Redis.publish_async("event_definitions_subscription", %{updated: event_definition_hash_id})
 
     CogyntLogger.info(
       "#{__MODULE__}",
-      "EventPipeline finished processing messages for EventDefinitionId: #{event_definition_id}"
+      "EventPipeline finished processing messages for EventDefinitionHashId: #{
+        event_definition_hash_id
+      }"
     )
   end
 
-  defp incr_total_fetched_message_count(event_definition_id) do
-    Redis.hash_increment_by("emi:#{event_definition_id}", "tmc", 1)
-    Redis.key_pexpire("emi:#{event_definition_id}", 60000)
+  defp incr_total_fetched_message_count(event_definition_hash_id) do
+    Redis.hash_increment_by("emi:#{event_definition_hash_id}", "tmc", 1)
+    Redis.key_pexpire("emi:#{event_definition_hash_id}", 60000)
   end
 
-  defp incr_total_processed_message_count(event_definition_id, count) do
-    {:ok, tmc} = Redis.hash_get("emi:#{event_definition_id}", "tmc")
-    {:ok, tmp} = Redis.hash_increment_by("emi:#{event_definition_id}", "tmp", count)
-    Redis.key_pexpire("emi:#{event_definition_id}", 60000)
+  defp incr_total_processed_message_count(event_definition_hash_id, count) do
+    {:ok, tmc} = Redis.hash_get("emi:#{event_definition_hash_id}", "tmc")
+    {:ok, tmp} = Redis.hash_increment_by("emi:#{event_definition_hash_id}", "tmp", count)
+    Redis.key_pexpire("emi:#{event_definition_hash_id}", 60000)
 
     if is_nil(tmc) do
       CogyntLogger.info(
         "#{__MODULE__}",
-        "TMC returned NIL, key has expired. EventDefinitionId: #{event_definition_id}"
+        "TMC returned NIL, key has expired. EventDefinitionHashId: #{event_definition_hash_id}"
       )
     else
       if tmp >= String.to_integer(tmc) do
-        finished_processing(event_definition_id)
+        finished_processing(event_definition_hash_id)
       end
     end
   end

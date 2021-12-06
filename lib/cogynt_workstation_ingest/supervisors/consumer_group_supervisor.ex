@@ -7,6 +7,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   use DynamicSupervisor
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
+  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
 
   alias CogyntWorkstationIngest.Broadway.{
     EventPipeline,
@@ -33,13 +34,13 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
       cgid = "#{UUID.uuid1()}"
 
       consumer_group_id =
-        case Redis.hash_set_if_not_exists("ecgid", "EventDefinition-#{event_definition.id}", cgid) do
+        case Redis.hash_set_if_not_exists("ecgid", "ED-#{event_definition.id}", cgid) do
           {:ok, 0} ->
-            {:ok, existing_id} = Redis.hash_get("ecgid", "EventDefinition-#{event_definition.id}")
-            "EventDefinition-#{event_definition.id}" <> "-" <> existing_id
+            {:ok, existing_id} = Redis.hash_get("ecgid", "ED-#{event_definition.id}")
+            "ED-#{event_definition.id}" <> "-" <> existing_id
 
           {:ok, 1} ->
-            "EventDefinition-#{event_definition.id}" <> "-" <> cgid
+            "ED-#{event_definition.id}" <> "-" <> cgid
         end
 
       child_spec = %{
@@ -52,7 +53,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
               group_id: consumer_group_id,
               topics: [topic],
               hosts: brokers,
-              event_definition_id: event_definition.id,
+              event_definition_hash_id: event_definition.id,
               event_type: event_definition.event_type
             }
           ]
@@ -62,7 +63,16 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         type: :supervisor
       }
 
-      DynamicSupervisor.start_child(__MODULE__, child_spec)
+      case DruidRegistryHelper.start_druid_with_registry_lookup(
+             consumer_group_id,
+             event_definition
+           ) do
+        {:ok, _} ->
+          DynamicSupervisor.start_child(__MODULE__, child_spec)
+
+        {:error, nil} ->
+          {:error, nil}
+      end
     else
       {:error, nil}
     end
@@ -108,8 +118,12 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def stop_child(event_definition_id) when is_binary(event_definition_id) do
-    (fetch_event_cgid(event_definition_id) <> "Pipeline")
+  def stop_child(event_definition_hash_id) when is_binary(event_definition_hash_id) do
+    name = fetch_event_cgid(event_definition_hash_id)
+
+    DruidRegistryHelper.terminate_druid_with_registry_lookup(name)
+
+    (name <> "Pipeline")
     |> String.to_atom()
     |> Process.whereis()
     |> case do
@@ -146,13 +160,13 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def fetch_event_cgid(event_definition_id) do
-    case Redis.hash_get("ecgid", "EventDefinition-#{event_definition_id}") do
+  def fetch_event_cgid(event_definition_hash_id) do
+    case Redis.hash_get("ecgid", "ED-#{event_definition_hash_id}") do
       {:ok, nil} ->
         ""
 
       {:ok, consumer_group_id} ->
-        "EventDefinition-#{event_definition_id}" <> "-" <> consumer_group_id
+        "ED-#{event_definition_hash_id}" <> "-" <> consumer_group_id
     end
   end
 end

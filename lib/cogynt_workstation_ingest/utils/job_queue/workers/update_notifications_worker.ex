@@ -13,16 +13,16 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.UpdateNotificationsWork
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
 
-  @page_size 2000
+  @page_size 5000
 
   def perform(notification_setting_id) do
     with %NotificationSetting{} = notification_setting <-
            NotificationsContext.get_notification_setting(notification_setting_id),
          %EventDefinition{} = event_definition <-
-           EventsContext.get_event_definition(notification_setting.event_definition_id) do
-      # First stop the pipeline and ensure that if finishes processing its messages in the pipeline
-      # before starting the update of notifications
-      stop_event_pipeline(event_definition)
+           EventsContext.get_event_definition(notification_setting.event_definition_hash_id) do
+      # First pause the pipeline and ensure that it finishes processing its messages
+      # before starting the backfill of notifications
+      pause_event_pipeline(event_definition)
 
       # Second once the pipeline has been stopped and the finished processing start the pagination
       # of events and update of notifications
@@ -31,8 +31,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.UpdateNotificationsWork
           filter: %{notification_setting_id: notification_setting_id},
           select: [:id]
         },
-        page_size: @page_size,
-        include_deleted: true
+        page_size: @page_size
       )
       |> process_notifications(notification_setting)
 
@@ -60,11 +59,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.UpdateNotificationsWork
   # ----------------------- #
   # --- Private Methods --- #
   # ----------------------- #
-  defp stop_event_pipeline(event_definition) do
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "Stopping EventPipeline for #{event_definition.topic}"
-    )
+  defp pause_event_pipeline(event_definition) do
+    CogyntLogger.info("#{__MODULE__}", "Pausing EventPipeline for #{event_definition.topic}")
 
     {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
 
@@ -109,28 +105,28 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.UpdateNotificationsWork
     end
   end
 
-  defp ensure_pipeline_drained(event_definition_id, count \\ 1) do
+  defp ensure_pipeline_drained(event_definition_hash_id, count \\ 1) do
     if count >= 30 do
       CogyntLogger.info(
         "#{__MODULE__}",
-        "ensure_pipeline_drained/1 exceeded number of attempts. Moving forward with UpdateNotifications"
+        "ensure_pipeline_drained/1 exceeded number of attempts. Moving forward with BackfillNotifications"
       )
     else
-      case EventPipeline.pipeline_running?(event_definition_id) or
-             not EventPipeline.pipeline_finished_processing?(event_definition_id) do
+      case EventPipeline.pipeline_running?(event_definition_hash_id) or
+             not EventPipeline.pipeline_finished_processing?(event_definition_hash_id) do
         true ->
           CogyntLogger.info(
             "#{__MODULE__}",
-            "EventPipeline #{event_definition_id} still draining... waiting for pipeline to drain before running UpdateNotifications"
+            "EventPipeline #{event_definition_hash_id} still draining... waiting for it to finish draining before running NotificationBackfill"
           )
 
           Process.sleep(1000)
-          ensure_pipeline_drained(event_definition_id, count + 1)
+          ensure_pipeline_drained(event_definition_hash_id, count + 1)
 
         false ->
           CogyntLogger.info(
             "#{__MODULE__}",
-            "EventPipeline #{event_definition_id} drained"
+            "EventPipeline #{event_definition_hash_id} Drained"
           )
       end
     end
@@ -138,17 +134,16 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.UpdateNotificationsWork
 
   defp process_notifications(
          %{entries: notifications, page_number: page_number, total_pages: total_pages},
-         %{tag_id: tag_id, id: id, title: ns_title, assigned_to: assigned_to} =
-           notification_setting
+         %{tag_id: tag_id, id: id, assigned_to: assigned_to} = notification_setting
        ) do
     notification_ids = Enum.map(notifications, fn n -> n.id end)
 
     NotificationsContext.update_notifcations(
       %{
         filter: %{notification_ids: notification_ids},
-        select: [:id, :tag_id, :title, :assigned_to]
+        select: [:id, :tag_id, :assigned_to]
       },
-      set: [tag_id: tag_id, title: ns_title, assigned_to: assigned_to]
+      set: [tag_id: tag_id, assigned_to: assigned_to]
     )
 
     if page_number >= total_pages do
@@ -160,8 +155,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.UpdateNotificationsWork
           select: [:id]
         },
         page_number: page_number + 1,
-        page_size: @page_size,
-        include_deleted: true
+        page_size: @page_size
       )
       |> process_notifications(notification_setting)
     end

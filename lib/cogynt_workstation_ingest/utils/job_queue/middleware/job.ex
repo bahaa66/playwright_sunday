@@ -8,7 +8,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     BackfillNotificationsWorker,
     UpdateNotificationsWorker,
     DeleteNotificationsWorker,
-    DeleteEventDefinitionEventsWorker,
     DeleteDeploymentDataWorker,
     DeleteDrilldownDataWorker,
     DeleteEventDefinitionsAndTopicsWorker
@@ -161,7 +160,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     pipeline
   end
 
-  defp fetch_all_event_definition_ids() do
+  defp fetch_all_event_definition_hash_ids() do
     EventsContext.list_event_definitions()
     |> Enum.group_by(fn ed -> ed.id end)
     |> Map.keys()
@@ -224,30 +223,18 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
             )
         end
 
-      worker_module == to_string(DeleteEventDefinitionEventsWorker) ->
-        case Redis.hash_get("ts", "de") do
-          {:ok, nil} ->
-            Redis.hash_set(
-              "ts",
-              "de",
-              [args]
-            )
-
-          {:ok, event_definition_ids} ->
-            Redis.hash_set(
-              "ts",
-              "de",
-              Enum.uniq(event_definition_ids ++ [args])
-            )
-        end
-
       worker_module == to_string(DeleteDeploymentDataWorker) ->
-        ids = fetch_all_event_definition_ids()
+        ids = fetch_all_event_definition_hash_ids()
         update_dev_delete_key(ids)
+        IO.inspect(ids, label: "***** DEV DELETE STARTING FOR IDS")
         Redis.publish_async("dev_delete_subscription", %{ids: ids, action: "start"})
 
       worker_module == to_string(DeleteDrilldownDataWorker) ->
         update_dev_delete_key([@template_solutions_temp_id, @template_solution_events_temp_id])
+
+        IO.inspect([@template_solutions_temp_id, @template_solution_events_temp_id],
+          label: "***** DEV DELETE STARTING FOR IDS"
+        )
 
         Redis.publish_async("dev_delete_subscription", %{
           ids: [@template_solutions_temp_id, @template_solution_events_temp_id],
@@ -256,23 +243,26 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
 
       worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
         %{
-          "event_definition_ids" => event_definition_ids
+          "event_definition_hash_ids" => event_definition_hash_ids
         } = args
 
-        case is_list(event_definition_ids) do
+        case is_list(event_definition_hash_ids) do
           true ->
-            update_dev_delete_key(event_definition_ids)
+            update_dev_delete_key(event_definition_hash_ids)
+            IO.inspect(event_definition_hash_ids, label: "***** DEV DELETE STARTING FOR IDS")
 
             Redis.publish_async("dev_delete_subscription", %{
-              ids: event_definition_ids,
+              ids: event_definition_hash_ids,
               action: "start"
             })
 
           false ->
-            update_dev_delete_key([event_definition_ids])
+            update_dev_delete_key([event_definition_hash_ids])
+
+            IO.inspect([event_definition_hash_ids], label: "***** DEV DELETE STARTING FOR IDS")
 
             Redis.publish_async("dev_delete_subscription", %{
-              ids: [event_definition_ids],
+              ids: [event_definition_hash_ids],
               action: "start"
             })
         end
@@ -329,22 +319,10 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
             )
         end
 
-      worker_module == to_string(DeleteEventDefinitionEventsWorker) ->
-        case Redis.hash_get("ts", "de") do
-          {:ok, nil} ->
-            nil
-
-          {:ok, event_definition_ids} ->
-            Redis.hash_set(
-              "ts",
-              "de",
-              List.delete(event_definition_ids, args)
-            )
-        end
-
       worker_module == to_string(DeleteDeploymentDataWorker) ->
-        ids = fetch_all_event_definition_ids()
+        ids = fetch_all_event_definition_hash_ids()
         remove_from_dev_delete_key(ids)
+        IO.inspect(ids, label: "***** DEV DELETE STOPING FOR IDS")
         Redis.publish_async("dev_delete_subscription", %{ids: [ids], action: "stop"})
 
       worker_module == to_string(DeleteDrilldownDataWorker) ->
@@ -353,6 +331,10 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
           @template_solution_events_temp_id
         ])
 
+        IO.inspect([@template_solutions_temp_id, @template_solution_events_temp_id],
+          label: "***** DEV DELETE STOPING FOR IDS"
+        )
+
         Redis.publish_async("dev_delete_subscription", %{
           ids: [@template_solutions_temp_id, @template_solution_events_temp_id],
           action: "stop"
@@ -360,21 +342,25 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
 
       worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
         %{
-          "event_definition_ids" => event_definition_ids
+          "event_definition_hash_ids" => event_definition_hash_ids
         } = args
 
-        remove_from_dev_delete_key(event_definition_ids)
+        remove_from_dev_delete_key(event_definition_hash_ids)
 
-        case is_list(event_definition_ids) do
+        case is_list(event_definition_hash_ids) do
           true ->
+            IO.inspect(event_definition_hash_ids, label: "***** DEV DELETE STOPING FOR IDS")
+
             Redis.publish_async("dev_delete_subscription", %{
-              ids: event_definition_ids,
+              ids: event_definition_hash_ids,
               action: "stop"
             })
 
           false ->
+            IO.inspect([event_definition_hash_ids], label: "***** DEV DELETE STOPING FOR IDS")
+
             Redis.publish_async("dev_delete_subscription", %{
-              ids: [event_definition_ids],
+              ids: [event_definition_hash_ids],
               action: "stop"
             })
         end

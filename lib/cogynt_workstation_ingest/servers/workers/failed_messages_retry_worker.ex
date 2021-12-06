@@ -62,13 +62,13 @@ defmodule CogyntWorkstationIngest.Servers.Workers.FailedMessagesRetryWorker do
       {:ok, event_definition_failed_message_keys} = Redis.keys_by_pattern("fem:*")
 
       Enum.each(event_definition_failed_message_keys, fn key ->
-        event_definition_id =
+        event_definition_hash_id =
           String.split(key, ":")
           |> List.last()
 
-        consumer_group_id = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_id)
+        consumer_group_id = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_hash_id)
 
-        if EventPipeline.pipeline_running?(event_definition_id) do
+        if EventPipeline.pipeline_running?(event_definition_hash_id) do
           failed_event_definition_messages =
             fetch_and_release_failed_messages(@demand, @event_pipeline_module, key)
 

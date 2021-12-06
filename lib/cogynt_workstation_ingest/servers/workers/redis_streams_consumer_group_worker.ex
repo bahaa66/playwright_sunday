@@ -43,17 +43,12 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
                 ConsumerStateManager.manage_request(%{backfill_notifications: field_value})
 
               :update_notifications ->
-                ConsumerStateManager.manage_request(%{
-                  update_notifications: field_value
-                })
+                ConsumerStateManager.manage_request(%{update_notifications: field_value})
 
               :delete_notifications ->
                 ConsumerStateManager.manage_request(%{
                   delete_notifications: field_value
                 })
-
-              :delete_event_definition_events ->
-                ConsumerStateManager.manage_request(%{delete_event_definition_events: field_value})
 
               :dev_delete ->
                 case field_value do
@@ -67,7 +62,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
                       delete_topics: delete_topics_for_deployments
                     },
                     event_definitions: %{
-                      event_definition_ids: event_definition_ids,
+                      event_definition_hash_ids: event_definition_hash_ids,
                       delete_topics: delete_topics
                     }
                   } ->
@@ -91,13 +86,13 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
                           )
                         end
 
-                        if length(event_definition_ids) > 0 do
+                        if length(event_definition_hash_ids) > 0 do
                           ExqHelpers.create_and_enqueue(
                             "DevDelete",
                             nil,
                             DeleteEventDefinitionsAndTopicsWorker,
                             %{
-                              event_definition_ids: event_definition_ids,
+                              event_definition_hash_ids: event_definition_hash_ids,
                               hard_delete: false,
                               delete_topics: delete_topics
                             },

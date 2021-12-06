@@ -27,7 +27,6 @@ RUN cat ./config/dev.exs > ./config/prod.exs &&\
     cat ./config/prod.exs > ./rel/runtime_config.exs
 # Fetch the application dependencies and build the application
 RUN mix deps.get
-RUN mix deps.update tzdata
 RUN MIX_ENV=${MIX_ENV} mix distillery.release --env=prod --verbose
 
 RUN RELEASE_DIR=`ls -d _build/${MIX_ENV}/rel/${APP_NAME}/releases/*/` && \

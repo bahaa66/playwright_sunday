@@ -10,7 +10,7 @@ config :cogynt_workstation_ingest,
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   load_from_system_env: true,
-  http: [port: 4002],
+  http: [port: (System.get_env("HTTP_PORT") || "4002") |> String.to_integer()],
   debug_errors: true,
   code_reloader: true,
   check_origin: false,
@@ -114,6 +114,7 @@ config :druid,
       http_username: "username",
       http_password: "password"
     ]
-  ]
+  ],
+  schema_registry_url: "http://localhost:8081"
 
 config :logger, :console, level: :info

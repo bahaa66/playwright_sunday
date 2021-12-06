@@ -30,10 +30,11 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
   end
 
   @impl true
-  def handle_cast({:monitor, pid, event_definition_id, topic}, state) do
+  def handle_cast({:monitor, pid, event_definition_hash_id, topic}, state) do
     Process.monitor(pid)
 
-    new_state = Map.put(state, pid, %{event_definition_id: event_definition_id, topic: topic})
+    new_state =
+      Map.put(state, pid, %{event_definition_hash_id: event_definition_hash_id, topic: topic})
 
     {:noreply, new_state}
   end
@@ -50,14 +51,14 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
         {:noreply, new_state}
 
       _ ->
-        %{event_definition_id: event_definition_id, topic: topic} = Map.get(state, pid)
+        %{event_definition_hash_id: event_definition_hash_id, topic: topic} = Map.get(state, pid)
 
-        {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition_id)
+        {:ok, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition_hash_id)
 
-        case EventPipeline.pipeline_finished_processing?(event_definition_id) do
+        case EventPipeline.pipeline_finished_processing?(event_definition_hash_id) do
           true ->
             check_consumer_state(
-              event_definition_id,
+              event_definition_hash_id,
               topic,
               consumer_state.status,
               ConsumerStatusTypeEnum.status()[:paused_and_finished]
@@ -65,7 +66,7 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
 
           false ->
             check_consumer_state(
-              event_definition_id,
+              event_definition_hash_id,
               topic,
               consumer_state.status,
               ConsumerStatusTypeEnum.status()[:paused_and_processing]
@@ -80,20 +81,19 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp check_consumer_state(id, topic, status, new_status) do
+  defp check_consumer_state(event_definition_hash_id, topic, status, new_status) do
     cond do
       status == new_status or
         status == ConsumerStatusTypeEnum.status()[:backfill_notification_task_running] or
-        status == ConsumerStatusTypeEnum.status()[:update_notification_task_running] or
           status == ConsumerStatusTypeEnum.status()[:delete_notification_task_running] ->
         Redis.publish_async("consumer_state_subscription", %{
-          id: id,
+          id: event_definition_hash_id,
           topic: topic,
           status: new_status
         })
 
       true ->
-        ConsumerStateManager.upsert_consumer_state(id,
+        ConsumerStateManager.upsert_consumer_state(event_definition_hash_id,
           topic: topic,
           status: new_status
         )

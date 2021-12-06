@@ -38,17 +38,18 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:phoenix_live_dashboard, "~> 0.1"},
       {:distillery, "~> 2.1"},
       {:phoenix_ecto, "~> 4.0"},
-      {:ecto_sql, "~> 3.0"},
-      {:postgrex, ">= 0.0.0"},
+      {:ecto_sql, "~> 3.6.2"},
+      {:postgrex, "0.15.8"},
       {:gettext, "~> 0.11"},
       {:jason, "~> 1.0"},
       {:ja_serializer, "~> 0.13.0"},
+      {:jsonrpc2, "~> 1.0"},
       {:plug, "~> 1.8"},
       {:cowboy, "~> 2.6"},
       {:plug_cowboy, "~> 2.0"},
       {:health_checkup, "~> 0.1.0"},
       {:ecto_enum, "~> 1.4"},
-      {:broadway_kafka, "~> 0.2.0 ", override: true},
+      {:broadway_kafka, "~> 0.3.0 ", override: true},
       {:httpoison, "~> 1.7"},
       {:junit_formatter, "~> 3.0"},
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
@@ -56,7 +57,14 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:quiet_logger, "~> 0.2.0"},
       {:telemetry, "~> 0.4.0"},
       {:telemetry_poller, "~> 0.4"},
+      {:elasticsearch, "~> 1.0.0"},
       {:exq, git: "git@github.com:akira/exq.git", branch: "master"},
+      {:libcluster, "~> 3.2.2"},
+      {:horde, "~> 0.8.3"},
+      {:absinthe, "1.5.5", override: true},
+      {:absinthe_plug, "~> 1.5", override: true},
+      {:dataloader, "~> 1.0.0"},
+      {:elixir_uuid, "~> 1.2"},
       {:kafka,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "kafka",
@@ -64,14 +72,14 @@ defmodule CogyntWorkstationIngest.MixProject do
        override: true},
       {
         :models,
-        tag: "v1.14.1",
+        tag: "v1.15.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.14.1",
+        tag: "v1.15.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
@@ -84,24 +92,21 @@ defmodule CogyntWorkstationIngest.MixProject do
         override: true
       },
       {
-        :elasticsearch,
-        tag: "v1.13.12",
-        git: "git@github.com:cogility/cogynt-common.git",
-        sparse: "elasticsearch",
-        override: true
-      },
-      {
         :redis,
-        tag: "v1.13.12",
+        tag: "v1.15.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true
       },
       {
         :druid,
-        tag: "v1.13.12",
+        tag: "v1.15.0", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
+      },
+      {
+        :cogynt_graphql,
+        tag: "v1.15.0",
         git: "git@github.com:cogility/cogynt-common.git",
-        sparse: "druid",
+        sparse: "cogynt_graphql",
         override: true
       }
     ]

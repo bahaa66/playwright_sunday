@@ -4,7 +4,9 @@ use Mix.Config
 config :cogynt_workstation_ingest,
   session_domain: System.get_env("COGYNT_SESSION_DOMAIN") || "localhost",
   session_key: System.get_env("COGYNT_AUTH_SESSION_KEY") || "_cogynt_auth_key",
-  signing_salt: System.get_env("COGYNT_AUTH_SALT") || "I45Kpw9a"
+  signing_salt: System.get_env("COGYNT_AUTH_SALT") || "I45Kpw9a",
+  enable_dev_tools: (System.get_env("ENABLE_DEV_TOOLS") || "true") == "true",
+  authoring_version: System.get_env("COGYNT_AUTHORING_VERSION") || "1"
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   load_from_system_env: true,
@@ -48,6 +50,29 @@ config :elasticsearch, :application,
   password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
   shards: (System.get_env("ELASTIC_SHARDS") || "1") |> String.to_integer(),
   replicas: (System.get_env("ELASTIC_REPLICAS") || "0") |> String.to_integer()
+
+
+config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster,
+  username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",
+  password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
+  json_library: Jason,
+  url: System.get_env("ELASTIC_URL") || "http://localhost:9200",
+  api: Elasticsearch.API.HTTP,
+  indexes: %{
+    event: %{
+      settings: "priv/elasticsearch/event.active.json",
+      store: CogyntWorkstationIngest.Elasticsearch.Store,
+      sources: [Models.Events.Event],
+      bulk_page_size: 500,
+      bulk_wait_interval: 0
+    }
+  },
+  default_options: [
+    timeout: 60_000,
+    recv_timeout: 120_000,
+    hackney: [pool: :elasticsearh_pool],
+    ssl: [versions: [:"tlsv1.2"]]
+  ]
 
 # Redis configurations
 config :redis, :application,
@@ -140,3 +165,23 @@ config :druid,
     ]
   ],
   schema_registry_url: System.get_env("SCHEMA_REGISTRY_URL") || "http://schemaregistry:8081"
+
+config :libcluster,
+  topologies: [
+    k8s_ws_ingest: [
+      strategy: Elixir.Cluster.Strategy.Kubernetes,
+      config: [
+        mode: :ip,
+        kubernetes_node_basename: "ws-ingest-otp",
+        kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
+        kubernetes_namespace: System.get_env("NAMESPACE") || "cogynt-kots",
+        polling_interval: 10_000
+      ]
+    ]
+  ]
+
+# RPC configurations
+config :cogynt_workstation_ingest, :rpc,
+  cogynt_auth_service_name: System.get_env("COGYNT_AUTH_SERVICE_NAME") || "http://localhost",
+  cogynt_auth_service_port:
+    (System.get_env("COGYNT_AUTH_SERVICE_PORT") || "4999") |> String.to_integer()

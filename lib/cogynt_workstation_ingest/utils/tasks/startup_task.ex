@@ -3,8 +3,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   Task to run needed logic for application startup
   """
   use Task
+  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
+  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
 
   def start_link(_arg \\ []) do
     Task.start_link(__MODULE__, :run, [])
@@ -13,6 +15,15 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   def run() do
     start_event_type_pipelines()
     start_deployment_pipeline()
+
+    DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
+      Config.template_solutions_topic()
+    )
+
+    DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
+      Config.template_solution_events_topic()
+    )
+
     ExqHelpers.resubscribe_to_all_queues()
   end
 
@@ -23,8 +34,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
     event_definitions =
       EventsContext.query_event_definitions(%{
         filter: %{
-          active: true,
-          deleted_at: nil
+          active: true
         }
       })
 
