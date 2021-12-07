@@ -10,7 +10,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
       with {:ok, _} <- latest_starting_with(index) do
         {:ok, true}
       else
-        {:error, _} ->
+        {:error, error} -> IO.inspect error
           {:ok, false}
       end
     rescue
@@ -107,11 +107,13 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
       prefix = prefix |> to_string() |> Regex.escape()
       {:ok, regex} = Regex.compile("^#{prefix}_[0-9]+$")
 
+      IO.inspect regex
       indexes =
         indexes
         |> Enum.map(& &1["index"])
         |> Enum.filter(&Regex.match?(regex, &1))
         |> Enum.sort()
+        |> IO.inspect()
 
       {:ok, indexes}
     end
@@ -384,6 +386,9 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   end
 
   defp get_index_mappings() do
+    name = "******get index mapping **********"
+    IO.inspect name
+    Elasticsearch.get(Cluster, "#{Config.event_index_alias}") |> IO.inspect
     with {:ok, index} <- latest_starting_with(Config.event_index_alias()),
     {:ok, %{ ^index => %{"settings" => settings }} } <- Elasticsearch.get(Cluster, "#{Config.event_index_alias}/_settings"),
     {:ok, %{^index => mappings} } <- Elasticsearch.get(Cluster, "#{Config.event_index_alias}/_mapping") do

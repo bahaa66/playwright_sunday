@@ -13,7 +13,8 @@ defmodule Mix.Tasks.CreateElasticIndexes do
        with {:ok, _} <- HTTPoison.start(),
        {:ok, _} <- CogyntWorkstationIngest.Elasticsearch.Cluster.start_link(),
        {:ok, false} <- ElasticsearchAPI.index_exists?(Config.event_index_alias()),
-       {:ok, _ } <- ElasticsearchAPI.create_index(Config.event_index_alias()) do
+       {:ok, status} <- ElasticsearchAPI.create_index(Config.event_index_alias()) do
+        IO.inspect status
         Mix.shell().info("The index: #{Config.event_index_alias()} for Cogynt has been created.")
       else
         {:ok, true} ->
