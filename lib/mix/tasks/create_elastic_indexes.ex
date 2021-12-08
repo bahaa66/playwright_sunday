@@ -10,23 +10,10 @@ defmodule Mix.Tasks.CreateElasticIndexes do
 
   @impl Mix.Task
   def run(_) do
-    # HTTPoison.start() |> IO.inspect()
-    # CogyntWorkstationIngest.Elasticsearch.Cluster.start_link()
-    # case ElasticsearchAPI.index_exists?(Config.event_index_alias()) do
-    #   {:ok, false} ->
-    #     ElasticsearchAPI.create_index(Config.event_index_alias())
-    #     Mix.shell().info("The index: #{Config.event_index_alias()} for Cogynt has been created.")
-
-    #   {:ok, true} ->
-    #     Ecto.Migrator.with_repo(CogyntWorkstationIngest.Repo, &Ecto.Migrator.run(&1, :up, all: true))
-    #     CogyntWorkstationIngest.Repo.start_link()
-    #     ElasticsearchAPI.check_to_reindex()
-    # end
        with {:ok, _} <- HTTPoison.start(),
        {:ok, _} <- CogyntWorkstationIngest.Elasticsearch.Cluster.start_link(),
        {:ok, false} <- ElasticsearchAPI.index_exists?(Config.event_index_alias()),
        {:ok, status} <- ElasticsearchAPI.create_index(Config.event_index_alias()) do
-        IO.inspect status
         Mix.shell().info("The index: #{Config.event_index_alias()} for Cogynt has been created.")
       else
         {:ok, true} ->
