@@ -91,8 +91,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
         IO.puts("Failed to create event index #{reason}")
 
       {:error, error} ->
-        IO.puts("Failed to create event index")
-        IO.inspect(error, label: "********* RUNINDEX ERROR ********")
+        IO.puts("Failed to create event index #{inspect(error, pretty: true)}")
     end
   end
 
