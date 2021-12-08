@@ -21,7 +21,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
     with %NotificationSetting{} = notification_setting <-
            NotificationsContext.get_notification_setting(notification_setting_id),
          %EventDefinition{} = event_definition <-
-           EventsContext.get_event_definition(notification_setting.event_definition_id) do
+           EventsContext.get_event_definition(notification_setting.event_definition_hash_id) do
       # 1) pause the pipeline and ensure that if finishes processing its messages
       # before starting the delete of notifications
       pause_event_pipeline(event_definition)
@@ -120,28 +120,28 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
     end
   end
 
-  defp ensure_pipeline_drained(event_definition_id, count \\ 1) do
+  defp ensure_pipeline_drained(event_definition_hash_id, count \\ 1) do
     if count >= 30 do
       CogyntLogger.info(
         "#{__MODULE__}",
         "ensure_pipeline_drained/1 exceeded number of attempts. Moving forward with DeleteNotifications"
       )
     else
-      case EventPipeline.pipeline_running?(event_definition_id) or
-             not EventPipeline.pipeline_finished_processing?(event_definition_id) do
+      case EventPipeline.pipeline_running?(event_definition_hash_id) or
+             not EventPipeline.pipeline_finished_processing?(event_definition_hash_id) do
         true ->
           CogyntLogger.info(
             "#{__MODULE__}",
-            "EventPipeline #{event_definition_id} still draining... waiting for pipeline to drain before running DeleteNotifications"
+            "EventPipeline #{event_definition_hash_id} still draining... waiting for pipeline to drain before running DeleteNotifications"
           )
 
           Process.sleep(1000)
-          ensure_pipeline_drained(event_definition_id, count + 1)
+          ensure_pipeline_drained(event_definition_hash_id, count + 1)
 
         false ->
           CogyntLogger.info(
             "#{__MODULE__}",
-            "EventPipeline #{event_definition_id} drained"
+            "EventPipeline #{event_definition_hash_id} drained"
           )
       end
     end

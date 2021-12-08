@@ -10,83 +10,27 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias CogyntWorkstationIngest.ElasticsearchAPI
   alias CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder
 
-  # ------------------------- #
-  # --- module attributes --- #
-  # ------------------------- #
-
-  Module.put_attribute(
-    __MODULE__,
-    :crud_key,
-    Config.crud_key()
-  )
-
-  Module.put_attribute(
-    __MODULE__,
-    :matches_key,
-    Config.matches_key()
-  )
-
-  Module.put_attribute(
-    __MODULE__,
-    :update,
-    Config.crud_update_value()
-  )
-
-  Module.put_attribute(
-    __MODULE__,
-    :delete,
-    Config.crud_delete_value()
-  )
-
-  Module.put_attribute(
-    __MODULE__,
-    :timestamp_key,
-    Config.timestamp_key()
-  )
-
-  Module.put_attribute(
-    __MODULE__,
-    :confidence_key,
-    Config.confidence_key()
-  )
-
-  Module.put_attribute(
-    __MODULE__,
-    :published_at_key,
-    Config.published_at_key()
-  )
-
-  Module.put_attribute(__MODULE__, :defaults, %{
+  @defaults %{
     crud_action: nil,
     event_document: nil,
     notification_priority: 3
-  })
-
-  # -------------------------- #
+  }
 
   @doc """
   process_event/1 for a CRUD: delete event. We just store the core_id of the event that needs
   to be deleted as part of the payload. When it hits the transactional step of the pipeline the
-  event and its associated data will be removed
-  """
-  def process_event(%{core_id: core_id, event: %{@crud_key => @delete}} = data) do
-    Map.put(data, :crud_action, @delete)
-    |> Map.put(:delete_core_id, core_id)
-    |> Map.put(:pipeline_state, :process_event)
-  end
-
-  @doc """
-  process_event/1 will build an event map that will be processed in bulk in the transactional step
-  of the pipeline
+  event and its associated data will be removed otherwise it will build an event map that
+  will be processed in bulk in the transactional step of the pipeline
   """
   def process_event(
-        %{event: event, event_definition_id: event_definition_id, core_id: core_id} = data
+        %{event: event, event_definition_hash_id: event_definition_hash_id, core_id: core_id} =
+          data
       ) do
+    action = Map.get(event, Config.crud_key(), nil)
     now = DateTime.truncate(DateTime.utc_now(), :second)
-    action = event[@crud_key]
 
     occurred_at =
-      case event[@timestamp_key] do
+      case event[Config.timestamp_key()] do
         nil ->
           nil
 
@@ -97,37 +41,39 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           |> DateTime.truncate(:second)
       end
 
-    pg_event =
-      case action do
-        @update ->
-          %{
-            core_id: core_id,
-            occurred_at: occurred_at,
-            risk_score: format_risk_score(event[@confidence_key]),
-            event_details: format_lexicon_data(event),
-            event_definition_id: event_definition_id,
-            created_at: now,
-            updated_at: now
-          }
+    cond do
+      action == Config.crud_delete_value() ->
+        Map.put(data, :crud_action, action)
+        |> Map.put(:delete_core_id, core_id)
+        |> Map.put(:pipeline_state, :process_event)
 
-        _ ->
-          %{
-            core_id: core_id,
-            occurred_at: occurred_at,
-            risk_score: format_risk_score(event[@confidence_key]),
-            event_details: format_lexicon_data(event),
-            event_definition_id: event_definition_id,
-            created_at: now,
-            updated_at: now
-          }
-      end
+      action == Config.crud_update_value() ->
+        Map.put(data, :pg_event, %{
+          core_id: core_id,
+          occurred_at: occurred_at,
+          risk_score: format_risk_score(event[Config.confidence_key()]),
+          event_details: format_lexicon_data(event),
+          event_definition_hash_id: event_definition_hash_id,
+          created_at: now,
+          updated_at: now
+        })
+        |> Map.put(:crud_action, action)
+        |> Map.put(:pipeline_state, :process_event)
 
-    Map.put(data, :pg_event, pg_event)
-    |> Map.put(:crud_action, action)
-    |> Map.put(:pipeline_state, :process_event)
+      true ->
+        Map.put(data, :pg_event, %{
+          core_id: core_id,
+          occurred_at: occurred_at,
+          risk_score: format_risk_score(event[Config.confidence_key()]),
+          event_details: format_lexicon_data(event),
+          event_definition_hash_id: event_definition_hash_id,
+          created_at: now,
+          updated_at: now
+        })
+        |> Map.put(:crud_action, action)
+        |> Map.put(:pipeline_state, :process_event)
+    end
   end
-
-  def process_elasticsearch_documents(%{crud_action: @delete} = data), do: data
 
   @doc """
   process_elasticsearch_documents/1 will build the Event Elasticsearch document that Workstation
@@ -135,107 +81,112 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   """
   def process_elasticsearch_documents(
         %{
-          event: _event,
           pg_event: pg_event,
           core_id: core_id,
           event_definition: event_definition,
-          event_definition_id: event_definition_id,
-          event_type: event_type
+          event_definition_hash_id: event_definition_hash_id,
+          event_type: event_type,
+          crud_action: action
         } = data
       ) do
-    event_definition_details = event_definition.event_definition_details
+    cond do
+      action == Config.crud_delete_value() ->
+        data
 
-    # Iterate over each event key value pair and build the pg and elastic search event
-    # details.
-    elasticsearch_event_details =
-      Enum.reduce(pg_event.event_details, [], fn
-        {key, value}, acc ->
-          # Search the event definition details and use the path to figure out the field value.
-          Enum.find_value(event_definition_details, fn
-            %{path: path, field_name: field_name, field_type: field_type} ->
-              # Split the path on the delimiter which currently is hard coded to |
-              case String.split(path, "|") do
-                # If there is only one element in the list then we don't need to dig into the object
-                # any further and we return the value.
-                [first] when first == key ->
-                  value
+      true ->
+        event_definition_details = event_definition.event_definition_details
 
-                [first | remaining_path] when first == key ->
-                  # If the path is has a length is greater than 1 then whe use it to get the value.
-                  Enum.reduce(remaining_path, value, fn
-                    p, a when is_map(a) ->
-                      Map.get(a, p)
-
-                    _, _ ->
-                      nil
-                  end)
-                  |> case do
-                    nil ->
-                      # add topoc to log
-                      CogyntLogger.warn(
-                        "#{__MODULE__}",
-                        "Could not find value at given Path: #{inspect(path)}"
-                      )
-
-                      false
-
-                    value ->
+        # Iterate over each event key value pair and build the pg and elastic search event
+        # details.
+        elasticsearch_event_details =
+          Enum.reduce(pg_event.event_details, [], fn
+            {key, value}, acc ->
+              # Search the event definition details and use the path to figure out the field value.
+              Enum.find_value(event_definition_details, fn
+                %{path: path, field_name: field_name, field_type: field_type} ->
+                  # Split the path on the delimiter which currently is hard coded to |
+                  case String.split(path, "|") do
+                    # If there is only one element in the list then we don't need to dig into the object
+                    # any further and we return the value.
+                    [first] when first == key ->
                       value
-                  end
 
-                _ ->
-                  nil
-              end
-              # Convert the value if needed
+                    [first | remaining_path] when first == key ->
+                      # If the path is has a length is greater than 1 then whe use it to get the value.
+                      Enum.reduce(remaining_path, value, fn
+                        p, a when is_map(a) ->
+                          Map.get(a, p)
+
+                        _, _ ->
+                          nil
+                      end)
+                      |> case do
+                        nil ->
+                          # add topoc to log
+                          CogyntLogger.warn(
+                            "#{__MODULE__}",
+                            "Could not find value at given Path: #{inspect(path)}"
+                          )
+
+                          false
+
+                        value ->
+                          value
+                      end
+
+                    _ ->
+                      nil
+                  end
+                  # Convert the value if needed
+                  |> case do
+                    nil -> false
+                    value when is_binary(value) -> {value, field_name, field_type, path}
+                    value -> {Jason.encode!(value), field_name, field_type, path}
+                  end
+              end)
               |> case do
-                nil -> false
-                value when is_binary(value) -> {value, field_name, field_type, path}
-                value -> {Jason.encode!(value), field_name, field_type, path}
+                # If it has a field type then it has a corresponding event definition detail that gives
+                # us the the field_type so we save an event_detail and a elastic document
+                {field_value, field_name, field_type, path} ->
+                  acc ++
+                    [
+                      %{
+                        field_name: field_name,
+                        field_type: field_type,
+                        field_value: field_value,
+                        path: path
+                      }
+                    ]
+
+                nil ->
+                  acc
               end
           end)
-          |> case do
-            # If it has a field type then it has a corresponding event definition detail that gives
-            # us the the field_type so we save an event_detail and a elastic document
-            {field_value, field_name, field_type, path} ->
-              acc ++
-                [
-                  %{
-                    field_name: field_name,
-                    field_type: field_type,
-                    field_value: field_value,
-                    path: path
-                  }
-                ]
 
-            nil ->
-              acc
+        # Build elasticsearch documents
+        elasticsearch_event_doc =
+          case EventDocumentBuilder.build_document(%{
+                 id: core_id,
+                 title: event_definition.title,
+                 event_definition_id: event_definition.event_definition_id,
+                 event_definition_hash_id: event_definition_hash_id,
+                 event_details: elasticsearch_event_details,
+                 core_event_id: core_id,
+                 event_type: event_type,
+                 occurred_at: pg_event.occurred_at,
+                 risk_score: pg_event.risk_score
+               }) do
+            {:ok, event_doc} ->
+              event_doc
+
+            _ ->
+              @defaults.event_document
           end
-      end)
 
-    # Build elasticsearch documents
-    elasticsearch_event_doc =
-      case EventDocumentBuilder.build_document(%{
-             id: core_id,
-             title: event_definition.title,
-             event_definition_id: event_definition_id,
-             event_details: elasticsearch_event_details,
-             core_event_id: core_id,
-             event_type: event_type,
-             occurred_at: pg_event.occurred_at,
-             risk_score: pg_event.risk_score
-           }) do
-        {:ok, event_doc} ->
-          event_doc
-
-        _ ->
-          @defaults.event_document
-      end
-
-    Map.put(data, :event_doc, elasticsearch_event_doc)
-    |> Map.put(:pipeline_state, :process_elasticsearch_documents)
+        Map.put(data, :event_doc, elasticsearch_event_doc)
+        |> Map.put(:pipeline_state, :process_elasticsearch_documents)
+    end
   end
-
-  def process_notifications(%{crud_action: @delete} = data), do: data
 
   @doc """
   process_notifications/1 will build notifications objects for each valid notification_setting
@@ -248,64 +199,71 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         %{
           pg_event: pg_event,
           core_id: core_id,
-          event_definition: event_definition
+          event_definition: event_definition,
+          crud_action: action
         } = data
       ) do
-    pg_notifications =
-      NotificationsContext.fetch_valid_notification_settings(
-        %{
-          event_definition_id: event_definition.id,
-          active: true
-        },
-        pg_event.risk_score,
-        event_definition
-      )
-      |> Enum.reduce([], fn ns, acc ->
-        now = DateTime.truncate(DateTime.utc_now(), :second)
+    cond do
+      action == Config.crud_delete_value() ->
+        data
 
-        acc ++
-          [
+      true ->
+        pg_notifications =
+          NotificationsContext.fetch_valid_notification_settings(
             %{
-              archived_at: nil,
-              priority: @defaults.notification_priority,
-              assigned_to: ns.assigned_to,
-              dismissed_at: nil,
-              core_id: core_id,
-              tag_id: ns.tag_id,
-              notification_setting_id: ns.id,
-              created_at: now,
-              updated_at: now
-            }
-          ]
-      end)
+              event_definition_hash_id: event_definition.id,
+              active: true
+            },
+            pg_event.risk_score,
+            event_definition
+          )
+          |> Enum.reduce([], fn ns, acc ->
+            now = DateTime.truncate(DateTime.utc_now(), :second)
 
-    invalid_notification_settings =
-      NotificationsContext.fetch_invalid_notification_settings(
-        %{
-          event_definition_id: event_definition.id,
-          active: true
-        },
-        pg_event.risk_score,
-        event_definition
-      )
+            acc ++
+              [
+                %{
+                  archived_at: nil,
+                  priority: @defaults.notification_priority,
+                  assigned_to: ns.assigned_to,
+                  dismissed_at: nil,
+                  core_id: core_id,
+                  tag_id: ns.tag_id,
+                  notification_setting_id: ns.id,
+                  created_at: now,
+                  updated_at: now
+                }
+              ]
+          end)
 
-    pg_notifications_delete =
-      if Enum.empty?(invalid_notification_settings) do
-        []
-      else
-        NotificationsContext.query_notifications(%{
-          filter: %{
-            notification_setting_ids:
-              Enum.map(invalid_notification_settings, fn invalid_ns -> invalid_ns.id end),
-            core_id: core_id
-          }
-        })
-        |> Enum.map(fn notifications -> notifications.core_id end)
-      end
+        invalid_notification_settings =
+          NotificationsContext.fetch_invalid_notification_settings(
+            %{
+              event_definition_hash_id: event_definition.id,
+              active: true
+            },
+            pg_event.risk_score,
+            event_definition
+          )
 
-    Map.put(data, :pg_notifications, pg_notifications)
-    |> Map.put(:pg_notifications_delete, pg_notifications_delete)
-    |> Map.put(:pipeline_state, :process_notifications)
+        pg_notifications_delete =
+          if Enum.empty?(invalid_notification_settings) do
+            []
+          else
+            NotificationsContext.query_notifications(%{
+              filter: %{
+                notification_setting_ids:
+                  Enum.map(invalid_notification_settings, fn invalid_ns -> invalid_ns.id end),
+                core_id: core_id
+              }
+            })
+            |> Enum.map(fn notifications -> notifications.core_id end)
+          end
+
+        Map.put(data, :pg_notifications, pg_notifications)
+        |> Map.put(:pg_notifications_delete, pg_notifications_delete)
+        |> Map.put(:pipeline_state, :process_notifications)
+    end
   end
 
   @doc """
@@ -331,7 +289,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             :crud_action,
             :event,
             :event_definition,
-            :event_definition_id,
+            :event_definition_hash_id,
             :retry_count,
             :pipeline_state
           ])
@@ -477,17 +435,21 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   defp format_lexicon_data(event) do
-    case Map.get(event, @matches_key) do
+    case Map.get(event, Config.matches_key()) do
       nil ->
         event
 
       lexicon_val ->
         try do
-          Map.put(event, @matches_key, List.flatten(lexicon_val) |> Enum.filter(&is_binary(&1)))
+          Map.put(
+            event,
+            Config.matches_key(),
+            List.flatten(lexicon_val) |> Enum.filter(&is_binary(&1))
+          )
         rescue
           _ ->
             CogyntLogger.error("#{__MODULE__}", "Lexicon value incorrect format #{lexicon_val}")
-            Map.delete(event, @matches_key)
+            Map.delete(event, Config.matches_key())
         end
     end
   end

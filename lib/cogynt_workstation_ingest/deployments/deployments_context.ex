@@ -139,11 +139,8 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
     end
   end
 
-  # ----------------------- #
-  # --- private methods --- #
-  # ----------------------- #
   # *** This can be deprecated once Authoring 1.0 is no longer supported ***
-  defp parse_kafka_brokers(data_sources) do
+  def parse_kafka_brokers(data_sources) do
     uris =
       Enum.reduce(data_sources, [], fn data_source, acc ->
         case data_source["kind"] == "kafka" do
@@ -168,6 +165,8 @@ defmodule CogyntWorkstationIngest.Deployments.DeploymentsContext do
 
     {:ok, uris}
   end
+
+  # **********************************************************************
 
   def parse_kafka_brokers_v2(data_sources) do
     uris =

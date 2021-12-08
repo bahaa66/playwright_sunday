@@ -64,6 +64,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:absinthe, "1.5.5", override: true},
       {:absinthe_plug, "~> 1.5", override: true},
       {:dataloader, "~> 1.0.0"},
+      {:elixir_uuid, "~> 1.2"},
       {:kafka,
        git: "git@github.com:cogility/cogynt-common.git",
        sparse: "kafka",
@@ -71,14 +72,14 @@ defmodule CogyntWorkstationIngest.MixProject do
        override: true},
       {
         :models,
-        tag: "v1.14.9-beta",
+        tag: "v1.15.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.14.9-beta",
+        tag: "v1.15.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
@@ -92,18 +93,18 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :redis,
-        tag: "v1.13.12",
+        tag: "v1.15.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true
       },
       {
         :druid,
-        tag: "v1.14.8-beta", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
+        tag: "v1.15.0", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
       },
       {
         :cogynt_graphql,
-        tag: "v1.14.7-beta",
+        tag: "v1.15.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt_graphql",
         override: true

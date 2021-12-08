@@ -75,7 +75,8 @@ defimpl Elasticsearch.Document, for: Models.Events.Event do
 
     %{
       id: event.core_id,
-      event_definition_id: event.event_definition_hash_id,
+      event_definition_hash_id: event_definition.id,
+      event_definition_id: event_definition.event_definition_id,
       core_event_id: event.core_id,
       occurred_at: event.occurred_at,
       risk_score: event.risk_score,
@@ -83,9 +84,7 @@ defimpl Elasticsearch.Document, for: Models.Events.Event do
       updated_at: event.updated_at,
       title: event_definition.title,
       event_type: event_definition.event_type,
-      event_details: elasticsearch_event_details,
+      event_details: elasticsearch_event_details
     }
-end
-
-
+  end
 end

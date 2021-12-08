@@ -4,12 +4,6 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngestWeb.Resolvers.Drilldown, as: DrilldownResolver
 
-  Module.put_attribute(
-    __MODULE__,
-    :published_by_key,
-    Config.published_by_key()
-  )
-
   object :drilldown_queries do
     field :drilldown_solution, non_null(:drilldown_solution) do
       arg(:id, non_null(:id))

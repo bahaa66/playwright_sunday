@@ -315,6 +315,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           "DruidSupervisor: #{id} in Error State: #{inspect(status)}. Resetting Supervisor"
         )
 
+        schedule(status)
         {:noreply, state, {:continue, :reset_and_get_supervisor}}
       else
         schedule(status)

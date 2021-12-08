@@ -53,7 +53,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
               group_id: consumer_group_id,
               topics: [topic],
               hosts: brokers,
-              event_definition_id: event_definition.id,
+              event_definition_hash_id: event_definition.id,
               event_type: event_definition.event_type
             }
           ]
@@ -118,8 +118,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def stop_child(event_definition_id) when is_binary(event_definition_id) do
-    name = fetch_event_cgid(event_definition_id)
+  def stop_child(event_definition_hash_id) when is_binary(event_definition_hash_id) do
+    name = fetch_event_cgid(event_definition_hash_id)
 
     DruidRegistryHelper.terminate_druid_with_registry_lookup(name)
 
@@ -160,13 +160,13 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def fetch_event_cgid(event_definition_id) do
-    case Redis.hash_get("ecgid", "ED-#{event_definition_id}") do
+  def fetch_event_cgid(event_definition_hash_id) do
+    case Redis.hash_get("ecgid", "ED-#{event_definition_hash_id}") do
       {:ok, nil} ->
         ""
 
       {:ok, consumer_group_id} ->
-        "ED-#{event_definition_id}" <> "-" <> consumer_group_id
+        "ED-#{event_definition_hash_id}" <> "-" <> consumer_group_id
     end
   end
 end
