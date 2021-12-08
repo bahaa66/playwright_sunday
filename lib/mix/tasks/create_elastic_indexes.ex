@@ -13,7 +13,7 @@ defmodule Mix.Tasks.CreateElasticIndexes do
        with {:ok, _} <- HTTPoison.start(),
        {:ok, _} <- CogyntWorkstationIngest.Elasticsearch.Cluster.start_link(),
        {:ok, false} <- ElasticsearchAPI.index_exists?(Config.event_index_alias()),
-       {:ok, _ } <- ElasticsearchAPI.create_index(Config.event_index_alias()) do
+       {:ok, _status} <- ElasticsearchAPI.create_index(Config.event_index_alias()) do
         Mix.shell().info("The index: #{Config.event_index_alias()} for Cogynt has been created.")
       else
         {:ok, true} ->
@@ -25,7 +25,6 @@ defmodule Mix.Tasks.CreateElasticIndexes do
               "#{__MODULE__}",
               "An error occured trying to reindex  #{Config.event_index_alias()}")
           end
-          Mix.shell().info("The index: #{Config.event_index_alias()} already exists.")
 
         {:error, _} ->
           CogyntLogger.error(

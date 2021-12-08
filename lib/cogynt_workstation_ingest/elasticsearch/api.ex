@@ -1,5 +1,4 @@
 defmodule CogyntWorkstationIngest.ElasticsearchAPI do
-  @env Mix.env()
 
   alias Elasticsearch.Index
   alias CogyntWorkstationIngest.Elasticsearch.Cluster
@@ -11,7 +10,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
       with {:ok, _} <- latest_starting_with(index) do
         {:ok, true}
       else
-        {:error, _} ->
+        {:error, error} -> IO.inspect(error, label: "****** error: index_exists? ********")
           {:ok, false}
       end
     rescue
@@ -30,17 +29,14 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   def create_index(index) do
     name = build_name(index)
     priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
-    IO.puts("@env #{@env}")
-    IO.puts("Config.env() #{Config.env()}")
     settings_file = if Config.env() == :dev do
-      CogyntLogger.info("Create index", "In DEV env")
       Path.join(priv_folder, "event.dev.active.json")
     else
-      CogyntLogger.info("Create Index", "In PROD env")
       Path.join(priv_folder, "event.prod.active.json")
     end
+    IO.inspect(settings_file, label: "****** create_index: settings_file ***********")
+    IO.puts("Create Index: Settings file path #{settings_file}")
 
-    IO.puts("Settings file path #{settings_file}")
     try do
       case Elasticsearch.Index.create_from_file(Cluster, name, settings_file) do
         :ok ->
@@ -146,7 +142,8 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
 
       case index do
         nil -> {:error, :not_found}
-        index -> IO.puts("The latest index is #{index}")
+        index -> IO.inspect(index, label: "******* latest_index **********")
+        IO.puts("The latest index is #{index}")
         {:ok, index}
       end
     end
@@ -160,26 +157,28 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     index_config = config[:indexes][alias]
     priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
     settings_file = if Config.env() == :dev do
-      CogyntLogger.info("Create index", "In DEV env")
       Path.join(priv_folder, "event.dev.active.json")
     else
-      CogyntLogger.info("Create Index", "In PROD env")
       Path.join(priv_folder, "event.prod.active.json")
     end
+    IO.inspect(settings_file, label: "******** reindex settings file ********")
+    IO.puts("Reindex: Settings file path #{settings_file}")
 
     with :ok <- Elasticsearch.Index.create_from_file(config, name, settings_file),
          bulk_upload(config, name, index_config),
          :ok <- Elasticsearch.Index.alias(config, name, alias),
          :ok <- clean_starting_with(config, alias, 1),
          :ok <- Elasticsearch.Index.refresh(config, name) do
-          IO.puts("The event index #{name} for CogyntWorkstation have been created by reindexing.....")
+          IO.puts("The event index #{name} for CogyntWorkstation has been created by reindexing.....")
           :ok
-         else
-          errors ->
-            IO.puts("Error while Reindexing #{inspect errors}")
-          {:error, errors} ->
-            IO.puts("Error while Reindexing #{inspect errors}")
-         end
+
+      else
+        errors ->
+          IO.puts("Error while Reindexing #{inspect errors}")
+
+        {:error, errors} ->
+          IO.puts("Error while Reindexing #{inspect errors}")
+    end
   end
 
   def bulk_upload(config, index, index_config) do
@@ -367,12 +366,13 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
 
     settings_file = if Config.env() == :dev do
-      CogyntLogger.info("Create index", "In DEV env")
       Path.join(priv_folder, "event.dev.active.json")
     else
-      CogyntLogger.info("Create Index", "In PROD env")
       Path.join(priv_folder, "event.prod.active.json")
     end
+
+    IO.inspect(settings_file, label: "*********** is_active_index_setting? *********")
+    IO.puts("Checking active index settings file path: #{settings_file}")
 
     with {:ok, body} <- File.read(settings_file),
     {:ok, settings} <- get_index_mappings(),
@@ -388,6 +388,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   end
 
   defp get_index_mappings() do
+
     with {:ok, index} <- latest_starting_with(Config.event_index_alias()),
     {:ok, %{ ^index => %{"settings" => settings }} } <- Elasticsearch.get(Cluster, "#{Config.event_index_alias}/_settings"),
     {:ok, %{^index => mappings} } <- Elasticsearch.get(Cluster, "#{Config.event_index_alias}/_mapping") do
