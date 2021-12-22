@@ -72,7 +72,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           {:error, %{code: 404} = error} ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Druid supervisor not found: #{
+              "Druid supervisor not found. Creating one now: #{
                 inspect(error)
               }"
             )
