@@ -385,6 +385,8 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     }
   end
 
+  # Druid doesn't like when there are spaces in the 'path' of a field spec
+  # so we need to wrap it in [""]
   defp field_path_to_druid_path(field_path) do
     [start | tail] = String.split(field_path, "|")
     Enum.reduce(tail, "[\"#{start}\"]", fn
