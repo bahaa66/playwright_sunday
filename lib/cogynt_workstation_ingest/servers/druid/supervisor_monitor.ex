@@ -69,19 +69,15 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           schedule(status)
           {:ok, %{id: supervisor_id, supervisor_status: status}}
         else
-          {:error, %{code: 400, error: message} = error} when is_binary(message) ->
-            if message =~ "Cannot find any supervisor with id" do
-              handle_supervisor(supervisor_id, args)
-            else
-              CogyntLogger.error(
-                "#{__MODULE__}",
-                "Unable to create/fetch Druid supervisor information for #{supervisor_id}: #{
-                  inspect(error)
-                }"
-              )
+          {:error, %{code: 404} = error} ->
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "Druid supervisor not found: #{
+                inspect(error)
+              }"
+            )
 
-              {:stop, :failed_to_create_druid_supervisor}
-            end
+            handle_supervisor(supervisor_id, args)
 
           {:error, error} ->
             CogyntLogger.error(
