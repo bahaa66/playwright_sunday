@@ -316,7 +316,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                     %{
                       type: "jq",
                       name: field_path,
-                      expr: ".#{Enum.join(String.split(sigil_field_path, "|"), ".")} | tojson"
+                      expr: ".#{field_path_to_druid_path(field_path)} | tojson"
                     }
                   ]
               )
@@ -352,7 +352,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                     %{
                       type: "path",
                       name: field_path,
-                      expr: "$.#{Enum.join(String.split(field_path, "|"), ".")}"
+                      expr: "$.#{field_path_to_druid_path(field_path)}"
                     }
                   ]
               )
@@ -383,6 +383,14 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
       timestamp_spec: timestamp,
       topic: event_definition.topic
     }
+  end
+
+  defp field_path_to_druid_path(field_path) do
+    [start | tail] = String.split(field_path, "|")
+    Enum.reduce(tail, "[\"#{start}\"]", fn
+      i, acc ->
+        acc <> ".[\"" <> i <> "\"]"
+    end)
   end
 
   defp build_drilldown_druid_ingestion_spec(dimensions, name) do
@@ -458,8 +466,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   end
 
   defp default_druid_fields() do
-    matches_sigil = ~s("#{Config.matches_key()}")
-
     [
       %{
         type: "path",
@@ -494,7 +500,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
       %{
         type: "jq",
         name: Config.matches_key(),
-        expr: ".#{matches_sigil} | tojson"
+        expr: ".[\"#{Config.matches_key()}\"] | tojson"
       }
     ]
   end
