@@ -28,9 +28,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
            message: "An internal server occurred while querying for the drilldown data.",
            code: :internal_server_error,
            details:
-             "There was an error when querying for drilldown data for template solution #{
-               solution_id
-             }. Druid may be down or the datasource may not exist.",
+             "There was an error when querying for drilldown data for template solution #{solution_id}. Druid may be down or the datasource may not exist.",
            original_error: error,
            module: "#{__MODULE__} line: #{__ENV__.line}"
          })}
@@ -41,9 +39,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
            message: "Drilldown solution not found.",
            code: :not_found,
            details:
-             "The template solutions datasource did not return a template solution for id: #{
-               solution_id
-             }",
+             "The template solutions datasource did not return a template solution for id: #{solution_id}",
            module: "#{__MODULE__} line: #{__ENV__.line}"
          })}
 
@@ -118,9 +114,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
            message: "Drilldown solution not found.",
            code: :not_found,
            details:
-             "The template solutions datasource did not return a template solution for id: #{
-               solution_id
-             }",
+             "The template solutions datasource did not return a template solution for id: #{solution_id}",
            module: "#{__MODULE__} line: #{__ENV__.line}"
          })}
 
@@ -139,9 +133,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
            message: "An internal server occurred while querying for child solutions.",
            code: :internal_server_error,
            details:
-             "There was an error when querying for child solutions for template solution #{
-               solution_id
-             }. Druid may be down or the datasource may not exist.",
+             "There was an error when querying for child solutions for template solution #{solution_id}. Druid may be down or the datasource may not exist.",
            original_error: original_error,
            module: "#{__MODULE__} line: #{__ENV__.line}"
          })}
@@ -166,9 +158,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
              "An internal server occurred while querying for the drilldown solution events.",
            code: :internal_server_error,
            details:
-             "There was an error when querying for template solution events for template solution #{
-               solution_id
-             }. Druid may be down or the datasource may not exist.",
+             "There was an error when querying for template solution events for template solution #{solution_id}. Druid may be down or the datasource may not exist.",
            original_error: original_error,
            module: "#{__MODULE__} line: #{__ENV__.line}"
          })}
@@ -189,9 +179,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
              "An internal server occurred while querying for the drilldown solution outcomes.",
            code: :internal_server_error,
            details:
-             "There was an error when querying for template solution outcomes for template solution #{
-               solution_id
-             }. Druid may be down or the datasource may not exist.",
+             "There was an error when querying for template solution outcomes for template solution #{solution_id}. Druid may be down or the datasource may not exist.",
            original_error: original_error,
            module: "#{__MODULE__} line: #{__ENV__.line}"
          })}
