@@ -1,6 +1,6 @@
-use Mix.Config
+import Config
 
-config :cogynt_workstation_ingest, env: Mix.env()
+config :cogynt_workstation_ingest, env: config_env()
 
 config :cogynt_workstation_ingest,
   ecto_repos: [CogyntWorkstationIngest.Repo]
@@ -104,6 +104,13 @@ config :libcluster,
     ]
   ]
 
+# Set a higher stacktrace during development. Avoid configuring such
+# in production as building large stacktraces may be expensive.
+config :phoenix, :stacktrace_depth, 20
+
+# Initialize plugs at runtime for faster development compilation
+config :phoenix, :plug_init_mode, :runtime
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
-import_config "#{Mix.env()}.exs"
+# import_config "#{config_env()}.exs"
