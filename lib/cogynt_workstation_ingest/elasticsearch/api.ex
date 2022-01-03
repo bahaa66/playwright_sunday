@@ -376,7 +376,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
 
     with {:ok, body} <- File.read(settings_file),
     {:ok, settings} <- get_index_mappings(),
-      {:ok, json} <- Poison.decode(body)  do
+      {:ok, json} <- Jason.decode(body)  do
         #compare settings, mappings separately as comparing json |> Map.equal?(settings) returns false as its compared using ===
         Map.equal?(Map.get(json, "settings"), Map.get(settings, "settings"))
         || Map.equal?(Map.get(json, "mappings"), Map.get(settings, "mappings"))
