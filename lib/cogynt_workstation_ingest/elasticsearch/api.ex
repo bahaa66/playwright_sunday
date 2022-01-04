@@ -1,25 +1,22 @@
 defmodule CogyntWorkstationIngest.ElasticsearchAPI do
-
   alias Elasticsearch.Index
   alias CogyntWorkstationIngest.Elasticsearch.Cluster
   alias CogyntWorkstationIngest.Config
-
 
   def index_exists?(index) do
     try do
       with {:ok, _} <- latest_starting_with(index) do
         {:ok, true}
       else
-        {:error, error} -> IO.inspect(error, label: "****** error: index_exists? ********")
+        {:error, error} ->
+          IO.inspect(error, label: "****** error: index_exists? ********")
           {:ok, false}
       end
     rescue
       e in HTTPoison.Error ->
         CogyntLogger.error(
           "Elasticsearch Connection Failure",
-          "Unable to connect to elasticsearch while checking if index_exists. Index: #{index} Error: #{
-            e.reason
-          }"
+          "Unable to connect to elasticsearch while checking if index_exists. Index: #{index} Error: #{e.reason}"
         )
 
         {:error, e.reason}
@@ -29,11 +26,14 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   def create_index(index) do
     name = build_name(index)
     priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
-    settings_file = if Config.env() == :dev do
-      Path.join(priv_folder, "event.dev.active.json")
-    else
-      Path.join(priv_folder, "event.prod.active.json")
-    end
+
+    settings_file =
+      if Config.env() == :dev do
+        Path.join(priv_folder, "event.dev.active.json")
+      else
+        Path.join(priv_folder, "event.prod.active.json")
+      end
+
     IO.inspect(settings_file, label: "****** create_index: settings_file ***********")
     IO.puts("Create Index: Settings file path #{settings_file}")
 
@@ -44,20 +44,19 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
           IO.puts("Created index: #{name}")
           {:ok, true}
 
-          {:error, error} ->
-            CogyntLogger.error(
-              "Creating Elasticsearch Index Error",
-              "Failed to create index: #{index}. Error: #{inspect(error)}"
-            )
-            {:error, error}
+        {:error, error} ->
+          CogyntLogger.error(
+            "Creating Elasticsearch Index Error",
+            "Failed to create index: #{index}. Error: #{inspect(error)}"
+          )
+
+          {:error, error}
       end
     rescue
       e in HTTPoison.Error ->
         CogyntLogger.error(
           "Elasticsearch Connection Failure",
-          "Unable to connect to elasticsearch while creating index alias. Index: #{index} Error: #{
-            e.reason
-          }"
+          "Unable to connect to elasticsearch while creating index alias. Index: #{index} Error: #{e.reason}"
         )
 
         {:error, e.reason}
@@ -66,9 +65,10 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
 
   def index_health?(index) do
     try do
-      case Elasticsearch.get(Cluster,
-        "_cluster/health/#{index}?wait_for_status=green&timeout=10s"
-      ) do
+      case Elasticsearch.get(
+             Cluster,
+             "_cluster/health/#{index}?wait_for_status=green&timeout=10s"
+           ) do
         {:ok, _result} ->
           {:ok, true}
 
@@ -84,9 +84,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
       e in HTTPoison.Error ->
         CogyntLogger.error(
           "Elasticsearch Connection Failure",
-          "Unable to connect to elasticsearch while checking index health. Index: #{index} Error: #{
-            e.reason
-          }"
+          "Unable to connect to elasticsearch while checking index health. Index: #{index} Error: #{e.reason}"
         )
 
         {:error, false}
@@ -100,7 +98,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
       ...> Index.starting_with("posts")
       {:ok, ["posts_1"]}
   """
-  @spec starting_with( String.t() | atom) ::
+  @spec starting_with(String.t() | atom) ::
           {:ok, [String.t()]}
           | {:error, Elasticsearch.Exception.t()}
   def starting_with(prefix) do
@@ -118,7 +116,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     end
   end
 
-    @doc """
+  @doc """
   Gets the most recent index name with the given prefix.
   ## Examples
       iex> create_from_file("posts_1", "test/support/settings/posts.json")
@@ -141,10 +139,13 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
         |> List.last()
 
       case index do
-        nil -> {:error, :not_found}
-        index -> IO.inspect(index, label: "******* latest_index **********")
-        IO.puts("The latest index is #{index}")
-        {:ok, index}
+        nil ->
+          {:error, :not_found}
+
+        index ->
+          IO.inspect(index, label: "******* latest_index **********")
+          IO.puts("The latest index is #{index}")
+          {:ok, index}
       end
     end
   end
@@ -153,14 +154,17 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     config = Elasticsearch.Cluster.Config.get(Cluster)
     alias = String.to_existing_atom(index)
     name = build_name(alias)
-    #%{settings: settings_file} = index_config = config[:indexes][alias]
+    # %{settings: settings_file} = index_config = config[:indexes][alias]
     index_config = config[:indexes][alias]
     priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
-    settings_file = if Config.env() == :dev do
-      Path.join(priv_folder, "event.dev.active.json")
-    else
-      Path.join(priv_folder, "event.prod.active.json")
-    end
+
+    settings_file =
+      if Config.env() == :dev do
+        Path.join(priv_folder, "event.dev.active.json")
+      else
+        Path.join(priv_folder, "event.prod.active.json")
+      end
+
     IO.inspect(settings_file, label: "******** reindex settings file ********")
     IO.puts("Reindex: Settings file path #{settings_file}")
 
@@ -169,15 +173,14 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
          :ok <- Elasticsearch.Index.alias(config, name, alias),
          :ok <- clean_starting_with(config, alias, 1),
          :ok <- Elasticsearch.Index.refresh(config, name) do
-          IO.puts("The event index #{name} for CogyntWorkstation has been created by reindexing.....")
-          :ok
+      IO.puts("The event index #{name} for CogyntWorkstation has been created by reindexing.....")
+      :ok
+    else
+      errors ->
+        IO.puts("Error while Reindexing #{inspect(errors)}")
 
-      else
-        errors ->
-          IO.puts("Error while Reindexing #{inspect errors}")
-
-        {:error, errors} ->
-          IO.puts("Error while Reindexing #{inspect errors}")
+      {:error, errors} ->
+        IO.puts("Error while Reindexing #{inspect(errors)}")
     end
   end
 
@@ -188,23 +191,22 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
         :ok
 
       {:error, errors} ->
-        IO.puts("Error while bulk uploading #{inspect errors}")
+        IO.puts("Error while bulk uploading #{inspect(errors)}")
         errors
     end
   end
 
   def delete_by_query(index, query_data) do
-
     query = build_term_query(query_data)
 
-    url = url(
-      index,
-    "_delete_by_query?refresh=true&slices=auto&scroll_size=10000"
-    )
+    url =
+      url(
+        index,
+        "_delete_by_query?refresh=true&slices=auto&scroll_size=10000"
+      )
 
     try do
       case Elasticsearch.post(Cluster, url, query) do
-
         {:ok, result} ->
           deleted = Map.get(result, "deleted")
 
@@ -227,9 +229,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
       e in HTTPoison.Error ->
         CogyntLogger.error(
           "Elasticsearch Connection Failure",
-          "Unable to connect to elasticsearch for delete_by_query. Index: #{index} Error: #{
-            e.reason
-          }"
+          "Unable to connect to elasticsearch for delete_by_query. Index: #{index} Error: #{e.reason}"
         )
 
         {:error, e.reason}
@@ -237,12 +237,17 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   end
 
   def bulk_upsert_document(index, bulk_docs) do
-    encoded_data = bulk_docs
-    |> Enum.map(&encode!(&1, index))
-    |> Enum.join("\n")
+    encoded_data =
+      bulk_docs
+      |> Enum.map(&encode!(&1, index))
+      |> Enum.join("\n")
 
     try do
-      case Elasticsearch.post(CogyntWorkstationIngest.Elasticsearch.Cluster, "_bulk", encoded_data) do
+      case Elasticsearch.post(
+             CogyntWorkstationIngest.Elasticsearch.Cluster,
+             "_bulk",
+             encoded_data
+           ) do
         {:ok, result} ->
           {:ok, result}
 
@@ -258,9 +263,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
       e in HTTPoison.Error ->
         CogyntLogger.error(
           "Elasticsearch Connection Failure",
-          "Unable to connect to elasticsearch while bulk upserting document. Index: #{index} Error: #{
-            e.reason
-          }"
+          "Unable to connect to elasticsearch while bulk upserting document. Index: #{index} Error: #{e.reason}"
         )
 
         {:error, e.reason}
@@ -277,7 +280,6 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
         reindex(Config.event_index_alias())
     end
   end
-
 
   def bulk_delete(index, bulk_delete_ids) do
     bulk_delete_data = prepare_bulk_delete_data(index, bulk_delete_ids)
@@ -299,15 +301,12 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
       e in HTTPoison.Error ->
         CogyntLogger.error(
           "Elasticsearch Connection Failure",
-          "Unable to connect to elasticsearch while bulk deleting document. Index: #{index} Error: #{
-            e.reason
-          }"
+          "Unable to connect to elasticsearch while bulk deleting document. Index: #{index} Error: #{e.reason}"
         )
 
         {:error, e.reason}
     end
   end
-
 
   # ----------------------- #
   # --- private methods --- #
@@ -315,7 +314,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   defp encode!(struct, index, action \\ "update") do
     header = header(action, index, struct)
 
-    document = Jason.encode!(%{"doc"=> struct, "doc_as_upsert"=> true})
+    document = Jason.encode!(%{"doc" => struct, "doc_as_upsert" => true})
 
     "#{header}\n#{document}\n"
   end
@@ -326,6 +325,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
       "_id" => struct[:id],
       "retry_on_conflict" => 5
     }
+
     Jason.encode!(%{type => attrs})
   end
 
@@ -347,8 +347,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   end
 
   defp url(index, action) when is_binary(action),
-  do: "/#{index}/#{action}"
-
+    do: "/#{index}/#{action}"
 
   defp build_term_query(%{field: field, value: value}) do
     %{
@@ -365,21 +364,22 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   defp is_active_index_setting?() do
     priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
 
-    settings_file = if Config.env() == :dev do
-      Path.join(priv_folder, "event.dev.active.json")
-    else
-      Path.join(priv_folder, "event.prod.active.json")
-    end
+    settings_file =
+      if Config.env() == :dev do
+        Path.join(priv_folder, "event.dev.active.json")
+      else
+        Path.join(priv_folder, "event.prod.active.json")
+      end
 
     IO.inspect(settings_file, label: "*********** is_active_index_setting? *********")
     IO.puts("Checking active index settings file path: #{settings_file}")
 
     with {:ok, body} <- File.read(settings_file),
-    {:ok, settings} <- get_index_mappings(),
-      {:ok, json} <- Jason.decode(body)  do
-        #compare settings, mappings separately as comparing json |> Map.equal?(settings) returns false as its compared using ===
-        Map.equal?(Map.get(json, "settings"), Map.get(settings, "settings"))
-        || Map.equal?(Map.get(json, "mappings"), Map.get(settings, "mappings"))
+         {:ok, settings} <- get_index_mappings(),
+         {:ok, json} <- Jason.decode(body) do
+      # compare settings, mappings separately as comparing json |> Map.equal?(settings) returns false as its compared using ===
+      Map.equal?(Map.get(json, "settings"), Map.get(settings, "settings")) ||
+        Map.equal?(Map.get(json, "mappings"), Map.get(settings, "mappings"))
     else
       {:error, reason} ->
         IO.puts("Cannot read file because #{reason}")
@@ -388,12 +388,17 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   end
 
   defp get_index_mappings() do
-
     with {:ok, index} <- latest_starting_with(Config.event_index_alias()),
-    {:ok, %{ ^index => %{"settings" => settings }} } <- Elasticsearch.get(Cluster, "#{Config.event_index_alias}/_settings"),
-    {:ok, %{^index => mappings} } <- Elasticsearch.get(Cluster, "#{Config.event_index_alias}/_mapping") do
-      index = settings |> Map.get("index") |> Map.drop(["creation_date", "provided_name", "uuid", "version"])
-      {:ok, Map.merge(%{"settings" => %{"index" => index }}, mappings)}
+         {:ok, %{^index => %{"settings" => settings}}} <-
+           Elasticsearch.get(Cluster, "#{Config.event_index_alias()}/_settings"),
+         {:ok, %{^index => mappings}} <-
+           Elasticsearch.get(Cluster, "#{Config.event_index_alias()}/_mapping") do
+      index =
+        settings
+        |> Map.get("index")
+        |> Map.drop(["creation_date", "provided_name", "uuid", "version"])
+
+      {:ok, Map.merge(%{"settings" => %{"index" => index}}, mappings)}
     else
       {:error, reason} ->
         IO.puts("Cannot get Elasticsearch Index Settings or Mappings because " <> reason)
@@ -413,7 +418,6 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     "#{alias}_#{system_timestamp()}"
   end
 
-
   @doc """
   Removes indexes starting with the given prefix, keeping a certain number.
   Can be used to garbage collect old indexes that are no longer used.
@@ -430,22 +434,22 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
    ...> Index.starting_with(Cluster, "posts")
    {:ok, []}
   """
-@spec clean_starting_with(Cluster.t(), String.t(), integer) ::
-       :ok
-       | {:error, [Elasticsearch.Exception.t()]}
-def clean_starting_with(cluster, prefix, num_to_keep) when is_integer(num_to_keep) do
-  with {:ok, indexes} <- starting_with( prefix) do
-    total = length(indexes)
-    num_to_delete = total - num_to_keep
-    num_to_delete = if num_to_delete >= 0, do: num_to_delete, else: 0
+  @spec clean_starting_with(Cluster.t(), String.t(), integer) ::
+          :ok
+          | {:error, [Elasticsearch.Exception.t()]}
+  def clean_starting_with(cluster, prefix, num_to_keep) when is_integer(num_to_keep) do
+    with {:ok, indexes} <- starting_with(prefix) do
+      total = length(indexes)
+      num_to_delete = total - num_to_keep
+      num_to_delete = if num_to_delete >= 0, do: num_to_delete, else: 0
 
-    errors =
-      indexes
-      |> Enum.sort()
-      |> Enum.take(num_to_delete)
-      |> Enum.map(&Elasticsearch.delete(cluster, "/#{&1}"))
-      |> Enum.filter(&(elem(&1, 0) == :error))
-      |> Enum.map(&elem(&1, 1))
+      errors =
+        indexes
+        |> Enum.sort()
+        |> Enum.take(num_to_delete)
+        |> Enum.map(&Elasticsearch.delete(cluster, "/#{&1}"))
+        |> Enum.filter(&(elem(&1, 0) == :error))
+        |> Enum.map(&elem(&1, 1))
 
       if length(errors) > 0 do
         {:error, errors}
@@ -457,7 +461,9 @@ def clean_starting_with(cluster, prefix, num_to_keep) when is_integer(num_to_kee
 
   defp system_timestamp do
     # 2021-10-20 18:37:13Z --> "20211020183713"
-    DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_string() |> String.replace(["-", ":", " ", "Z"], "")
+    DateTime.utc_now()
+    |> DateTime.truncate(:second)
+    |> DateTime.to_string()
+    |> String.replace(["-", ":", " ", "Z"], "")
   end
-
 end
