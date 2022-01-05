@@ -1,4 +1,4 @@
-use Mix.Config
+import Config
 
 # Session Configurations
 config :cogynt_workstation_ingest,
@@ -50,7 +50,6 @@ config :elasticsearch, :application,
   password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
   shards: (System.get_env("ELASTIC_SHARDS") || "1") |> String.to_integer(),
   replicas: (System.get_env("ELASTIC_REPLICAS") || "0") |> String.to_integer()
-
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster,
   username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",

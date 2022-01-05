@@ -8,7 +8,6 @@ defmodule Mix.Tasks.DropElasticIndexes do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Elasticsearch.Cluster
   alias CogyntWorkstationIngest.ElasticsearchAPI
- 
 
   @impl Mix.Task
   def run(_) do

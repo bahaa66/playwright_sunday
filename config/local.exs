@@ -1,4 +1,4 @@
-use Mix.Config
+import Config
 
 config :cogynt_workstation_ingest,
   # Session Configurations

@@ -121,9 +121,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder do
                     catch
                       error ->
                         throw(
-                          "#{Atom.to_string(p)} failed parameter validation with the error: #{
-                            error
-                          }"
+                          "#{Atom.to_string(p)} failed parameter validation with the error: #{error}"
                         )
                     end
                 end)
