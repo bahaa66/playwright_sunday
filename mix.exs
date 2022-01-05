@@ -67,55 +67,48 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:elixir_uuid, "~> 1.2"},
       {
         :kafka,
-        #  tag: "v1.13.12",
-        branch: "CDST-1227-upgrade-elixir",
+        tag: "v1.15.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "kafka",
         override: true
       },
       {
         :models,
-        #  tag: "v1.15.0",
-        branch: "CDST-1227-upgrade-elixir",
+        tag: "v1.15.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        #  tag: "v1.15.0",
-        branch: "CDST-1227-upgrade-elixir",
+        tag: "v1.15.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
       },
       {
         :utils,
-        #  tag: "v1.10.10",
-        branch: "CDST-1227-upgrade-elixir",
+        tag: "v1.15.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "utils",
         override: true
       },
       {
         :redis,
-        #  tag: "v1.15.0",
-        branch: "CDST-1227-upgrade-elixir",
+        tag: "v1.15.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true
       },
       {
         :druid,
-        #  tag: "v1.15.0",
-        branch: "CDST-1227-upgrade-elixir",
+        tag: "v1.15.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "druid"
       },
       {
         :cogynt_graphql,
-        #  tag: "v1.15.0",
-        branch: "CDST-1227-upgrade-elixir",
+        tag: "v1.15.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt_graphql",
         override: true
