@@ -46,9 +46,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
       nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
-          "NotificationSetting/EventDefinition not found for NotificationSettingId: #{
-            notification_setting_id
-          }."
+          "NotificationSetting/EventDefinition not found for NotificationSettingId: #{notification_setting_id}."
         )
     end
   end
@@ -209,7 +207,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.BackfillNotificationsWo
       EventsContext.get_page_of_events(
         %{
           filter: %{event_definition_hash_id: event_definition.id},
-          select: [:core_id, :created_at]
+          select: [:core_id, :risk_score, :created_at]
         },
         page_number: page_number + 1,
         page_size: @page_size
