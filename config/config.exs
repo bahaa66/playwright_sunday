@@ -1,6 +1,6 @@
 import Config
 
-config :cogynt_workstation_ingest, env: config_env()
+config :cogynt_workstation_ingest, :environment, config_env()
 
 config :cogynt_workstation_ingest,
   ecto_repos: [CogyntWorkstationIngest.Repo]

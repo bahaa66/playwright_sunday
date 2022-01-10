@@ -6,9 +6,9 @@ defmodule CogyntWorkstationIngest.MixProject do
       app: :cogynt_workstation_ingest,
       version: "0.1.0",
       elixir: "~> 1.12",
-      elixirc_paths: elixirc_paths(Mix.env()),
+      elixirc_paths: elixirc_paths(Application.get_env(:cogynt_workstation_ingest, :environment)),
       compilers: [:phoenix, :gettext] ++ Mix.compilers(),
-      start_permanent: Mix.env() == :prod,
+      start_permanent: Application.get_env(:cogynt_workstation_ingest, :environment) == :prod,
       aliases: aliases(),
       deps: deps()
     ]
