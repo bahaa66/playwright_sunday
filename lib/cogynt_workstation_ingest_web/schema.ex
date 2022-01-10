@@ -17,7 +17,7 @@ defmodule CogyntWorkstationIngestWeb.Schema do
 
   def context(ctx) do
     loader =
-      Dataloader.new(get_policy: :tuples)
+      Dataloader.new()
       |> Dataloader.add_source(DruidLoader, DruidLoader.data())
 
     Map.put(ctx, :loader, loader)
