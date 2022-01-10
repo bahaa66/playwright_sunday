@@ -22,7 +22,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         context: %{loader: loader}
       }) do
     get_solution(solution_id, loader, fn
-      {:error, %{"errorMessage" => error_message} = error}, _loader ->
+      {:data_loader_error, %{"errorMessage" => error_message} = error}, _loader ->
         if not is_nil(error.code) and error.code == 400 and
              error_message =~ "not found within 'druid'" do
           {:error,
@@ -110,7 +110,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         context: %{loader: loader}
       }) do
     get_solution(solution_id, loader, fn
-      {:error, error}, _loader ->
+      {:data_loader_error, error}, _loader ->
         {:error,
          Error.new(%{
            message: "An internal server occurred while querying for the drilldown solution.",
@@ -140,7 +140,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         context: %{loader: loader}
       }) do
     get_events(solution_id, loader, fn
-      {:error, original_error}, _loader ->
+      {:data_loader_error, original_error}, _loader ->
         {:error,
          Error.new(%{
            message: "An internal server occurred while querying for child solutions.",
@@ -164,7 +164,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         context: %{loader: loader}
       }) do
     get_events(solution_id, loader, fn
-      {:error, original_error}, _loader ->
+      {:data_loader_error, original_error}, _loader ->
         {:error,
          Error.new(%{
            message:
@@ -185,7 +185,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         context: %{loader: loader}
       }) do
     get_outcomes(solution_id, loader, fn
-      {:error, original_error}, _loader ->
+      {:data_loader_error, original_error}, _loader ->
         {:error,
          Error.new(%{
            message:
@@ -230,8 +230,6 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   def get_published_at(event, _, _), do: {:ok, Map.get(event, Config.published_at_key())}
 
   defp get_solution(solution_id, loader, callback) do
-    IO.inspect("GETTING A SOLUTION")
-
     loader
     |> Dataloader.load(
       DruidLoader,
@@ -245,16 +243,13 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
           DruidLoader,
           :template_solutions,
           solution_id
-        )
-        |> IO.inspect(),
+        ),
         loader
       )
     end)
   end
 
   defp get_solutions(solution_ids, loader, callback) when is_list(solution_ids) do
-    IO.inspect("GETTING SOLUTIONS")
-
     loader
     |> Dataloader.load_many(
       DruidLoader,
