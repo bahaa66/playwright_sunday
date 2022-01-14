@@ -1,5 +1,5 @@
 # ---- Build Stage ----
-FROM 478685488679.dkr.ecr.us-west-2.amazonaws.com/common/ubi8/elixir/1.12 AS builder
+FROM 478685488679.dkr.ecr.us-west-2.amazonaws.com/common/ubi8/elixir/1.12:latest AS builder
 
 # Set environment variables for building the application 
 ARG APP_NAME=cogynt_workstation_ingest
@@ -40,11 +40,11 @@ RUN mix compile \
     && mix release --path ./dist
 
 # ---- Application Stage ----
-FROM 478685488679.dkr.ecr.us-west-2.amazonaws.com/common/ubi8/minimal AS app
+FROM 478685488679.dkr.ecr.us-west-2.amazonaws.com/common/ubi8/minimal:latest AS app
 
 ARG APP_NAME=cogynt_workstation_ingest
 
 COPY --from=builder --chown=${APP_USER}:${APP_USER} ${APP_ROOT}/dist app
-RUN mv ${APP_ROOT}/bin/${APP_NAME} ${APP_ROOT}/bin/cogynt
+RUN mv ${APP_ROOT}/bin/${APP_NAME} ${APP_ROOT}/bin/server
 # Run the app
-CMD ["cogynt", "start"]
+CMD ["server", "start"]
