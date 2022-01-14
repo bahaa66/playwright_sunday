@@ -170,7 +170,7 @@ config :libcluster,
     k8s_ws_ingest: [
       strategy: Elixir.Cluster.Strategy.Kubernetes,
       config: [
-        mode: :ip,
+        mode: :hostname,
         kubernetes_node_basename: "ws-ingest-otp",
         kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
         kubernetes_namespace: System.get_env("NAMESPACE") || "cogynt-kots",
