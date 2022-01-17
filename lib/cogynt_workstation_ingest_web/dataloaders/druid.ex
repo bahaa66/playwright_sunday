@@ -45,7 +45,7 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
 
           {:error, error} ->
             for id <- solution_ids, into: %{} do
-              {id, {:error, error}}
+              {id, {:data_loader_error, error}}
             end
         end
 
@@ -77,7 +77,7 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
 
           {:error, error} ->
             for id <- solution_ids, into: %{} do
-              {id, {:error, error}}
+              {id, {:data_loader_error, error}}
             end
         end
 
@@ -98,7 +98,7 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
 
           {:error, error} ->
             for id <- solution_ids, into: %{} do
-              {id, {:error, error}}
+              {id, {:data_loader_error, error}}
             end
         end
     end

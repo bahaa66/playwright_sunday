@@ -5,10 +5,10 @@ defmodule CogyntWorkstationIngest.MixProject do
     [
       app: :cogynt_workstation_ingest,
       version: "0.1.0",
-      elixir: "~> 1.8",
-      elixirc_paths: elixirc_paths(Mix.env()),
+      elixir: "~> 1.12",
+      elixirc_paths: elixirc_paths(Application.get_env(:cogynt_workstation_ingest, :environment)),
       compilers: [:phoenix, :gettext] ++ Mix.compilers(),
-      start_permanent: Mix.env() == :prod,
+      start_permanent: Application.get_env(:cogynt_workstation_ingest, :environment) == :prod,
       aliases: aliases(),
       deps: deps()
     ]
@@ -33,17 +33,17 @@ defmodule CogyntWorkstationIngest.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.5.0", override: true},
+      {:phoenix, "~> 1.6.0"},
       {:phoenix_pubsub, "~> 2.0"},
       {:phoenix_live_dashboard, "~> 0.1"},
       {:distillery, "~> 2.1"},
       {:phoenix_ecto, "~> 4.0"},
-      {:ecto_sql, "~> 3.6.2"},
-      {:postgrex, "0.15.8"},
+      {:ecto_sql, "~> 3.7.1"},
+      {:postgrex, "~> 0.15.8"},
       {:gettext, "~> 0.11"},
       {:jason, "~> 1.0"},
-      {:ja_serializer, "~> 0.13.0"},
-      {:jsonrpc2, "~> 1.0"},
+      {:ja_serializer, "~> 0.16.0"},
+      {:jsonrpc2, "~> 2.0"},
       {:plug, "~> 1.8"},
       {:cowboy, "~> 2.6"},
       {:plug_cowboy, "~> 2.0"},
@@ -52,59 +52,63 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:broadway_kafka, "~> 0.3.0 ", override: true},
       {:httpoison, "~> 1.7"},
       {:junit_formatter, "~> 3.0"},
-      {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
+      {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:scrivener_ecto, "~> 2.0"},
       {:quiet_logger, "~> 0.2.0"},
-      {:telemetry, "~> 0.4.0"},
-      {:telemetry_poller, "~> 0.4"},
+      {:telemetry, "~> 1.0.0", override: true},
+      {:telemetry_poller, "~> 1.0.0"},
       {:elasticsearch, "~> 1.0.0"},
       {:exq, git: "git@github.com:akira/exq.git", branch: "master"},
-      {:libcluster, "~> 3.2.2"},
+      {:libcluster, "~> 3.3.0"},
       {:horde, "~> 0.8.3"},
-      {:absinthe, "1.5.5", override: true},
-      {:absinthe_plug, "~> 1.5", override: true},
+      {:absinthe, "~> 1.6.2"},
+      {:absinthe_plug, "~> 1.5.5"},
       {:dataloader, "~> 1.0.0"},
       {:elixir_uuid, "~> 1.2"},
-      {:kafka,
-       git: "git@github.com:cogility/cogynt-common.git",
-       sparse: "kafka",
-       tag: "v1.13.12",
-       override: true},
+      {
+        :kafka,
+        tag: "v1.16.0",
+        git: "git@github.com:cogility/cogynt-common.git",
+        sparse: "kafka",
+        override: true
+      },
       {
         :models,
-        tag: "v1.15.0",
+        tag: "v1.16.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.15.0",
+        tag: "v1.16.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
       },
       {
         :utils,
-        tag: "v1.10.10",
+        tag: "v1.16.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "utils",
         override: true
       },
       {
         :redis,
-        tag: "v1.15.0",
+        tag: "v1.16.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true
       },
       {
         :druid,
-        tag: "v1.15.0", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
+        tag: "v1.16.0",
+        git: "git@github.com:cogility/cogynt-common.git",
+        sparse: "druid"
       },
       {
         :cogynt_graphql,
-        tag: "v1.15.0",
+        tag: "v1.16.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt_graphql",
         override: true

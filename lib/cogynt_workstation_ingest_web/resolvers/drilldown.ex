@@ -22,18 +22,29 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         context: %{loader: loader}
       }) do
     get_solution(solution_id, loader, fn
-      {:error, error}, _loader ->
-        {:error,
-         Error.new(%{
-           message: "An internal server occurred while querying for the drilldown data.",
-           code: :internal_server_error,
-           details:
-             "There was an error when querying for drilldown data for template solution #{
-               solution_id
-             }. Druid may be down or the datasource may not exist.",
-           original_error: error,
-           module: "#{__MODULE__} line: #{__ENV__.line}"
-         })}
+      {:data_loader_error, %{"errorMessage" => error_message} = error}, _loader ->
+        if not is_nil(error.code) and error.code == 400 and
+             error_message =~ "not found within 'druid'" do
+          {:error,
+           Error.new(%{
+             message: "Drilldown Datasource not found.",
+             code: :not_found,
+             details:
+               "There was an error when querying for drilldown data for template solution #{solution_id}. Druid may be down or the datasource may not exist.",
+             original_error: error,
+             module: "#{__MODULE__} line: #{__ENV__.line}"
+           })}
+        else
+          {:error,
+           Error.new(%{
+             message: "An internal server occurred while querying for the drilldown data.",
+             code: :internal_server_error,
+             details:
+               "There was an error when querying for drilldown data for template solution #{solution_id}. Druid may be down or the datasource may not exist.",
+             original_error: error,
+             module: "#{__MODULE__} line: #{__ENV__.line}"
+           })}
+        end
 
       nil, _loader ->
         {:error,
@@ -41,9 +52,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
            message: "Drilldown solution not found.",
            code: :not_found,
            details:
-             "The template solutions datasource did not return a template solution for id: #{
-               solution_id
-             }",
+             "The template solutions datasource did not return a template solution for id: #{solution_id}",
            module: "#{__MODULE__} line: #{__ENV__.line}"
          })}
 
@@ -101,7 +110,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         context: %{loader: loader}
       }) do
     get_solution(solution_id, loader, fn
-      {:error, error}, _loader ->
+      {:data_loader_error, error}, _loader ->
         {:error,
          Error.new(%{
            message: "An internal server occurred while querying for the drilldown solution.",
@@ -118,9 +127,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
            message: "Drilldown solution not found.",
            code: :not_found,
            details:
-             "The template solutions datasource did not return a template solution for id: #{
-               solution_id
-             }",
+             "The template solutions datasource did not return a template solution for id: #{solution_id}",
            module: "#{__MODULE__} line: #{__ENV__.line}"
          })}
 
@@ -133,15 +140,13 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         context: %{loader: loader}
       }) do
     get_events(solution_id, loader, fn
-      {:error, original_error}, _loader ->
+      {:data_loader_error, original_error}, _loader ->
         {:error,
          Error.new(%{
            message: "An internal server occurred while querying for child solutions.",
            code: :internal_server_error,
            details:
-             "There was an error when querying for child solutions for template solution #{
-               solution_id
-             }. Druid may be down or the datasource may not exist.",
+             "There was an error when querying for child solutions for template solution #{solution_id}. Druid may be down or the datasource may not exist.",
            original_error: original_error,
            module: "#{__MODULE__} line: #{__ENV__.line}"
          })}
@@ -159,16 +164,14 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         context: %{loader: loader}
       }) do
     get_events(solution_id, loader, fn
-      {:error, original_error}, _loader ->
+      {:data_loader_error, original_error}, _loader ->
         {:error,
          Error.new(%{
            message:
              "An internal server occurred while querying for the drilldown solution events.",
            code: :internal_server_error,
            details:
-             "There was an error when querying for template solution events for template solution #{
-               solution_id
-             }. Druid may be down or the datasource may not exist.",
+             "There was an error when querying for template solution events for template solution #{solution_id}. Druid may be down or the datasource may not exist.",
            original_error: original_error,
            module: "#{__MODULE__} line: #{__ENV__.line}"
          })}
@@ -182,16 +185,14 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         context: %{loader: loader}
       }) do
     get_outcomes(solution_id, loader, fn
-      {:error, original_error}, _loader ->
+      {:data_loader_error, original_error}, _loader ->
         {:error,
          Error.new(%{
            message:
              "An internal server occurred while querying for the drilldown solution outcomes.",
            code: :internal_server_error,
            details:
-             "There was an error when querying for template solution outcomes for template solution #{
-               solution_id
-             }. Druid may be down or the datasource may not exist.",
+             "There was an error when querying for template solution outcomes for template solution #{solution_id}. Druid may be down or the datasource may not exist.",
            original_error: original_error,
            module: "#{__MODULE__} line: #{__ENV__.line}"
          })}

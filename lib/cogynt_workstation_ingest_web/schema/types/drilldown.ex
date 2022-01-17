@@ -1,7 +1,6 @@
 defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
   use Absinthe.Schema.Notation
   alias CogyntGraphql.Middleware.Authentication
-  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngestWeb.Resolvers.Drilldown, as: DrilldownResolver
 
   object :drilldown_queries do
@@ -77,5 +76,6 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
     field :version, non_null(:integer), do: resolve(&DrilldownResolver.get_version/3)
     field :source, non_null(:string), do: resolve(&DrilldownResolver.get_source/3)
     field :risk_score, :integer, do: resolve(&DrilldownResolver.get_risk_score/3)
+    field :data_type, non_null(:string)
   end
 end

@@ -1,4 +1,4 @@
-use Mix.Config
+import Config
 
 # Session Configurations
 config :cogynt_workstation_ingest,
@@ -50,7 +50,6 @@ config :elasticsearch, :application,
   password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
   shards: (System.get_env("ELASTIC_SHARDS") || "1") |> String.to_integer(),
   replicas: (System.get_env("ELASTIC_REPLICAS") || "0") |> String.to_integer()
-
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster,
   username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",
@@ -169,12 +168,11 @@ config :druid,
 config :libcluster,
   topologies: [
     k8s_ws_ingest: [
-      strategy: Elixir.Cluster.Strategy.Kubernetes,
+      strategy: Elixir.Cluster.Strategy.Kubernetes.DNSSRV,
       config: [
-        mode: :ip,
-        kubernetes_node_basename: "ws-ingest-otp",
-        kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
-        kubernetes_namespace: System.get_env("NAMESPACE") || "cogynt-kots",
+        namespace: System.get_env("NAMESPACE") || "cogynt-kots",
+        service: System.get_env("SERVICE_NAME") || "ws-ingest-otp-headless",
+        application_name: "ws-ingest-otp",
         polling_interval: 10_000
       ]
     ]
