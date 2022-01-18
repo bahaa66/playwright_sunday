@@ -20,7 +20,7 @@ defmodule CogyntWorkstationIngest.MixProject do
   def application do
     [
       mod: {CogyntWorkstationIngest.Application, []},
-      extra_applications: [:logger, :runtime_tools, :scrivener_ecto]
+      extra_applications: [:logger, :runtime_tools, :scrivener_ecto, :crypto]
     ]
   end
 
@@ -102,9 +102,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :druid,
-        tag: "v1.16.0",
-        git: "git@github.com:cogility/cogynt-common.git",
-        sparse: "druid"
+        tag: "v1.16.0", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
       },
       {
         :cogynt_graphql,
