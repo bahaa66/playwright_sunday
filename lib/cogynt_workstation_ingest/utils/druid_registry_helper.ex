@@ -285,7 +285,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                                                                 path: field_path
                                                               },
                                                               {acc_dimensions, acc_fields} ->
-        sigil_field_path = ~s("#{field_path}")
+        # sigil_field_path = ~s("#{field_path}")
 
         cond do
           # Any type that is not supported by Native Druid types need to be matched here
@@ -389,6 +389,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   # so we need to wrap it in [""]
   defp field_path_to_druid_path(field_path) do
     [start | tail] = String.split(field_path, "|")
+
     Enum.reduce(tail, "[\"#{start}\"]", fn
       i, acc ->
         acc <> ".[\"" <> i <> "\"]"
