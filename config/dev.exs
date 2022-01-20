@@ -176,8 +176,8 @@ config :libcluster,
         # service: System.get_env("SERVICE_NAME") || "ws-ingest-otp-headless",
         application_name: "ws-ingest-otp",
         kubernetes_node_basename: "ws-ingest-otp",
-        # kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
-        # kubernetes_namespace: System.get_env("NAMESPACE") || "cogynt-kots",
+        kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
+        kubernetes_namespace: System.get_env("NAMESPACE") || "cogynt-kots",
         polling_interval: 10_000
       ]
     ]
