@@ -170,14 +170,14 @@ config :libcluster,
     k8s_ws_ingest: [
       strategy: Elixir.Cluster.Strategy.Kubernetes,
       config: [
-        # service: System.get_env("SERVICE_NAME") || "ws-ingest-otp-headless",
-        # application_name: "ws-ingest-otp",
-        # mode: :hostname,
-        # kubernetes_service_name: "ws-ingest-otp",
         mode: :dns,
-        kubernetes_node_basename: "ws-ingest-otp",
-        kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
-        kubernetes_namespace: System.get_env("NAMESPACE") || "cogynt-kots",
+        namespace: System.get_env("NAMESPACE") || "cogynt-kots",
+        service: "ws-ingest-otp-headless",
+        # service: System.get_env("SERVICE_NAME") || "ws-ingest-otp-headless",
+        application_name: "ws-ingest-otp",
+        # kubernetes_node_basename: "ws-ingest-otp",
+        # kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
+        # kubernetes_namespace: System.get_env("NAMESPACE") || "cogynt-kots",
         polling_interval: 10_000
       ]
     ]

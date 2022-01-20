@@ -33,7 +33,8 @@ defmodule CogyntWorkstationIngest.MixProject do
     [
       cogynt_workstation_ingest: [
         include_executables_for: [:unix],
-        cookie: Base.url_encode64(:crypto.strong_rand_bytes(40))
+        cookie: "erlang_cookie"
+        # cookie: Base.url_encode64(:crypto.strong_rand_bytes(40))
       ]
     ]
   end
