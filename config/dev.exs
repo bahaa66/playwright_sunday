@@ -168,16 +168,16 @@ config :druid,
 config :libcluster,
   topologies: [
     k8s_ws_ingest: [
-      strategy: Elixir.Cluster.Strategy.Kubernetes.DNSSRV,
+      strategy: Elixir.Cluster.Strategy.Kubernetes.DNS,
       config: [
         # mode: :hostname,
         # kubernetes_service_name: "ws-ingest-otp-headless",
         # # service: System.get_env("SERVICE_NAME") || "ws-ingest-otp-headless",
-        # kubernetes_node_basename: "ws-ingest-otp-headless",
-        # kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
-        # kubernetes_namespace: System.get_env("NAMESPACE") || "cogynt-kots",
+        #kubernetes_node_basename: "ws-ingest-otp",
+        #kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
+        #kubernetes_namespace: System.get_env("NAMESPACE") || "cogynt-kots",
         # polling_interval: 10_000
-        namespace: "cogynt-kots",
+        #namespace: "cogynt-kots",
         service: "ws-ingest-otp-headless",
         application_name: "ws-ingest-otp",
         polling_interval: 10_000
