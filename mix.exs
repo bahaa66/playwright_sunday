@@ -10,7 +10,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       compilers: [:phoenix, :gettext] ++ Mix.compilers(),
       start_permanent: Application.get_env(:cogynt_workstation_ingest, :environment) == :prod,
       aliases: aliases(),
-      releases: releases(),
+      #releases: releases(),
       deps: deps()
     ]
   end
