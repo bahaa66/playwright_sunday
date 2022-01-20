@@ -179,7 +179,7 @@ config :libcluster,
         # polling_interval: 10_000
         namespace: "cogynt-kots",
         service: "ws-ingest-otp-headless",
-        application_name: "ws-ingest-otp-headless",
+        application_name: "ws-ingest-otp",
         polling_interval: 10_000
       ]
     ]
