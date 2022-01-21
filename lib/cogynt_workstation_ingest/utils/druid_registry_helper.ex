@@ -361,11 +361,11 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         end
       end)
 
-    IO.inspect(dimensions, label: "DRUID DIMENSIONS")
+    # IO.inspect(dimensions, label: "DRUID DIMENSIONS")
 
     timestamp = build_timestamp_spec(dimensions)
 
-    IO.inspect(timestamp, label: "DRUID TIMESTAMP")
+    # IO.inspect(timestamp, label: "DRUID TIMESTAMP")
 
     %{
       supervisor_id: name,

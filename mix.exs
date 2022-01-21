@@ -10,7 +10,6 @@ defmodule CogyntWorkstationIngest.MixProject do
       compilers: [:phoenix, :gettext] ++ Mix.compilers(),
       start_permanent: Application.get_env(:cogynt_workstation_ingest, :environment) == :prod,
       aliases: aliases(),
-      #releases: releases(),
       deps: deps()
     ]
   end
@@ -28,16 +27,6 @@ defmodule CogyntWorkstationIngest.MixProject do
   # Specifies which paths to compile per environment.
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
-
-  defp releases() do
-    [
-      cogynt_workstation_ingest: [
-        include_executables_for: [:unix],
-        cookie: "erlang_cookie"
-        # cookie: Base.url_encode64(:crypto.strong_rand_bytes(40))
-      ]
-    ]
-  end
 
   # Specifies your project dependencies.
   #
