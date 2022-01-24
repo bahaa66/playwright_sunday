@@ -741,7 +741,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     end
 
     # remove the ConsumerStatus Redis key
-    Redis.key_delete("cs:#{event_definition.id˝}")
+    Redis.key_delete("cs:#{event_definition.id}")
 
     # set the consumer status
     upsert_consumer_state(event_definition.id,
