@@ -102,7 +102,10 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :druid,
-        tag: "v1.16.0", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
+        # tag: "v1.16.0",
+        branch: "feat/CDST-1368-druid-changes",
+        git: "git@github.com:cogility/cogynt-common.git",
+        sparse: "druid"
       },
       {
         :cogynt_graphql,

@@ -72,9 +72,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           {:error, %{code: 404} = error} ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Druid supervisor not found. Creating one now: #{
-                inspect(error)
-              }"
+              "Druid supervisor not found. Creating one now: #{inspect(error)}"
             )
 
             handle_supervisor(supervisor_id, args)
@@ -82,9 +80,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           {:error, error} ->
             CogyntLogger.error(
               "#{__MODULE__}",
-              "Unable to create/fetch Druid supervisor information for #{supervisor_id}: #{
-                inspect(error)
-              }"
+              "Unable to create/fetch Druid supervisor information for #{supervisor_id}: #{inspect(error)}"
             )
 
             {:stop, :failed_to_create_druid_supervisor}
@@ -143,9 +139,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Unable to create/fetch Druid supervisor information for #{supervisor_id}: #{
-            inspect(error)
-          }"
+          "Unable to create/fetch Druid supervisor information for #{supervisor_id}: #{inspect(error)}"
         )
 
         {:stop, :failed_to_create_druid_supervisor}
@@ -173,9 +167,11 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
   @impl GenServer
   def handle_call(:delete_data_and_reset_supervisor, _from, %{id: id} = state) do
-    with {:ok, delete_response} <- Druid.delete_datasource(id),
+    with {:ok, delete_response} <- Druid.datasource_segmants_mark_unused(id),
          {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id),
-         %SupervisorStatus{} = status <- SupervisorStatus.new(payload) do
+         %SupervisorStatus{} = status <- SupervisorStatus.new(payload),
+         # TODO: wait until all are marked as unused ?
+         {:ok, status} <- wait_while_pending(id, status) do
       {:reply, delete_response, %{state | supervisor_status: status},
        {:continue, :reset_and_get_supervisor}}
     else
@@ -341,9 +337,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     if counter >= 10 do
       CogyntLogger.warn(
         "#{__MODULE__}",
-        "wait_while_pending/3 exceeded the number of retry attempts. Druid Supervisor is still in PENDING state for ID: #{
-          id
-        }"
+        "wait_while_pending/3 exceeded the number of retry attempts. Druid Supervisor is still in PENDING state for ID: #{id}"
       )
 
       {:ok, status}

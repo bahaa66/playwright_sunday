@@ -63,10 +63,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         type: :supervisor
       }
 
-      case DruidRegistryHelper.start_druid_with_registry_lookup(
-             consumer_group_id,
-             event_definition
-           ) do
+      case DruidRegistryHelper.start_druid_with_registry_lookup(event_definition) do
         {:ok, _} ->
           DynamicSupervisor.start_child(__MODULE__, child_spec)
 
@@ -118,10 +115,10 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
     end
   end
 
-  def stop_child(event_definition_hash_id) when is_binary(event_definition_hash_id) do
-    name = fetch_event_cgid(event_definition_hash_id)
+  def stop_child(event_definition) do
+    name = fetch_event_cgid(event_definition.id)
 
-    DruidRegistryHelper.terminate_druid_with_registry_lookup(name)
+    DruidRegistryHelper.terminate_druid_with_registry_lookup(event_definition.topic)
 
     (name <> "Pipeline")
     |> String.to_atom()
