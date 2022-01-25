@@ -246,6 +246,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     with {:ok, delete_response} <- Druid.datasource_segmants_mark_unused(id),
          {:ok, datasources} <- Druid.list_datasources_with_used_segmants(),
          {:ok, _response} <- wait_while_dropping_segmants(id, datasources) do
+      IO.inspect(datasources, label: "List of Datasources")
       {:reply, delete_response, state, {:continue, :terminate_and_shutdown}}
     else
       {:error, error} ->

@@ -254,7 +254,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         {:error, :not_found}
 
       pid ->
-        SupervisorMonitor.delete_data_and_reset_supervisor(pid)
+        {:ok, SupervisorMonitor.delete_data_and_reset_supervisor(pid)}
     end
   end
 
@@ -269,7 +269,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         {:error, :not_found}
 
       pid ->
-        SupervisorMonitor.delete_data_and_terminate_supervisor(pid)
+        {:ok, SupervisorMonitor.delete_data_and_terminate_supervisor(pid)}
     end
   end
 
