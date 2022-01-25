@@ -19,7 +19,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
 
   alias Models.Enums.ConsumerStatusTypeEnum
-  alias Models.Events.EventDefinition
 
   @default_state %{
     topic: nil,

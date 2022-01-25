@@ -21,7 +21,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
           {:error, error} ->
             CogyntLogger.error(
               "#{__MODULE__}",
-              "Failed to start Druid Supervisor, error: #{inspect(error)}"
+              "Failed to start Druid Supervisor: #{datasource_name}, error: #{inspect(error)}"
             )
 
             {:error, nil}
@@ -50,6 +50,11 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
             )
 
           true ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{datasource_name} is being started but has an existing state that is not RUNNING, SUSPENDED, PENDING. Resetting the data and restarting the supervisor."
+            )
+
             SupervisorMonitor.delete_data_and_reset_supervisor(pid)
         end
 
@@ -92,6 +97,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         end
 
       pid ->
+        # TODO: is this correct ?
         SupervisorMonitor.create_or_update_supervisor(pid, druid_spec)
         {:ok, pid}
     end
@@ -136,6 +142,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         end
 
       pid ->
+        # TODO: is this correct ?
         SupervisorMonitor.create_or_update_supervisor(pid, druid_spec)
         {:ok, pid}
     end
@@ -192,7 +199,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
           true ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "Druid supervisor: #{datasource_name} has an unhandled state #{state}."
+              "Druid supervisor: #{datasource_name} has an unhandled state #{state}, Failed to Resume"
             )
         end
     end
@@ -230,18 +237,18 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
           true ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "Druid supervisor: #{datasource_name} has an unhandled state #{state}."
+              "Druid supervisor: #{datasource_name} has an unhandled state #{state}, Failed to Suspend"
             )
         end
     end
   end
 
-  def reset_druid_with_registry_lookup(datasource_name) do
+  def drop_and_reset_druid_with_registry_lookup(datasource_name) do
     case DruidSupervisor.whereis(datasource_name) do
       nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
-          "reset_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{datasource_name}"
+          "drop_and_reset_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{datasource_name}"
         )
 
         {:error, :not_found}
@@ -251,18 +258,18 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     end
   end
 
-  def terminate_druid_with_registry_lookup(datasource_name) do
+  def drop_and_terminate_druid_with_registry_lookup(datasource_name) do
     case DruidSupervisor.whereis(datasource_name) do
       nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
-          "terminate_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{datasource_name}"
+          "drop_and_terminate_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{datasource_name}"
         )
 
         {:error, :not_found}
 
       pid ->
-        SupervisorMonitor.terminate_and_shutdown(pid)
+        SupervisorMonitor.delete_data_and_terminate_supervisor(pid)
     end
   end
 

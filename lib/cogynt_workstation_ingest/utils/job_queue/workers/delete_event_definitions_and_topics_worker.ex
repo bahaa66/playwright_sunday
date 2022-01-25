@@ -4,6 +4,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
+  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
   alias CogyntWorkstationIngest.ElasticsearchAPI
 
   alias Models.Events.EventDefinition
@@ -28,8 +29,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         # 3) remove all records from Elasticsearch
         delete_elasticsearch_data(event_definition)
 
-        # 4) remove Druid datasource
-        delete_druid_datasource(event_definition.topic)
+        # 4) drop druid data and terminate supervisor
+        drop_and_terminate_druid(event_definition.topic)
 
         ConsumerStateManager.remove_consumer_state(event_definition.id)
       end)
@@ -58,8 +59,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
               delete_topics(event_definition)
             end
 
-            # 3) remove Druid datasource
-            delete_druid_datasource(event_definition.topic)
+            # 4) drop druid data and terminate supervisor
+            drop_and_terminate_druid(event_definition.topic)
 
             # 4) remove all records from Elasticsearch
             delete_elasticsearch_data(event_definition)
@@ -168,20 +169,20 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
     end
   end
 
-  defp delete_druid_datasource(datasource_name) do
-    IO.puts("********* Deleting Druid DataSource for Name: #{datasource_name}")
+  defp drop_and_terminate_druid(datasource_name) do
+    IO.puts("********* Dropping Druid Segments for Datasource: #{datasource_name}")
 
-    case Druid.datasource_segmants_mark_unused(datasource_name) do
+    case DruidRegistryHelper.drop_and_terminate_druid_with_registry_lookup(datasource_name) do
       {:ok, result} ->
         CogyntLogger.info(
           "#{__MODULE__}",
-          "Deleted Druid Datasource: #{datasource_name} with response: #{inspect(result)}"
+          "Dropped Segmants for Druid Datasource: #{datasource_name} with response: #{inspect(result)}"
         )
 
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Failed to remove Druid Datasource: #{datasource_name} with Error: #{inspect(error)}"
+          "Failed to drop Segmants for Druid Datasource: #{datasource_name} with Error: #{inspect(error)}"
         )
     end
   end
