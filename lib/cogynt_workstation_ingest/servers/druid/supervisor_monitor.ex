@@ -63,7 +63,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   end
 
   @doc """
-  Drops the segmants for the Druid datasource by marking
+  Drops the segments for the Druid datasource by marking
   them as unused. Then resets the Druid supervisor to re ingest
   the data
   """
@@ -72,7 +72,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   end
 
   @doc """
-  Drops the segmants for the Druid datasource by marking
+  Drops the segments for the Druid datasource by marking
   them as unused. Then terminates the Druid supervisor and
   shutsdown the Druid monitor
   """
@@ -226,9 +226,9 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
   @impl GenServer
   def handle_call(:delete_data_and_reset_supervisor, _from, %{id: id} = state) do
-    with {:ok, delete_response} <- Druid.datasource_segmants_mark_unused(id),
-         {:ok, datasources} <- Druid.list_datasources_with_used_segmants(),
-         {:ok, _response} <- wait_while_dropping_segmants(id, datasources) do
+    with {:ok, delete_response} <- Druid.datasource_segments_mark_unused(id),
+         {:ok, datasources} <- Druid.list_datasources_with_used_segments(),
+         {:ok, _response} <- wait_while_dropping_segments(id, datasources) do
       {:reply, delete_response, state, {:continue, :reset_and_get_supervisor}}
     else
       {:error, error} ->
@@ -243,9 +243,9 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
   @impl GenServer
   def handle_call(:delete_data_and_terminate_supervisor, _from, %{id: id} = state) do
-    with {:ok, delete_response} <- Druid.datasource_segmants_mark_unused(id),
-         {:ok, datasources} <- Druid.list_datasources_with_used_segmants(),
-         {:ok, _response} <- wait_while_dropping_segmants(id, datasources) do
+    with {:ok, delete_response} <- Druid.datasource_segments_mark_unused(id),
+         {:ok, datasources} <- Druid.list_datasources_with_used_segments(),
+         {:ok, _response} <- wait_while_dropping_segments(id, datasources) do
       IO.inspect(datasources, label: "List of Datasources")
       {:reply, delete_response, state, {:continue, :terminate_and_shutdown}}
     else
@@ -393,11 +393,11 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     end
   end
 
-  defp wait_while_dropping_segmants(datasource_name, datasources, counter \\ 0) do
+  defp wait_while_dropping_segments(datasource_name, datasources, counter \\ 0) do
     if counter >= 10 do
       CogyntLogger.warn(
         "#{__MODULE__}",
-        "wait_while_dropping_segmants/3 exceeded the number of retry attempts (10). Druid still dropping segmants for Datasource: #{datasource_name}"
+        "wait_while_dropping_segments/3 exceeded the number of retry attempts (10). Druid still dropping segments for Datasource: #{datasource_name}"
       )
 
       {:ok, :exceeded_retry_count}
@@ -406,8 +406,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
         true ->
           # Give Druid some time to drop the segments for the datasource
           Process.sleep(800)
-          {:ok, datasources} = Druid.list_datasources_with_used_segmants()
-          wait_while_dropping_segmants(datasource_name, datasources, counter + 1)
+          {:ok, datasources} = Druid.list_datasources_with_used_segments()
+          wait_while_dropping_segments(datasource_name, datasources, counter + 1)
 
         false ->
           {:ok, :segments_dropped}

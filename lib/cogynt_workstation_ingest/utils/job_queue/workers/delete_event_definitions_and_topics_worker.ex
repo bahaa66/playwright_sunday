@@ -176,13 +176,13 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
       {:ok, result} ->
         CogyntLogger.info(
           "#{__MODULE__}",
-          "Dropped Segmants for Druid Datasource: #{datasource_name} with response: #{inspect(result)}"
+          "Dropped segments for Druid Datasource: #{datasource_name} with response: #{inspect(result)}"
         )
 
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Failed to drop Segmants for Druid Datasource: #{datasource_name} with Error: #{inspect(error)}"
+          "Failed to drop segments for Druid Datasource: #{datasource_name} with Error: #{inspect(error)}"
         )
     end
   end
