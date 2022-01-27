@@ -208,7 +208,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
   @impl GenServer
   def handle_call(:resume_supervisor, _from, %{id: id} = state) do
-    with {:ok, resume_response} <- Druid.resume_supervisor(id),
+    with {:ok, _resume_response} <- Druid.resume_supervisor(id),
          {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id),
          %SupervisorStatus{} = status <- SupervisorStatus.new(payload),
          {:ok, status} <- wait_while_pending(id, status) do
