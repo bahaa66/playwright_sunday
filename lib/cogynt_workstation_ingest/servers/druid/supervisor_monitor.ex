@@ -76,8 +76,8 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   them as unused. Then terminates the Druid supervisor and
   shutsdown the Druid monitor
   """
-  def delete_data_and_terminate_supervisor(pid) do
-    GenServer.call(pid, :delete_data_and_terminate_supervisor)
+  def delete_data_and_terminate(pid) do
+    GenServer.call(pid, :delete_data_and_terminate)
   end
 
   # ------------------------ #
@@ -85,7 +85,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   # ------------------------ #
   @impl GenServer
   def init([%{supervisor_id: supervisor_id} = args, true]) do
-    handle_supervisor(supervisor_id, args)
+    upsert_supervisor(supervisor_id, args)
   end
 
   @impl GenServer
@@ -104,7 +104,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
               "Druid supervisor not found. Creating one now: #{inspect(error)}"
             )
 
-            handle_supervisor(supervisor_id, args)
+            upsert_supervisor(supervisor_id, args)
 
           {:error, error} ->
             CogyntLogger.error(
@@ -181,7 +181,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Unable to Create/Fetch Druid supervisor information for #{id}: #{inspect(error)}"
+          "create_or_update_supervisor: Unable to Create/Fetch Druid supervisor information for #{id}: #{inspect(error)}"
         )
 
         {:noreply, state, {:continue, :shutdown_server}}
@@ -199,7 +199,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Unable to Suspend Druid datasource: #{id} do to error: #{inspect(error)}"
+          "suspend_supervisor: Unable to Suspend Druid datasource: #{id} do to error: #{inspect(error)}"
         )
 
         {:reply, {:error, error}, state}
@@ -217,7 +217,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Unable to Resume Druid datasource: #{id} do to error: #{inspect(error)}"
+          "resume_supervisor: Unable to Resume Druid datasource: #{id} do to error: #{inspect(error)}"
         )
 
         {:reply, {:error, error}, state}
@@ -226,15 +226,17 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
   @impl GenServer
   def handle_call(:delete_data_and_reset_supervisor, _from, %{id: id} = state) do
-    with {:ok, delete_response} <- Druid.datasource_segments_mark_unused(id),
+    with {:ok, running_tasks} <- Druid.list_running_tasks_for_datasource(id),
+         {:ok, _response} <- wait_while_tasks_complete(id, running_tasks),
+         {:ok, delete_response} <- Druid.datasource_segments_mark_unused(id),
          {:ok, datasources} <- Druid.list_datasources_with_used_segments(),
          {:ok, _response} <- wait_while_dropping_segments(id, datasources) do
-      {:reply, delete_response, state, {:continue, :reset_and_get_supervisor}}
+      {:reply, delete_response, state, {:continue, :reset_and_resume_supervisor}}
     else
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Unable to Drop Druid segments for Datasource: #{id} do to error: #{inspect(error)}"
+          "delete_data_and_reset_supervisor: Unable to Drop Druid segments for Datasource: #{id} do to error: #{inspect(error)}"
         )
 
         {:reply, {:error, error}, state}
@@ -242,8 +244,10 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   end
 
   @impl GenServer
-  def handle_call(:delete_data_and_terminate_supervisor, _from, %{id: id} = state) do
-    with {:ok, delete_response} <- Druid.datasource_segments_mark_unused(id),
+  def handle_call(:delete_data_and_terminate, _from, %{id: id} = state) do
+    with {:ok, running_tasks} <- Druid.list_running_tasks_for_datasource(id),
+         {:ok, _response} <- wait_while_tasks_complete(id, running_tasks),
+         {:ok, delete_response} <- Druid.datasource_segments_mark_unused(id),
          {:ok, datasources} <- Druid.list_datasources_with_used_segments(),
          {:ok, _response} <- wait_while_dropping_segments(id, datasources) do
       IO.inspect(datasources, label: "List of Datasources")
@@ -252,7 +256,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Unable to Drop Druid segments for Datasource: #{id} do to error: #{inspect(error)}"
+          "delete_data_and_terminate: Unable to Drop Druid segments for Datasource: #{id} do to error: #{inspect(error)}"
         )
 
         {:reply, {:error, error}, state}
@@ -260,7 +264,26 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   end
 
   @impl GenServer
-  def handle_continue(:reset_and_get_supervisor, %{id: id} = state) do
+  def handle_continue(:reset_and_resume_supervisor, %{id: id} = state) do
+    with {:ok, %{"id" => id}} <- Druid.reset_supervisor(id),
+         {:ok, resume_response} <- Druid.resume_supervisor(id),
+         {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id),
+         %SupervisorStatus{} = status <- SupervisorStatus.new(payload),
+         {:ok, status} <- wait_while_pending(id, status) do
+      {:noreply, %{state | supervisor_status: status}}
+    else
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "reset_and_resume_supervisor: Unable to Reset/Fetch supervisor Druid information for #{id}: #{inspect(error)}"
+        )
+
+        {:noreply, state}
+    end
+  end
+
+  @impl GenServer
+  def handle_continue(:reset_supervisor, %{id: id} = state) do
     with {:ok, %{"id" => id}} <- Druid.reset_supervisor(id),
          {:ok, %{"payload" => payload}} <- Druid.get_supervisor_status(id),
          %SupervisorStatus{} = status <- SupervisorStatus.new(payload) do
@@ -269,7 +292,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Unable to Reset/Fetch supervisor Druid information for #{id}: #{inspect(error)}"
+          "reset_supervisor: Unable to Reset/Fetch supervisor Druid information for #{id}: #{inspect(error)}"
         )
 
         {:noreply, state}
@@ -278,11 +301,15 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
   @impl GenServer
   def handle_continue(:terminate_and_shutdown, %{id: id} = state) do
+    # Reset the Druid Supervisor so the next time a user starts
+    # ingest and it creates the same Druid supervisor it will
+    # start from the 0 offset in Kafka
+    {:ok, %{"id" => id}} = Druid.reset_supervisor(id)
     Druid.terminate_supervisor(id)
 
     CogyntLogger.info(
       "#{__MODULE__}",
-      "Shutting down Druid Supervisor Monitor for Datasource: #{id}"
+      "terminate_and_shutdown: Shutting down Druid Supervisor Monitor for Datasource: #{id}"
     )
 
     {:stop, :normal, state}
@@ -299,7 +326,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
         )
 
         schedule(status)
-        {:noreply, state, {:continue, :reset_and_get_supervisor}}
+        {:noreply, state, {:continue, :reset_supervisor}}
       else
         schedule(status)
         {:noreply, %{state | supervisor_status: status}}
@@ -316,7 +343,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Unable to get Druid supervisor status for #{id}: #{inspect(error)}"
+          "update_status: Unable to get Druid supervisor status for #{id}: #{inspect(error)}"
         )
 
         schedule("ERROR")
@@ -328,7 +355,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   # --- private methods --- #
   # ----------------------- #
 
-  defp handle_supervisor(supervisor_id, args) do
+  defp upsert_supervisor(supervisor_id, args) do
     brokers = Map.get(args, :brokers)
     schema = Map.get(args, :schema, :json)
 
@@ -363,7 +390,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Unable to Create/Fetch Druid supervisor information for #{supervisor_id}: #{inspect(error)}"
+          "upsert_supervisor: Unable to Create/Fetch Druid supervisor information for #{supervisor_id}: #{inspect(error)}"
         )
 
         {:stop, :failed_to_create_druid_supervisor}
@@ -389,6 +416,30 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
 
         false ->
           {:ok, status}
+      end
+    end
+  end
+
+  defp wait_while_tasks_complete(datasource_name, running_tasks, counter \\ 0) do
+    if counter >= 10 do
+      CogyntLogger.warn(
+        "#{__MODULE__}",
+        "wait_while_tasks_complete/3 exceeded the number of retry attempts. Druid Supervisor is still waiting for its Indexing tasks to complete. Datasource: #{datasource_name}"
+      )
+
+      {:ok, running_tasks}
+    else
+      case Enum.empty?(running_tasks) do
+        false ->
+          IO.inspect(running_tasks, label: "RUNNING TASKS")
+          IO.puts("RETRYING....")
+          # Give Druid indexing tasks some time to finish
+          Process.sleep(800)
+          {:ok, running_tasks} = Druid.list_running_tasks_for_datasource(datasource_name)
+          wait_while_tasks_complete(datasource_name, running_tasks, counter + 1)
+
+        true ->
+          {:ok, running_tasks}
       end
     end
   end
