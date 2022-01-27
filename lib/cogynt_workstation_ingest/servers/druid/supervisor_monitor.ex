@@ -409,6 +409,11 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       case SupervisorStatus.is_pending?(status) do
         true ->
           # Give Druid some time to execute whatever it is PENDING for
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "wait_while_pending/3. Waiting 800ms and rechecking to see if Druid supervisor is out of the PENDING state. Attempt #{counter}/10"
+          )
+
           Process.sleep(800)
           {:ok, %{"payload" => payload}} = Druid.get_supervisor_status(datasource_name)
           %SupervisorStatus{} = status = SupervisorStatus.new(payload)
@@ -431,9 +436,12 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     else
       case Enum.empty?(running_tasks) do
         false ->
-          IO.inspect(Enum.count(running_tasks), label: "# Of RUNNING TASKS")
-          IO.puts("RETRYING....")
           # Give Druid indexing tasks some time to finish
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "wait_while_tasks_complete/3. Waiting 30s and rechecking to see if Druid indexing tasks have finished. Attempt #{counter}/10"
+          )
+
           Process.sleep(30000)
           {:ok, running_tasks} = Druid.list_running_tasks_for_datasource(datasource_name)
           wait_while_tasks_complete(datasource_name, running_tasks, counter + 1)
@@ -456,7 +464,12 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
       case Enum.member?(datasources, datasource_name) do
         true ->
           # Give Druid some time to drop the segments for the datasource
-          Process.sleep(800)
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "wait_while_dropping_segments/3. Waiting 30s and rechecking to see if Druid has marked segments as unused. Attempt #{counter}/10"
+          )
+
+          Process.sleep(30000)
           {:ok, datasources} = Druid.list_datasources_with_used_segments()
           wait_while_dropping_segments(datasource_name, datasources, counter + 1)
 
