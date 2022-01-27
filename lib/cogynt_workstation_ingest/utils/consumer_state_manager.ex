@@ -166,10 +166,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         {:delete_notifications, notification_setting_id}, _acc ->
           delete_notifications(notification_setting_id)
 
-        # TODO: see if this is called
-        {:handle_unknown_status, event_definition_hash_id}, _acc ->
-          handle_unknown_status(event_definition_hash_id)
-
         _, _ ->
           CogyntLogger.warn(
             "#{__MODULE__}",
