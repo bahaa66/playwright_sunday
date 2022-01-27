@@ -250,7 +250,6 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
          {:ok, delete_response} <- Druid.datasource_segments_mark_unused(id),
          {:ok, datasources} <- Druid.list_datasources_with_used_segments(),
          {:ok, _response} <- wait_while_dropping_segments(id, datasources) do
-      IO.inspect(datasources, label: "List of Datasources")
       {:reply, delete_response, state, {:continue, :terminate_and_shutdown}}
     else
       {:error, error} ->
@@ -401,7 +400,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     if counter >= 10 do
       CogyntLogger.warn(
         "#{__MODULE__}",
-        "wait_while_pending/3 exceeded the number of retry attempts. Druid Supervisor is still in PENDING state for Datasource: #{datasource_name}"
+        "wait_while_pending/3 exceeded the number of retry attempts (10). Druid Supervisor is still in PENDING state for Datasource: #{datasource_name}"
       )
 
       {:ok, status}
@@ -411,7 +410,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           # Give Druid some time to execute whatever it is PENDING for
           CogyntLogger.info(
             "#{__MODULE__}",
-            "wait_while_pending/3. Waiting 800ms and rechecking to see if Druid supervisor is out of the PENDING state. Attempt #{counter}/10"
+            "wait_while_pending/3. Waiting 800ms and rechecking to see if Druid supervisor is out of the PENDING state. Datasource: #{datasource_name} Attempt #{counter}/10"
           )
 
           Process.sleep(800)
@@ -429,7 +428,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     if counter >= 10 do
       CogyntLogger.warn(
         "#{__MODULE__}",
-        "wait_while_tasks_complete/3 exceeded the number of retry attempts. Druid Supervisor is still waiting for its Indexing tasks to complete. Datasource: #{datasource_name}"
+        "wait_while_tasks_complete/3 exceeded the number of retry attempts (10). Druid Supervisor is still waiting for its Indexing tasks to complete. Datasource: #{datasource_name}"
       )
 
       {:ok, running_tasks}
@@ -439,7 +438,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           # Give Druid indexing tasks some time to finish
           CogyntLogger.info(
             "#{__MODULE__}",
-            "wait_while_tasks_complete/3. Waiting 30s and rechecking to see if Druid indexing tasks have finished. Attempt #{counter}/10"
+            "wait_while_tasks_complete/3. Waiting 30s and rechecking to see if Druid indexing tasks have finished. Datasource: #{datasource_name} Attempt #{counter}/10"
           )
 
           Process.sleep(30000)
@@ -466,7 +465,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
           # Give Druid some time to drop the segments for the datasource
           CogyntLogger.info(
             "#{__MODULE__}",
-            "wait_while_dropping_segments/3. Waiting 30s and rechecking to see if Druid has marked segments as unused. Attempt #{counter}/10"
+            "wait_while_dropping_segments/3. Waiting 30s and rechecking to see if Druid has marked segments as unused. Datasource: #{datasource_name} Attempt #{counter}/10"
           )
 
           Process.sleep(30000)

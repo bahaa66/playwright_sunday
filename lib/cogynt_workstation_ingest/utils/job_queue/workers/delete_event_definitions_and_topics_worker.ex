@@ -170,8 +170,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   end
 
   defp drop_and_terminate_druid(datasource_name) do
-    IO.puts("********* Dropping Druid Segments for Datasource: #{datasource_name}")
-
     case DruidRegistryHelper.drop_and_terminate_druid_with_registry_lookup(datasource_name) do
       {:ok, result} ->
         CogyntLogger.info(
