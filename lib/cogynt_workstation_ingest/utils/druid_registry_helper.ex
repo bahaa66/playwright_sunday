@@ -97,7 +97,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         end
 
       pid ->
-        # TODO: is this correct ?
         SupervisorMonitor.create_or_update_supervisor(pid, druid_spec)
         {:ok, pid}
     end
@@ -142,7 +141,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         end
 
       pid ->
-        # TODO: is this correct ?
         SupervisorMonitor.create_or_update_supervisor(pid, druid_spec)
         {:ok, pid}
     end
