@@ -4,7 +4,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
-  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
+  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
   alias CogyntWorkstationIngest.ElasticsearchAPI
 
   alias Models.Events.EventDefinition
@@ -18,10 +18,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
     if hard_delete_event_definitions do
       EventsContext.list_event_definitions()
       |> Enum.each(fn event_definition ->
-        # have to fetch the consumer_group_name before we shutdown the pipeline. That action
-        # removes the consumer_group_name from Redis and we wont be able to fetch it after it
-        # completes
-        druid_datasource_name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id)
         # 1) stop the EventPipeline if there is one running for the event_definition
         shutdown_event_pipeline(event_definition)
 
@@ -33,8 +29,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         # 3) remove all records from Elasticsearch
         delete_elasticsearch_data(event_definition)
 
-        # 4) remove Druid datasource
-        delete_druid_datasource(druid_datasource_name)
+        # 4) drop druid data and terminate supervisor
+        drop_and_terminate_druid(event_definition.topic)
 
         ConsumerStateManager.remove_consumer_state(event_definition.id)
       end)
@@ -55,10 +51,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
             )
 
           event_definition ->
-            # have to fetch the consumer_group_name before we shutdown the pipeline. That action
-            # removes the consumer_group_name from Redis and we wont be able to fetch it after it
-            # completes
-            druid_datasource_name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id)
             # 1) stop the EventPipeline if there is one running for the event_definition
             shutdown_event_pipeline(event_definition)
 
@@ -67,14 +59,14 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
               delete_topics(event_definition)
             end
 
-            # 3) remove all records from Elasticsearch
+            # 4) drop druid data and terminate supervisor
+            drop_and_terminate_druid(event_definition.topic)
+
+            # 4) remove all records from Elasticsearch
             delete_elasticsearch_data(event_definition)
 
-            # 4) delete the event definition data
+            # 5) delete the event definition data
             delete_event_definition(event_definition)
-
-            # 6) remove Druid datasource
-            delete_druid_datasource(druid_datasource_name)
         end
       end)
     end
@@ -172,27 +164,23 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "There was an error deleting elasticsearch data for event definition: #{
-            event_definition.id
-          }\nError: #{inspect(error)}"
+          "There was an error deleting elasticsearch data for event definition: #{event_definition.id}\nError: #{inspect(error)}"
         )
     end
   end
 
-  defp delete_druid_datasource(name) do
-    IO.puts("********* Deleting Druid DataSource for Name: #{name}")
-
-    case Druid.delete_datasource(name) do
+  defp drop_and_terminate_druid(datasource_name) do
+    case DruidRegistryHelper.drop_and_terminate_druid_with_registry_lookup(datasource_name) do
       {:ok, result} ->
         CogyntLogger.info(
           "#{__MODULE__}",
-          "Deleted Druid Datasource with response: #{inspect(result)}"
+          "Dropped segments for Druid Datasource: #{datasource_name} with response: #{inspect(result)}"
         )
 
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Failed to remove Druid datasource with Error: #{inspect(error)}"
+          "Failed to drop segments for Druid Datasource: #{datasource_name} with Error: #{inspect(error)}"
         )
     end
   end

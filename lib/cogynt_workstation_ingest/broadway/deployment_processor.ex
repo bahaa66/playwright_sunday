@@ -301,7 +301,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
       {:ok, event_definition} ->
         with name <- ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id),
              true <- name != "" do
-          DruidRegistryHelper.update_druid_with_registry_lookup(name, event_definition)
+          DruidRegistryHelper.update_druid_with_registry_lookup(event_definition)
         end
 
       error ->
@@ -336,7 +336,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
       {:ok, event_definition} ->
         with name <- ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id),
              true <- name != "" do
-          DruidRegistryHelper.update_druid_with_registry_lookup(name, event_definition)
+          DruidRegistryHelper.update_druid_with_registry_lookup(event_definition)
         end
 
       error ->

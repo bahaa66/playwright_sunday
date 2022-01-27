@@ -66,7 +66,5 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor.SupervisorStat
     do: state == "PENDING"
 
   def requires_reset?(%SupervisorStatus{state: state, detailed_state: detailed}),
-    do:
-      (state == "UNHEALTHY_TASKS" and detailed == "UNHEALTHY_TASKS") or
-        (state == "UNHEALTHY_SUPERVISOR" and detailed in @unhealthy_supervisor_states)
+    do: state == "UNHEALTHY_SUPERVISOR" and detailed in @unhealthy_supervisor_states
 end
