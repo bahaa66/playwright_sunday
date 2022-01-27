@@ -431,10 +431,10 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     else
       case Enum.empty?(running_tasks) do
         false ->
-          IO.inspect(running_tasks, label: "RUNNING TASKS")
+          IO.inspect(Enum.count(running_tasks), label: "# Of RUNNING TASKS")
           IO.puts("RETRYING....")
           # Give Druid indexing tasks some time to finish
-          Process.sleep(800)
+          Process.sleep(30000)
           {:ok, running_tasks} = Druid.list_running_tasks_for_datasource(datasource_name)
           wait_while_tasks_complete(datasource_name, running_tasks, counter + 1)
 
