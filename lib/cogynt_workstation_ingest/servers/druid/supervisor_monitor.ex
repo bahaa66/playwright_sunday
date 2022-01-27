@@ -68,7 +68,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   the data
   """
   def delete_data_and_reset_supervisor(pid) do
-    GenServer.call(pid, :delete_data_and_reset_supervisor)
+    GenServer.call(pid, :delete_data_and_reset_supervisor, :infinity)
   end
 
   @doc """
@@ -77,7 +77,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   shutsdown the Druid monitor
   """
   def delete_data_and_terminate(pid) do
-    GenServer.call(pid, :delete_data_and_terminate)
+    GenServer.call(pid, :delete_data_and_terminate, :infinity)
   end
 
   # ------------------------ #
