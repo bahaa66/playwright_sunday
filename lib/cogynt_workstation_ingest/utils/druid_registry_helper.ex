@@ -7,19 +7,21 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
 
   @timestamp_default "1970-01-01T00:00:00Z"
 
-  def start_druid_with_registry_lookup(name, event_definition) do
-    case DruidSupervisor.whereis(name) do
-      nil ->
-        druid_spec = build_druid_ingest_spec(name, event_definition)
+  def start_druid_with_registry_lookup(event_definition) do
+    datasource_name = event_definition.topic
 
-        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec) do
+    case DruidSupervisor.whereis(datasource_name) do
+      nil ->
+        druid_spec = build_druid_ingest_spec(event_definition)
+
+        case DruidSupervisor.start_child(name: datasource_name, druid_spec: druid_spec) do
           {:error, {:already_started, pid}} ->
             {:ok, pid}
 
           {:error, error} ->
             CogyntLogger.error(
               "#{__MODULE__}",
-              "Failed to start Druid Supervisor, error: #{inspect(error)}"
+              "Failed to start Druid Supervisor: #{datasource_name}, error: #{inspect(error)}"
             )
 
             {:error, nil}
@@ -38,16 +40,21 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
           SupervisorMonitor.SupervisorStatus.is_running?(state) ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "Druid supervisor: #{name} already running"
+              "Druid supervisor: #{datasource_name} already running"
             )
 
           SupervisorMonitor.SupervisorStatus.is_pending?(state) ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "Druid supervisor: #{name} has a pending status and is already starting."
+              "Druid supervisor: #{datasource_name} has a pending status and is already starting."
             )
 
           true ->
+            CogyntLogger.warn(
+              "#{__MODULE__}",
+              "Druid supervisor: #{datasource_name} is being started but has an existing state that is not RUNNING, SUSPENDED, PENDING. Resetting the data and restarting the supervisor."
+            )
+
             SupervisorMonitor.delete_data_and_reset_supervisor(pid)
         end
 
@@ -55,7 +62,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     end
   end
 
-  def start_drilldown_druid_with_registry_lookup("template_solutions" = name) do
+  def start_drilldown_druid_with_registry_lookup("template_solutions" = datasource_name) do
     druid_spec =
       build_drilldown_druid_ingestion_spec(
         [
@@ -64,19 +71,23 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
           "templateTypeId",
           "retracted"
         ],
-        name
+        datasource_name
       )
 
-    case DruidSupervisor.whereis(name) do
+    case DruidSupervisor.whereis(datasource_name) do
       nil ->
-        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec, force_update: true) do
+        case DruidSupervisor.start_child(
+               name: datasource_name,
+               druid_spec: druid_spec,
+               force_update: true
+             ) do
           {:error, {:already_started, pid}} ->
             {:ok, pid}
 
           {:error, error} ->
             CogyntLogger.error(
               "#{__MODULE__}",
-              "Failed to start Druid Supervisor, error: #{inspect(error)}"
+              "Failed to start Druid Supervisor: #{datasource_name}, error: #{inspect(error)}"
             )
 
             {:error, nil}
@@ -91,7 +102,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     end
   end
 
-  def start_drilldown_druid_with_registry_lookup("template_solution_events" = name) do
+  def start_drilldown_druid_with_registry_lookup("template_solution_events" = datasource_name) do
     druid_spec =
       build_drilldown_druid_ingestion_spec(
         [
@@ -104,19 +115,23 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
           "aid",
           "assertionName"
         ],
-        name
+        datasource_name
       )
 
-    case DruidSupervisor.whereis(name) do
+    case DruidSupervisor.whereis(datasource_name) do
       nil ->
-        case DruidSupervisor.start_child(name: name, druid_spec: druid_spec, force_update: true) do
+        case DruidSupervisor.start_child(
+               name: datasource_name,
+               druid_spec: druid_spec,
+               force_update: true
+             ) do
           {:error, {:already_started, pid}} ->
             {:ok, pid}
 
           {:error, error} ->
             CogyntLogger.error(
               "#{__MODULE__}",
-              "Failed to start Druid Supervisor, error: #{inspect(error)}"
+              "Failed to start Druid Supervisor: #{datasource_name}, error: #{inspect(error)}"
             )
 
             {:error, nil}
@@ -131,14 +146,15 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     end
   end
 
-  def update_druid_with_registry_lookup(name, event_definition) do
-    druid_spec = build_druid_ingest_spec(name, event_definition)
+  def update_druid_with_registry_lookup(event_definition) do
+    datasource_name = event_definition.topic
+    druid_spec = build_druid_ingest_spec(event_definition)
 
-    case DruidSupervisor.whereis(name) do
+    case DruidSupervisor.whereis(datasource_name) do
       nil ->
         CogyntLogger.info(
           "#{__MODULE__}",
-          "update_druid_with_registry_lookup/2 No supervisor running. No need to update"
+          "update_druid_with_registry_lookup/2 No supervisor running for: #{datasource_name}. No need to update"
         )
 
         {:ok, nil}
@@ -149,12 +165,12 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     end
   end
 
-  def resume_druid_with_registry_lookup(name) do
-    case DruidSupervisor.whereis(name) do
+  def resume_druid_with_registry_lookup(datasource_name) do
+    case DruidSupervisor.whereis(datasource_name) do
       nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
-          "resume_druid_with_registry_lookup/1. No PID registred for #{name}"
+          "resume_druid_with_registry_lookup/1. No PID registred for #{datasource_name}"
         )
 
         {:error, :not_found}
@@ -169,30 +185,30 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
           SupervisorMonitor.SupervisorStatus.is_running?(state) ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "Druid supervisor: #{name} already running"
+              "Druid supervisor: #{datasource_name} already running"
             )
 
           SupervisorMonitor.SupervisorStatus.is_pending?(state) ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "Druid supervisor: #{name} has a pending status and is already starting."
+              "Druid supervisor: #{datasource_name} has a pending status and is already starting."
             )
 
           true ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "Druid supervisor: #{name} has an unhandled state #{state}."
+              "Druid supervisor: #{datasource_name} has an unhandled state #{state}, Failed to Resume"
             )
         end
     end
   end
 
-  def suspend_druid_with_registry_lookup(name) do
-    case DruidSupervisor.whereis(name) do
+  def suspend_druid_with_registry_lookup(datasource_name) do
+    case DruidSupervisor.whereis(datasource_name) do
       nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
-          "suspend_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
+          "suspend_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{datasource_name}"
         )
 
         {:error, :not_found}
@@ -204,7 +220,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
           SupervisorMonitor.SupervisorStatus.is_suspended?(state) ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "Druid supervisor: #{name} already suspended"
+              "Druid supervisor: #{datasource_name} already suspended"
             )
 
           SupervisorMonitor.SupervisorStatus.is_running?(state) ->
@@ -213,54 +229,54 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
           SupervisorMonitor.SupervisorStatus.is_pending?(state) ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "Druid supervisor: #{name} has a pending status you may want to wait and retry."
+              "Druid supervisor: #{datasource_name} has a pending status you may want to wait and retry."
             )
 
           true ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "Druid supervisor: #{name} has an unhandled state #{state}."
+              "Druid supervisor: #{datasource_name} has an unhandled state #{state}, Failed to Suspend"
             )
         end
     end
   end
 
-  def reset_druid_with_registry_lookup(name) do
-    case DruidSupervisor.whereis(name) do
+  def drop_and_reset_druid_with_registry_lookup(datasource_name) do
+    case DruidSupervisor.whereis(datasource_name) do
       nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
-          "reset_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
+          "drop_and_reset_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{datasource_name}"
         )
 
         {:error, :not_found}
 
       pid ->
-        SupervisorMonitor.delete_data_and_reset_supervisor(pid)
+        {:ok, SupervisorMonitor.delete_data_and_reset_supervisor(pid)}
     end
   end
 
-  def terminate_druid_with_registry_lookup(name) do
-    case DruidSupervisor.whereis(name) do
+  def drop_and_terminate_druid_with_registry_lookup(datasource_name) do
+    case DruidSupervisor.whereis(datasource_name) do
       nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
-          "terminate_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
+          "drop_and_terminate_druid_with_registry_lookup/1. No PID registred with DruidRegistry for #{datasource_name}"
         )
 
         {:error, :not_found}
 
       pid ->
-        SupervisorMonitor.terminate_and_shutdown(pid)
+        {:ok, SupervisorMonitor.delete_data_and_terminate(pid)}
     end
   end
 
-  def check_status_with_registry_lookup(name) do
-    case DruidSupervisor.whereis(name) do
+  def check_status_with_registry_lookup(datasource_name) do
+    case DruidSupervisor.whereis(datasource_name) do
       nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
-          "check_status_with_registry_lookup/1. No PID registred with DruidRegistry for #{name}"
+          "check_status_with_registry_lookup/1. No PID registred with DruidRegistry for #{datasource_name}"
         )
 
         {:error, :not_found}
@@ -273,7 +289,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp build_druid_ingest_spec(name, event_definition) do
+  defp build_druid_ingest_spec(event_definition) do
     default_dimensions = default_druid_dimensions()
     default_fields = default_druid_fields()
     # Build the DimensionSpecs and FlattenSpecs based off of the defaults
@@ -285,8 +301,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
                                                                 path: field_path
                                                               },
                                                               {acc_dimensions, acc_fields} ->
-        sigil_field_path = ~s("#{field_path}")
-
         cond do
           # Any type that is not supported by Native Druid types need to be matched here
           field_type == "geo" or
@@ -361,14 +375,10 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         end
       end)
 
-    IO.inspect(dimensions, label: "DRUID DIMENSIONS")
-
     timestamp = build_timestamp_spec(dimensions)
 
-    IO.inspect(timestamp, label: "DRUID TIMESTAMP")
-
     %{
-      supervisor_id: name,
+      supervisor_id: event_definition.topic,
       brokers:
         Config.kafka_brokers()
         |> Enum.map(fn {host, port} -> "#{host}:#{port}" end)
@@ -389,6 +399,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
   # so we need to wrap it in [""]
   defp field_path_to_druid_path(field_path) do
     [start | tail] = String.split(field_path, "|")
+
     Enum.reduce(tail, "[\"#{start}\"]", fn
       i, acc ->
         acc <> ".[\"" <> i <> "\"]"

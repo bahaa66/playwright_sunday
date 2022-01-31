@@ -13,7 +13,6 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     "assertion_id",
     "templateTypeId",
     Config.version_key(),
-    # TODO: May be able to remove below at some point
     "solution_id",
     "data_type"
   ]

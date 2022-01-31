@@ -20,7 +20,7 @@ defmodule CogyntWorkstationIngest.MixProject do
   def application do
     [
       mod: {CogyntWorkstationIngest.Application, []},
-      extra_applications: [:logger, :runtime_tools, :scrivener_ecto]
+      extra_applications: [:logger, :runtime_tools, :scrivener_ecto, :crypto, :ssl]
     ]
   end
 
@@ -49,7 +49,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:plug_cowboy, "~> 2.0"},
       {:health_checkup, "~> 0.1.0"},
       {:ecto_enum, "~> 1.4"},
-      {:broadway_kafka, "~> 0.3.0 ", override: true},
+      {:broadway_kafka, "~> 0.3.1", override: true},
       {:httpoison, "~> 1.7"},
       {:junit_formatter, "~> 3.0"},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
@@ -74,14 +74,14 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :models,
-        tag: "v1.16.0",
+        tag: "v1.16.5",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.16.0",
+        tag: "v1.16.5",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
@@ -102,7 +102,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :druid,
-        tag: "v1.16.0",
+        tag: "v1.16.5",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "druid"
       },

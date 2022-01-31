@@ -36,9 +36,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           "event_type" ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Received deployment message for objectType: event_type, version: 2.0, id: #{
-                deployment_message.id
-              }"
+              "Received deployment message for objectType: event_type, version: 2.0, id: #{deployment_message.id}"
             )
 
             process_event_type_object_v2(deployment_message)
@@ -47,9 +45,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           "deployment" ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Received deployment message for objectType: deployment, version: 2.0, id: #{
-                deployment_message.id
-              }"
+              "Received deployment message for objectType: deployment, version: 2.0, id: #{deployment_message.id}"
             )
 
             process_deployment_object_v2(deployment_message)
@@ -59,9 +55,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           "user_data_schema" ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Received deployment message for objectType: user_data_schema, version: 2.0, id: #{
-                deployment_message.id
-              }"
+              "Received deployment message for objectType: user_data_schema, version: 2.0, id: #{deployment_message.id}"
             )
 
             process_user_data_schema_object(deployment_message)
@@ -70,9 +64,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           nil ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "process_deployment_message/1 `objectType` key is missing from Deployment Stream message. #{
-                inspect(deployment_message, pretty: true)
-              }"
+              "process_deployment_message/1 `objectType` key is missing from Deployment Stream message. #{inspect(deployment_message, pretty: true)}"
             )
 
             message
@@ -93,9 +85,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           nil ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "`object_type` key is missing from Deployment Stream message. #{
-                inspect(deployment_message, pretty: true)
-              }"
+              "`object_type` key is missing from Deployment Stream message. #{inspect(deployment_message, pretty: true)}"
             )
 
             message
@@ -103,9 +93,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           "event_type" ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Received deployment message for object_type: event_type, version: 1.0, id: #{
-                deployment_message.id
-              }"
+              "Received deployment message for object_type: event_type, version: 1.0, id: #{deployment_message.id}"
             )
 
             process_event_type_object(deployment_message)
@@ -114,9 +102,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
           "deployment" ->
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Received deployment message for object_type: deployment, version: 1.0, id: #{
-                deployment_message.id
-              }"
+              "Received deployment message for object_type: deployment, version: 1.0, id: #{deployment_message.id}"
             )
 
             process_deployment_object(deployment_message)
@@ -233,7 +219,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_data_sources(deployment_message) do
-    IO.inspect(deployment_message, label: "MSG for DataSources")
+    # IO.inspect(deployment_message, label: "MSG for DataSources")
 
     Enum.each(
       deployment_message.data_sources,
@@ -285,7 +271,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_event_type_object(deployment_message) do
-    IO.inspect(deployment_message, label: "MSG for Event-type")
+    # IO.inspect(deployment_message, label: "MSG for Event-type")
 
     data_source_id_uuid =
       UUID.uuid5(@deployment_target_hash_constant, to_string(deployment_message.data_source_id))
@@ -315,7 +301,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
       {:ok, event_definition} ->
         with name <- ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id),
              true <- name != "" do
-          DruidRegistryHelper.update_druid_with_registry_lookup(name, event_definition)
+          DruidRegistryHelper.update_druid_with_registry_lookup(event_definition)
         end
 
       error ->
@@ -350,7 +336,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
       {:ok, event_definition} ->
         with name <- ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id),
              true <- name != "" do
-          DruidRegistryHelper.update_druid_with_registry_lookup(name, event_definition)
+          DruidRegistryHelper.update_druid_with_registry_lookup(event_definition)
         end
 
       error ->

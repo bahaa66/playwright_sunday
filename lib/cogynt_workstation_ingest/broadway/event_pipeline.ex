@@ -424,9 +424,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         if is_nil(tmc) or is_nil(tmp) do
           CogyntLogger.info(
             "#{__MODULE__}",
-            "TMC or TMP returned NIL, key has expired. EventDefinitionHashId: #{
-              event_definition_hash_id
-            }"
+            "TMC or TMP returned NIL, key has expired. EventDefinitionHashId: #{event_definition_hash_id}"
           )
 
           true
@@ -437,9 +435,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   @doc false
-  def suspend_pipeline(event_definition_hash_id) do
-    name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_hash_id)
-    DruidRegistryHelper.suspend_druid_with_registry_lookup(name)
+  def suspend_pipeline(event_definition) do
+    name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id)
+    DruidRegistryHelper.suspend_druid_with_registry_lookup(event_definition.topic)
 
     String.to_atom(name <> "Pipeline")
     |> Broadway.producer_names()
@@ -449,9 +447,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   @doc false
-  def resume_pipeline(event_definition_hash_id) do
-    name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition_hash_id)
-    DruidRegistryHelper.resume_druid_with_registry_lookup(name)
+  def resume_pipeline(event_definition) do
+    name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id)
+    DruidRegistryHelper.resume_druid_with_registry_lookup(event_definition.topic)
 
     String.to_atom(name <> "Pipeline")
     |> Broadway.producer_names()
@@ -488,9 +486,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     CogyntLogger.info(
       "#{__MODULE__}",
-      "EventPipeline finished processing messages for EventDefinitionHashId: #{
-        event_definition_hash_id
-      }"
+      "EventPipeline finished processing messages for EventDefinitionHashId: #{event_definition_hash_id}"
     )
   end
 

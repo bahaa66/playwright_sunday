@@ -1,6 +1,5 @@
 defmodule CogyntWorkstationIngest.Config do
-
-  def env(), do: Application.get_env(:cogynt_workstation_ingest, :env)
+  def env(), do: Application.get_env(:cogynt_workstation_ingest, :environment)
   def deployment_processor_stages(), do: deployment_pipeline()[:processor_stages]
   def deployment_producer_stages(), do: deployment_pipeline()[:producer_stages]
 
@@ -244,7 +243,7 @@ defmodule CogyntWorkstationIngest.Config do
 
   defp elasticsearch(), do: Application.get_env(:elasticsearch, :application)
 
-  #defp elasticsearch_cluster(), do: Application.get_env(:cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster)
+  # defp elasticsearch_cluster(), do: Application.get_env(:cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster)
 
   defp clients(), do: Application.get_env(:cogynt_workstation_ingest, :clients)
 
