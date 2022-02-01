@@ -3,17 +3,14 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
   alias CogyntWorkstationIngest.ElasticsearchAPI
   alias CogyntWorkstationIngest.Config
 
-  # @apps [
-  #   :postgrex,
-  #   :ecto_sql,
-  #   :ecto,
-  #   :elasticsearch,
-  #   :httpoison
-  # ]
+  @deps [
+    :elasticsearch,
+    :httpoison
+  ]
 
   def eval_elasticsearch do
-    load_app
-    create_elastic_deps
+    start_services()
+    create_elastic_deps()
   end
 
   # ----------------------- #
@@ -37,11 +34,15 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
         IO.puts("Failed to Create #{Config.event_index_alias()} Index: #{reason}")
 
       {:error, error} ->
-        IO.puts("Failed to Create #{Config.event_index_alias()} Index: #{inspect(error, pretty: true)}")
+        IO.puts(
+          "Failed to Create #{Config.event_index_alias()} Index: #{inspect(error, pretty: true)}"
+        )
     end
   end
 
-  defp load_app do
-    Application.load(@app)
+  defp start_services do
+    # Start deps
+    IO.puts("Starting dependencies..")
+    Enum.each(@deps, &Application.ensure_all_started/1)
   end
 end
