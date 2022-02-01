@@ -4,6 +4,9 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
   alias CogyntWorkstationIngest.Config
 
   @deps [
+    :postgrex,
+    :ecto_sql,
+    :ecto,
     :elasticsearch,
     :httpoison
   ]
@@ -43,7 +46,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
   defp start_services do
     # Start deps
     IO.puts("Starting dependencies..")
-    Application.ensure_all_started(@app)
-    # Enum.each(@deps, &Application.ensure_all_started/1)
+    #Application.ensure_all_started(@app)
+    Enum.each(@deps, &Application.ensure_all_started/1)
   end
 end
