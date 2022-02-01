@@ -1,3 +1,4 @@
+# TODO: Depricated with Mix.Release
 # # Import all plugins from `rel/plugins`
 # # They can then be used by adding `plugin MyPlugin` to
 # # either an environment, or release definition, where
