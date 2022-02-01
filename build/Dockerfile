@@ -45,6 +45,7 @@ FROM 478685488679.dkr.ecr.us-west-2.amazonaws.com/common/ubi8/minimal:1.2.3 AS a
 ARG APP_NAME=cogynt_workstation_ingest
 
 COPY --from=builder --chown=${APP_USER}:${APP_USER} ${APP_ROOT}/dist app
+COPY --from=builder --chown=${APP_USER}:${APP_USER} ${APP_ROOT}/rel/hooks ${APP_ROOT}
 RUN mv ${APP_ROOT}/bin/${APP_NAME} ${APP_ROOT}/bin/server
 # Run the app
-CMD ["server", "start"]
+CMD ["sh", "-c", "${APP_ROOT}/pre_start.sh ; server start"]
