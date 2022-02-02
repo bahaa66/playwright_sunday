@@ -7,24 +7,31 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
   alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
+  alias CogyntWorkstationIngest.ElasticsearchAPI
 
   def start_link(_arg \\ []) do
     Task.start_link(__MODULE__, :run, [])
   end
 
   def run() do
-    start_event_type_pipelines()
-    start_deployment_pipeline()
+    case create_elastic_deps() do
+      {:ok, _} ->
+        start_event_type_pipelines()
+        start_deployment_pipeline()
 
-    DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
-      Config.template_solutions_topic()
-    )
+        DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
+          Config.template_solutions_topic()
+        )
 
-    DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
-      Config.template_solution_events_topic()
-    )
+        DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
+          Config.template_solution_events_topic()
+        )
 
-    ExqHelpers.resubscribe_to_all_queues()
+        ExqHelpers.resubscribe_to_all_queues()
+
+      {:error, _} ->
+        raise "StartUp Task Failed, Failed to Create/Reindex Elasticsearch"
+    end
   end
 
   # ----------------------- #
@@ -49,5 +56,44 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
 
   defp start_deployment_pipeline() do
     Redis.publish_async("ingest_channel", %{start_deployment_pipeline: "deployment"})
+  end
+
+  defp create_elastic_deps() do
+    CogyntLogger.info("#{__MODULE__}", "Creating Elastic Indexes...")
+
+    with {:ok, false} <- ElasticsearchAPI.index_exists?(Config.event_index_alias()) do
+      ElasticsearchAPI.create_index(Config.event_index_alias())
+
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "The Index: #{Config.event_index_alias()} for CogyntWorkstation has been created."
+      )
+
+      CogyntLogger.info("#{__MODULE__}", "Indexes complete..")
+      {:ok, :success}
+    else
+      {:ok, true} ->
+        ElasticsearchAPI.check_to_reindex()
+        CogyntLogger.info("#{__MODULE__}", "Reindexing Check complete..")
+        {:ok, :success}
+
+      {:error, %Elasticsearch.Exception{raw: %{"error" => error}}} ->
+        reason = Map.get(error, "reason")
+
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Failed to Create #{Config.event_index_alias()} Index: #{reason}"
+        )
+
+        {:error, reason}
+
+      {:error, error} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Failed to Create #{Config.event_index_alias()} Index: #{inspect(error, pretty: true)}"
+        )
+
+        {:error, error}
+    end
   end
 end
