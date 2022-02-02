@@ -52,6 +52,8 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
   defp start_services do
     # Start deps
     IO.puts("Starting dependencies...")
-    Enum.each(@deps, &Application.ensure_all_started/1)
+    # Enum.each(@deps, &Application.ensure_all_started/1)
+    Application.ensure_all_started(:httpoison)
+    Application.ensure_all_started(CogyntWorkstationIngest.Elasticsearch.Cluster)
   end
 end
