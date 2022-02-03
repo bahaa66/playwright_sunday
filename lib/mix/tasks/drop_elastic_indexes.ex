@@ -11,6 +11,8 @@ defmodule Mix.Tasks.DropElasticIndexes do
 
   @impl Mix.Task
   def run(_) do
+    Mix.Task.run("app.config")
+
     with {:ok, _} <- HTTPoison.start(),
          {:ok, index} <- ElasticsearchAPI.latest_starting_with(Config.event_index_alias()) do
       Elasticsearch.delete(Cluster, index)

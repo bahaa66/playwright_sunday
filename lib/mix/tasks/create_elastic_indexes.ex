@@ -10,6 +10,8 @@ defmodule Mix.Tasks.CreateElasticIndexes do
 
   @impl Mix.Task
   def run(_) do
+    Mix.Task.run("app.config")
+
     with {:ok, _} <- HTTPoison.start(),
          {:ok, _} <- CogyntWorkstationIngest.Elasticsearch.Cluster.start_link(),
          {:ok, false} <- ElasticsearchAPI.index_exists?(Config.event_index_alias()),
