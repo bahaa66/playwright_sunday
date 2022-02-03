@@ -52,14 +52,14 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   Suspends the current Druid supervisor
   """
   def suspend_supervisor(pid) do
-    GenServer.call(pid, :suspend_supervisor, 10000)
+    GenServer.call(pid, :suspend_supervisor, :infinity)
   end
 
   @doc """
   Resumes the current Druid supervisor
   """
   def resume_supervisor(pid) do
-    GenServer.call(pid, :resume_supervisor, 10000)
+    GenServer.call(pid, :resume_supervisor, :infinity)
   end
 
   @doc """
@@ -309,6 +309,16 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
     CogyntLogger.info(
       "#{__MODULE__}",
       "terminate_and_shutdown: Shutting down Druid Supervisor Monitor for Datasource: #{id}"
+    )
+
+    {:stop, :normal, state}
+  end
+
+  @impl GenServer
+  def handle_continue(:shutdown_server, %{id: id} = state) do
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "shutdown_server: Shutting down Druid Supervisor Monitor for Datasource: #{id}"
     )
 
     {:stop, :normal, state}
