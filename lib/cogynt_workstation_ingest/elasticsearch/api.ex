@@ -40,7 +40,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     try do
       case Elasticsearch.Index.create_from_file(Cluster, name, settings_file) do
         :ok ->
-          Index.alias(Cluster, name, Config.event_index_alias())
+         Index.alias(Cluster, name, Config.event_index_alias())
           IO.puts("Created index: #{name}")
           {:ok, true}
 
@@ -113,6 +113,14 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
         |> Enum.sort()
 
       {:ok, indexes}
+    else
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Failed get indices from Elasticsearch #{inspect(error)}"
+        )
+
+        {:error, error}
     end
   end
 
@@ -133,20 +141,35 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
           | {:error, Elasticsearch.Exception.t()}
   def latest_starting_with(prefix) do
     with {:ok, indexes} <- starting_with(prefix) do
-      index =
-        indexes
-        |> Enum.sort()
-        |> List.last()
-
-      case index do
-        nil ->
-          {:error, :not_found}
-
-        index ->
+      cond do
+        length(indexes) == 1 ->
+          index = indexes |> List.last()
           IO.inspect(index, label: "******* latest_index **********")
           IO.puts("The latest index is #{index}")
           {:ok, index}
+
+        length(indexes) > 1 ->
+          indexes =
+            Enum.reduce(indexes, [], fn index, acc ->
+              case Elasticsearch.get(Cluster, "#{index}/_count") do
+                {:ok, %{"count" => count, "_shards" => _}} ->
+                  if count == 0 do
+                    Elasticsearch.delete(Cluster, "/#{index}")
+                    acc
+                  end
+
+                  [index | acc]
+
+                {:error, error} ->
+                  {:error, error}
+              end
+            end)
+
+          {:ok, indexes |> List.first()}
       end
+    else
+      {:error, error} ->
+        {:error, error}
     end
   end
 
@@ -388,17 +411,27 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   end
 
   defp get_index_mappings() do
-    with {:ok, index} <- latest_starting_with(Config.event_index_alias()),
-         {:ok, %{^index => %{"settings" => settings}}} <-
+    with {:ok, settings} <-
            Elasticsearch.get(Cluster, "#{Config.event_index_alias()}/_settings"),
-         {:ok, %{^index => mappings}} <-
+         {:ok, mappings} <-
            Elasticsearch.get(Cluster, "#{Config.event_index_alias()}/_mapping") do
-      index =
+      event_index =
         settings
+        |> Map.keys()
+        |> List.first()
+
+      index_settings =
+        settings
+        |> Map.get(event_index)
+        |> Map.get("settings")
         |> Map.get("index")
         |> Map.drop(["creation_date", "provided_name", "uuid", "version"])
 
-      {:ok, Map.merge(%{"settings" => %{"index" => index}}, mappings)}
+      index_mappings =
+        mappings
+        |> Map.get(event_index)
+
+      {:ok, Map.merge(%{"settings" => %{"index" => index_settings}}, index_mappings)}
     else
       {:error, reason} ->
         IO.puts("Cannot get Elasticsearch Index Settings or Mappings because " <> reason)
