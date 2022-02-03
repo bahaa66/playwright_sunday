@@ -113,7 +113,7 @@ config :exq,
   missed_heartbeats_allowed: 5
 
 config :druid,
-  request_timeout: 120000,
+  request_timeout: 120_000,
   query_priority: 0,
   broker_profiles: [
     default: [

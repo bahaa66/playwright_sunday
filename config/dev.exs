@@ -1,5 +1,17 @@
 import Config
 
+# Redis Configurations
+config :redis, :application,
+  port: 6379,
+  host: "127.0.0.1"
+
+# Set a higher stacktrace during development. Avoid configuring such
+# in production as building large stacktraces may be expensive.
+config :phoenix, :stacktrace_depth, 20
+
+# Initialize plugs at runtime for faster development compilation
+config :phoenix, :plug_init_mode, :runtime
+
 # # Session Configurations
 # config :cogynt_workstation_ingest,
 #   session_domain: System.get_env("COGYNT_SESSION_DOMAIN") || "localhost",
@@ -9,26 +21,26 @@ import Config
 #   authoring_version: System.get_env("COGYNT_AUTHORING_VERSION") || "1"
 
 # config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
-  # load_from_system_env: true,
-  # url: [host: System.get_env("COGYNT_DOMAIN") || "localhost"],
-  # secret_key_base:
-  #   System.get_env("COGYNT_SECRET_KEY_BASE") ||
-  #     "YqoQsxs2MpNBdH4PrtQYNY1JnJfscSFBIADEDqs6wSMIn3/8+TjYkbm6CrPx2yVJ",
-  # render_errors: [view: CogyntWorkstationIngestWeb.ErrorView, accepts: ~w(json)],
-  # pubsub_server: CogyntWorkstationIngestWeb.PubSub,
-  # https: [
-  #   port: (System.get_env("HTTPS_PORT") || "450") |> String.to_integer(),
-  #   otp_app: :cogynt_workstation_ingest,
-  #   keyfile: System.get_env("TLS_KEY_PATH") || "",
-  #   certfile: System.get_env("TLS_CERT_PATH") || ""
-  # ],
-  # http: [port: (System.get_env("HTTP_PORT") || "4002") |> String.to_integer()],
-  # debug_errors: true,
-  # code_reloader: true,
-  # check_origin: false,
-  # server: true,
-  # watchers: [],
-  # live_view: [signing_salt: System.get_env("COGYNT_AUTH_SALT") || "I45Kpw9a"]
+# load_from_system_env: true,
+# url: [host: System.get_env("COGYNT_DOMAIN") || "localhost"],
+# secret_key_base:
+#   System.get_env("COGYNT_SECRET_KEY_BASE") ||
+#     "YqoQsxs2MpNBdH4PrtQYNY1JnJfscSFBIADEDqs6wSMIn3/8+TjYkbm6CrPx2yVJ",
+# render_errors: [view: CogyntWorkstationIngestWeb.ErrorView, accepts: ~w(json)],
+# pubsub_server: CogyntWorkstationIngestWeb.PubSub,
+# https: [
+#   port: (System.get_env("HTTPS_PORT") || "450") |> String.to_integer(),
+#   otp_app: :cogynt_workstation_ingest,
+#   keyfile: System.get_env("TLS_KEY_PATH") || "",
+#   certfile: System.get_env("TLS_CERT_PATH") || ""
+# ],
+# http: [port: (System.get_env("HTTP_PORT") || "4002") |> String.to_integer()],
+# debug_errors: true,
+# code_reloader: true,
+# check_origin: false,
+# server: true,
+# watchers: [],
+# live_view: [signing_salt: System.get_env("COGYNT_AUTH_SALT") || "I45Kpw9a"]
 
 # Kafka Configurations
 # config :kafka, :application,
@@ -175,15 +187,3 @@ import Config
 #   cogynt_auth_service_name: System.get_env("COGYNT_AUTH_SERVICE_NAME") || "http://localhost",
 #   cogynt_auth_service_port:
 #     (System.get_env("COGYNT_AUTH_SERVICE_PORT") || "4999") |> String.to_integer()
-
-# Redis Configurations
-config :redis, :application,
-  port: 6379,
-  host: "127.0.0.1"
-
-# Set a higher stacktrace during development. Avoid configuring such
-# in production as building large stacktraces may be expensive.
-config :phoenix, :stacktrace_depth, 20
-
-# Initialize plugs at runtime for faster development compilation
-config :phoenix, :plug_init_mode, :runtime
