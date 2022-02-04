@@ -61,7 +61,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:exq, git: "git@github.com:akira/exq.git", branch: "master"},
       {:libcluster, "~> 3.3.0"},
       {:horde, "~> 0.8.3"},
-      {:absinthe, "~> 1.6.2"},
+      {:absinthe, "~> 1.7.0"},
       {:absinthe_plug, "~> 1.5.5"},
       {:dataloader, "~> 1.0.0"},
       {:elixir_uuid, "~> 1.2"},
@@ -108,7 +108,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :cogynt_graphql,
-        tag: "v1.16.0",
+        tag: "v1.16.6-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt_graphql",
         override: true

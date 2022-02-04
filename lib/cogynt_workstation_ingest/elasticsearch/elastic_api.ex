@@ -1,7 +1,11 @@
-defmodule CogyntWorkstationIngest.ElasticsearchAPI do
+defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
   alias Elasticsearch.Index
   alias CogyntWorkstationIngest.Elasticsearch.Cluster
   alias CogyntWorkstationIngest.Config
+
+  # --------------------- #
+  # --- Index Methods --- #
+  # ---------------------- #
 
   def index_exists?(index) do
     try do
@@ -9,14 +13,18 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
         {:ok, true}
       else
         {:error, error} ->
-          IO.inspect(error, label: "****** error: index_exists? ********")
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "index_exists?/1 Failed to check for index: #{index}. Error: #{inspect(error)}"
+          )
+
           {:ok, false}
       end
     rescue
       e in HTTPoison.Error ->
         CogyntLogger.error(
-          "Elasticsearch Connection Failure",
-          "Unable to connect to elasticsearch while checking if index_exists. Index: #{index} Error: #{e.reason}"
+          "#{__MODULE__}",
+          "index_exists?/1 Unable to connect to Elasticsearch while checking if index_exists. Index: #{index} Error: #{inspect(e.reason)}"
         )
 
         {:error, e.reason}
@@ -25,29 +33,28 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
 
   def create_index(index) do
     name = build_name(index)
-    priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
+    settings_file = index_mappings_file()
 
-    settings_file =
-      if Config.env() == :dev do
-        Path.join(priv_folder, "event.dev.active.json")
-      else
-        Path.join(priv_folder, "event.prod.active.json")
-      end
-
+    ## DEBUG LOGS ##
     IO.inspect(settings_file, label: "****** create_index: settings_file ***********")
     IO.puts("Create Index: Settings file path #{settings_file}")
 
     try do
       case Elasticsearch.Index.create_from_file(Cluster, name, settings_file) do
         :ok ->
-         Index.alias(Cluster, name, Config.event_index_alias())
-          IO.puts("Created index: #{name}")
+          Index.alias(Cluster, name, Config.event_index_alias())
+
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "create_index/1 Success. Index: #{name}"
+          )
+
           {:ok, true}
 
         {:error, error} ->
           CogyntLogger.error(
-            "Creating Elasticsearch Index Error",
-            "Failed to create index: #{index}. Error: #{inspect(error)}"
+            "#{__MODULE__}",
+            "create_index/1 Failed to create index: #{index}. Error: #{inspect(error)}"
           )
 
           {:error, error}
@@ -55,8 +62,8 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     rescue
       e in HTTPoison.Error ->
         CogyntLogger.error(
-          "Elasticsearch Connection Failure",
-          "Unable to connect to elasticsearch while creating index alias. Index: #{index} Error: #{e.reason}"
+          "#{__MODULE__}",
+          "create_index/1 Unable to connect to Elasticsearch while creating index alias. Index: #{index} Error: #{inspect(e.reason)}"
         )
 
         {:error, e.reason}
@@ -74,7 +81,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
 
         {:error, error} ->
           CogyntLogger.error(
-            "Checking Elasticsearch Index Health Error",
+            "#{__MODULE__}",
             "Failed to return index health, index: #{index}. Error: #{inspect(error)}"
           )
 
@@ -83,8 +90,8 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     rescue
       e in HTTPoison.Error ->
         CogyntLogger.error(
-          "Elasticsearch Connection Failure",
-          "Unable to connect to elasticsearch while checking index health. Index: #{index} Error: #{e.reason}"
+          "#{__MODULE__}",
+          "Unable to connect to Elasticsearch while checking index health. Index: #{index} Error: #{inspect(e.reason)}"
         )
 
         {:error, false}
@@ -98,9 +105,6 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
       ...> Index.starting_with("posts")
       {:ok, ["posts_1"]}
   """
-  @spec starting_with(String.t() | atom) ::
-          {:ok, [String.t()]}
-          | {:error, Elasticsearch.Exception.t()}
   def starting_with(prefix) do
     with {:ok, indexes} <- Elasticsearch.get(Cluster, "/_cat/indices?format=json") do
       prefix = prefix |> to_string() |> Regex.escape()
@@ -117,7 +121,7 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Failed get indices from Elasticsearch #{inspect(error)}"
+          "Failed to get indices from Elasticsearch #{inspect(error)}"
         )
 
         {:error, error}
@@ -135,10 +139,6 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
       iex> latest_starting_with("nonexistent")
       {:error, :not_found}
   """
-  @spec latest_starting_with(String.t() | atom) ::
-          {:ok, String.t()}
-          | {:error, :not_found}
-          | {:error, Elasticsearch.Exception.t()}
   def latest_starting_with(prefix) do
     with {:ok, indexes} <- starting_with(prefix) do
       cond do
@@ -179,15 +179,9 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     name = build_name(alias)
     # %{settings: settings_file} = index_config = config[:indexes][alias]
     index_config = config[:indexes][alias]
-    priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
+    settings_file = index_mappings_file()
 
-    settings_file =
-      if Config.env() == :dev do
-        Path.join(priv_folder, "event.dev.active.json")
-      else
-        Path.join(priv_folder, "event.prod.active.json")
-      end
-
+    ## DEBUG LOGS ##
     IO.inspect(settings_file, label: "******** reindex settings file ********")
     IO.puts("Reindex: Settings file path #{settings_file}")
 
@@ -196,66 +190,48 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
          :ok <- Elasticsearch.Index.alias(config, name, alias),
          :ok <- clean_starting_with(config, alias, 1),
          :ok <- Elasticsearch.Index.refresh(config, name) do
-      IO.puts("The event index #{name} for CogyntWorkstation has been created by reindexing.....")
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "reindex/1 The event index #{name} has been reindexed..."
+      )
+
       :ok
     else
       errors ->
-        IO.puts("Error while Reindexing #{inspect(errors)}")
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "reindex/1 Failed. Error: #{inspect(errors)}"
+        )
 
       {:error, errors} ->
-        IO.puts("Error while Reindexing #{inspect(errors)}")
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "reindex/1 Failed. Error: #{inspect(errors)}"
+        )
     end
   end
+
+  # ------------------------ #
+  # --- Document Methods --- #
+  # ------------------------ #
 
   def bulk_upload(config, index, index_config) do
     case Elasticsearch.Index.Bulk.upload(config, index, index_config) do
       :ok ->
-        IO.puts("Bulk upload complete for index #{index}")
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "bulk_upload/3 complete for Elasticsearch index: #{index}"
+        )
+
         :ok
 
       {:error, errors} ->
-        IO.puts("Error while bulk uploading #{inspect(errors)}")
-        errors
-    end
-  end
-
-  def delete_by_query(index, query_data) do
-    query = build_term_query(query_data)
-
-    url =
-      url(
-        index,
-        "_delete_by_query?refresh=true&slices=auto&scroll_size=10000"
-      )
-
-    try do
-      case Elasticsearch.post(Cluster, url, query) do
-        {:ok, result} ->
-          deleted = Map.get(result, "deleted")
-
-          CogyntLogger.info(
-            "Removed Record From Elastic",
-            "delete_by_query removed #{deleted} records from Elasticsearch"
-          )
-
-          {:ok, deleted}
-
-        {:error, reason} ->
-          CogyntLogger.error(
-            "Failed To Remove Record From Elasticsearch",
-            "delete_by_query failed with reason #{inspect(reason)}"
-          )
-
-          {:error, reason}
-      end
-    rescue
-      e in HTTPoison.Error ->
         CogyntLogger.error(
-          "Elasticsearch Connection Failure",
-          "Unable to connect to elasticsearch for delete_by_query. Index: #{index} Error: #{e.reason}"
+          "#{__MODULE__}",
+          "bulk_upload/3 Failed for Elasticsearch index: #{index}. Error: #{inspect(errors)}"
         )
 
-        {:error, e.reason}
+        errors
     end
   end
 
@@ -276,8 +252,8 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
 
         {:error, error} ->
           CogyntLogger.error(
-            "Elasticsearch Bulk Upsert Error",
-            "Failed to bulk upsert documents for index: #{index}. Error: #{inspect(error)}"
+            "#{__MODULE__}",
+            "bulk_upsert_document/2 Failed to bulk upsert documents for index: #{index}. Error: #{inspect(error)}"
           )
 
           {:error, error}
@@ -285,22 +261,53 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     rescue
       e in HTTPoison.Error ->
         CogyntLogger.error(
-          "Elasticsearch Connection Failure",
-          "Unable to connect to elasticsearch while bulk upserting document. Index: #{index} Error: #{e.reason}"
+          "#{__MODULE__}",
+          "bulk_upsert_document/2 Unable to connect to Elasticsearch while bulk upserting document. Index: #{index} Error: #{inspect(e.reason)}"
         )
 
         {:error, e.reason}
     end
   end
 
-  def check_to_reindex() do
-    case is_active_index_setting?() do
-      true ->
-        IO.puts("event_index already exists.")
+  def delete_by_query(index, query_data) do
+    query = build_term_query(query_data)
 
-      false ->
-        IO.puts("Current Index mapping is not current....")
-        reindex(Config.event_index_alias())
+    url =
+      url(
+        index,
+        "_delete_by_query?refresh=true&slices=auto&scroll_size=10000"
+      )
+
+    try do
+      case Elasticsearch.post(Cluster, url, query) do
+        {:ok, %{"deleted" => deleted}} ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "delete_by_query/2 removed #{deleted} documents from Elasticsearch"
+          )
+
+          {:ok, deleted}
+
+        {:ok, _} ->
+          # TODO: ???
+          {:ok, 0}
+
+        {:error, reason} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "delete_by_query/2 failed to remove data from Elasticsearch. Reason: #{inspect(reason)}"
+          )
+
+          {:error, reason}
+      end
+    rescue
+      e in HTTPoison.Error ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "delete_by_query/2 Unable to connect to elasticsearch for delete_by_query. Index: #{index} Error: #{inspect(e.reason)}"
+        )
+
+        {:error, e.reason}
     end
   end
 
@@ -310,12 +317,17 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     try do
       case Elasticsearch.post(Cluster, "_bulk", bulk_delete_data) do
         {:ok, result} ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "bulk_delete/2 Success. Result: #{inspect(result, pretty: true)}"
+          )
+
           {:ok, result}
 
         {:error, error} ->
           CogyntLogger.error(
-            "Elasticsearch Bulk Delete Error",
-            "Failed to bulk delete documents for index: #{index}. Error: #{inspect(error)}"
+            "#{__MODULE__}",
+            "bulk_delete/2 Failed to bulk delete documents for index: #{index}. Error: #{inspect(error)}"
           )
 
           {:error, error}
@@ -323,11 +335,25 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     rescue
       e in HTTPoison.Error ->
         CogyntLogger.error(
-          "Elasticsearch Connection Failure",
-          "Unable to connect to elasticsearch while bulk deleting document. Index: #{index} Error: #{e.reason}"
+          "#{__MODULE__}",
+          "bulk_delete/2 Unable to connect to Elasticsearch while bulk deleting document. Index: #{index} Error: #{inspect(e.reason)}"
         )
 
         {:error, e.reason}
+    end
+  end
+
+  # ---------------------- #
+  # --- Helper Methods --- #
+  # ---------------------- #
+  def check_to_reindex() do
+    case is_active_index_setting?() do
+      true ->
+        IO.puts("Event_Index already exists...")
+
+      false ->
+        IO.puts("Current Event_Index mapping is out dated. Triggering Reindex...")
+        reindex(Config.event_index_alias())
     end
   end
 
@@ -385,15 +411,9 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
   end
 
   defp is_active_index_setting?() do
-    priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
+    settings_file = index_mappings_file()
 
-    settings_file =
-      if Config.env() == :dev do
-        Path.join(priv_folder, "event.dev.active.json")
-      else
-        Path.join(priv_folder, "event.prod.active.json")
-      end
-
+    ## DEBUG LOGS ##
     IO.inspect(settings_file, label: "*********** is_active_index_setting? *********")
     IO.puts("Checking active index settings file path: #{settings_file}")
 
@@ -439,38 +459,31 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     end
   end
 
-  @doc """
-  Generates a name for an index that will be aliased to a given `alias`.
-  Similar to migrations, the name will contain a timestamp.
-  ## Example
-      Index.build_name("main")
-      # => "main-1509581256"
-  """
-  @spec build_name(String.t() | atom) :: String.t()
-  def build_name(alias) do
+  # Generates a name for an index that will be aliased to a given `alias`.
+  # Similar to migrations, the name will contain a timestamp.
+  # ## Example
+  #     Index.build_name("main")
+  #     # => "main-1509581256"
+
+  defp build_name(alias) do
     "#{alias}_#{system_timestamp()}"
   end
 
-  @doc """
-  Removes indexes starting with the given prefix, keeping a certain number.
-  Can be used to garbage collect old indexes that are no longer used.
-   ## Examples
-   If there is only one index, and `num_to_keep` is >= 1, the index is not deleted.
-   iex> Index.create_from_file(Cluster, "posts-1", "test/support/settings/posts.json")
-   ...> Index.clean_starting_with(Cluster, "posts", 1)
-   ...> Index.starting_with(Cluster, "posts")
-   {:ok, ["posts-1"]}
-    If `num_to_keep` is less than the number of indexes, the older indexes are
-    deleted.
-   iex> Index.create_from_file(Cluster, "posts-1", "test/support/settings/posts.json")
-   ...> Index.clean_starting_with(Cluster, "posts", 0)
-   ...> Index.starting_with(Cluster, "posts")
-   {:ok, []}
-  """
-  @spec clean_starting_with(Cluster.t(), String.t(), integer) ::
-          :ok
-          | {:error, [Elasticsearch.Exception.t()]}
-  def clean_starting_with(cluster, prefix, num_to_keep) when is_integer(num_to_keep) do
+  # Removes indexes starting with the given prefix, keeping a certain number.
+  # Can be used to garbage collect old indexes that are no longer used.
+  #  ## Examples
+  #  If there is only one index, and `num_to_keep` is >= 1, the index is not deleted.
+  #  iex> Index.create_from_file(Cluster, "posts-1", "test/support/settings/posts.json")
+  #  ...> Index.clean_starting_with(Cluster, "posts", 1)
+  #  ...> Index.starting_with(Cluster, "posts")
+  #  {:ok, ["posts-1"]}
+  #   If `num_to_keep` is less than the number of indexes, the older indexes are
+  #   deleted.
+  #  iex> Index.create_from_file(Cluster, "posts-1", "test/support/settings/posts.json")
+  #  ...> Index.clean_starting_with(Cluster, "posts", 0)
+  #  ...> Index.starting_with(Cluster, "posts")
+  #  {:ok, []}
+  defp clean_starting_with(cluster, prefix, num_to_keep) when is_integer(num_to_keep) do
     with {:ok, indexes} <- starting_with(prefix) do
       total = length(indexes)
       num_to_delete = total - num_to_keep
@@ -498,5 +511,15 @@ defmodule CogyntWorkstationIngest.ElasticsearchAPI do
     |> DateTime.truncate(:second)
     |> DateTime.to_string()
     |> String.replace(["-", ":", " ", "Z"], "")
+  end
+
+  defp index_mappings_file() do
+    priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
+
+    if Config.env() == :prod do
+      Path.join(priv_folder, "event.prod.active.json")
+    else
+      Path.join(priv_folder, "event.dev.active.json")
+    end
   end
 end

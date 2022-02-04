@@ -21,6 +21,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         event_definition_hash_id: event_definition_hash_id,
         event_type: event_type
       }) do
+    IO.inspect(group_id, label: "EVENT PIPELINE GROUP_ID")
+
     Broadway.start_link(__MODULE__,
       name: String.to_atom(group_id <> "Pipeline"),
       producer: [
