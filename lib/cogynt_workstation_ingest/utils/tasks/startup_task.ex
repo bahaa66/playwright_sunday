@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
   alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
-  alias CogyntWorkstationIngest.ElasticsearchAPI
+  alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
 
   def start_link(_arg \\ []) do
     Task.start_link(__MODULE__, :run, [])
@@ -61,8 +61,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   defp create_elastic_deps() do
     CogyntLogger.info("#{__MODULE__}", "Creating Elastic Indexes...")
 
-    with {:ok, false} <- ElasticsearchAPI.index_exists?(Config.event_index_alias()) do
-      ElasticsearchAPI.create_index(Config.event_index_alias())
+    with {:ok, false} <- ElasticApi.index_exists?(Config.event_index_alias()) do
+      ElasticApi.create_index(Config.event_index_alias())
 
       CogyntLogger.info(
         "#{__MODULE__}",
@@ -73,7 +73,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
       {:ok, :success}
     else
       {:ok, true} ->
-        ElasticsearchAPI.check_to_reindex()
+        ElasticApi.check_to_reindex()
         CogyntLogger.info("#{__MODULE__}", "Reindexing Check complete..")
         {:ok, :success}
 

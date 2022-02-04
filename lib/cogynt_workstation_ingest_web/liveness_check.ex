@@ -1,7 +1,7 @@
 defmodule LivenessCheck do
   import Plug.Conn
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.ElasticsearchAPI
+  alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
 
   @type options :: [resp_body: String.t()]
 
@@ -87,8 +87,8 @@ defmodule LivenessCheck do
   end
 
   defp event_index_health?() do
-    with {:ok, true} <- ElasticsearchAPI.index_health?(Config.event_index_alias()) do
-          true
+    with {:ok, true} <- ElasticApi.index_health?(Config.event_index_alias()) do
+      true
     else
       {:error, _error} ->
         CogyntLogger.error("#{__MODULE__}", "LivenessCheck Event Index Failed")
