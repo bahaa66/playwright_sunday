@@ -141,35 +141,20 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
   """
   def latest_starting_with(prefix) do
     with {:ok, indexes} <- starting_with(prefix) do
-      cond do
-        length(indexes) == 1 ->
-          index = indexes |> List.last()
+      index =
+        indexes
+        |> Enum.sort()
+        |> List.last()
+
+      case index do
+        nil ->
+          {:error, :not_found}
+
+        index ->
           IO.inspect(index, label: "******* latest_index **********")
           IO.puts("The latest index is #{index}")
           {:ok, index}
-
-        length(indexes) > 1 ->
-          indexes =
-            Enum.reduce(indexes, [], fn index, acc ->
-              case Elasticsearch.get(Cluster, "#{index}/_count") do
-                {:ok, %{"count" => count, "_shards" => _}} ->
-                  if count == 0 do
-                    Elasticsearch.delete(Cluster, "/#{index}")
-                    acc
-                  end
-
-                  [index | acc]
-
-                {:error, error} ->
-                  {:error, error}
-              end
-            end)
-
-          {:ok, indexes |> List.first()}
       end
-    else
-      {:error, error} ->
-        {:error, error}
     end
   end
 
@@ -431,27 +416,17 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
   end
 
   defp get_index_mappings() do
-    with {:ok, settings} <-
+    with {:ok, index} <- latest_starting_with(Config.event_index_alias()),
+         {:ok, %{^index => %{"settings" => settings}}} <-
            Elasticsearch.get(Cluster, "#{Config.event_index_alias()}/_settings"),
-         {:ok, mappings} <-
+         {:ok, %{^index => mappings}} <-
            Elasticsearch.get(Cluster, "#{Config.event_index_alias()}/_mapping") do
-      event_index =
+      index =
         settings
-        |> Map.keys()
-        |> List.first()
-
-      index_settings =
-        settings
-        |> Map.get(event_index)
-        |> Map.get("settings")
         |> Map.get("index")
         |> Map.drop(["creation_date", "provided_name", "uuid", "version"])
 
-      index_mappings =
-        mappings
-        |> Map.get(event_index)
-
-      {:ok, Map.merge(%{"settings" => %{"index" => index_settings}}, index_mappings)}
+      {:ok, Map.merge(%{"settings" => %{"index" => index}}, mappings)}
     else
       {:error, reason} ->
         IO.puts("Cannot get Elasticsearch Index Settings or Mappings because " <> reason)
