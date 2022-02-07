@@ -1,6 +1,4 @@
 defimpl Elasticsearch.Document, for: Models.Events.Event do
-  # alias CogyntWorkstationIngest.Events.EventsContext
-
   def id(event), do: event.core_id
   def routing(_), do: false
 
