@@ -160,7 +160,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
 
   def reindex(index) do
     config = Elasticsearch.Cluster.Config.get(Cluster)
-    alias = String.to_existing_atom(index)
+    alias = String.to_atom(index)
     name = build_name(alias)
     # %{settings: settings_file} = index_config = config[:indexes][alias]
     index_config = config[:indexes][alias]
