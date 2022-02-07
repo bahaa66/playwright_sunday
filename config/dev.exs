@@ -1,9 +1,7 @@
 import Config
 
-# Redis Configurations
-config :redis, :application,
-  port: 6379,
-  host: "127.0.0.1"
+config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
+  pool_size: 20
 
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.

@@ -1,7 +1,5 @@
 import Config
 
-config :cogynt_workstation_ingest, :environment, config_env()
-
 config :cogynt_workstation_ingest,
   ecto_repos: [CogyntWorkstationIngest.Repo],
   session_domain: "localhost",
@@ -30,7 +28,6 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   password: "postgres",
   database: "cogynt_dev",
   hostname: "localhost",
-  pool_size: 20,
   telemetry_prefix: [:cogynt_workstation_ingest, :repo]
 
 # cogynt-common configurations
@@ -207,4 +204,4 @@ config :libcluster,
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
-import_config "#{config_env()}.exs"
+import_config "#{config_env() |> IO.inspect(label: "REGULAR CONFIG")}.exs"

@@ -1,5 +1,7 @@
 import Config
 
+config :cogynt_workstation_ingest, :environment, config_env()
+
 cond do
   # Configs that are applied at runtime for our server environments.
   config_env() in [:prod, :k8scyn] ->
@@ -16,7 +18,7 @@ cond do
 
     config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
       url: [host: System.get_env("COGYNT_DOMAIN", "localhost")],
-      secret_key_base: System.get_env("COGYNT_SECRET_KEY_BASE", ""),
+      secret_key_base: System.get_env("COGYNT_SECRET_KEY_BASE", "YqoQsxs2MpNBdH4PrtQYNY1JnJfscSFBIADEDqs6wSMIn3/8+TjYkbm6CrPx2yVJ"),
       https: [
         port: System.get_env("HTTPS_PORT", "450") |> String.to_integer(),
         otp_app: :cogynt_workstation_ingest,
@@ -129,6 +131,11 @@ cond do
       config_entries: [],
       session_timeout: 10000,
       kafka_connect_host: "http://localhost:8083"
+
+    # Redis Configurations
+    config :redis, :application,
+      port: 6379,
+      host: "127.0.0.1"
 
     config :exq,
       redis_options: [
