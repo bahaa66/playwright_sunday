@@ -20,8 +20,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
              group_id: group_id,
              topics: topics,
              offset_commit_on_ack: true,
-             begin_offset: :earliest,
-             offset_reset_policy: :latest,
+             offset_reset_policy: :earliest,
              group_config: [
                session_timeout_seconds: 30,
                rejoin_delay_seconds: 10
