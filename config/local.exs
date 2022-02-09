@@ -19,7 +19,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   live_view: [signing_salt: "I45Kpw9a"]
 
 # Kafka Configurations
-config :kafka, :application,
+config :common, :kafka,
   brokers: "127.0.0.1:9092",
   partition_strategy: :random,
   partitions: 10,
@@ -29,17 +29,8 @@ config :kafka, :application,
   session_timeout: 10000,
   kafka_connect_host: "http://localhost:8083"
 
-# Elasticsearch configurations
-config :elasticsearch, :application,
-  cacertfile: "",
-  host: "http://localhost:9200",
-  username: "elasticsearch",
-  password: "elasticsearch",
-  shards: 1,
-  replicas: 0
-
 # Redis configurations
-config :redis, :application,
+config :common, :redis,
   host: "127.0.0.1",
   password: nil,
   name: "",
@@ -104,7 +95,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   pool_size: 20,
   telemetry_prefix: [:cogynt_workstation_ingest, :repo]
 
-config :druid,
+config :common, :druid,
   request_timeout: 120_000,
   query_priority: 0,
   broker_profiles: [
