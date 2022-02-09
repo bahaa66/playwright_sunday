@@ -19,7 +19,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   live_view: [signing_salt: "I45Kpw9a"]
 
 # Kafka Configurations
-config :common, :kafka,
+config :kafka, :common,
   brokers: "127.0.0.1:9092",
   partition_strategy: :random,
   partitions: 10,
@@ -30,7 +30,7 @@ config :common, :kafka,
   kafka_connect_host: "http://localhost:8083"
 
 # Redis configurations
-config :common, :redis,
+config :redis, :common,
   host: "127.0.0.1",
   password: nil,
   name: "",
@@ -95,7 +95,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   pool_size: 20,
   telemetry_prefix: [:cogynt_workstation_ingest, :repo]
 
-config :common, :druid,
+config :druid,
   request_timeout: 120_000,
   query_priority: 0,
   broker_profiles: [

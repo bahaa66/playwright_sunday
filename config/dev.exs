@@ -143,7 +143,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   pool_size: (System.get_env("POSTGRESQL_POOL_SIZE") || "20") |> String.to_integer(),
   telemetry_prefix: [:cogynt_workstation_ingest, :repo]
 
-config :druid, :common,
+config :druid,
   request_timeout: (System.get_env("DRUID_REQUEST_TIMEOUT") || "120000") |> String.to_integer(),
   query_priority: (System.get_env("DRUID_QUERY_PRIORITY") || "0") |> String.to_integer(),
   broker_profiles: [
