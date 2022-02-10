@@ -67,55 +67,46 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:elixir_uuid, "~> 1.2"},
       {
         :kafka,
-        # tag: "v1.16.0",
-        branch: "fix/audit-code-cleanup",
+        tag: "v1.16.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "kafka",
         override: true
       },
       {
         :models,
-        # tag: "v1.16.5",
-        branch: "fix/audit-code-cleanup",
+        tag: "v1.16.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        # tag: "v1.16.5",
-        branch: "fix/audit-code-cleanup",
+        tag: "v1.16.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
       },
       {
         :utils,
-        # tag: "v1.16.0",
-        branch: "fix/audit-code-cleanup",
+        tag: "v1.16.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "utils",
         override: true
       },
       {
         :redis,
-        # tag: "v1.16.0",
-        branch: "fix/audit-code-cleanup",
+        tag: "v1.16.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true
       },
       {
         :druid,
-        # tag: "v1.16.5",
-        branch: "fix/audit-code-cleanup",
-        git: "git@github.com:cogility/cogynt-common.git",
-        sparse: "druid"
+        tag: "v1.16.7-beta", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
       },
       {
         :cogynt_graphql,
-        # tag: "v1.16.6-beta",
-        branch: "fix/audit-code-cleanup",
+        tag: "v1.16.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt_graphql",
         override: true
