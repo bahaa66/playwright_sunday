@@ -24,7 +24,6 @@ defmodule CogyntWorkstationIngest.Config do
   def config_entries, do: kafka()[:config_entries]
   def session_timeout, do: kafka()[:session_timeout]
   def deployment_topic(), do: kafka()[:deployment_topic]
-  def kafka_connect_host, do: kafka()[:kafka_connect_host]
 
   def auth_service_name(), do: rpc()[:cogynt_auth_service_name]
   def auth_service_port(), do: rpc()[:cogynt_auth_service_port]
@@ -164,8 +163,6 @@ defmodule CogyntWorkstationIngest.Config do
   def startup_delay(), do: startup()[:init_delay]
 
   def event_index_alias(), do: elasticsearch()[:event_index_alias]
-  def elasticsearch_host(), do: elasticsearch()[:host]
-  # def elastic_index_settings_file(), do: elasticsearch()[:settings_file]
 
   def http_client(), do: clients()[:http_client]
   def elasticsearch_client(), do: clients()[:elasticsearch_client]
@@ -222,9 +219,9 @@ defmodule CogyntWorkstationIngest.Config do
   defp postgres(),
     do: Application.get_env(:cogynt_workstation_ingest, CogyntWorkstationIngest.Repo)
 
-  defp kafka, do: Application.get_env(:kafka, :application)
+  defp kafka, do: Application.get_env(:kafka, :common)
 
-  defp redis, do: Application.get_env(:redis, :application)
+  defp redis, do: Application.get_env(:redis, :common)
 
   defp deployment_pipeline(),
     do: Application.get_env(:cogynt_workstation_ingest, :deployment_pipeline)
@@ -241,9 +238,12 @@ defmodule CogyntWorkstationIngest.Config do
 
   defp startup(), do: Application.get_env(:cogynt_workstation_ingest, :startup)
 
-  defp elasticsearch(), do: Application.get_env(:elasticsearch, :application)
-
-  # defp elasticsearch_cluster(), do: Application.get_env(:cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster)
+  defp elasticsearch(),
+    do:
+      Application.get_env(
+        :cogynt_workstation_ingest,
+        CogyntWorkstationIngest.Elasticsearch.Cluster
+      )
 
   defp clients(), do: Application.get_env(:cogynt_workstation_ingest, :clients)
 

@@ -31,7 +31,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   telemetry_prefix: [:cogynt_workstation_ingest, :repo]
 
 # cogynt-common configurations
-config :migrations, :application, repo: CogyntWorkstationIngest.Repo
+config :models, :common, repo: CogyntWorkstationIngest.Repo
 
 config :cogynt_workstation_ingest, :clients,
   json_rpc_client: CogyntWorkstationIngestWeb.Clients.JsonRpcHTTPClient,
@@ -39,14 +39,14 @@ config :cogynt_workstation_ingest, :clients,
   elasticsearch_client: Elasticsearch
 
 # Kafka Configurations
-config :kafka, :application,
+config :kafka, :common,
   kafka_client: :brod,
   deployment_topic: "deployment",
   template_solutions_topic: "template_solutions",
   template_solution_events_topic: "template_solution_events"
 
 # Elasticsearch Configurations
-config :elasticsearch, :application,
+config :elasticsearch, :common,
   elasticsearch_client: Elasticsearch,
   http_client: HTTPoison,
   event_index_alias: "event",
@@ -59,6 +59,7 @@ config :elasticsearch, :application,
   replicas: 0
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster,
+  event_index_alias: "event",
   username: "elasticsearch",
   password: "elasticsearch",
   json_library: Jason,
@@ -81,7 +82,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster
   ]
 
 # Redis Configurations
-config :redis, :application,
+config :redis, :common,
   pools: 5,
   exit_on_disconnection: true,
   sync_connect: true,

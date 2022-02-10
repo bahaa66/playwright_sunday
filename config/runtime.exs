@@ -17,7 +17,7 @@ cond do
       authoring_version: System.get_env("COGYNT_AUTHORING_VERSION", "1")
 
     config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
-      url: [host: System.get_env("COGYNT_DOMAIN", "localhost")],
+      url: [host: System.get_env("COGYNT_DOMAIN")],
       secret_key_base: System.get_env("COGYNT_SECRET_KEY_BASE", "YqoQsxs2MpNBdH4PrtQYNY1JnJfscSFBIADEDqs6wSMIn3/8+TjYkbm6CrPx2yVJ"),
       https: [
         port: System.get_env("HTTPS_PORT", "450") |> String.to_integer(),
@@ -38,7 +38,7 @@ cond do
       telemetry_prefix: [:cogynt_workstation_ingest, :repo]
 
     # Kafka Configurations
-    config :kafka, :application,
+    config :kafka, :common,
       brokers: System.get_env("KAFKA_BROKERS"),
       partition_strategy: System.get_env("PARTITION_STRATEGY", "random") |> String.to_atom(),
       partitions: System.get_env("PARTITIONS", "10") |> String.to_integer(),
@@ -74,7 +74,7 @@ cond do
         password: System.get_env("COGYNT_REDIS_PASSWORD") || nil
       ]
 
-    config :redis, :application,
+    config :redis, :common,
       host: System.get_env("COGYNT_REDIS_HOST"),
       password: System.get_env("COGYNT_REDIS_PASSWORD"),
       name: System.get_env("COGYNT_REDIS_NAME"),
@@ -122,7 +122,7 @@ cond do
       http: [port: (System.get_env("HTTP_PORT") || "4002") |> String.to_integer()]
 
     # Kafka Configurations
-    config :kafka, :application,
+    config :kafka, :common,
       brokers: "127.0.0.1:9092",
       partition_strategy: :random,
       partitions: 10,
@@ -133,7 +133,7 @@ cond do
       kafka_connect_host: "http://localhost:8083"
 
     # Redis Configurations
-    config :redis, :application,
+    config :redis, :common,
       port: 6379,
       host: "127.0.0.1"
 
