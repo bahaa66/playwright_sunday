@@ -24,7 +24,6 @@ defmodule CogyntWorkstationIngest.Config do
   def config_entries, do: kafka()[:config_entries]
   def session_timeout, do: kafka()[:session_timeout]
   def deployment_topic(), do: kafka()[:deployment_topic]
-  def kafka_connect_host, do: kafka()[:kafka_connect_host]
 
   def auth_service_name(), do: rpc()[:cogynt_auth_service_name]
   def auth_service_port(), do: rpc()[:cogynt_auth_service_port]
