@@ -13,7 +13,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   pubsub_server: CogyntWorkstationIngestWeb.PubSub
 
 # cogynt-common configurations
-config :migrations, :application, repo: CogyntWorkstationIngest.Repo
+config :models, :common, repo: CogyntWorkstationIngest.Repo
 
 config :cogynt_workstation_ingest, :clients,
   json_rpc_client: CogyntWorkstationIngestWeb.Clients.JsonRpcHTTPClient,
@@ -21,22 +21,17 @@ config :cogynt_workstation_ingest, :clients,
   elasticsearch_client: Elasticsearch
 
 # Kafka Configurations
-config :kafka, :application,
+config :kafka, :common,
   kafka_client: :brod,
   deployment_topic: "deployment",
   template_solutions_topic: "template_solutions",
   template_solution_events_topic: "template_solution_events"
 
-# Elasticsearch Configurations
-config :elasticsearch, :application,
-  elasticsearch_client: Elasticsearch,
-  http_client: HTTPoison,
-  event_index_alias: "event",
-  retry_on_conflict: 5,
-  utc_offset: 0
-
 # Redis Configurations
-config :redis, :application, port: 6379
+config :redis, :common, port: 6379
+
+config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster,
+  event_index_alias: "event"
 
 # Configurations for keys in Cogynt Core events
 config :cogynt_workstation_ingest, :cogynt_keys,
