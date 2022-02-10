@@ -4,7 +4,7 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
   in the pre_start.sh bash script
   """
   @app :cogynt_workstation_ingest
-  # alias CogyntWorkstationIngest.ElasticsearchAPI
+  # alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
   # alias CogyntWorkstationIngest.Config
 
   @deps [
@@ -25,13 +25,13 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
   #   IO.puts("Creating Elastic Indexes...")
 
   #   with {:ok, _} <- HTTPoison.start(),
-  #        {:ok, false} <- ElasticsearchAPI.index_exists?(Config.event_index_alias()) do
-  #     ElasticsearchAPI.create_index(Config.event_index_alias())
+  #        {:ok, false} <- ElasticApi.index_exists?(Config.event_index_alias()) do
+  #     ElasticApi.create_index(Config.event_index_alias())
   #     IO.puts("The Index: #{Config.event_index_alias()} for CogyntWorkstation has been created.")
   #     IO.puts("Indexes complete..")
   #   else
   #     {:ok, true} ->
-  #       ElasticsearchAPI.check_to_reindex()
+  #       ElasticApi.check_to_reindex()
   #       IO.puts("Reindexing Check complete..")
 
   #     {:error, %Elasticsearch.Exception{raw: %{"error" => error}}} ->

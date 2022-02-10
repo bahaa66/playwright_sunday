@@ -1,6 +1,6 @@
 defmodule CogyntWorkstationIngestWeb.Resolvers.LivenessCheck do
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.ElasticsearchAPI
+  alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
 
   def redis_healthy?(_, _, _) do
     case Redis.ping() do
@@ -69,7 +69,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.LivenessCheck do
   end
 
   def elasticsearch_healthy?(_, _, _) do
-    {_, event_index_health} = ElasticsearchAPI.index_health?(Config.event_index_alias())
+    {_, event_index_health} = ElasticApi.index_health?(Config.event_index_alias())
     {:ok, event_index_health}
   end
 end
