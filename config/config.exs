@@ -45,19 +45,6 @@ config :kafka, :common,
   template_solutions_topic: "template_solutions",
   template_solution_events_topic: "template_solution_events"
 
-# Elasticsearch Configurations
-config :elasticsearch, :common,
-  elasticsearch_client: Elasticsearch,
-  http_client: HTTPoison,
-  event_index_alias: "event",
-  retry_on_conflict: 5,
-  utc_offset: 0,
-  host: "http://localhost:9200",
-  username: "elasticsearch",
-  password: "elasticsearch",
-  shards: 1,
-  replicas: 0
-
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster,
   event_index_alias: "event",
   username: "elasticsearch",

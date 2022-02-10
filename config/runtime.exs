@@ -49,15 +49,6 @@ cond do
       session_timeout: System.get_env("SESSION_TIMEOUT", "10000") |> String.to_integer(),
       kafka_connect_host: System.get_env("KAFKA_CONNECT_URL") || "http://localhost:8083"
 
-    # Elasticsearch configurations (ARE THESE STILL NEEDED?)
-    config :elasticsearch, :application,
-      cacertfile: System.get_env("ELASTIC_CA_CERT_PATH"),
-      host: System.get_env("ELASTIC_URL"),
-      username: System.get_env("ELASTIC_USERNAME"),
-      password: System.get_env("ELASTIC_PASSWORD"),
-      shards: System.get_env("ELASTIC_SHARDS"),
-      replicas: System.get_env("ELASTIC_REPLICAS")
-
     config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster,
       username: System.get_env("ELASTIC_USERNAME"),
       password: System.get_env("ELASTIC_PASSWORD"),
