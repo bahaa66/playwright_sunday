@@ -14,23 +14,36 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   end
 
   def run() do
-    case create_elastic_deps() do
-      {:ok, _} ->
-        start_event_type_pipelines()
-        start_deployment_pipeline()
-
-        DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
-          Config.template_solutions_topic()
+    case Redis.hash_set_if_not_exists("elastic_lock", "event", "locked") do
+      {:ok, 0} ->
+        # LockKey Exists
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Redis hashkey elastic_lock event exists. Skipping Elasticsearch startup"
         )
 
-        DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
-          Config.template_solution_events_topic()
-        )
+      {:ok, 1} ->
+        # LockKey does not exist
+        case create_elastic_deps() do
+          {:ok, _} ->
+            start_event_type_pipelines()
+            start_deployment_pipeline()
 
-        ExqHelpers.resubscribe_to_all_queues()
+            DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
+              Config.template_solutions_topic()
+            )
 
-      {:error, _} ->
-        raise "StartUp Task Failed, Failed to Create/Reindex Elasticsearch"
+            DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
+              Config.template_solution_events_topic()
+            )
+
+            ExqHelpers.resubscribe_to_all_queues()
+            Redis.hash_delete("elastic_lock", "event")
+
+          {:error, _} ->
+            Redis.hash_delete("elastic_lock", "event")
+            raise "StartUp Task Failed, Failed to Create/Reindex Elasticsearch"
+        end
     end
   end
 
