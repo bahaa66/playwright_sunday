@@ -6,6 +6,20 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
   # --------------------- #
   # --- Index Methods --- #
   # ---------------------- #
+  def check_to_reindex() do
+    case is_active_index_setting?() do
+      true ->
+        CogyntLogger.info("#{__MODULE__}", "check_to_reindex Event Index already exists...")
+
+      false ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "check_to_reindex Event index mapping is out dated. Triggering Reindex..."
+        )
+
+        reindex(Config.event_index_alias())
+    end
+  end
 
   def index_exists?(index) do
     try do
@@ -34,10 +48,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
   def create_index(index) do
     name = build_name(index)
     settings_file = index_mappings_file()
-
-    ## DEBUG LOGS ##
-    IO.inspect(settings_file, label: "****** create_index: settings_file ***********")
-    IO.puts("Create Index: Settings file path #{settings_file}")
 
     try do
       case Elasticsearch.Index.create_from_file(Cluster, name, settings_file) do
@@ -121,7 +131,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Failed to get indices from Elasticsearch #{inspect(error)}"
+          "starting_with/1 Failed to get indices from Elasticsearch #{inspect(error)}"
         )
 
         {:error, error}
@@ -143,7 +153,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
     with {:ok, indexes} <- starting_with(prefix) do
       index =
         indexes
-        |> Enum.sort()
         |> List.last()
 
       case index do
@@ -151,8 +160,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
           {:error, :not_found}
 
         index ->
-          IO.inspect(index, label: "******* latest_index **********")
-          IO.puts("The latest index is #{index}")
           {:ok, index}
       end
     end
@@ -160,24 +167,19 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
 
   def reindex(index) do
     config = Elasticsearch.Cluster.Config.get(Cluster)
-    alias = String.to_atom(index)
-    name = build_name(alias)
-    # %{settings: settings_file} = index_config = config[:indexes][alias]
-    index_config = config[:indexes][alias]
+    index_alias = String.to_atom(index)
+    name = build_name(index_alias)
+    index_config = config[:indexes][index_alias]
     settings_file = index_mappings_file()
-
-    ## DEBUG LOGS ##
-    IO.inspect(settings_file, label: "******** reindex settings file ********")
-    IO.puts("Reindex: Settings file path #{settings_file}")
 
     with :ok <- Elasticsearch.Index.create_from_file(config, name, settings_file),
          bulk_upload(config, name, index_config),
-         :ok <- Elasticsearch.Index.alias(config, name, alias),
-         :ok <- clean_starting_with(config, alias, 1),
+         :ok <- Elasticsearch.Index.alias(config, name, index_alias),
+         :ok <- clean_starting_with(config, index_alias, 1),
          :ok <- Elasticsearch.Index.refresh(config, name) do
       CogyntLogger.info(
         "#{__MODULE__}",
-        "reindex/1 The event index #{name} has been reindexed..."
+        "reindex/1 The Event index #{name} has been reindexed..."
       )
 
       :ok
@@ -328,20 +330,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
     end
   end
 
-  # ---------------------- #
-  # --- Helper Methods --- #
-  # ---------------------- #
-  def check_to_reindex() do
-    case is_active_index_setting?() do
-      true ->
-        IO.puts("Event_Index already exists...")
-
-      false ->
-        IO.puts("Current Event_Index mapping is out dated. Triggering Reindex...")
-        reindex(Config.event_index_alias())
-    end
-  end
-
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
@@ -398,15 +386,10 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
   defp is_active_index_setting?() do
     settings_file = index_mappings_file()
 
-    ## DEBUG LOGS ##
-    IO.inspect(settings_file, label: "*********** is_active_index_setting? *********")
-    IO.puts("Checking active index settings file path: #{settings_file}")
-
     with {:ok, body} <- File.read(settings_file),
          {:ok, settings} <- get_index_mappings(),
          {:ok, json} <- Jason.decode(body) do
-      # compare settings, mappings separately as comparing json |> Map.equal?(settings) returns false as its compared using ===
-      Map.equal?(Map.get(json, "settings"), Map.get(settings, "settings")) ||
+      Map.equal?(Map.get(json, "settings"), Map.get(settings, "settings")) and
         Map.equal?(Map.get(json, "mappings"), Map.get(settings, "mappings"))
     else
       {:error, reason} ->
