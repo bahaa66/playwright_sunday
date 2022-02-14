@@ -31,7 +31,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   live_view: [signing_salt: System.get_env("COGYNT_AUTH_SALT") || "I45Kpw9a"]
 
 # Kafka Configurations
-config :kafka, :application,
+config :kafka, :common,
   brokers: System.get_env("KAFKA_BROKERS") || "127.0.0.1:9092",
   partition_strategy: (System.get_env("PARTITION_STRATEGY") || "random") |> String.to_atom(),
   partitions: (System.get_env("PARTITIONS") || "10") |> String.to_integer(),
@@ -41,15 +41,6 @@ config :kafka, :application,
   config_entries: System.get_env("CONFIG_ENTRIES") || [],
   session_timeout: (System.get_env("SESSION_TIMEOUT") || "10000") |> String.to_integer(),
   kafka_connect_host: System.get_env("KAFKA_CONNECT_URL") || "http://localhost:8083"
-
-# Elasticsearch configurations
-config :elasticsearch, :application,
-  cacertfile: System.get_env("ELASTIC_CA_CERT_PATH") || "",
-  host: System.get_env("ELASTIC_URL") || "http://localhost:9200",
-  username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",
-  password: System.get_env("ELASTIC_PASSWORD") || "elasticsearch",
-  shards: (System.get_env("ELASTIC_SHARDS") || "1") |> String.to_integer(),
-  replicas: (System.get_env("ELASTIC_REPLICAS") || "0") |> String.to_integer()
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster,
   username: System.get_env("ELASTIC_USERNAME") || "elasticsearch",
@@ -74,7 +65,7 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster
   ]
 
 # Redis configurations
-config :redis, :application,
+config :redis, :common,
   host: System.get_env("COGYNT_REDIS_HOST") || "127.0.0.1",
   password: System.get_env("COGYNT_REDIS_PASSWORD") || nil,
   name: System.get_env("COGYNT_REDIS_NAME") || "",

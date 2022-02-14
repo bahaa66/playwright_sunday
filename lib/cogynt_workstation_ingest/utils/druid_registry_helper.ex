@@ -197,7 +197,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
           true ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "Druid supervisor: #{datasource_name} has an unhandled state #{state}, Failed to Resume"
+              "Druid supervisor: #{datasource_name} has an unhandled state #{inspect(state)}, Failed to Resume"
             )
         end
     end
@@ -235,7 +235,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
           true ->
             CogyntLogger.warn(
               "#{__MODULE__}",
-              "Druid supervisor: #{datasource_name} has an unhandled state #{state}, Failed to Suspend"
+              "Druid supervisor: #{datasource_name} has an unhandled state #{inspect(state)}, Failed to Suspend"
             )
         end
     end

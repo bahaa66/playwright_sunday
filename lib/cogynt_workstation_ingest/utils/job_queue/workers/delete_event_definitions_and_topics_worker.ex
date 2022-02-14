@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
-  alias CogyntWorkstationIngest.ElasticsearchAPI
+  alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
 
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
@@ -151,7 +151,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
       "Deleting Elasticsearch data for EventDefinitionHashId: #{event_definition.id}"
     )
 
-    case ElasticsearchAPI.delete_by_query(Config.event_index_alias(), %{
+    case ElasticApi.delete_by_query(Config.event_index_alias(), %{
            field: "event_definition_hash_id",
            value: event_definition.id
          }) do

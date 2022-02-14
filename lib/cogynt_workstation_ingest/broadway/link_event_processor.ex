@@ -12,6 +12,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
     cond do
       action == Config.crud_delete_value() ->
         data
+        |> Map.put(:pipeline_state, :validate_link_event)
 
       true ->
         case Map.get(event, Config.entities_key()) do
@@ -42,6 +43,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   end
 
   @doc """
+  Itterates through the entities object on the link_event and builds the associations
   """
   def process_entities(%{validated: false} = data),
     do: Map.put(data, :pipeline_state, :process_entities)
@@ -50,6 +52,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
     cond do
       crud_action == Config.crud_delete_value() ->
         data
+        |> Map.put(:pipeline_state, :process_entities)
 
       true ->
         entities = Map.get(event, Config.entities_key())
@@ -62,9 +65,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                   nil ->
                     CogyntLogger.warn(
                       "#{__MODULE__}",
-                      "link object missing id field. LinkObject: #{
-                        inspect(link_object, pretty: true)
-                      }"
+                      "link object missing id field. LinkObject: #{inspect(link_object, pretty: true)}"
                     )
 
                     acc_1

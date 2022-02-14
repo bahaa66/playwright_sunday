@@ -7,12 +7,12 @@ defmodule Mix.Tasks.DropElasticIndexes do
 
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Elasticsearch.Cluster
-  alias CogyntWorkstationIngest.ElasticsearchAPI
+  alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
 
   @impl Mix.Task
   def run(_) do
     with {:ok, _} <- HTTPoison.start(),
-         {:ok, index} <- ElasticsearchAPI.latest_starting_with(Config.event_index_alias()) do
+         {:ok, index} <- ElasticApi.latest_starting_with(Config.event_index_alias()) do
       Elasticsearch.delete(Cluster, index)
       Mix.shell().info("The index: #{Config.event_index_alias()} for Cogynt has been deleted.")
     else

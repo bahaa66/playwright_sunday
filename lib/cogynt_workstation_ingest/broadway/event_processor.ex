@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.System.SystemNotificationContext
-  alias CogyntWorkstationIngest.ElasticsearchAPI
+  alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
   alias CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder
 
   @defaults %{
@@ -79,6 +79,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   process_elasticsearch_documents/1 will build the Event Elasticsearch document that Workstation
   uses to fetch its search facets and do a lot of quick keyword searches against.
   """
+  def process_elasticsearch_documents(%{delete_core_id: _, crud_action: _} = data) do
+    data
+    |> Map.put(:pipeline_state, :process_elasticsearch_documents)
+  end
+
   def process_elasticsearch_documents(
         %{
           pg_event: pg_event,
@@ -195,6 +200,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   being valid. So we must also fetch all invalid_notification_settings at the time and store the
   core_ids for the associated notifications to be removed in the transactional step of the pipeline.
   """
+  def process_notifications(%{delete_core_id: _, crud_action: _} = data) do
+    data
+    |> Map.put(:pipeline_state, :process_notifications)
+  end
+
   def process_notifications(
         %{
           pg_event: pg_event,
@@ -364,6 +374,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         conflict_target: [:core_id, :notification_setting_id]
       )
       |> EventsContext.upsert_all_event_links_multi(bulk_transactional_data.pg_event_links)
+      |> Ecto.Multi.run(:bulk_delete_event_documents, fn _repo, _ ->
+        bulk_delete_event_documents(bulk_transactional_data)
+      end)
       |> EventsContext.run_multi_transaction()
 
     case transaction_result do
@@ -391,6 +404,22 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
         nil
 
+      {:error, :bulk_upsert_event_documents, :failed, _} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "execute_transaction/1 failed with reason: bulk_upsert_event_documents failed"
+        )
+
+        raise "execute_transaction/1 failed"
+
+      {:error, :bulk_delete_event_documents, :failed, _} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "execute_transaction/1 failed with reason: bulk_delete_event_documents failed"
+        )
+
+        rollback_event_index_data(bulk_transactional_data)
+
       {:error, reason} ->
         CogyntLogger.error(
           "#{__MODULE__}",
@@ -406,9 +435,26 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
+  defp bulk_delete_event_documents(bulk_transactional_data) do
+    if !Enum.empty?(bulk_transactional_data.delete_core_id) do
+      case ElasticApi.bulk_delete(
+             Config.event_index_alias(),
+             bulk_transactional_data.delete_core_id
+           ) do
+        {:ok, _} ->
+          {:ok, :success}
+
+        _ ->
+          {:error, :failed}
+      end
+    else
+      {:ok, :success}
+    end
+  end
+
   defp bulk_upsert_event_documents(bulk_transactional_data) do
     if !Enum.empty?(bulk_transactional_data.event_doc) do
-      case ElasticsearchAPI.bulk_upsert_document(
+      case ElasticApi.bulk_upsert_document(
              Config.event_index_alias(),
              bulk_transactional_data.event_doc
            ) do
@@ -416,7 +462,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           {:ok, :success}
 
         _ ->
-          {:error, :elasticsearch_insert_error}
+          {:error, :failed}
       end
     else
       {:ok, :success}
@@ -428,7 +474,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       bulk_transactional_data.event_doc
       |> Enum.map(fn event_doc -> event_doc.id end)
 
-    ElasticsearchAPI.bulk_delete(
+    ElasticApi.bulk_delete(
       Config.event_index_alias(),
       event_doc_ids
     )

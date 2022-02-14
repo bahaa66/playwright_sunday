@@ -49,7 +49,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:plug_cowboy, "~> 2.0"},
       {:health_checkup, "~> 0.1.0"},
       {:ecto_enum, "~> 1.4"},
-      {:broadway_kafka, "~> 0.3.1", override: true},
+      {:broadway_kafka, "0.3.0", override: true},
       {:httpoison, "~> 1.7"},
       {:junit_formatter, "~> 3.0"},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
@@ -61,54 +61,52 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:exq, git: "git@github.com:akira/exq.git", branch: "master"},
       {:libcluster, "~> 3.3.0"},
       {:horde, "~> 0.8.3"},
-      {:absinthe, "~> 1.6.2"},
+      {:absinthe, "~> 1.7.0"},
       {:absinthe_plug, "~> 1.5.5"},
       {:dataloader, "~> 1.0.0"},
       {:elixir_uuid, "~> 1.2"},
       {
         :kafka,
-        tag: "v1.16.0",
+        tag: "v1.17.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "kafka",
         override: true
       },
       {
         :models,
-        tag: "v1.16.5",
+        tag: "v1.17.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.16.5",
+        tag: "v1.17.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
       },
       {
         :utils,
-        tag: "v1.16.0",
+        tag: "v1.17.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "utils",
         override: true
       },
       {
         :redis,
-        tag: "v1.16.0",
+        tag: "v1.17.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true
       },
       {
         :druid,
-        tag: "v1.16.5",
-        git: "git@github.com:cogility/cogynt-common.git",
-        sparse: "druid"
+        tag: "v1.17.0", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
       },
       {
         :cogynt_graphql,
-        tag: "v1.16.0",
+        tag: "v1.17.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt_graphql",
         override: true

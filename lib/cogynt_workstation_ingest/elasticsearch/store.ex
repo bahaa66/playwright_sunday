@@ -1,7 +1,6 @@
 defmodule CogyntWorkstationIngest.Elasticsearch.Store do
   @behaviour Elasticsearch.Store
 
-  import Ecto.Query
   alias CogyntWorkstationIngest.Repo
 
   @impl true
