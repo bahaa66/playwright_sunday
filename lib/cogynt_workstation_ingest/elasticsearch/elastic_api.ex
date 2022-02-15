@@ -126,8 +126,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
         |> Enum.filter(&Regex.match?(regex, &1))
         |> Enum.sort()
 
-      IO.inspect(indexes, label: "Starting_With returned")
-
       {:ok, indexes}
     else
       {:error, error} ->
@@ -390,9 +388,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
     with {:ok, body} <- File.read(settings_file),
          {:ok, settings} <- get_index_mappings(),
          {:ok, json} <- Jason.decode(body) do
-      IO.inspect(json, label: "ACTIVE", pretty: true)
-      IO.inspect(settings, label: "STORED", pretty: true)
-
       Map.equal?(Map.get(json, "settings"), Map.get(settings, "settings")) and
         Map.equal?(Map.get(json, "mappings"), Map.get(settings, "mappings"))
     else
