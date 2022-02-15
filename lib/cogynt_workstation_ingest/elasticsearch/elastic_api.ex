@@ -401,9 +401,9 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
   defp get_index_mappings() do
     with {:ok, index} <- latest_starting_with(Config.event_index_alias()),
          {:ok, %{^index => %{"settings" => settings}}} <-
-           Elasticsearch.get(Cluster, "#{Config.event_index_alias()}/_settings"),
+           Elasticsearch.get(Cluster, "#{index}/_settings"),
          {:ok, %{^index => mappings}} <-
-           Elasticsearch.get(Cluster, "#{Config.event_index_alias()}/_mapping") do
+           Elasticsearch.get(Cluster, "#{index}/_mapping") do
       index =
         settings
         |> Map.get("index")
@@ -412,7 +412,11 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
       {:ok, Map.merge(%{"settings" => %{"index" => index}}, mappings)}
     else
       {:error, reason} ->
-        IO.puts("Cannot get Elasticsearch Index Settings or Mappings because " <> reason)
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "get_index_mappings Failed to get Elasticsearch Settings/Mappings. Reason: #{inspect(reason)}"
+        )
+
         {:error, reason}
     end
   end
