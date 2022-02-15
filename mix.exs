@@ -65,6 +65,13 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:absinthe_plug, "~> 1.5.5"},
       {:dataloader, "~> 1.0.0"},
       {:elixir_uuid, "~> 1.2"},
+      # {
+      #   :broadway_kafka,
+      #   #tag: "v1.17.0",
+      #   git: "git@github.com:alexandrexaviersm/broadway_kafka.git",
+      #   branch: "main",
+      #   override: true
+      # },
       {
         :kafka,
         tag: "v1.17.0",
@@ -125,10 +132,9 @@ defmodule CogyntWorkstationIngest.MixProject do
       "ecto.setup": [
         "ecto.create",
         "ecto.migrate",
-        "run priv/repo/seeds.exs",
-        "create_elastic_indexes"
+        "run priv/repo/seeds.exs"
       ],
-      "ecto.reset": ["drop_elastic_indexes", "flush_redis_db", "ecto.drop", "ecto.setup"],
+      "ecto.reset": ["flush_redis_db", "ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate", "test"]
     ]
   end

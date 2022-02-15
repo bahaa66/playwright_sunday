@@ -21,15 +21,15 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
     end
   end
 
-  def index_exists?(index) do
+  def index_exists?(index_alias) do
     try do
-      with {:ok, _} <- latest_starting_with(index) do
+      with {:ok, _} <- latest_starting_with(index_alias) do
         {:ok, true}
       else
         {:error, error} ->
           CogyntLogger.error(
             "#{__MODULE__}",
-            "index_exists?/1 Failed to check for index: #{index}. Error: #{inspect(error)}"
+            "index_exists?/1 Failed to check for index_alias: #{index_alias}. Error: #{inspect(error)}"
           )
 
           {:ok, false}
@@ -38,7 +38,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
       e in HTTPoison.Error ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "index_exists?/1 Unable to connect to Elasticsearch while checking if index_exists. Index: #{index} Error: #{inspect(e.reason)}"
+          "index_exists?/1 Unable to connect to Elasticsearch while checking if index_exists. index_alias: #{index_alias} Error: #{inspect(e.reason)}"
         )
 
         {:error, e.reason}
@@ -131,7 +131,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "starting_with/1 Failed to get indices from Elasticsearch #{inspect(error)}"
+          "Failed to get indices from Elasticsearch #{inspect(error)}"
         )
 
         {:error, error}
@@ -230,7 +230,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
 
     try do
       case Elasticsearch.post(
-             CogyntWorkstationIngest.Elasticsearch.Cluster,
+             Cluster,
              "_bulk",
              encoded_data
            ) do
@@ -276,7 +276,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
           {:ok, deleted}
 
         {:ok, _} ->
-          # TODO: ???
           {:ok, 0}
 
         {:error, reason} ->
@@ -393,7 +392,11 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
         Map.equal?(Map.get(json, "mappings"), Map.get(settings, "mappings"))
     else
       {:error, reason} ->
-        IO.puts("Cannot read file because #{reason}")
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "is_active_index_setting Failed to read mappings/settings file. Reason: #{inspect(reason)}"
+        )
+
         false
     end
   end
@@ -401,9 +404,9 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
   defp get_index_mappings() do
     with {:ok, index} <- latest_starting_with(Config.event_index_alias()),
          {:ok, %{^index => %{"settings" => settings}}} <-
-           Elasticsearch.get(Cluster, "#{Config.event_index_alias()}/_settings"),
+           Elasticsearch.get(Cluster, "#{index}/_settings"),
          {:ok, %{^index => mappings}} <-
-           Elasticsearch.get(Cluster, "#{Config.event_index_alias()}/_mapping") do
+           Elasticsearch.get(Cluster, "#{index}/_mapping") do
       index =
         settings
         |> Map.get("index")
@@ -412,7 +415,11 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
       {:ok, Map.merge(%{"settings" => %{"index" => index}}, mappings)}
     else
       {:error, reason} ->
-        IO.puts("Cannot get Elasticsearch Index Settings or Mappings because " <> reason)
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "get_index_mappings Failed to get Elasticsearch Settings/Mappings. Reason: #{inspect(reason)}"
+        )
+
         {:error, reason}
     end
   end
