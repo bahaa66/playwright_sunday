@@ -49,7 +49,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:plug_cowboy, "~> 2.0"},
       {:health_checkup, "~> 0.1.0"},
       {:ecto_enum, "~> 1.4"},
-      {:broadway_kafka, "0.3.0", override: true},
+      #{:broadway_kafka, "0.3.0", override: true},
       {:httpoison, "~> 1.7"},
       {:junit_formatter, "~> 3.0"},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
@@ -65,6 +65,13 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:absinthe_plug, "~> 1.5.5"},
       {:dataloader, "~> 1.0.0"},
       {:elixir_uuid, "~> 1.2"},
+      {
+        :broadway_kafka,
+        #tag: "v1.17.0",
+        git: "git@github.com:alexandrexaviersm/broadway_kafka.git",
+        branch: "main",
+        override: true
+      },
       {
         :kafka,
         tag: "v1.17.0",
