@@ -14,36 +14,42 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   end
 
   def run() do
-    case Redis.hash_set_if_not_exists("elastic_lock", "event", "locked") do
-      {:ok, 0} ->
-        # LockKey Exists
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Redis hashkey elastic_lock event exists. Skipping Elasticsearch startup"
-        )
+    try do
+      case Redis.hash_set_if_not_exists("elastic_lock", "event", "locked") do
+        {:ok, 0} ->
+          # LockKey Exists
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "Redis hashkey elastic_lock event exists. Skipping Elasticsearch startup"
+          )
 
-      {:ok, 1} ->
-        # LockKey does not exist
-        case create_elastic_deps() do
-          {:ok, _} ->
-            start_event_type_pipelines()
-            start_deployment_pipeline()
+        {:ok, 1} ->
+          # LockKey does not exist
+          case create_elastic_deps() do
+            {:ok, _} ->
+              start_event_type_pipelines()
+              start_deployment_pipeline()
 
-            DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
-              Config.template_solutions_topic()
-            )
+              DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
+                Config.template_solutions_topic()
+              )
 
-            DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
-              Config.template_solution_events_topic()
-            )
+              DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
+                Config.template_solution_events_topic()
+              )
 
-            ExqHelpers.resubscribe_to_all_queues()
-            Redis.hash_delete("elastic_lock", "event")
+              ExqHelpers.resubscribe_to_all_queues()
+              Redis.hash_delete("elastic_lock", "event")
 
-          {:error, _} ->
-            Redis.hash_delete("elastic_lock", "event")
-            raise "StartUp Task Failed, Failed to Create/Reindex Elasticsearch"
-        end
+            {:error, _} ->
+              Redis.hash_delete("elastic_lock", "event")
+              raise "StartUp Task Failed, Failed to Create/Reindex Elasticsearch"
+          end
+      end
+    catch
+      _ ->
+        Redis.hash_delete("elastic_lock", "event")
+        raise "StartUp Task Failed, Failed to Create/Reindex Elasticsearch"
     end
   end
 
