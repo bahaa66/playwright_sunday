@@ -21,15 +21,15 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
     end
   end
 
-  def index_exists?(index) do
+  def index_exists?(index_alias) do
     try do
-      with {:ok, _} <- latest_starting_with(index) do
+      with {:ok, _} <- latest_starting_with(index_alias) do
         {:ok, true}
       else
         {:error, error} ->
           CogyntLogger.error(
             "#{__MODULE__}",
-            "index_exists?/1 Failed to check for index: #{index}. Error: #{inspect(error)}"
+            "index_exists?/1 Failed to check for index_alias: #{index_alias}. Error: #{inspect(error)}"
           )
 
           {:ok, false}
@@ -38,7 +38,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
       e in HTTPoison.Error ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "index_exists?/1 Unable to connect to Elasticsearch while checking if index_exists. Index: #{index} Error: #{inspect(e.reason)}"
+          "index_exists?/1 Unable to connect to Elasticsearch while checking if index_exists. index_alias: #{index_alias} Error: #{inspect(e.reason)}"
         )
 
         {:error, e.reason}
@@ -126,12 +126,14 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
         |> Enum.filter(&Regex.match?(regex, &1))
         |> Enum.sort()
 
+      IO.inspect(indexes, label: "Starting_With returned")
+
       {:ok, indexes}
     else
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "starting_with/1 Failed to get indices from Elasticsearch #{inspect(error)}"
+          "Failed to get indices from Elasticsearch #{inspect(error)}"
         )
 
         {:error, error}
@@ -230,7 +232,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
 
     try do
       case Elasticsearch.post(
-             CogyntWorkstationIngest.Elasticsearch.Cluster,
+             Cluster,
              "_bulk",
              encoded_data
            ) do
@@ -276,7 +278,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
           {:ok, deleted}
 
         {:ok, _} ->
-          # TODO: ???
           {:ok, 0}
 
         {:error, reason} ->
@@ -389,11 +390,18 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
     with {:ok, body} <- File.read(settings_file),
          {:ok, settings} <- get_index_mappings(),
          {:ok, json} <- Jason.decode(body) do
+      IO.inspect(json, label: "ACTIVE", pretty: true)
+      IO.inspect(settings, label: "STORED", pretty: true)
+
       Map.equal?(Map.get(json, "settings"), Map.get(settings, "settings")) and
         Map.equal?(Map.get(json, "mappings"), Map.get(settings, "mappings"))
     else
       {:error, reason} ->
-        IO.puts("Cannot read file because #{reason}")
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "is_active_index_setting Failed to read mappings/settings file. Reason: #{inspect(reason)}"
+        )
+
         false
     end
   end
