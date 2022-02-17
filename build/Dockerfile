@@ -12,10 +12,10 @@ ENV MIX_ENV=prod \
 # Copy over all the necessary application files and directories
 COPY . .
 
-RUN cat ./config/dev.exs > ./config/prod.exs \
-    && sed -i "s/debug_errors: true/debug_errors: false/" ./config/prod.exs \
-    && sed -i "s/code_reloader: true/code_reloader: false/" ./config/prod.exs \
-    && cat ./config/prod.exs > ./config/runtime.exs
+# RUN cat ./config/dev.exs > ./config/prod.exs \
+#     && sed -i "s/debug_errors: true/debug_errors: false/" ./config/prod.exs \
+#     && sed -i "s/code_reloader: true/code_reloader: false/" ./config/prod.exs \
+#     && cat ./config/prod.exs > ./config/runtime.exs
 # Fetch the application dependencies and build the application
 RUN mix local.hex --force \
     && mix local.rebar --force \
@@ -44,7 +44,7 @@ FROM 478685488679.dkr.ecr.us-west-2.amazonaws.com/common/ubi8/minimal:1.2.3 AS a
 
 ARG APP_NAME=cogynt_workstation_ingest
 
-COPY --from=builder --chown=${APP_USER}:${APP_USER} ${APP_ROOT}/dist app
+COPY --from=builder --chown=${APP_USER}:${APP_USER} ${APP_ROOT}/dist ${APP_ROOT}
 COPY --from=builder --chown=${APP_USER}:${APP_USER} ${APP_ROOT}/rel/hooks ${APP_ROOT}
 RUN mv ${APP_ROOT}/bin/${APP_NAME} ${APP_ROOT}/bin/server
 # Run the app

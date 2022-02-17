@@ -74,7 +74,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       # },
       {
         :kafka,
-        tag: "v1.17.0",
+        # tag: "v1.17.0",
+        branch: "fix/brod-producer-not-found",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "kafka",
         override: true
