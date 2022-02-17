@@ -18,7 +18,11 @@ cond do
 
     config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
       url: [host: System.get_env("COGYNT_DOMAIN")],
-      secret_key_base: System.get_env("COGYNT_SECRET_KEY_BASE", "YqoQsxs2MpNBdH4PrtQYNY1JnJfscSFBIADEDqs6wSMIn3/8+TjYkbm6CrPx2yVJ"),
+      secret_key_base:
+        System.get_env(
+          "COGYNT_SECRET_KEY_BASE",
+          "YqoQsxs2MpNBdH4PrtQYNY1JnJfscSFBIADEDqs6wSMIn3/8+TjYkbm6CrPx2yVJ"
+        ),
       https: [
         port: System.get_env("HTTPS_PORT", "450") |> String.to_integer(),
         otp_app: :cogynt_workstation_ingest,
@@ -46,8 +50,28 @@ cond do
         System.get_env("KAFKA_TOPIC_REPLICATION_FACTOR", "1") |> String.to_integer(),
       replica_assignment: System.get_env("REPLICA_ASSIGNMENT") || [],
       config_entries: System.get_env("CONFIG_ENTRIES") || [],
-      session_timeout: System.get_env("SESSION_TIMEOUT", "10000") |> String.to_integer(),
-      kafka_connect_host: System.get_env("KAFKA_CONNECT_URL") || "http://localhost:8083"
+      session_timeout: System.get_env("SESSION_TIMEOUT", "10000") |> String.to_integer()
+
+    # Any external clients need to be added the the clients list in the future
+    config :brod,
+      clients: [
+        internal_kafka_client: [
+          endpoints:
+            String.split(System.get_env("KAFKA_BROKERS"), ",", trim: true)
+            |> Enum.reduce(%{}, fn broker, acc ->
+              ip_port = String.split(broker, ":", trim: true)
+
+              acc
+              |> Map.put(
+                String.to_atom(List.first(ip_port)),
+                String.to_integer(List.last(ip_port))
+              )
+            end)
+            |> Keyword.new(),
+          # This will auto-start the producers with default configs
+          auto_start_producers: false
+        ]
+      ]
 
     config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster,
       username: System.get_env("ELASTIC_USERNAME"),
@@ -120,8 +144,7 @@ cond do
       replication_factor: 1,
       replica_assignment: [],
       config_entries: [],
-      session_timeout: 10000,
-      kafka_connect_host: "http://localhost:8083"
+      session_timeout: 10000
 
     # Redis Configurations
     config :redis, :common,

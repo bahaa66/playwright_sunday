@@ -67,7 +67,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:elixir_uuid, "~> 1.2"},
       {
         :kafka,
-        tag: "v1.16.7-beta",
+        # tag: "v1.17.0",
+        branch: "fix/brod-producer-not-found",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "kafka",
         override: true

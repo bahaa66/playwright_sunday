@@ -49,7 +49,6 @@ cogynt_workstation_ingest-*.tar
 !helm
 !Makefile
 /rel/runtime_config.exs
-/config/prod.exs
 .build-harness
 
 # A file created by asdf for version controll
