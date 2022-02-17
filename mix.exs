@@ -65,17 +65,9 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:absinthe_plug, "~> 1.5.5"},
       {:dataloader, "~> 1.0.0"},
       {:elixir_uuid, "~> 1.2"},
-      # {
-      #   :broadway_kafka,
-      #   #tag: "v1.17.0",
-      #   git: "git@github.com:alexandrexaviersm/broadway_kafka.git",
-      #   branch: "main",
-      #   override: true
-      # },
       {
         :kafka,
-        # tag: "v1.17.0",
-        branch: "fix/brod-producer-not-found",
+        tag: "v1.17.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "kafka",
         override: true
