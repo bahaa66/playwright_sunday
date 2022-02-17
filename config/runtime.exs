@@ -89,16 +89,18 @@ cond do
         password: System.get_env("COGYNT_REDIS_PASSWORD") || nil
       ]
 
+    # Redis configurations
     config :redis, :common,
       host: System.get_env("COGYNT_REDIS_HOST"),
       password: System.get_env("COGYNT_REDIS_PASSWORD"),
       name: System.get_env("COGYNT_REDIS_NAME"),
       sentinels: System.get_env("COGYNT_REDIS_SENTINELS"),
-      sentinel_group: System.get_env("COGYNT_REDIS_SENTINEL_GROUP"),
+      sentinel_group: System.get_env("COGYNT_REDIS_SENTINEL_GROUP", "main"),
       database: System.get_env("COGYNT_REDIS_DATABASE"),
-      pools: System.get_env("COGYNT_REDIS_POOLS"),
-      exit_on_disconnection: (System.get_env("ENABLE_DEV_TOOLS") || "true") == "true",
-      sync_connect: (System.get_env("ENABLE_DEV_TOOLS") || "true") == "true",
+      pools: System.get_env("COGYNT_REDIS_POOLS", "5") |> String.to_integer(),
+      exit_on_disconnection:
+        System.get_env("COGYNT_REDIS_EXIT_ON_DISCONNECTION", "true") == "true",
+      sync_connect: System.get_env("COGYNT_REDIS_SYNC_CONNECT", "true") == "true",
       instance: System.get_env("COGYNT_REDIS_INSTANCE", "single") |> String.to_atom()
 
     config :druid,
