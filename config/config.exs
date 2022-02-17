@@ -80,6 +80,9 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster
 
 # Redis Configurations
 config :redis, :common,
+  host: "127.0.0.1",
+  port: 6379,
+  sentinel_group: "main",
   pools: 5,
   exit_on_disconnection: true,
   sync_connect: true,
