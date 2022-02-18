@@ -45,16 +45,6 @@ config :kafka, :common,
   template_solutions_topic: "template_solutions",
   template_solution_events_topic: "template_solution_events"
 
-# Any external clients need to be added the the clients list in the future
-config :brod,
-  clients: [
-    internal_kafka_client: [
-      endpoints: ["127.0.0.1": 9092],
-      # This will auto-start the producers with default configs
-      auto_start_producers: false
-    ]
-  ]
-
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster,
   event_index_alias: "event",
   username: "elasticsearch",

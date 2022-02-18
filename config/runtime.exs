@@ -23,6 +23,7 @@ cond do
           "COGYNT_SECRET_KEY_BASE",
           "YqoQsxs2MpNBdH4PrtQYNY1JnJfscSFBIADEDqs6wSMIn3/8+TjYkbm6CrPx2yVJ"
         ),
+      http: [port: (System.get_env("HTTP_PORT") || "4002") |> String.to_integer()],
       https: [
         port: System.get_env("HTTPS_PORT", "450") |> String.to_integer(),
         otp_app: :cogynt_workstation_ingest,
@@ -134,10 +135,7 @@ cond do
         System.get_env("COGYNT_AUTH_SERVICE_PORT", "4999") |> String.to_integer()
 
   # Configs needed for local dev environments and test envs.
-  config_env() not in [:dev, :test] ->
-    config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
-      http: [port: (System.get_env("HTTP_PORT") || "4002") |> String.to_integer()]
-
+  config_env() not in [:prod, :k8scyn] ->
     # Kafka Configurations
     config :kafka, :common,
       brokers: "127.0.0.1:9092",
@@ -160,8 +158,19 @@ cond do
         name: Exq.Redis.Client,
         password: nil
       ]
+
+    # Any external clients need to be added the the clients list in the future
+    config :brod,
+      clients: [
+        internal_kafka_client: [
+          endpoints: ["127.0.0.1": 9092],
+          # This will auto-start the producers with default configs
+          auto_start_producers: false
+        ]
+      ]
 end
 
+# Configs ONLY needed for production
 if config_env() not in [:dev, :test, :k8scyn] do
   config :libcluster,
     topologies: [
