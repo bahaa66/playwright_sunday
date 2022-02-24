@@ -12,10 +12,10 @@
             }
         }
       },
-      "max_result_window": "1000000",
+      "max_result_window": 1000000,
       "refresh_interval": "1s",
-      "number_of_shards": "2",
-      "number_of_replicas": "2"
+      "number_of_shards": "1",
+      "number_of_replicas": "0"
     }
   },
   "mappings": {
@@ -50,16 +50,6 @@
       },
       "created_at" :{"type" : "date"},
       "event_definition_id" :{
-        "fields" :{
-          "keyword" :{"type" : "keyword"},
-          "lowercase" :{
-            "analyzer" : "keyword_lowercase",
-            "type" : "text"
-          }
-        },
-        "type" : "text"
-      },
-      "event_definition_hash_id" :{
         "fields" :{
           "keyword" :{"type" : "keyword"},
           "lowercase" :{
