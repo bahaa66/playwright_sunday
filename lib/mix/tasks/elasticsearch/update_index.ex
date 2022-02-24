@@ -82,7 +82,7 @@ defmodule Mix.Tasks.Elasticsearch.UpdateIndex do
         with :ok <-
                File.cp(
                  from,
-                 "#{@index_definition_directory}/#{index}.#{env}.archived.#{datestring}.json"
+                 "#{@index_definition_directory}/#{index}.#{env}.archived.#{date_string}.json"
                ),
              :ok <- File.rename(from, active_file_name) do
           {:ok, active_file_name, archive_file_name}
