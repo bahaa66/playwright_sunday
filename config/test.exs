@@ -6,9 +6,8 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   http: [port: 4002],
   server: false
 
-config :common, :kafka,
+config :kafka, :common,
   brokers: "127.0.0.1:9092",
-  # kafka_client: TODO
   template_solutions_topic: "template_solutions_test",
   template_solution_events_topic: "template_solution_events_test",
   deployment_topic: "deployment_test",

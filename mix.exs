@@ -6,9 +6,9 @@ defmodule CogyntWorkstationIngest.MixProject do
       app: :cogynt_workstation_ingest,
       version: "0.1.0",
       elixir: "~> 1.12",
-      elixirc_paths: elixirc_paths(Application.get_env(:cogynt_workstation_ingest, :environment)),
+      elixirc_paths: elixirc_paths(Mix.env()),
       compilers: [:phoenix, :gettext] ++ Mix.compilers(),
-      start_permanent: Application.get_env(:cogynt_workstation_ingest, :environment) == :prod,
+      start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps()
     ]
@@ -65,23 +65,16 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:absinthe_plug, "~> 1.5.5"},
       {:dataloader, "~> 1.0.0"},
       {:elixir_uuid, "~> 1.2"},
-      # {
-      #   :broadway_kafka,
-      #   #tag: "v1.17.0",
-      #   git: "git@github.com:alexandrexaviersm/broadway_kafka.git",
-      #   branch: "main",
-      #   override: true
-      # },
       {
         :kafka,
-        tag: "v1.17.0",
+        tag: "v1.18.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "kafka",
         override: true
       },
       {
         :models,
-        tag: "v1.17.0",
+        tag: "v1.18.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true

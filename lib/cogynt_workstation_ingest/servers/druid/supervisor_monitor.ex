@@ -23,7 +23,7 @@ defmodule CogyntWorkstationIngest.Servers.Druid.SupervisorMonitor do
   Fetch the current Druid supervisor status
   """
   def supervisor_status(pid) do
-    GenServer.call(pid, :supervisor_status)
+    GenServer.call(pid, :supervisor_status, :infinity)
   end
 
   @doc """
