@@ -67,14 +67,14 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:elixir_uuid, "~> 1.2"},
       {
         :kafka,
-        tag: "v1.17.5-beta",
+        tag: "v1.18.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "kafka",
         override: true
       },
       {
         :models,
-        tag: "v1.17.5-beta",
+        tag: "v1.18.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
