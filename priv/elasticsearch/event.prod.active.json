@@ -3,13 +3,13 @@
     "index": {
       "analysis": {
         "analyzer": {
-            "keyword_lowercase": {
-                "type": "custom",
-                "tokenizer": "keyword",
-                "filter": [
-                    "lowercase"
-                ]
-            }
+          "keyword_lowercase": {
+            "type": "custom",
+            "tokenizer": "keyword",
+            "filter": [
+              "lowercase"
+            ]
+          }
         }
       },
       "max_result_window": "1000000",
