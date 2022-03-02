@@ -144,9 +144,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
         {:error, error} ->
           CogyntLogger.error(
             "#{__MODULE__}",
-            "Unable to decode template solution event stored in druid #{evt["event"]}, Error: #{
-              inspect(error)
-            }"
+            "Unable to decode template solution event stored in druid #{evt["event"]}, Error: #{inspect(error)}"
           )
 
           acc
@@ -176,9 +174,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
         {:error, error} ->
           CogyntLogger.error(
             "#{__MODULE__}",
-            "Unable to decode template solution event outcome stored in druid #{event}, Error: #{
-              inspect(error)
-            }"
+            "Unable to decode template solution event outcome stored in druid #{event}, Error: #{inspect(error)}"
           )
 
           acc

@@ -1,7 +1,6 @@
 import Config
 
-config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
-  pool_size: 20
+config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo, pool_size: 20
 
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.

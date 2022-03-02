@@ -37,6 +37,19 @@ defmodule Mix.Tasks.Elasticsearch.UpdateIndex do
               "Index definition not found for #{index}.#{env}. Creating a new one."
             )
 
+            create_default_config(index, env)
+            |> case do
+              {:ok, file_name} ->
+                Mix.shell().info(
+                  "The new configs for index #{index} were created at #{file_name} and can now be modified."
+                )
+
+              {:error, error} ->
+                Mix.shell().error(
+                  "Could not create new index config for the following reason. Error: #{inspect(error)}"
+                )
+            end
+
           {:error, error} ->
             Mix.shell().error(
               "Could not create new index config for the following reason. Error: #{inspect(error)}"
@@ -48,20 +61,12 @@ defmodule Mix.Tasks.Elasticsearch.UpdateIndex do
   defp archive_active(from, file_name) do
     String.split(file_name, ".")
     |> case do
-      [index, env, "active", datestring] ->
+      [index, env, "active", date_string] ->
         now_string = DateTime.now!("Etc/UTC") |> Calendar.strftime("%Y%m%d%I%M%S")
+        archive_file_name = archive_file_name(index, env, date_string)
+        active_file_name = active_file_name(index, env, now_string)
 
-        archive_file_name =
-          "#{@index_definition_directory}/#{index}.#{env}.archived.#{datestring}.json"
-
-        active_file_name =
-          "#{@index_definition_directory}/#{index}.#{env}.active.#{now_string}.json"
-
-        with :ok <-
-               File.cp(
-                 from,
-                 "#{@index_definition_directory}/#{index}.#{env}.archived.#{datestring}.json"
-               ),
+        with :ok <- File.cp(from, archive_file_name),
              :ok <- File.rename(from, active_file_name) do
           {:ok, active_file_name, archive_file_name}
         else
@@ -72,23 +77,91 @@ defmodule Mix.Tasks.Elasticsearch.UpdateIndex do
         now = DateTime.now!("Etc/UTC")
         date_string = Calendar.strftime(now |> DateTime.add(-1, :second), "%Y%m%d%I%M%S")
         now_string = Calendar.strftime(now, "%Y%m%d%I%M%S")
+        archive_file_name = archive_file_name(index, env, date_string)
+        active_file_name = active_file_name(index, env, date_string)
 
-        archive_file_name =
-          "#{@index_definition_directory}/#{index}.#{env}.archived.#{date_string}.json"
-
-        active_file_name =
-          "#{@index_definition_directory}/#{index}.#{env}.active.#{now_string}.json"
-
-        with :ok <-
-               File.cp(
-                 from,
-                 "#{@index_definition_directory}/#{index}.#{env}.archived.#{date_string}.json"
-               ),
+        with :ok <- File.cp(from, archive_file_name),
              :ok <- File.rename(from, active_file_name) do
           {:ok, active_file_name, archive_file_name}
         else
           error -> error
         end
     end
+  end
+
+  defp create_default_config(index, env) do
+    contents = %{
+      settings: index_settings(env),
+      mappings: %{}
+    }
+
+    file_name =
+      active_file_name(
+        index,
+        env,
+        DateTime.now!("Etc/UTC") |> Calendar.strftime("%Y%m%d%I%M%S")
+      )
+
+    if File.exists?(file_name) do
+      {:error, :file_already_exists}
+    else
+      with {:ok, contents} <- Jason.encode(contents, pretty: true),
+           :ok <- File.write(file_name, contents) do
+        {:ok, file_name}
+      else
+        error ->
+          nil
+      end
+    end
+  end
+
+  defp active_file_name(index, env, date),
+    do: "#{@index_definition_directory}/#{index}.#{env}.active.#{date}.json"
+
+  defp archive_file_name(index, env, date),
+    do: "#{@index_definition_directory}/#{index}.#{env}.archived.#{date}.json"
+
+  defp index_settings("prod") do
+    %{
+      index: %{
+        analysis: %{
+          analyzer: %{
+            keyword_lowercase: %{
+              type: "custom",
+              tokenizer: "keyword",
+              filter: [
+                "lowercase"
+              ]
+            }
+          }
+        },
+        max_result_window: 1_000_000,
+        refresh_interval: "1s",
+        number_of_shards: "2",
+        number_of_replicas: "2"
+      }
+    }
+  end
+
+  defp index_settings(_) do
+    %{
+      index: %{
+        analysis: %{
+          analyzer: %{
+            keyword_lowercase: %{
+              type: "custom",
+              tokenizer: "keyword",
+              filter: [
+                "lowercase"
+              ]
+            }
+          }
+        },
+        max_result_window: 1_000_000,
+        refresh_interval: "1s",
+        number_of_shards: "1",
+        number_of_replicas: "0"
+      }
+    }
   end
 end

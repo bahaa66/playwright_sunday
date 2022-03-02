@@ -147,9 +147,7 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
       {:ok, _} ->
         CogyntLogger.warn(
           "#{__MODULE__}",
-          "Subscription carrying invalid payload. Does not match any command on IngestServer: #{
-            inspect(json_payload, pretty: true)
-          }"
+          "Subscription carrying invalid payload. Does not match any command on IngestServer: #{inspect(json_payload, pretty: true)}"
         )
 
       {:error, error} ->
