@@ -717,9 +717,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           else
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Deleting data linked to EventDefinitionHashId: #{event_definition_hash_id}. Limit: #{
-                limit
-              }"
+              "Deleting data linked to EventDefinitionHashId: #{event_definition_hash_id}. Limit: #{limit}"
             )
 
             hard_delete_by_event_definition_hash_id(event_definition_hash_id, limit)
