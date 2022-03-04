@@ -13,6 +13,7 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
   }
 
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
+  alias CogyntWorkstationIngest.Events.EventsContext
 
   @count 1
 
@@ -72,8 +73,14 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
                           "DevDelete",
                           nil,
                           DeleteDeploymentDataWorker,
-                          delete_topics_for_deployments,
-                          1
+                          %{
+                            event_definition_hash_ids:
+                              EventsContext.list_event_definitions()
+                              |> Enum.group_by(fn ed -> ed.id end)
+                              |> Map.keys(),
+                            delete_topics: delete_topics_for_deployments
+                          },
+                          :infinite
                         )
                       else
                         if reset_drilldown do
@@ -82,22 +89,23 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
                             nil,
                             DeleteDrilldownDataWorker,
                             delete_drilldown_topics,
-                            1
+                            :infinite
                           )
                         end
 
                         if length(event_definition_hash_ids) > 0 do
-                          ExqHelpers.create_and_enqueue(
-                            "DevDelete",
-                            nil,
-                            DeleteEventDefinitionsAndTopicsWorker,
-                            %{
-                              event_definition_hash_ids: event_definition_hash_ids,
-                              hard_delete: false,
-                              delete_topics: delete_topics
-                            },
-                            1
-                          )
+                          Enum.each(event_definition_hash_ids, fn event_definition_hash_id ->
+                            ExqHelpers.create_and_enqueue(
+                              "DevDelete",
+                              nil,
+                              DeleteEventDefinitionsAndTopicsWorker,
+                              %{
+                                event_definition_hash_id: event_definition_hash_id,
+                                delete_topics: delete_topics
+                              },
+                              :infinite
+                            )
+                          end)
                         end
                       end
                     rescue

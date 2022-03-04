@@ -11,13 +11,17 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   alias Models.Enums.ConsumerStatusTypeEnum
 
   def perform(%{
-        "event_definition_hash_ids" => event_definition_hash_ids,
-        "hard_delete" => hard_delete_event_definitions,
+        "event_definition_hash_id" => event_definition_hash_id,
         "delete_topics" => delete_topics
       }) do
-    if hard_delete_event_definitions do
-      EventsContext.list_event_definitions()
-      |> Enum.each(fn event_definition ->
+    case EventsContext.get_event_definition(event_definition_hash_id) do
+      nil ->
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "EventDefinition not found for event_definition_hash_id: #{event_definition_hash_id}"
+        )
+
+      event_definition ->
         # 1) stop the EventPipeline if there is one running for the event_definition
         shutdown_event_pipeline(event_definition)
 
@@ -26,49 +30,19 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
           delete_topics(event_definition)
         end
 
-        # 3) remove all records from Elasticsearch
-        delete_elasticsearch_data(event_definition)
-
         # 4) drop druid data and terminate supervisor
         drop_and_terminate_druid(event_definition.topic)
 
-        ConsumerStateManager.remove_consumer_state(event_definition.id)
-      end)
+        # 4) remove all records from Elasticsearch
+        delete_elasticsearch_data(event_definition)
 
-      EventsContext.truncate_all_tables()
+        # 5) delete the event definition data
+        delete_event_definition(event_definition)
 
-      CogyntLogger.info(
-        "#{__MODULE__}",
-        "Finished deleting data for EventDefinitionHashIds: #{inspect(event_definition_hash_ids)}"
-      )
-    else
-      Enum.each(event_definition_hash_ids, fn event_definition_hash_id ->
-        case EventsContext.get_event_definition(event_definition_hash_id) do
-          nil ->
-            CogyntLogger.warn(
-              "#{__MODULE__}",
-              "EventDefinition not found for event_definition_hash_id: #{event_definition_hash_id}"
-            )
-
-          event_definition ->
-            # 1) stop the EventPipeline if there is one running for the event_definition
-            shutdown_event_pipeline(event_definition)
-
-            # 2) check to see if the topic needs to be deleted
-            if delete_topics do
-              delete_topics(event_definition)
-            end
-
-            # 4) drop druid data and terminate supervisor
-            drop_and_terminate_druid(event_definition.topic)
-
-            # 4) remove all records from Elasticsearch
-            delete_elasticsearch_data(event_definition)
-
-            # 5) delete the event definition data
-            delete_event_definition(event_definition)
-        end
-      end)
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Finished deleting data for EventDefinitionHashId: #{event_definition_hash_id}"
+        )
     end
   end
 

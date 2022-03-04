@@ -3,6 +3,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
   """
   alias CogyntWorkstationIngest.Broadway.DeploymentPipeline
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
+  alias CogyntWorkstationIngest.Events.EventsContext
 
   alias CogyntWorkstationIngest.Utils.JobQueue.Workers.{
     DeleteDrilldownDataWorker,
@@ -13,10 +14,12 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
 
   alias CogyntWorkstationIngest.Config
 
-  def perform(delete_topics_for_deployments) do
+  def perform(%{
+        "event_definition_hash_ids" => event_definition_hash_ids,
+        "delete_topics" => delete_topics_for_deployments
+      }) do
     # First reset all DrilldownData passing true to delete topic data
-
-    DeleteDrilldownDataWorker.perform(delete_topics_for_deployments)
+    ExqHelpers.enqueue("DevDelete", DeleteDrilldownDataWorker, delete_topics_for_deployments)
 
     CogyntLogger.info("#{__MODULE__}", "Stopping the DeploymentPipeline")
     # Second shutdown the DeploymentPipeline
@@ -40,14 +43,16 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
     end
 
     # Fourth reset all the data for each event_definition
-    DeleteEventDefinitionsAndTopicsWorker.perform(%{
-      "event_definition_hash_ids" => [],
-      "hard_delete" => true,
-      "delete_topics" => delete_topics_for_deployments
-    })
+    Enum.each(event_definition_hash_ids, fn event_definition_hash_id ->
+      ExqHelpers.enqueue("DevDelete", DeleteEventDefinitionsAndTopicsWorker, %{
+        "event_definition_hash_id" => event_definition_hash_id,
+        "delete_topics" => delete_topics_for_deployments
+      })
+    end)
 
     # Finally reset all the deployment data
     CogyntLogger.info("#{__MODULE__}", "Resetting Deployment Data")
+    ensure_enqueued_queue_tasks_finished()
     reset_deployment_data()
   end
 
@@ -81,8 +86,52 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
     end
   end
 
+  defp ensure_enqueued_queue_tasks_finished(count \\ 1) do
+    if count >= 30 do
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "ensure_enqueued_queue_tasks_finished/1 exceeded number of attempts (30). Moving forward with DeleteDeploymentData"
+      )
+    else
+      case Redis.get("dd") do
+        {:ok, nil} ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "DevDelete Queue tasks finished. Proceed with DeleteDeploymentData"
+          )
+
+        {:ok, values} ->
+          if Enum.count(values) <= 1 do
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "DevDelete Queue tasks finished. Proceed with DeleteDeploymentData"
+            )
+          else
+            CogyntLogger.info(
+              "#{__MODULE__}",
+              "DevDelete Queued Tasks still running... waiting for it to shutdown before resetting data"
+            )
+
+            # Will retry every 2 mins for a max retry limit of 30. Will wait for a max of 1 before
+            # Finishing the Deleting of the remaining Deployment data
+            Process.sleep(120_000)
+            ensure_enqueued_queue_tasks_finished(count + 1)
+          end
+
+        _ ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "DevDelete Queue tasks finished. Proceed with DeleteDeploymentData"
+          )
+      end
+    end
+  end
+
   defp reset_deployment_data() do
+    # TODO: Add `deployments` table in the list of truncate_all_tables function
+    # and remove `hard_delete_deployments()`
     DeploymentsContext.hard_delete_deployments()
+    EventsContext.truncate_all_tables()
     # Reset all JobQ Info
     ExqHelpers.flush_all()
 

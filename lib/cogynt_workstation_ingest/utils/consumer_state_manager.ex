@@ -118,24 +118,6 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     Redis.hash_delete("cs", event_definition_hash_id)
     Redis.hash_delete("ecgid", "ED-#{event_definition_hash_id}")
 
-    case Redis.get("dd") do
-      {:ok, values} when is_list(values) ->
-        if Enum.member?(values, event_definition_hash_id) do
-          values = List.delete(values, event_definition_hash_id)
-
-          if Enum.empty?(values) do
-            Redis.key_delete("dd")
-          else
-            Redis.set("dd", Enum.uniq(values))
-            # 7 mins
-            Redis.key_pexpire("dd", 420_000)
-          end
-        end
-
-      _ ->
-        nil
-    end
-
     Redis.hash_delete("crw", event_definition_hash_id)
     # Reset JobQs
     ExqHelpers.unubscribe_and_remove("events-#{event_definition_hash_id}")
