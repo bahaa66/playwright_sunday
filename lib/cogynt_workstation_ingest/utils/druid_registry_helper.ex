@@ -393,6 +393,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
       timestamp_spec: timestamp,
       topic: event_definition.topic
     }
+    |> IO.inspect(label: "DRUID INGEST SPEC")
   end
 
   # Druid doesn't like when there are spaces in the 'path' of a field spec
