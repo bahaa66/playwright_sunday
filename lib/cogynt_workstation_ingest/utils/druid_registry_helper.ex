@@ -396,17 +396,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
     |> IO.inspect(label: "DRUID INGEST SPEC")
   end
 
-  # Druid doesn't like when there are spaces in the 'path' of a field spec
-  # so we need to wrap it in [""]
-  defp field_path_to_druid_path(field_path) do
-    [start | tail] = String.split(field_path, "|")
-
-    Enum.reduce(tail, "[\"#{start}\"]", fn
-      i, acc ->
-        acc <> ".[\"" <> i <> "\"]"
-    end)
-  end
-
   defp build_drilldown_druid_ingestion_spec(dimensions, name) do
     %{
       supervisor_id: name,
@@ -484,38 +473,49 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
       %{
         type: "path",
         name: Config.id_key(),
-        expr: "$.#{Config.id_key()}"
+        expr: "$.#{field_path_to_druid_path(Config.id_key())}"
       },
       %{
         type: "path",
         name: Config.published_by_key(),
-        expr: "$.#{Config.published_by_key()}"
+        expr: "$.#{field_path_to_druid_path(Config.published_by_key())}"
       },
       %{
         type: "path",
         name: Config.confidence_key(),
-        expr: "$.#{Config.confidence_key()}"
+        expr: "$.#{field_path_to_druid_path(Config.confidence_key())}"
       },
       %{
         type: "path",
         name: Config.crud_key(),
-        expr: "$.#{Config.crud_key()}"
+        expr: "$.#{field_path_to_druid_path(Config.crud_key())}"
       },
       %{
         type: "path",
         name: Config.published_at_key(),
-        expr: "$.#{Config.published_at_key()}"
+        expr: "$.#{field_path_to_druid_path(Config.published_at_key())}"
       },
       %{
         type: "path",
         name: Config.version_key(),
-        expr: "$.#{Config.version_key()}"
+        expr: "$.#{field_path_to_druid_path(Config.version_key())}"
       },
       %{
         type: "jq",
         name: Config.matches_key(),
-        expr: ".[\"#{Config.matches_key()}\"] | tojson"
+        expr: ".#{field_path_to_druid_path(Config.matches_key())} | tojson"
       }
     ]
+  end
+
+  # Druid doesn't like when there are spaces in the 'path' of a field spec
+  # so we need to wrap it in [""]
+  defp field_path_to_druid_path(field_path) do
+    [start | tail] = String.split(field_path, "|")
+
+    Enum.reduce(tail, "[\"#{start}\"]", fn
+      i, acc ->
+        acc <> ".[\"" <> i <> "\"]"
+    end)
   end
 end
