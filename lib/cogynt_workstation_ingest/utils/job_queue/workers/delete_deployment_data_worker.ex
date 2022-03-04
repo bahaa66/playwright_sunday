@@ -50,6 +50,9 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
       })
     end)
 
+    # Allow the EXQ tasks time to queue there jobs
+    Process.sleep(10000)
+
     # Finally reset all the deployment data
     CogyntLogger.info("#{__MODULE__}", "Resetting Deployment Data")
     ensure_enqueued_queue_tasks_finished()
