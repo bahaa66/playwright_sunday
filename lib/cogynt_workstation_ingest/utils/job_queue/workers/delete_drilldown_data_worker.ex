@@ -34,11 +34,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
     # Drop segments 4 datasources and reset supervisors
     drop_and_reset_druid(Config.template_solution_events_topic())
     drop_and_reset_druid(Config.template_solutions_topic())
-
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "********* Finished Delete Drilldown Data"
-    )
   end
 
   # ----------------------- #

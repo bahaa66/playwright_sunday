@@ -13,9 +13,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     DeleteEventDefinitionsAndTopicsWorker
   }
 
-  @template_solutions_id 1
-  @template_solution_events_id 2
-  @deployment_worker_id 3
+  @drilldown_worker_id 1
+  @deployment_worker_id 2
 
   def before_work(pipeline) do
     job = Exq.Support.Job.decode(pipeline.assigns.job_serialized)
@@ -25,30 +24,16 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
 
     CogyntLogger.info("#{__MODULE__}", "Queueing Job for #{module}")
 
-    pipeline =
-      pipeline
-      |> monitor_job
-      |> assign(:job, job)
-      |> assign(:worker_module, module)
-
-    IO.inspect(Redis.list_length("dd"),
-      label: "******BEFORE WORK JOBS RUNNING"
-    )
-
     pipeline
+    |> monitor_job
+    |> assign(:job, job)
+    |> assign(:worker_module, module)
   end
 
   def after_processed_work(pipeline) do
-    pipeline =
-      pipeline
-      |> demonitor_job
-      |> remove_job_from_backup
-
-    IO.inspect(Redis.list_length("dd"),
-      label: "******AFTER WORK JOBS RUNNING"
-    )
-
     pipeline
+    |> demonitor_job
+    |> remove_job_from_backup
   end
 
   def after_failed_work(pipeline) do
@@ -164,7 +149,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
         Redis.key_pexpire("dd", 3_600_000)
 
       worker_module == to_string(DeleteDrilldownDataWorker) ->
-        Redis.list_append_async("dd", [@template_solutions_id, @template_solution_events_id])
+        Redis.list_append_async("dd", @drilldown_worker_id)
         Redis.key_pexpire("dd", 3_600_000)
 
       worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
@@ -237,8 +222,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
         trigger_devdelete_subscription()
 
       worker_module == to_string(DeleteDrilldownDataWorker) ->
-        Redis.list_remove("dd", @template_solutions_id)
-        Redis.list_remove("dd", @template_solution_events_id)
+        Redis.list_remove("dd", @drilldown_worker_id)
         Redis.key_pexpire("dd", 3_600_000)
         trigger_devdelete_subscription()
 
