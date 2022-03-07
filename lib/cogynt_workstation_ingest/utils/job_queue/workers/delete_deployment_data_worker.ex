@@ -96,6 +96,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
     else
       case Exq.Api.jobs(Exq.Api, "DevDelete") do
         {:ok, jobs} ->
+          IO.inspect(jobs, label: "******** JOBS")
+
           if Enum.count(jobs) <= 1 do
             nil
           else
