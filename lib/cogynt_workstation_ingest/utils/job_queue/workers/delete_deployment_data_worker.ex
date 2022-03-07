@@ -4,42 +4,24 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
   alias CogyntWorkstationIngest.Broadway.DeploymentPipeline
   alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Events.EventsContext
-
-  alias CogyntWorkstationIngest.Utils.JobQueue.Workers.{
-    DeleteDrilldownDataWorker,
-    DeleteEventDefinitionsAndTopicsWorker
-  }
-
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
 
   alias CogyntWorkstationIngest.Config
 
   @dev_delete_queue "DevDelete"
 
-  def perform(
-        %{
-          "event_definition_hash_ids" => event_definition_hash_ids,
-          "delete_topics" => delete_topics_for_deployments
-        } = args
-      ) do
+  def perform(delete_topics_for_deployments) do
     CogyntLogger.info(
       "#{__MODULE__}",
-      "RUNNING DELETE DEPLOYMENT DATA WORKER. Args: #{inspect(args, pretty: true)}"
+      "RUNNING DELETE DEPLOYMENT DATA WORKER. delete_topics: #{delete_topics_for_deployments}"
     )
 
-    # First reset all DrilldownData passing true to delete topic data
-    ExqHelpers.enqueue(
-      @dev_delete_queue,
-      DeleteDrilldownDataWorker,
-      delete_topics_for_deployments
-    )
-
-    # Second shutdown the DeploymentPipeline
+    # First shutdown the DeploymentPipeline
     Redis.publish_async("ingest_channel", %{shutdown_deployment_pipeline: "deployment"})
 
     ensure_deployment_pipeline_stopped()
 
-    # Third delete all data for the delployment topic
+    # Second delete all data for the delployment topic
     if delete_topics_for_deployments do
       delete_topic_result = Kafka.Api.Topic.delete_topic(Config.deployment_topic())
 
@@ -48,17 +30,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
         "Deleted Deployment Topics result: #{inspect(delete_topic_result, pretty: true)}"
       )
     end
-
-    # Fourth reset all the data for each event_definition
-    Enum.each(event_definition_hash_ids, fn event_definition_hash_id ->
-      ExqHelpers.enqueue(@dev_delete_queue, DeleteEventDefinitionsAndTopicsWorker, %{
-        "event_definition_hash_id" => event_definition_hash_id,
-        "delete_topics" => delete_topics_for_deployments
-      })
-    end)
-
-    # Allow the EXQ tasks time to queue there jobs
-    Process.sleep(10000)
 
     # Finally reset all the deployment data
     CogyntLogger.info("#{__MODULE__}", "Resetting Deployment Data")
@@ -100,9 +71,12 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
         "ensure_enqueued_queue_tasks_finished/1 exceeded number of attempts (30). Moving forward with DeleteDeploymentData"
       )
     else
-      case Exq.Api.queue_size(Exq.Api, @dev_delete_queue) do
-        {:ok, jobs} ->
-          if jobs <= 1 do
+      case Redis.get("dd") do
+        {:ok, nil} ->
+          nil
+
+        {:ok, values} ->
+          if Enum.count(values) <= 1 do
             nil
           else
             CogyntLogger.info(

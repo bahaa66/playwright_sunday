@@ -69,18 +69,35 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
                   } ->
                     try do
                       if reset_deployment do
+                        # 1) delete drilldown data
                         ExqHelpers.create_and_enqueue(
                           "DevDelete",
                           nil,
-                          DeleteDeploymentDataWorker,
-                          %{
-                            event_definition_hash_ids:
-                              EventsContext.list_event_definitions()
-                              |> Enum.group_by(fn ed -> ed.id end)
-                              |> Map.keys(),
-                            delete_topics: delete_topics_for_deployments
-                          },
+                          DeleteDrilldownDataWorker,
+                          delete_topics_for_deployments,
                           :infinite
+                        )
+
+                        # 2) delete event_definitions data
+                        EventsContext.list_event_definitions()
+                        |> Enum.group_by(fn ed -> ed.id end)
+                        |> Map.keys()
+                        |> Enum.each(fn event_definition_hash_id ->
+                          ExqHelpers.enqueue(
+                            "DevDelete",
+                            DeleteEventDefinitionsAndTopicsWorker,
+                            %{
+                              event_definition_hash_id: event_definition_hash_id,
+                              delete_topics: delete_topics_for_deployments
+                            }
+                          )
+                        end)
+
+                        # 3) delete deployment data
+                        ExqHelpers.enqueue(
+                          "DevDelete",
+                          DeleteDeploymentDataWorker,
+                          delete_topics_for_deployments
                         )
                       else
                         if reset_drilldown do
