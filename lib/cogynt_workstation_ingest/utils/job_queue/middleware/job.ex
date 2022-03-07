@@ -26,7 +26,11 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
 
     CogyntLogger.info("#{__MODULE__}", "Queueing Job for #{module}")
 
-    IO.inspect(Exq.Api.queue_size(Exq.Api, @dev_delete_queue), label: "******BEFORE WORK")
+    IO.inspect(Exq.Api.queue_size(Exq.Api, @dev_delete_queue),
+      label: "******BEFORE WORK QUEUE SIZE"
+    )
+
+    IO.inspect(Exq.Api.jobs(Exq.Api, @dev_delete_queue), label: "******BEFORE WORK JOBS")
 
     pipeline
     |> monitor_job
@@ -35,6 +39,12 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
   end
 
   def after_processed_work(pipeline) do
+    IO.inspect(Exq.Api.queue_size(Exq.Api, @dev_delete_queue),
+      label: "******AFTER WORK QUEUE SIZE"
+    )
+
+    IO.inspect(Exq.Api.jobs(Exq.Api, @dev_delete_queue), label: "******AFTER WORK JOBS")
+
     pipeline
     |> demonitor_job
     |> remove_job_from_backup
@@ -177,8 +187,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
   defp trigger_devdelete_subscription(%Pipeline{assigns: _assigns} = pipeline) do
     case Exq.Api.queue_size(Exq.Api, @dev_delete_queue) do
       {:ok, jobs} ->
-        # IO.inspect(jobs, label: "******** JOBS")
-
         if jobs <= 1 do
           Redis.publish_async("dev_delete_subscription", %{action: "stop"})
         end
