@@ -28,7 +28,11 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
     )
 
     # First reset all DrilldownData passing true to delete topic data
-    ExqHelpers.enqueue("DevDelete", DeleteDrilldownDataWorker, delete_topics_for_deployments)
+    ExqHelpers.enqueue(
+      @dev_delete_queue,
+      DeleteDrilldownDataWorker,
+      delete_topics_for_deployments
+    )
 
     # Second shutdown the DeploymentPipeline
     Redis.publish_async("ingest_channel", %{shutdown_deployment_pipeline: "deployment"})
@@ -47,7 +51,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
 
     # Fourth reset all the data for each event_definition
     Enum.each(event_definition_hash_ids, fn event_definition_hash_id ->
-      ExqHelpers.enqueue("DevDelete", DeleteEventDefinitionsAndTopicsWorker, %{
+      ExqHelpers.enqueue(@dev_delete_queue, DeleteEventDefinitionsAndTopicsWorker, %{
         "event_definition_hash_id" => event_definition_hash_id,
         "delete_topics" => delete_topics_for_deployments
       })
