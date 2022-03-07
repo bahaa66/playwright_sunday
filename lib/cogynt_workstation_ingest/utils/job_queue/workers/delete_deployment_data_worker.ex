@@ -14,6 +14,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
 
   alias CogyntWorkstationIngest.Config
 
+  @dev_delete_queue "DevDelete"
+
   def perform(
         %{
           "event_definition_hash_ids" => event_definition_hash_ids,
@@ -94,8 +96,13 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
         "ensure_enqueued_queue_tasks_finished/1 exceeded number of attempts (30). Moving forward with DeleteDeploymentData"
       )
     else
-      case Exq.Api.jobs(Exq.Api, "DevDelete") do
+      case Exq.Api.jobs(Exq.Api, @dev_delete_queue) do
         {:ok, jobs} ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "#{inspect(jobs, label: "******** JOBS")}"
+          )
+
           IO.inspect(jobs, label: "******** JOBS")
 
           if Enum.count(jobs) <= 1 do
