@@ -16,6 +16,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
   @template_solutions_id 1
   @template_solution_events_id 2
   @deployment_worker_id 3
+  @dev_delete_queue "DevDelete"
 
   def before_work(pipeline) do
     job = Exq.Support.Job.decode(pipeline.assigns.job_serialized)
@@ -35,6 +36,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     pipeline
     |> demonitor_job
     |> remove_job_from_backup
+    |> trigger_devdelete_subscription
   end
 
   def after_failed_work(pipeline) do
@@ -170,6 +172,22 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     pipeline
   end
 
+  defp trigger_devdelete_subscription(%Pipeline{assigns: _assigns} = pipeline) do
+    case Exq.Api.jobs(Exq.Api, @dev_delete_queue) do
+      {:ok, jobs} ->
+        IO.inspect(jobs, label: "******** JOBS")
+
+        if Enum.count(jobs) <= 1 do
+          Redis.publish_async("dev_delete_subscription", %{action: "stop"})
+        end
+
+        pipeline
+
+      _ ->
+        pipeline
+    end
+  end
+
   defp monitor_job(pipeline) do
     job = Exq.Support.Job.decode(pipeline.assigns.job_serialized)
     args = List.first(job.args)
@@ -231,18 +249,18 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
         end
 
       # Dev Delete
-      worker_module == to_string(DeleteDeploymentDataWorker) ->
-        update_dev_delete_key(@deployment_worker_id)
+      #   worker_module == to_string(DeleteDeploymentDataWorker) ->
+      #     update_dev_delete_key(@deployment_worker_id)
 
-      worker_module == to_string(DeleteDrilldownDataWorker) ->
-        update_dev_delete_key([@template_solutions_id, @template_solution_events_id])
+      #   worker_module == to_string(DeleteDrilldownDataWorker) ->
+      #     update_dev_delete_key([@template_solutions_id, @template_solution_events_id])
 
-      worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
-        %{
-          "event_definition_hash_id" => event_definition_hash_id
-        } = args
+      #   worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
+      #     %{
+      #       "event_definition_hash_id" => event_definition_hash_id
+      #     } = args
 
-        update_dev_delete_key(event_definition_hash_id)
+      #     update_dev_delete_key(event_definition_hash_id)
 
       true ->
         nil
@@ -300,21 +318,21 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
         end
 
       # Dev Delete
-      worker_module == to_string(DeleteDeploymentDataWorker) ->
-        remove_from_dev_delete_key(@deployment_worker_id)
+      #   worker_module == to_string(DeleteDeploymentDataWorker) ->
+      #     remove_from_dev_delete_key(@deployment_worker_id)
 
-      worker_module == to_string(DeleteDrilldownDataWorker) ->
-        remove_from_dev_delete_key([
-          @template_solutions_id,
-          @template_solution_events_id
-        ])
+      #   worker_module == to_string(DeleteDrilldownDataWorker) ->
+      #     remove_from_dev_delete_key([
+      #       @template_solutions_id,
+      #       @template_solution_events_id
+      #     ])
 
-      worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
-        %{
-          "event_definition_hash_id" => event_definition_hash_id
-        } = args
+      #   worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
+      #     %{
+      #       "event_definition_hash_id" => event_definition_hash_id
+      #     } = args
 
-        remove_from_dev_delete_key(event_definition_hash_id)
+      #     remove_from_dev_delete_key(event_definition_hash_id)
 
       true ->
         nil
