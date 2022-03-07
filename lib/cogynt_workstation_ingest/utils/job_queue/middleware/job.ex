@@ -175,7 +175,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
   defp trigger_devdelete_subscription(%Pipeline{assigns: _assigns} = pipeline) do
     case Exq.Api.jobs(Exq.Api, @dev_delete_queue) do
       {:ok, jobs} ->
-        IO.inspect(jobs, label: "******** JOBS")
+        # IO.inspect(jobs, label: "******** JOBS")
 
         if Enum.count(jobs) <= 1 do
           Redis.publish_async("dev_delete_subscription", %{action: "stop"})
