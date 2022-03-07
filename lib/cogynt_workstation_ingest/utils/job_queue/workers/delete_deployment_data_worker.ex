@@ -97,7 +97,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
       )
     else
       case Exq.Api.queue_size(Exq.Api, @dev_delete_queue) do
-        Exq.worker_job()
         {:ok, jobs} ->
           if jobs <= 1 do
             nil
