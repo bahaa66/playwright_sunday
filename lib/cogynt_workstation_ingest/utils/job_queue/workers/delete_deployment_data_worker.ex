@@ -8,8 +8,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
 
   alias CogyntWorkstationIngest.Config
 
-  @dev_delete_queue "DevDelete"
-
   def perform(delete_topics_for_deployments) do
     CogyntLogger.info(
       "#{__MODULE__}",
@@ -32,8 +30,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
     end
 
     # Finally reset all the deployment data
-    CogyntLogger.info("#{__MODULE__}", "Resetting Deployment Data")
     ensure_enqueued_queue_tasks_finished()
+    CogyntLogger.info("#{__MODULE__}", "Resetting Deployment Data")
     reset_deployment_data()
   end
 

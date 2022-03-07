@@ -95,7 +95,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :redis,
-        tag: "v1.17.0",
+        # tag: "v1.17.0",
+        branch: "testing/authoring-2-debugging",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true

@@ -162,12 +162,10 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
       worker_module == to_string(DeleteDeploymentDataWorker) ->
         Redis.list_append_async("dd", @deployment_worker_id)
         Redis.key_pexpire("dd", 3_600_000)
-        trigger_devdelete_subscription()
 
       worker_module == to_string(DeleteDrilldownDataWorker) ->
         Redis.list_append_async("dd", [@template_solutions_id, @template_solution_events_id])
         Redis.key_pexpire("dd", 3_600_000)
-        trigger_devdelete_subscription()
 
       worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
         %{
@@ -176,7 +174,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
 
         Redis.list_append_async("dd", event_definition_hash_id)
         Redis.key_pexpire("dd", 3_600_000)
-        trigger_devdelete_subscription()
 
       true ->
         nil
@@ -235,16 +232,24 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
 
       # Dev Delete
       worker_module == to_string(DeleteDeploymentDataWorker) ->
-        Redis.list_pop_first("dd")
+        Redis.list_remove("dd", @deployment_worker_id)
         Redis.key_pexpire("dd", 3_600_000)
+        trigger_devdelete_subscription()
 
       worker_module == to_string(DeleteDrilldownDataWorker) ->
-        Redis.list_pop_first("dd", 2)
+        Redis.list_remove("dd", @template_solutions_id)
+        Redis.list_remove("dd", @template_solution_events_id)
         Redis.key_pexpire("dd", 3_600_000)
+        trigger_devdelete_subscription()
 
       worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
-        Redis.list_pop_first("dd")
+        %{
+          "event_definition_hash_id" => event_definition_hash_id
+        } = args
+
+        Redis.list_remove("dd", event_definition_hash_id)
         Redis.key_pexpire("dd", 3_600_000)
+        trigger_devdelete_subscription()
 
       true ->
         nil
