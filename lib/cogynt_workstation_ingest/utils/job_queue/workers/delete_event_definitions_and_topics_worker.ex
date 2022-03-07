@@ -10,10 +10,17 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
 
-  def perform(%{
-        "event_definition_hash_id" => event_definition_hash_id,
-        "delete_topics" => delete_topics
-      }) do
+  def perform(
+        %{
+          "event_definition_hash_id" => event_definition_hash_id,
+          "delete_topics" => delete_topics
+        } = args
+      ) do
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "RUNNING DELETE EVENTDEFINITION DATA WORKER. Args: #{inspect(args, pretty: true)}"
+    )
+
     case EventsContext.get_event_definition(event_definition_hash_id) do
       nil ->
         CogyntLogger.warn(
@@ -38,11 +45,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
 
         # 5) delete the event definition data
         delete_event_definition(event_definition)
-
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Finished deleting data for EventDefinitionHashId: #{event_definition_hash_id}"
-        )
     end
   end
 
@@ -50,11 +52,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   # --- Private Methods --- #
   # ----------------------- #
   defp shutdown_event_pipeline(event_definition) do
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "Shutting down EventPipeline for #{event_definition.topic}"
-    )
-
     {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
 
     if consumer_state.status != ConsumerStatusTypeEnum.status()[:unknown] do
@@ -67,11 +64,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   end
 
   defp delete_topics(event_definition) do
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "Deleting Kakfa topic: #{event_definition.topic}"
-    )
-
     case DeploymentsContext.get_kafka_brokers(event_definition.deployment_id) do
       {:ok, brokers} ->
         Kafka.Api.Topic.delete_topic(event_definition.topic, brokers)
@@ -85,12 +77,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   end
 
   defp delete_event_definition(event_definition) do
-    # delete data
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "Deleting data for EventDefinitionHashId: #{event_definition.id}"
-    )
-
     # Sixth delete all event_definition_data. Anything linked to the event_definition_hash_id
     EventsContext.hard_delete_by_event_definition_hash_id(event_definition.id)
 
@@ -106,11 +92,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
           %{updated: updated_event_definition.id}
         )
 
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Finished deleting data for event definition: #{updated_event_definition.id}"
-        )
-
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
@@ -120,20 +101,12 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   end
 
   defp delete_elasticsearch_data(event_definition) do
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "Deleting Elasticsearch data for EventDefinitionHashId: #{event_definition.id}"
-    )
-
     case ElasticApi.delete_by_query(Config.event_index_alias(), %{
            field: "event_definition_hash_id",
            value: event_definition.id
          }) do
       {:ok, _count} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Elasticsearch data deleted for EventDefinitionHashId: #{event_definition.id}"
-        )
+        {:ok, :success}
 
       {:error, error} ->
         CogyntLogger.error(
@@ -163,7 +136,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
     if count >= 30 do
       CogyntLogger.info(
         "#{__MODULE__}",
-        "ensure_pipeline_shutdown/1 exceeded number of attempts. Moving forward with DeleteEventDefinitionsAndTopics"
+        "ensure_pipeline_shutdown/1 exceeded number of attempts (30) Moving forward with DeleteEventDefinitionsAndTopics"
       )
     else
       {_status, consumer_state} =
@@ -175,17 +148,14 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         true ->
           CogyntLogger.info(
             "#{__MODULE__}",
-            "EventPipeline #{event_definition_hash_id} still running... waiting for it to shutdown before resetting data"
+            "EventPipeline #{event_definition_hash_id} still running... waiting 1000 ms for it to shutdown before resetting data"
           )
 
           Process.sleep(1000)
           ensure_pipeline_shutdown(event_definition_hash_id, count + 1)
 
         false ->
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "EventPipeline #{event_definition_hash_id} shutdown"
-          )
+          nil
       end
     end
   end

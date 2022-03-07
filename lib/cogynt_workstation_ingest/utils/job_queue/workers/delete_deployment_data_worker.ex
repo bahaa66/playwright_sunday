@@ -14,23 +14,24 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
 
   alias CogyntWorkstationIngest.Config
 
-  def perform(%{
-        "event_definition_hash_ids" => event_definition_hash_ids,
-        "delete_topics" => delete_topics_for_deployments
-      }) do
+  def perform(
+        %{
+          "event_definition_hash_ids" => event_definition_hash_ids,
+          "delete_topics" => delete_topics_for_deployments
+        } = args
+      ) do
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "RUNNING DELETE DEPLOYMENT DATA WORKER. Args: #{inspect(args, pretty: true)}"
+    )
+
     # First reset all DrilldownData passing true to delete topic data
     ExqHelpers.enqueue("DevDelete", DeleteDrilldownDataWorker, delete_topics_for_deployments)
 
-    CogyntLogger.info("#{__MODULE__}", "Stopping the DeploymentPipeline")
     # Second shutdown the DeploymentPipeline
     Redis.publish_async("ingest_channel", %{shutdown_deployment_pipeline: "deployment"})
 
     ensure_deployment_pipeline_stopped()
-
-    CogyntLogger.info(
-      "#{__MODULE__}",
-      "Deleting the Deployment Topic: #{Config.deployment_topic()}"
-    )
 
     # Third delete all data for the delployment topic
     if delete_topics_for_deployments do
@@ -66,7 +67,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
     if count >= 30 do
       CogyntLogger.info(
         "#{__MODULE__}",
-        "ensure_deployment_pipeline_stopped/1 exceeded number of attempts. Moving forward with DeleteDeploymentData"
+        "ensure_deployment_pipeline_stopped/1 exceeded number of attempts (30). Moving forward with DeleteDeploymentData"
       )
     else
       case DeploymentPipeline.pipeline_running?() or
@@ -74,17 +75,14 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
         true ->
           CogyntLogger.info(
             "#{__MODULE__}",
-            "DeploymentPipeline still running... waiting for it to shutdown before resetting data"
+            "DeploymentPipeline still running... waiting 1000 ms for it to shutdown before resetting data"
           )
 
           Process.sleep(1000)
           ensure_deployment_pipeline_stopped(count + 1)
 
         false ->
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "DeploymentPipeline stopped"
-          )
+          nil
       end
     end
   end
@@ -98,21 +96,15 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
     else
       case Redis.get("dd") do
         {:ok, nil} ->
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "DevDelete Queue tasks finished. Proceed with DeleteDeploymentData"
-          )
+          nil
 
         {:ok, values} ->
           if Enum.count(values) <= 1 do
-            CogyntLogger.info(
-              "#{__MODULE__}",
-              "DevDelete Queue tasks finished. Proceed with DeleteDeploymentData"
-            )
+            nil
           else
             CogyntLogger.info(
               "#{__MODULE__}",
-              "DevDelete Queued Tasks still running... waiting for it to shutdown before resetting data"
+              "DevDelete Queued Tasks still running... waiting 120000 ms for it to shutdown before resetting data"
             )
 
             # Will retry every 2 mins for a max retry limit of 30. Will wait for a max of 1 before
@@ -122,10 +114,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
           end
 
         _ ->
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "DevDelete Queue tasks finished. Proceed with DeleteDeploymentData"
-          )
+          nil
       end
     end
   end
@@ -142,8 +131,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
     Redis.key_delete("dpmi")
     Redis.key_delete("fdpm")
     Redis.hash_delete("crw", Config.deployment_topic())
-
-    CogyntLogger.info("#{__MODULE__}", "Starting the DeploymentPipeline")
 
     Redis.publish_async("ingest_channel", %{start_deployment_pipeline: "deployment"})
   end
