@@ -59,16 +59,31 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     pipeline
   end
 
-  defp trigger_devdelete_subscription() do
+  defp trigger_devdelete_start() do
+    case Redis.set_length("dd") do
+      {:ok, count} when count <= 0 ->
+        Redis.publish_async("dev_delete_subscription", %{action: "start"})
+
+      {:ok, count} when count > 0 ->
+        nil
+
+      _ ->
+        Redis.publish_async("dev_delete_subscription", %{action: "start"})
+    end
+  end
+
+  defp trigger_devdelete_stop() do
     case Redis.set_length("dd") do
       {:ok, count} when count <= 0 ->
         Redis.publish_async("dev_delete_subscription", %{action: "stop"})
+        Redis.key_delete("dd")
 
       {:ok, count} when count > 0 ->
         nil
 
       _ ->
         Redis.publish_async("dev_delete_subscription", %{action: "stop"})
+        Redis.key_delete("dd")
     end
   end
 
@@ -107,10 +122,12 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
 
       # Dev Delete
       worker_module == to_string(DeleteDeploymentDataWorker) ->
+        trigger_devdelete_start()
         Redis.add_member_to_set("dd", @deployment_worker_id)
         Redis.key_pexpire("dd", 3_600_000)
 
       worker_module == to_string(DeleteDrilldownDataWorker) ->
+        trigger_devdelete_start()
         Redis.add_member_to_set("dd", @drilldown_worker_id)
         Redis.key_pexpire("dd", 3_600_000)
 
@@ -119,6 +136,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
           "event_definition_hash_id" => event_definition_hash_id
         } = args
 
+        trigger_devdelete_start()
         Redis.add_member_to_set("dd", event_definition_hash_id)
         Redis.key_pexpire("dd", 3_600_000)
 
@@ -154,12 +172,12 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
       worker_module == to_string(DeleteDeploymentDataWorker) ->
         Redis.remove_member_from_set("dd", @deployment_worker_id)
         Redis.key_pexpire("dd", 3_600_000)
-        trigger_devdelete_subscription()
+        trigger_devdelete_stop()
 
       worker_module == to_string(DeleteDrilldownDataWorker) ->
         Redis.remove_member_from_set("dd", @drilldown_worker_id)
         Redis.key_pexpire("dd", 3_600_000)
-        trigger_devdelete_subscription()
+        trigger_devdelete_stop()
 
       worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
         %{
@@ -168,7 +186,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
 
         Redis.remove_member_from_set("dd", event_definition_hash_id)
         Redis.key_pexpire("dd", 3_600_000)
-        trigger_devdelete_subscription()
+        trigger_devdelete_stop()
 
       true ->
         nil
