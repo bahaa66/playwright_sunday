@@ -303,11 +303,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
     try do
       case Elasticsearch.post(Cluster, "_bulk", bulk_delete_data) do
         {:ok, result} ->
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "bulk_delete/2 Success. Result: #{inspect(result, pretty: true)}"
-          )
-
           {:ok, result}
 
         {:error, error} ->
