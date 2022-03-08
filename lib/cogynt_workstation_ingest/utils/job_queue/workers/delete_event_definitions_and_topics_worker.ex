@@ -85,12 +85,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
            active: false
          }) do
       {:ok, %EventDefinition{} = updated_event_definition} ->
-        ConsumerStateManager.remove_consumer_state(event_definition.id)
-
-        Redis.publish_async(
-          "event_definitions_subscription",
-          %{updated: updated_event_definition.id}
-        )
+        ConsumerStateManager.remove_consumer_state(updated_event_definition.id)
 
       {:error, error} ->
         CogyntLogger.error(
