@@ -69,7 +69,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
         "ensure_enqueued_queue_tasks_finished/1 exceeded number of attempts (30). Moving forward with DeleteDeploymentData"
       )
     else
-      case Redis.list_length("dd") do
+      case Redis.set_length("dd") do
         {:ok, count} ->
           if count <= 1 do
             nil

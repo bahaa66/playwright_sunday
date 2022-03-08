@@ -1,16 +1,12 @@
 defmodule CogyntWorkstationIngest.ReleaseTasks do
-  @doc """
-  This module is where any pre_start code needs to go that will be called and executed
-  in the pre_start.sh bash script
-  """
-  @app :cogynt_workstation_ingest
+  # @app :cogynt_workstation_ingest
   # alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
   # alias CogyntWorkstationIngest.Config
 
-  @deps [
-    :elasticsearch,
-    :httpoison
-  ]
+  # @deps [
+  #   :elasticsearch,
+  #   :httpoison
+  # ]
 
   # def eval_elasticsearch do
   #   load_app()

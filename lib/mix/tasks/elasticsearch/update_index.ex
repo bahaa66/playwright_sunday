@@ -76,7 +76,7 @@ defmodule Mix.Tasks.Elasticsearch.UpdateIndex do
       [index, env, "active"] ->
         now = DateTime.now!("Etc/UTC")
         date_string = Calendar.strftime(now |> DateTime.add(-1, :second), "%Y%m%d%I%M%S")
-        now_string = Calendar.strftime(now, "%Y%m%d%I%M%S")
+        # now_string = Calendar.strftime(now, "%Y%m%d%I%M%S")
         archive_file_name = archive_file_name(index, env, date_string)
         active_file_name = active_file_name(index, env, date_string)
 
@@ -109,7 +109,7 @@ defmodule Mix.Tasks.Elasticsearch.UpdateIndex do
            :ok <- File.write(file_name, contents) do
         {:ok, file_name}
       else
-        error ->
+        _ ->
           nil
       end
     end
