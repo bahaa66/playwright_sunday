@@ -13,10 +13,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     DeleteEventDefinitionsAndTopicsWorker
   }
 
-  alias CogyntWorkstationIngest.Events.EventsContext
-
-  @template_solutions_temp_id 1
-  @template_solution_events_temp_id 2
+  @drilldown_worker_id 1
+  @deployment_worker_id 2
 
   def before_work(pipeline) do
     job = Exq.Support.Job.decode(pipeline.assigns.job_serialized)
@@ -61,90 +59,16 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     pipeline
   end
 
-  defp update_dev_delete_key(value) when is_list(value) do
-    case Redis.get("dd") do
-      {:ok, nil} ->
-        Redis.set("dd", Enum.uniq(value))
-        # 7 mins
-        Redis.key_pexpire("dd", 420_000)
+  defp trigger_devdelete_subscription() do
+    case Redis.set_length("dd") do
+      {:ok, count} when count <= 0 ->
+        Redis.publish_async("dev_delete_subscription", %{action: "stop"})
 
-      {:ok, values} ->
-        Redis.set("dd", Enum.uniq(values ++ value))
-        # 7 mins
-        Redis.key_pexpire("dd", 420_000)
+      {:ok, count} when count > 0 ->
+        nil
 
       _ ->
-        Redis.set("dd", Enum.uniq(value))
-        # 7 mins
-        Redis.key_pexpire("dd", 420_000)
-    end
-  end
-
-  defp update_dev_delete_key(value) do
-    case Redis.get("dd") do
-      {:ok, nil} ->
-        Redis.set("dd", [value])
-        # 7 mins
-        Redis.key_pexpire("dd", 420_000)
-
-      {:ok, values} ->
-        Redis.set("dd", Enum.uniq(values ++ [value]))
-        # 7 mins
-        Redis.key_pexpire("dd", 420_000)
-
-      _ ->
-        Redis.set("dd", [value])
-        # 7 mins
-        Redis.key_pexpire("dd", 420_000)
-    end
-  end
-
-  defp remove_from_dev_delete_key(value) when is_list(value) do
-    case Redis.key_exists?("dd") do
-      {:ok, true} ->
-        case Redis.get("dd") do
-          {:ok, nil} ->
-            Redis.key_delete("dd")
-
-          {:ok, values} ->
-            values = Enum.reject(values, fn x -> x in value end)
-
-            if Enum.empty?(values) do
-              Redis.key_delete("dd")
-            else
-              Redis.set("dd", Enum.uniq(values))
-              # 7 mins
-              Redis.key_pexpire("dd", 420_000)
-            end
-
-          _ ->
-            Redis.key_delete("dd")
-        end
-
-      {:ok, false} ->
-        nil
-    end
-  end
-
-  defp remove_from_dev_delete_key(value) do
-    case Redis.key_exists?("dd") do
-      {:ok, true} ->
-        case Redis.get("dd") do
-          {:ok, nil} ->
-            Redis.key_delete("dd")
-
-          {:ok, values} ->
-            values = List.delete(values, value)
-            Redis.set("dd", Enum.uniq(values))
-            # 7 mins
-            Redis.key_pexpire("dd", 420_000)
-
-          _ ->
-            Redis.key_delete("dd")
-        end
-
-      {:ok, false} ->
-        nil
+        Redis.publish_async("dev_delete_subscription", %{action: "stop"})
     end
   end
 
@@ -160,112 +84,43 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     pipeline
   end
 
-  defp fetch_all_event_definition_hash_ids() do
-    EventsContext.list_event_definitions()
-    |> Enum.group_by(fn ed -> ed.id end)
-    |> Map.keys()
-  end
-
   defp monitor_job(pipeline) do
     job = Exq.Support.Job.decode(pipeline.assigns.job_serialized)
     args = List.first(job.args)
     worker_module = "Elixir." <> job.class
 
     cond do
+      # Backfill Notifications
       worker_module == to_string(BackfillNotificationsWorker) ->
-        case Redis.hash_get("ts", "bn") do
-          {:ok, nil} ->
-            Redis.hash_set(
-              "ts",
-              "bn",
-              [args]
-            )
+        Redis.add_member_to_set("bn", args)
+        Redis.key_pexpire("bn", 3_600_000)
 
-          {:ok, notification_setting_ids} ->
-            Redis.hash_set(
-              "ts",
-              "bn",
-              Enum.uniq(notification_setting_ids ++ [args])
-            )
-        end
-
+      # Update Notifications
       worker_module == to_string(UpdateNotificationsWorker) ->
-        case Redis.hash_get("ts", "un") do
-          {:ok, nil} ->
-            Redis.hash_set(
-              "ts",
-              "un",
-              [args]
-            )
+        Redis.add_member_to_set("un", args)
+        Redis.key_pexpire("un", 3_600_000)
 
-          {:ok, notification_setting_ids} ->
-            Redis.hash_set(
-              "ts",
-              "un",
-              Enum.uniq(notification_setting_ids ++ [args])
-            )
-        end
-
+      # Delete Notifications
       worker_module == to_string(DeleteNotificationsWorker) ->
-        case Redis.hash_get("ts", "dn") do
-          {:ok, nil} ->
-            Redis.hash_set(
-              "ts",
-              "dn",
-              [args]
-            )
+        Redis.add_member_to_set("dn", args)
+        Redis.key_pexpire("dn", 3_600_000)
 
-          {:ok, notification_setting_ids} ->
-            Redis.hash_set(
-              "ts",
-              "dn",
-              Enum.uniq(notification_setting_ids ++ [args])
-            )
-        end
-
+      # Dev Delete
       worker_module == to_string(DeleteDeploymentDataWorker) ->
-        ids = fetch_all_event_definition_hash_ids()
-        update_dev_delete_key(ids)
-        IO.inspect(ids, label: "***** DEV DELETE STARTING FOR IDS")
-        Redis.publish_async("dev_delete_subscription", %{ids: ids, action: "start"})
+        Redis.add_member_to_set("dd", @deployment_worker_id)
+        Redis.key_pexpire("dd", 3_600_000)
 
       worker_module == to_string(DeleteDrilldownDataWorker) ->
-        update_dev_delete_key([@template_solutions_temp_id, @template_solution_events_temp_id])
-
-        IO.inspect([@template_solutions_temp_id, @template_solution_events_temp_id],
-          label: "***** DEV DELETE STARTING FOR IDS"
-        )
-
-        Redis.publish_async("dev_delete_subscription", %{
-          ids: [@template_solutions_temp_id, @template_solution_events_temp_id],
-          action: "start"
-        })
+        Redis.add_member_to_set("dd", @drilldown_worker_id)
+        Redis.key_pexpire("dd", 3_600_000)
 
       worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
         %{
-          "event_definition_hash_ids" => event_definition_hash_ids
+          "event_definition_hash_id" => event_definition_hash_id
         } = args
 
-        case is_list(event_definition_hash_ids) do
-          true ->
-            update_dev_delete_key(event_definition_hash_ids)
-            IO.inspect(event_definition_hash_ids, label: "***** DEV DELETE STARTING FOR IDS")
-
-            Redis.publish_async("dev_delete_subscription", %{
-              ids: event_definition_hash_ids,
-              action: "start"
-            })
-
-          false ->
-            update_dev_delete_key([event_definition_hash_ids])
-
-            IO.inspect([event_definition_hash_ids], label: "***** DEV DELETE STARTING FOR IDS")
-
-            Redis.publish_async("dev_delete_subscription", %{
-              ids: [event_definition_hash_ids],
-              action: "start"
-            })
-        end
+        Redis.add_member_to_set("dd", event_definition_hash_id)
+        Redis.key_pexpire("dd", 3_600_000)
 
       true ->
         nil
@@ -280,90 +135,40 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     worker_module = "Elixir." <> job.class
 
     cond do
+      # Backfill Notifications
       worker_module == to_string(BackfillNotificationsWorker) ->
-        case Redis.hash_get("ts", "bn") do
-          {:ok, nil} ->
-            nil
+        Redis.remove_member_from_set("bn", args)
+        Redis.key_pexpire("bn", 3_600_000)
 
-          {:ok, notification_setting_ids} ->
-            Redis.hash_set(
-              "ts",
-              "bn",
-              List.delete(notification_setting_ids, args)
-            )
-        end
-
+      # Update Notifications
       worker_module == to_string(UpdateNotificationsWorker) ->
-        case Redis.hash_get("ts", "un") do
-          {:ok, nil} ->
-            nil
+        Redis.remove_member_from_set("un", args)
+        Redis.key_pexpire("un", 3_600_000)
 
-          {:ok, notification_setting_ids} ->
-            Redis.hash_set(
-              "ts",
-              "un",
-              List.delete(notification_setting_ids, args)
-            )
-        end
-
+      # Delete Notifications
       worker_module == to_string(DeleteNotificationsWorker) ->
-        case Redis.hash_get("ts", "dn") do
-          {:ok, nil} ->
-            nil
+        Redis.remove_member_from_set("dn", args)
+        Redis.key_pexpire("dn", 3_600_000)
 
-          {:ok, notification_setting_ids} ->
-            Redis.hash_set(
-              "ts",
-              "dn",
-              List.delete(notification_setting_ids, args)
-            )
-        end
-
+      # Dev Delete
       worker_module == to_string(DeleteDeploymentDataWorker) ->
-        ids = fetch_all_event_definition_hash_ids()
-        remove_from_dev_delete_key(ids)
-        IO.inspect(ids, label: "***** DEV DELETE STOPING FOR IDS")
-        Redis.publish_async("dev_delete_subscription", %{ids: [ids], action: "stop"})
+        Redis.remove_member_from_set("dd", @deployment_worker_id)
+        Redis.key_pexpire("dd", 3_600_000)
+        trigger_devdelete_subscription()
 
       worker_module == to_string(DeleteDrilldownDataWorker) ->
-        remove_from_dev_delete_key([
-          @template_solutions_temp_id,
-          @template_solution_events_temp_id
-        ])
-
-        IO.inspect([@template_solutions_temp_id, @template_solution_events_temp_id],
-          label: "***** DEV DELETE STOPING FOR IDS"
-        )
-
-        Redis.publish_async("dev_delete_subscription", %{
-          ids: [@template_solutions_temp_id, @template_solution_events_temp_id],
-          action: "stop"
-        })
+        Redis.remove_member_from_set("dd", @drilldown_worker_id)
+        Redis.key_pexpire("dd", 3_600_000)
+        trigger_devdelete_subscription()
 
       worker_module == to_string(DeleteEventDefinitionsAndTopicsWorker) ->
         %{
-          "event_definition_hash_ids" => event_definition_hash_ids
+          "event_definition_hash_id" => event_definition_hash_id
         } = args
 
-        remove_from_dev_delete_key(event_definition_hash_ids)
-
-        case is_list(event_definition_hash_ids) do
-          true ->
-            IO.inspect(event_definition_hash_ids, label: "***** DEV DELETE STOPING FOR IDS")
-
-            Redis.publish_async("dev_delete_subscription", %{
-              ids: event_definition_hash_ids,
-              action: "stop"
-            })
-
-          false ->
-            IO.inspect([event_definition_hash_ids], label: "***** DEV DELETE STOPING FOR IDS")
-
-            Redis.publish_async("dev_delete_subscription", %{
-              ids: [event_definition_hash_ids],
-              action: "stop"
-            })
-        end
+        Redis.remove_member_from_set("dd", event_definition_hash_id)
+        Redis.key_pexpire("dd", 3_600_000)
+        trigger_devdelete_subscription()
 
       true ->
         nil
