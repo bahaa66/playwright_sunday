@@ -393,7 +393,6 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
       timestamp_spec: timestamp,
       topic: event_definition.topic
     }
-    |> IO.inspect(label: "DRUID INGEST SPEC")
   end
 
   defp build_drilldown_druid_ingestion_spec(dimensions, name) do
