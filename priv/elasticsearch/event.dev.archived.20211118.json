@@ -59,16 +59,6 @@
         },
         "type" : "text"
       },
-      "event_definition_hash_id" :{
-        "fields" :{
-          "keyword" :{"type" : "keyword"},
-          "lowercase" :{
-            "analyzer" : "keyword_lowercase",
-            "type" : "text"
-          }
-        },
-        "type" : "text"
-      },
       "event_details" :{
         "properties" :{
           "event_detail" :{"type" : "object"},
