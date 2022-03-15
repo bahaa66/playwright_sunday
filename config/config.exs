@@ -115,12 +115,12 @@ config :druid,
 
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, :event_pipeline,
-  processor_stages: 10,
+  processor_stages: 20,
   producer_stages: 10
 
 config :cogynt_workstation_ingest, :deployment_pipeline,
-  processor_stages: 2,
-  producer_stages: 2
+  processor_stages: 10,
+  producer_stages: 5
 
 # Configurations for keys in Cogynt Core events
 config :cogynt_workstation_ingest, :cogynt_keys,

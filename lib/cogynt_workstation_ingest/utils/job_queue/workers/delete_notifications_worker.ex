@@ -53,17 +53,13 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteNotificationsWork
       nil ->
         CogyntLogger.warn(
           "#{__MODULE__}",
-          "NotificationSetting/EventDefinition not found for NotificationSettingId: #{
-            notification_setting_id
-          }"
+          "NotificationSetting/EventDefinition not found for NotificationSettingId: #{notification_setting_id}"
         )
 
       {:error, error} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "DeleteNotificationsWorker failed for ID: #{notification_setting_id}. Error: #{
-            inspect(error, pretty: true)
-          }"
+          "DeleteNotificationsWorker failed for ID: #{notification_setting_id}. Error: #{inspect(error, pretty: true)}"
         )
     end
   end

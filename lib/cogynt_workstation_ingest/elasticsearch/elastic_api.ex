@@ -303,11 +303,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
     try do
       case Elasticsearch.post(Cluster, "_bulk", bulk_delete_data) do
         {:ok, result} ->
-          CogyntLogger.info(
-            "#{__MODULE__}",
-            "bulk_delete/2 Success. Result: #{inspect(result, pretty: true)}"
-          )
-
           {:ok, result}
 
         {:error, error} ->
@@ -480,11 +475,16 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
 
   defp index_mappings_file() do
     priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
+    env = if(Config.env() == :prod, do: "prod", else: "dev")
 
-    if Config.env() == :prod do
-      Path.join(priv_folder, "event.prod.active.json")
-    else
-      Path.join(priv_folder, "event.dev.active.json")
+    Path.join(priv_folder, "event.#{env}.active.*.json")
+    |> Path.wildcard()
+    |> case do
+      # An active config without a time string doesn't exist so try without.
+      [] -> Path.join(priv_folder, "event.#{env}.active.json")
+      [active_file] -> active_file
+      # There are multiple acive files so we just use the first in the list.
+      [active_file | _tail] -> active_file
     end
   end
 end

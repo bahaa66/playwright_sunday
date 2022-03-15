@@ -117,17 +117,6 @@ cond do
       ],
       schema_registry_url: System.get_env("SCHEMA_REGISTRY_URL", "http://schemaregistry:8081")
 
-    # Broadway Pipelines configurations
-    config :cogynt_workstation_ingest, :event_pipeline,
-      processor_stages:
-        System.get_env("EVENTPIPELINE_PROCESSOR_STAGES", "10") |> String.to_integer(),
-      producer_stages:
-        System.get_env("EVENTPIPELINE_PRODUCER_STAGES", "10") |> String.to_integer()
-
-    config :cogynt_workstation_ingest, :deployment_pipeline,
-      processor_stages: System.get_env("DEPLOYMENT_PROCESSOR_STAGES", "2") |> String.to_integer(),
-      producer_stages: System.get_env("DEPLOYMENT_PRODUCER_STAGES", "2") |> String.to_integer()
-
     # RPC configurations
     config :cogynt_workstation_ingest, :rpc,
       cogynt_auth_service_name: System.get_env("COGYNT_AUTH_SERVICE_NAME"),

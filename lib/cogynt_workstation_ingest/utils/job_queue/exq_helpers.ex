@@ -1,6 +1,5 @@
 defmodule CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers do
   @default_concurrency 5
-  @min_concurrency 1
 
   def create_and_enqueue(
         queue_prefix,
@@ -23,7 +22,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers do
     end
   end
 
-  def create_job_queue_if_not_exists(queue_prefix, queue_id, concurrency \\ 5)
+  def create_job_queue_if_not_exists(queue_prefix, queue_id, concurrency \\ @default_concurrency)
 
   def create_job_queue_if_not_exists(queue_prefix, nil, concurrency) do
     case Exq.subscriptions(Exq) do
@@ -59,6 +58,15 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers do
     end
   end
 
+  def enqueue(queue_name, worker, args) do
+    {:ok, _job_id} =
+      Exq.enqueue(Exq, queue_name, worker, [
+        args
+      ])
+
+    {:ok, :success}
+  end
+
   def unubscribe_and_remove(queue_name) do
     Exq.unsubscribe(Exq, queue_name)
     Exq.Api.remove_queue(Exq.Api, queue_name)
@@ -69,7 +77,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers do
       {:ok, queues} ->
         Enum.each(queues, fn queue_name ->
           if queue_name == "DevDelete" do
-            Exq.subscribe(Exq, queue_name, @min_concurrency)
+            Exq.subscribe(Exq, queue_name, :infinite)
           else
             Exq.subscribe(Exq, queue_name, @default_concurrency)
           end

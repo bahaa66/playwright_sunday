@@ -201,6 +201,10 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     end)
   end
 
+  def get_id(event, _, _) do
+    {:ok, Map.get(event, Config.id_key())}
+  end
+
   def get_fields(event, _, _) do
     {:ok,
      event

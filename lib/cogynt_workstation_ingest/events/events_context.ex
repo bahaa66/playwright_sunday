@@ -584,9 +584,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         true ->
           field_type =
             cond do
-              val.dataType == "poly" or val.dataType == "poly-array" or
-                  val.dataType == "geo-array" ->
+              val.dataType == "poly" ->
                 "geo"
+
+              val.dataType == "poly-array" or
+                  val.dataType == "geo-array" ->
+                "geo-array"
 
               true ->
                 val.dataType
@@ -605,9 +608,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         false ->
           field_type =
             cond do
-              val["dataType"] == "poly" or val["dataType"] == "poly-array" or
-                  val["dataType"] == "geo-array" ->
+              val["dataType"] == "poly" ->
                 "geo"
+
+              val["dataType"] == "poly-array" or
+                  val["dataType"] == "geo-array" ->
+                "geo-array"
 
               true ->
                 val["dataType"]
@@ -630,9 +636,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     Enum.reduce(fields, [], fn details, acc ->
       field_type =
         cond do
-          details.dataType == "poly" or details.dataType == "poly-array" or
-              details.dataType == "geo-array" ->
+          details.dataType == "poly" ->
             "geo"
+
+          details.dataType == "poly-array" or
+              details.dataType == "geo-array" ->
+            "geo-array"
 
           true ->
             details.dataType
@@ -717,9 +726,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           else
             CogyntLogger.info(
               "#{__MODULE__}",
-              "Deleting data linked to EventDefinitionHashId: #{event_definition_hash_id}. Limit: #{
-                limit
-              }"
+              "Deleting data linked to EventDefinitionHashId: #{event_definition_hash_id}. Limit: #{limit}"
             )
 
             hard_delete_by_event_definition_hash_id(event_definition_hash_id, limit)

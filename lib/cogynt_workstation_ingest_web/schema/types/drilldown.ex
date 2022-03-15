@@ -67,7 +67,7 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
 
   object :drilldown_event do
     @desc "The core id of the event. This translates to the core id stored for events in workstation."
-    field :id, non_null(:id)
+    field :id, non_null(:id), do: resolve(&DrilldownResolver.get_id/3)
     field :assertion_id, :id
     field :fields, non_null(:json), do: resolve(&DrilldownResolver.get_fields/3)
     field :processed_at, :string
