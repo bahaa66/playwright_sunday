@@ -52,7 +52,7 @@
   "migrations": {:git, "git@github.com:cogility/cogynt-common.git", "2651e01f8937fc81e47103b9306fbd693672b141", [tag: "v1.17.0", sparse: "migrations"]},
   "mime": {:hex, :mime, "2.0.2", "0b9e1a4c840eafb68d820b0e2158ef5c49385d17fb36855ac6e7e087d4b1dcc5", [:mix], [], "hexpm", "e6a3f76b4c277739e36c2e21a2c640778ba4c3846189d5ab19f97f126df5f9b7"},
   "mimerl": {:hex, :mimerl, "1.2.0", "67e2d3f571088d5cfd3e550c383094b47159f3eee8ffa08e64106cdf5e981be3", [:rebar3], [], "hexpm", "f278585650aa581986264638ebf698f8bb19df297f66ad91b18910dfc6e19323"},
-  "models": {:git, "git@github.com:cogility/cogynt-common.git", "fcad2437fcd1e0c0c59de1720b09b9b9103e136c", [tag: "v1.19.0", sparse: "models"]},
+  "models": {:git, "git@github.com:cogility/cogynt-common.git", "fe8bc431382626396883daf4e49b04b7137821c3", [tag: "v1.19.1", sparse: "models"]},
   "msgpax": {:hex, :msgpax, "2.2.4", "7b3790ef684089076b63c0f08c2f4b079c6311daeb006b69e4ed2bf67518291e", [:mix], [{:plug, "~> 1.0", [hex: :plug, repo: "hexpm", optional: true]}], "hexpm", "b351b6d992d79624a8430a99d21a41b36b1b90edf84326a294e9f4a2de11f089"},
   "nimble_options": {:hex, :nimble_options, "0.4.0", "c89babbab52221a24b8d1ff9e7d838be70f0d871be823165c94dd3418eea728f", [:mix], [], "hexpm", "e6701c1af326a11eea9634a3b1c62b475339ace9456c1a23ec3bc9a847bca02d"},
   "nimble_parsec": {:hex, :nimble_parsec, "1.2.1", "264fc6864936b59fedb3ceb89998c64e9bb91945faf1eb115d349b96913cc2ef", [:mix], [], "hexpm", "23c31d0ec38c97bf9adde35bc91bc8e1181ea5202881f48a192f4aa2d2cf4d59"},
