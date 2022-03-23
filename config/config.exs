@@ -28,6 +28,8 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   password: "postgres",
   database: "cogynt_dev",
   hostname: "localhost",
+  queue_target: 1_000,
+  queue_interval: 5_000,
   telemetry_prefix: [:cogynt_workstation_ingest, :repo]
 
 # cogynt-common configurations
