@@ -29,22 +29,26 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         )
 
       event_definition ->
-        # 1) stop the EventPipeline if there is one running for the event_definition
-        shutdown_event_pipeline(event_definition)
+        {_, state} = ConsumerStateManager.get_consumer_state(event_definition.id)
 
-        # 2) check to see if the topic needs to be deleted
-        if delete_topics do
-          delete_topics(event_definition)
+        if !is_nil(state.topic) do
+          # 1) stop the EventPipeline if there is one running for the event_definition
+          shutdown_event_pipeline(event_definition)
+
+          # 2) check to see if the topic needs to be deleted
+          if delete_topics do
+            delete_topics(event_definition)
+          end
+
+          # 4) drop druid data and terminate supervisor
+          drop_and_terminate_druid(event_definition.topic)
+
+          # 4) remove all records from Elasticsearch
+          delete_elasticsearch_data(event_definition)
+
+          # 5) delete the event definition data
+          delete_event_definition(event_definition)
         end
-
-        # 4) drop druid data and terminate supervisor
-        drop_and_terminate_druid(event_definition.topic)
-
-        # 4) remove all records from Elasticsearch
-        delete_elasticsearch_data(event_definition)
-
-        # 5) delete the event definition data
-        delete_event_definition(event_definition)
     end
   end
 
