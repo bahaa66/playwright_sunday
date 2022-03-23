@@ -29,6 +29,9 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         )
 
       event_definition ->
+        # {_, state} = ConsumerStateManager.get_consumer_state(event_definition.id)
+
+        # if !is_nil(state.topic) do
         # 1) stop the EventPipeline if there is one running for the event_definition
         shutdown_event_pipeline(event_definition)
 
@@ -45,6 +48,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
 
         # 5) delete the event definition data
         delete_event_definition(event_definition)
+        # end
     end
   end
 
