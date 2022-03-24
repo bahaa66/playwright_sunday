@@ -1,4 +1,5 @@
 defmodule CogyntWorkstationIngestWeb.Router do
+  @dialyzer {:no_return, __checks__: 0}
   use CogyntWorkstationIngestWeb, :router
   import Phoenix.LiveDashboard.Router
   alias CogyntWorkstationIngest.Config
@@ -14,7 +15,7 @@ defmodule CogyntWorkstationIngestWeb.Router do
       json_decoder: Jason
     )
 
-    plug(CogyntWorkstationIngestWeb.Context)
+    plug(CogyntWorkstationIngestWeb.Plugs.Context)
   end
 
   pipeline :browser do
@@ -60,6 +61,6 @@ defmodule CogyntWorkstationIngestWeb.Router do
 
   scope "/*path" do
     pipe_through(:api)
-    get "/", FallbackController, {:error, :not_found}
+    get("/", FallbackController, {:error, :not_found})
   end
 end
