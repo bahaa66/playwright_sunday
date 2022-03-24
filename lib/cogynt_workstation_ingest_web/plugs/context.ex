@@ -1,4 +1,4 @@
-defmodule CogyntWorkstationIngestWeb.Context do
+defmodule CogyntWorkstationIngestWeb.Plugs.Context do
   @behaviour Plug
   import Plug.Conn
   alias CogyntWorkstationIngestWeb.Rpc.AuthClient
@@ -37,7 +37,7 @@ defmodule CogyntWorkstationIngestWeb.Context do
       nil ->
         {:ok, %{}}
 
-      %{id: user_id} ->
+      user_id ->
         case AuthClient.fetch_user(user_id) do
           {:ok, user} ->
             {:ok, %{current_user: user}}
