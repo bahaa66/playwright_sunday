@@ -3,9 +3,9 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   alias CogyntWorkstationIngest.Broadway.EventPipeline
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
-  alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
   alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
+  alias CogyntWorkstationIngest.DataSources.DataSourcesContext
 
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
@@ -68,14 +68,14 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   end
 
   defp delete_topics(event_definition) do
-    case DeploymentsContext.get_kafka_brokers(event_definition.deployment_id) do
+    case DataSourcesContext.fetch_brokers(event_definition.data_source_id) do
       {:ok, brokers} ->
         Kafka.Api.Topic.delete_topic(event_definition.topic, brokers)
 
       {:error, :does_not_exist} ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "Failed to fetch brokers for DeploymentId: #{event_definition.deployment_id}"
+          "Failed to fetch brokers for data_source_id: #{event_definition.data_source_id}"
         )
     end
   end

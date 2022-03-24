@@ -2,7 +2,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
   @moduledoc """
   """
   alias CogyntWorkstationIngest.Broadway.DeploymentPipeline
-  alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
 
@@ -92,9 +91,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
   end
 
   defp reset_deployment_data() do
-    # TODO: Add `deployments` table in the list of truncate_all_tables function
-    # and remove `hard_delete_deployments()`
-    DeploymentsContext.hard_delete_deployments()
     EventsContext.truncate_all_tables()
     # Reset all JobQ Info
     ExqHelpers.flush_all()

@@ -2,14 +2,10 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   @moduledoc """
   Module that acts as the Broadway Processor for the DeploymentPipeline.
   """
-  alias CogyntWorkstationIngest.Deployments.DeploymentsContext
   alias CogyntWorkstationIngest.DataSources.DataSourcesContext
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
   alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
-  alias Models.Deployments.Deployment
-  alias Models.Enums.DeploymentStatusType
-  alias Models.Events.EventDefinition
   alias Broadway.Message
 
   @deployment_target_hash_constant "00000000-0000-0000-0000-000000000000"
@@ -48,7 +44,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
               "Received deployment message for objectType: deployment, version: 2.0, id: #{deployment_message.id}"
             )
 
-            process_deployment_object_v2(deployment_message)
             process_data_sources_v2(deployment_message)
             message
 
@@ -105,7 +100,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
               "Received deployment message for object_type: deployment, version: 1.0, id: #{deployment_message.id}"
             )
 
-            process_deployment_object(deployment_message)
             process_data_sources(deployment_message)
             message
 
@@ -123,104 +117,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp process_deployment_object(deployment_message) do
-    # Upsert Deployments
-    {:ok, %Deployment{} = _deployment} =
-      Map.put(deployment_message, :version, to_string(deployment_message.version))
-      |> DeploymentsContext.upsert_deployment()
-
-    # Fetch all event_definitions that exists and are assosciated with
-    # the deployment_id
-    EventsContext.query_event_definitions(
-      filter: %{
-        deployment_id: deployment_message.id
-      }
-    )
-    # If any of these event_definition_id are not in the list of event_definition_ids
-    # passed in the deployment message, mark them as inactive and shut off the consumer.
-    # If they are in the list make sure to update the DeploymentStatus if it needs to be changed
-    |> Enum.each(fn %EventDefinition{
-                      deployment_status: deployment_status,
-                      event_definition_id: event_definition_id
-                    } = current_event_definition ->
-      case Enum.member?(
-             deployment_message.event_type_ids,
-             event_definition_id
-           ) do
-        true ->
-          if deployment_status == DeploymentStatusType.status()[:inactive] or
-               deployment_status == DeploymentStatusType.status()[:not_deployed] do
-            EventsContext.update_event_definition(current_event_definition, %{
-              deployment_status: DeploymentStatusType.status()[:active]
-            })
-          end
-
-        false ->
-          EventsContext.update_event_definition(current_event_definition, %{
-            active: false,
-            deployment_status: DeploymentStatusType.status()[:inactive]
-          })
-
-          Redis.publish_async("ingest_channel", %{
-            stop_consumer:
-              EventsContext.remove_event_definition_virtual_fields(current_event_definition)
-          })
-      end
-    end)
-  end
-
-  defp process_deployment_object_v2(deployment_message) do
-    # Upsert Deployments
-    # Temp override of the ID value with a backwards compatible v1DeploymentId field that is an INT
-    {:ok, %Deployment{} = _deployment} =
-      Map.put(deployment_message, :id, deployment_message.v1DeploymentId)
-      |> Map.put(:event_type_ids, deployment_message.eventTypeIds)
-      |> Map.put(:data_sources, deployment_message.dataSources)
-      |> DeploymentsContext.upsert_deployment()
-
-    # Fetch all event_definitions that exists and are assosciated with
-    # the deployment_id
-    EventsContext.query_event_definitions(
-      filter: %{
-        deployment_id: deployment_message.v1DeploymentId
-      }
-    )
-    # If any of these event_definition_id are not in the list of event_definition_ids
-    # passed in the deployment message, mark them as inactive and shut off the consumer.
-    # If they are in the list make sure to update the DeploymentStatus if it needs to be changed
-    |> Enum.each(fn %EventDefinition{
-                      deployment_status: deployment_status,
-                      event_definition_id: event_definition_id
-                    } = current_event_definition ->
-      case Enum.member?(
-             deployment_message.eventTypeIds,
-             event_definition_id
-           ) do
-        true ->
-          if deployment_status == DeploymentStatusType.status()[:inactive] or
-               deployment_status == DeploymentStatusType.status()[:not_deployed] do
-            EventsContext.update_event_definition(current_event_definition, %{
-              deployment_status: DeploymentStatusType.status()[:active]
-            })
-          end
-
-        false ->
-          EventsContext.update_event_definition(current_event_definition, %{
-            active: false,
-            deployment_status: DeploymentStatusType.status()[:inactive]
-          })
-
-          Redis.publish_async("ingest_channel", %{
-            stop_consumer:
-              EventsContext.remove_event_definition_virtual_fields(current_event_definition)
-          })
-      end
-    end)
-  end
-
   defp process_data_sources(deployment_message) do
-    # IO.inspect(deployment_message, label: "MSG for DataSources")
-
     Enum.each(
       deployment_message.data_sources,
       fn data_source ->
@@ -271,8 +168,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_event_type_object(deployment_message) do
-    # IO.inspect(deployment_message, label: "MSG for Event-type")
-
     data_source_id_uuid =
       UUID.uuid5(@deployment_target_hash_constant, to_string(deployment_message.data_source_id))
 
@@ -330,7 +225,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
       Map.get(deployment_message, :linkAnalysisType, :none)
     )
     |> Map.put(:event_definition_details_id, deployment_message.userDataSchemaId)
-    |> Map.put(:deployment_id, deployment_message.v1DeploymentId)
     |> EventsContext.upsert_event_definition_v2()
     |> case do
       {:ok, event_definition} ->
