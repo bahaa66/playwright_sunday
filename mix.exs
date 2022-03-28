@@ -95,7 +95,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :redis,
-        tag: "v1.19.0",
+        tag: "v1.20.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true
@@ -106,7 +106,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :cogynt_graphql,
-        tag: "v1.17.0",
+        tag: "v1.20.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt_graphql",
         override: true
