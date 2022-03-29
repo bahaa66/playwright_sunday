@@ -6,7 +6,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   """
   use DynamicSupervisor
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Deployments.DeploymentsContext
+  alias CogyntWorkstationIngest.DataSources.DataSourcesContext
   alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
 
   alias CogyntWorkstationIngest.Broadway.{
@@ -24,7 +24,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   end
 
   def start_child(event_definition) when is_map(event_definition) do
-    {:ok, brokers} = DeploymentsContext.get_kafka_brokers(event_definition.deployment_id)
+    {:ok, brokers} = DataSourcesContext.fetch_brokers(event_definition.data_source_id)
 
     topic = event_definition.topic
 

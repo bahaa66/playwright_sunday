@@ -8,8 +8,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
       "RUNNING DELETE DRILLDOWN DATA WORKER. delete_drilldown_topics: #{delete_drilldown_topics}"
     )
 
-    # If delete_drilldown_topics is true delete the drilldown topics for the
-    # kafka broker assosciated with the deployment_id
+    # If delete_drilldown_topics is true delete the drilldown topics
     if delete_drilldown_topics do
       # Delete topics for worker
       delete_topic_result =

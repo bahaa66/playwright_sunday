@@ -8,7 +8,7 @@ defmodule CogyntWorkstationIngest.DataSources.DataSourcesContext do
   alias Models.DataSources.DataSource
 
   # --------------------------------- #
-  # --- Deployment Schema Methods --- #
+  # --- Datasource Schema Methods --- #
   # --------------------------------- #
   @doc """
   Lists all the DataSources
@@ -42,8 +42,8 @@ defmodule CogyntWorkstationIngest.DataSources.DataSourcesContext do
       iex> update_datasource(%{field: bad_value})
       {:error, %Ecto.Changeset{}}
   """
-  def update_datasource(%DataSource{} = deployment, attrs) do
-    deployment
+  def update_datasource(%DataSource{} = datasource, attrs) do
+    datasource
     |> DataSource.changeset(attrs)
     |> Repo.update()
   end

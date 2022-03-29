@@ -225,6 +225,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       {:error, %Ecto.Changeset{}}
   """
   # *** TODO: This can be deprecated once Authoring 1.0 is no longer supported ***
+  ### WARNING: This is no longer working after Admin Redesign Change. Authoring 1 ingestion will
+  # not work ###
   def upsert_event_definition(attrs) do
     case get_event_definition_by(%{
            id: attrs.id,
@@ -800,9 +802,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       {:event_definition_ids, event_definition_ids}, q ->
         where(q, [ed], ed.event_definition_id in ^event_definition_ids)
-
-      {:deployment_id, deployment_id}, q ->
-        where(q, [ed], ed.deployment_id == ^deployment_id)
 
       {:active, active}, q ->
         where(q, [ed], ed.active == ^active)
