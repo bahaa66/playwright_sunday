@@ -12,8 +12,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
 
   def perform(
         %{
-          "event_definition_hash_id" => event_definition_hash_id,
-          "delete_topics" => delete_topics
+          "event_definition_hash_id" => event_definition_hash_id
         } = args
       ) do
     CogyntLogger.info(
@@ -36,7 +35,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         shutdown_event_pipeline(event_definition)
 
         # 2) check to see if the topic needs to be deleted
-        if delete_topics do
+        if Map.get(args, "delete_topics", false) do
           delete_topics(event_definition)
         end
 
