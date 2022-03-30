@@ -44,7 +44,7 @@ cond do
 
     # Kafka Configurations
     config :kafka, :common,
-      brokers: System.get_env("KAFKA_BROKERS"),
+      brokers: System.get_env("KAFKA_BROKERS", ""),
       partition_strategy: System.get_env("PARTITION_STRATEGY", "random") |> String.to_atom(),
       partitions: System.get_env("PARTITIONS", "10") |> String.to_integer(),
       replication_factor:
@@ -58,7 +58,7 @@ cond do
       clients: [
         internal_kafka_client: [
           endpoints:
-            String.split(System.get_env("KAFKA_BROKERS"), ",", trim: true)
+            String.split(System.get_env("KAFKA_BROKERS", ""), ",", trim: true)
             |> Enum.reduce(%{}, fn broker, acc ->
               ip_port = String.split(broker, ":", trim: true)
 

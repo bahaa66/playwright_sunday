@@ -6,15 +6,6 @@ defmodule CogyntWorkstationIngest.Servers.Workers.RedisStreamsConsumerGroupWorke
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
 
-  alias CogyntWorkstationIngest.Utils.JobQueue.Workers.{
-    DeleteDeploymentDataWorker,
-    DeleteDrilldownDataWorker,
-    DeleteEventDefinitionsAndTopicsWorker
-  }
-
-  alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
-  alias CogyntWorkstationIngest.Events.EventsContext
-
   @count 1
 
   # -------------------- #
