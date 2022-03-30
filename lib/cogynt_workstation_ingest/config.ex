@@ -160,6 +160,14 @@ defmodule CogyntWorkstationIngest.Config do
     end
   end
 
+  def data_type_key() do
+    if authoring_version() == "1" do
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:data_type]
+    else
+      Application.get_env(:cogynt_workstation_ingest, :cogynt_keys_v2)[:data_type]
+    end
+  end
+
   def startup_delay(), do: startup()[:init_delay]
 
   def event_index_alias(), do: elasticsearch()[:event_index_alias]
