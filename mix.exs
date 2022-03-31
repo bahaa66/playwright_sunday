@@ -81,7 +81,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :migrations,
-        tag: "v1.19.2-beta",
+        # tag: "v1.19.2-beta",
+        branch: "feat/CDST-1516-delete-notes-only-when-the-parent-is-deleted",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true

@@ -54,13 +54,13 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.DevDelete do
     end
   end
 
-  def reset_drilldown_data(_, %{delete_topics: delete_topics}, _) do
+  def reset_drilldown_data(_, _, _) do
     try do
       ExqHelpers.create_and_enqueue(
         "DevDelete",
         nil,
         DeleteDrilldownDataWorker,
-        delete_topics,
+        false,
         :infinite
       )
 
