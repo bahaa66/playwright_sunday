@@ -61,19 +61,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
     ensure_pipeline_shutdown(event_definition.id)
   end
 
-  defp delete_topics(event_definition) do
-    case DataSourcesContext.fetch_brokers(event_definition.data_source_id) do
-      {:ok, brokers} ->
-        Kafka.Api.Topic.delete_topic(event_definition.topic, brokers)
-
-      {:error, :does_not_exist} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Failed to fetch brokers for data_source_id: #{event_definition.data_source_id}"
-        )
-    end
-  end
-
   defp delete_event_definition(event_definition) do
     # Sixth delete all event_definition_data. Anything linked to the event_definition_hash_id
     EventsContext.hard_delete_by_event_definition_hash_id(event_definition.id)
