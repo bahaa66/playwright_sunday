@@ -81,8 +81,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :migrations,
-        # tag: "v1.19.2-beta",
-        branch: "feat/CDST-1516-delete-notes-only-when-the-parent-is-deleted",
+        tag: "v1.20.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
@@ -107,7 +106,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :cogynt_graphql,
-        tag: "v1.20.0",
+        tag: "v1.20.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt_graphql",
         override: true

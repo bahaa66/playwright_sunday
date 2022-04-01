@@ -78,7 +78,8 @@ config :redis, :common,
   pools: 5,
   exit_on_disconnection: true,
   sync_connect: true,
-  instance: :single
+  instance: :single,
+  client: Redis
 
 # Exq Job Queue
 config :exq,
