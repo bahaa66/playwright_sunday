@@ -78,7 +78,8 @@ config :redis, :common,
   pools: 5,
   exit_on_disconnection: true,
   sync_connect: true,
-  instance: :single
+  instance: :single,
+  client: Redis
 
 # Exq Job Queue
 config :exq,
@@ -140,7 +141,8 @@ config :cogynt_workstation_ingest, :cogynt_keys,
   partial: "$partial",
   entities: "$$entities",
   matches: "$matches",
-  source: "source"
+  source: "source",
+  data_type: "data_type"
 
 config :cogynt_workstation_ingest, :cogynt_keys_v2,
   link_data_type: "linkage",
@@ -157,7 +159,8 @@ config :cogynt_workstation_ingest, :cogynt_keys_v2,
   partial: "COG_partial",
   entities: "COG_entities",
   matches: "COG_matches",
-  source: "COG_source"
+  source: "COG_source",
+  data_type: "COG_data_type"
 
 config :cogynt_workstation_ingest, :failed_messages,
   retry_timer: 300_000,

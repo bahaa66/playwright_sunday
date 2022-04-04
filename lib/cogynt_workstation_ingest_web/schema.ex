@@ -8,7 +8,8 @@ defmodule CogyntWorkstationIngestWeb.Schema do
 
   import_types(__MODULE__.Types.{
     Drilldown,
-    LivenessCheck
+    LivenessCheck,
+    DevDelete
   })
 
   import_types(CogyntGraphql.Schema.Scalars.{
@@ -54,5 +55,9 @@ defmodule CogyntWorkstationIngestWeb.Schema do
   query do
     import_fields(:drilldown_queries)
     import_fields(:liveness_check_queries)
+  end
+
+  mutation do
+    import_fields(:dev_delete_mutations)
   end
 end

@@ -12,8 +12,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
 
   def perform(
         %{
-          "event_definition_hash_id" => event_definition_hash_id,
-          "delete_topics" => delete_topics
+          "event_definition_hash_id" => event_definition_hash_id
         } = args
       ) do
     CogyntLogger.info(
@@ -35,18 +34,13 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         # 1) stop the EventPipeline if there is one running for the event_definition
         shutdown_event_pipeline(event_definition)
 
-        # 2) check to see if the topic needs to be deleted
-        if delete_topics do
-          delete_topics(event_definition)
-        end
-
-        # 4) drop druid data and terminate supervisor
+        # 2) drop druid data and terminate supervisor
         drop_and_terminate_druid(event_definition.topic)
 
-        # 4) remove all records from Elasticsearch
+        # 3) remove all records from Elasticsearch
         delete_elasticsearch_data(event_definition)
 
-        # 5) delete the event definition data
+        # 4) delete the event definition data
         delete_event_definition(event_definition)
         # end
     end
@@ -65,19 +59,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
     end
 
     ensure_pipeline_shutdown(event_definition.id)
-  end
-
-  defp delete_topics(event_definition) do
-    case DataSourcesContext.fetch_brokers(event_definition.data_source_id) do
-      {:ok, brokers} ->
-        Kafka.Api.Topic.delete_topic(event_definition.topic, brokers)
-
-      {:error, :does_not_exist} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Failed to fetch brokers for data_source_id: #{event_definition.data_source_id}"
-        )
-    end
   end
 
   defp delete_event_definition(event_definition) do

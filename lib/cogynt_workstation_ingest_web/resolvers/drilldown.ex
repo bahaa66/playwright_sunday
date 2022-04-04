@@ -14,7 +14,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     "templateTypeId",
     Config.version_key(),
     "solution_id",
-    "data_type"
+    Config.data_type_key()
   ]
 
   def drilldown(_, %{id: solution_id}, %{
@@ -231,6 +231,8 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   def get_published_by(event, _, _), do: {:ok, Map.get(event, Config.published_by_key())}
 
   def get_published_at(event, _, _), do: {:ok, Map.get(event, Config.published_at_key())}
+
+  def get_data_type(event, _, _), do: {:ok, Map.get(event, Config.data_type_key())}
 
   defp get_solution(solution_id, loader, callback) do
     loader
