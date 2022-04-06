@@ -1,5 +1,6 @@
 defmodule CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers do
   @default_concurrency 5
+  @dev_delete_queue_name "DevDelete"
 
   def create_and_enqueue(
         queue_prefix,
@@ -76,11 +77,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers do
     case Exq.Api.queues(Exq.Api) do
       {:ok, queues} ->
         Enum.each(queues, fn queue_name ->
-          if queue_name == "DevDelete" do
-            Exq.subscribe(Exq, queue_name, :infinite)
-          else
-            Exq.subscribe(Exq, queue_name, @default_concurrency)
-          end
+          Exq.subscribe(Exq, queue_name, @default_concurrency)
         end)
 
       _ ->

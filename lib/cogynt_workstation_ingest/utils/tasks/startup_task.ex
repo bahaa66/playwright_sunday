@@ -14,9 +14,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   end
 
   def run() do
-    ### Temp to remove old key. Can be removed at future time
-    Redis.key_pexpire("elastic_lock", 60000)
-    ###
     try do
       case Redis.hash_set_if_not_exists("ingest_lock", "elastic", "locked") do
         {:ok, 0} ->
