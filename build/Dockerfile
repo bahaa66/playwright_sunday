@@ -1,5 +1,5 @@
 # ---- Build Stage ----
-FROM 478685488679.dkr.ecr.us-west-2.amazonaws.com/common/ubi8/elixir/1.12:1.5.0 AS builder
+FROM 478685488679.dkr.ecr.us-west-2.amazonaws.com/common/ubi8/elixir/1.12:1.6.0 AS builder
 
 # Set environment variables for building the application 
 ARG APP_NAME=cogynt_workstation_ingest
@@ -40,7 +40,7 @@ RUN mix compile \
     && mix release --path ./dist
 
 # ---- Application Stage ----
-FROM 478685488679.dkr.ecr.us-west-2.amazonaws.com/common/ubi8/minimal:1.5.0 AS app
+FROM 478685488679.dkr.ecr.us-west-2.amazonaws.com/common/ubi8/minimal:1.6.0 AS app
 
 ARG APP_NAME=cogynt_workstation_ingest
 
