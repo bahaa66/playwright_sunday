@@ -19,6 +19,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
 
   alias Models.Enums.ConsumerStatusTypeEnum
+  alias Models.Events.EventDefinition
 
   @default_state %{
     topic: nil,
@@ -709,7 +710,9 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   defp handle_unknown_status(event_definition) do
     if event_definition.active do
       # update event_definition to be active false
-      EventsContext.update_event_definition(event_definition, %{active: false})
+      EventsContext.update_event_definition(struct(EventDefinition, event_definition), %{
+        active: false
+      })
     end
 
     # check if there is a consumer running

@@ -5,7 +5,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
   alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
-  alias CogyntWorkstationIngest.DataSources.DataSourcesContext
 
   alias Models.Events.EventDefinition
   alias Models.Enums.ConsumerStatusTypeEnum
