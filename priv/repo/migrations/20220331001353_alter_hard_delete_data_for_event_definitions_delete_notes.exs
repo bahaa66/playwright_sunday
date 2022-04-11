@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterHardDeleteDataForEventDefinitionsDeleteNotes do
+  use Migrations.AlterHardDeleteDataForEventDefinitionsDeleteNotes
+end

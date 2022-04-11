@@ -18,6 +18,10 @@ config :kafka, :common,
   config_entries: [],
   session_timeout: 10000
 
+# Redis Configurations
+config :redis, :common,
+  client: CogyntWorkstationIngest.Clients.Redis.MockClient
+
 # Print only warnings and errors during test
 config :logger, level: :warn
 
