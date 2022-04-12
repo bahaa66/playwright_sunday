@@ -127,7 +127,19 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   def stop_child(event_definition) when is_map(event_definition) do
     name = fetch_event_cgid(event_definition.id)
 
-    DruidRegistryHelper.suspend_druid_with_registry_lookup(event_definition.topic)
+    case DruidRegistryHelper.drop_and_terminate_druid_with_registry_lookup(event_definition.topic) do
+      {:ok, result} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Dropped segments for Druid Datasource: #{event_definition.topic} with response: #{inspect(result)}"
+        )
+
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Failed to drop segments for Druid Datasource: #{event_definition.topic} with Error: #{inspect(error)}"
+        )
+    end
 
     (name <> "Pipeline")
     |> String.to_atom()
