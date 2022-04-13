@@ -92,7 +92,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
       fn data_source ->
         case data_source.type == "kafka" do
           true ->
-            IO.inspect(data_source, label: "DATASOURCE******")
             data_source_id = UUID.uuid5(@data_source_id_hash_constant, data_source.connectString)
 
             Map.put(deployment_message, :id, data_source_id)
