@@ -74,16 +74,14 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :models,
-        # tag: "v1.21.0",
-        branch: "feat/CDST-1611-datasource-changes",
+        tag: "v1.21.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        # tag: "v1.21.0",
-        branch: "feat/CDST-1611-datasource-changes",
+        tag: "v1.21.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
