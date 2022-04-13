@@ -9,6 +9,9 @@ defimpl Elasticsearch.Document, for: Models.Events.Event do
     # details.
     elasticsearch_event_details =
       Enum.reduce(event.event_details, [], fn
+        {"COG_" <> _, _value}, acc ->
+          acc
+
         {key, value}, acc ->
           # Search the event definition details and use the path to figure out the field value.
           Enum.find_value(event_definition_details, fn
