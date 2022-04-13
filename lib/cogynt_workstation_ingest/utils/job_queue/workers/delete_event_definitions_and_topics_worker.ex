@@ -33,8 +33,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         # 1) stop the EventPipeline if there is one running for the event_definition
         shutdown_event_pipeline(event_definition)
 
-        # 2) drop druid data and terminate supervisor
-        drop_and_terminate_druid(event_definition.topic)
+        # 2) delete data from druid
+        delete_and_terminate_druid_datasource(event_definition.topic)
 
         # 3) remove all records from Elasticsearch
         delete_elasticsearch_data(event_definition)
@@ -57,7 +57,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
       })
     end
 
-    ensure_pipeline_shutdown(event_definition.id)
+    ensure_pipeline_shutdown(event_definition)
   end
 
   defp delete_event_definition(event_definition) do
@@ -79,6 +79,22 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
     end
   end
 
+  defp delete_and_terminate_druid_datasource(datasource_name) do
+    case DruidRegistryHelper.drop_and_terminate_druid_with_registry_lookup(datasource_name) do
+      {:ok, result} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "Dropped segments for Druid Datasource: #{datasource_name} with response: #{inspect(result)}"
+        )
+
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Failed to drop segments for Druid Datasource: #{datasource_name} with Error: #{inspect(error)}"
+        )
+    end
+  end
+
   defp delete_elasticsearch_data(event_definition) do
     case ElasticApi.delete_by_query(Config.event_index_alias(), %{
            field: "event_definition_hash_id",
@@ -95,43 +111,26 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
     end
   end
 
-  defp drop_and_terminate_druid(datasource_name) do
-    case DruidRegistryHelper.drop_and_terminate_druid_with_registry_lookup(datasource_name) do
-      {:ok, result} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Dropped segments for Druid Datasource: #{datasource_name} with response: #{inspect(result)}"
-        )
-
-      {:error, error} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Failed to drop segments for Druid Datasource: #{datasource_name} with Error: #{inspect(error)}"
-        )
-    end
-  end
-
-  defp ensure_pipeline_shutdown(event_definition_hash_id, count \\ 1) do
+  defp ensure_pipeline_shutdown(event_definition, count \\ 1) do
     if count >= 30 do
       CogyntLogger.info(
         "#{__MODULE__}",
         "ensure_pipeline_shutdown/1 exceeded number of attempts (30) Moving forward with DeleteEventDefinitionsAndTopics"
       )
     else
-      {_status, consumer_state} =
-        ConsumerStateManager.get_consumer_state(event_definition_hash_id)
+      {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
 
-      case EventPipeline.pipeline_started?(event_definition_hash_id) or
-             not EventPipeline.pipeline_finished_processing?(event_definition_hash_id) or
+      case EventPipeline.pipeline_started?(event_definition.id) or
+             not EventPipeline.pipeline_finished_processing?(event_definition.id) or
              consumer_state.status != ConsumerStatusTypeEnum.status()[:unknown] do
         true ->
           CogyntLogger.info(
             "#{__MODULE__}",
-            "EventPipeline #{event_definition_hash_id} still running... waiting 1000 ms for it to shutdown before resetting data"
+            "EventPipeline #{event_definition.title} still running... waiting 5000 ms for it to shutdown before resetting data"
           )
 
-          Process.sleep(1000)
-          ensure_pipeline_shutdown(event_definition_hash_id, count + 1)
+          Process.sleep(5000)
+          ensure_pipeline_shutdown(event_definition, count + 1)
 
         false ->
           nil

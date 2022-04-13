@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterDatasourcesAddDeploymentTargetName do
+  use Migrations.AlterDataSourcesAddDeploymentTargetType
+end
