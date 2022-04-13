@@ -98,6 +98,10 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
             Map.put(deployment_message, :id, data_source_id)
             |> Map.put(:type, data_source.type)
             |> Map.put(:data_source_name, data_source.name)
+            |> Map.put(
+              :deployment_target_name,
+              Map.get(data_source, :deploymentTargetName, "temp-default")
+            )
             |> Map.put(:connect_string, data_source.connectString)
             |> DataSourcesContext.upsert_datasource()
 
