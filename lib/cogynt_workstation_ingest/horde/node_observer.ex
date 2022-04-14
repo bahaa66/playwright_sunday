@@ -12,16 +12,23 @@ defmodule CogyntWorkstationIngest.Horde.NodeObserver do
     {:ok, nil}
   end
 
-  def handle_info({:nodeup, _node, _node_type}, state) do
+  def handle_info({:nodeup, node, _node_type}, state) do
     set_members(HordeRegistry)
     set_members(DruidSupervisor)
-
+    CogyntLogger.error(
+      "#{__MODULE__}",
+      "Now communicating with #{node}."
+    )
     {:noreply, state}
   end
 
-  def handle_info({:nodedown, _node, _node_type}, state) do
+  def handle_info({:nodedown, node, _node_type}, state) do
     set_members(HordeRegistry)
     set_members(DruidSupervisor)
+    CogyntLogger.error(
+      "#{__MODULE__}",
+      "Lost contact with #{node}."
+    )
 
     {:noreply, state}
   end

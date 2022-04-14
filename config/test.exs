@@ -31,3 +31,12 @@ config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo,
   database: "cogynt_test",
   hostname: "localhost",
   pool: Ecto.Adapters.SQL.Sandbox
+
+# Default libcluster configs.
+config :libcluster,
+  debug: true,
+  topologies: [
+    ingest: [
+      strategy: Cluster.Strategy.Gossip
+    ]
+  ]

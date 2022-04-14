@@ -173,3 +173,21 @@ if config_env() not in [:dev, :test, :k8scyn] do
       ]
     ]
 end
+
+if config_env() in [:k8scyn] do
+  config :libcluster,
+    debug: true,
+    topologies: [
+      k8s_ws_ingest: [
+        strategy: Cluster.Strategy.Kubernetes,
+        config: [
+          mode: :ip,
+          kubernetes_service_name: System.get_env("SERVICE_NAME", "ws-ingest-otp"),
+          kubernetes_node_basename: System.get_env("NAMESPACE", "cyn"),
+          kubernetes_selector: "app=ws-ingest-otp",
+          kubernetes_namespace: System.get_env("NAMESPACE", "cyn"),
+          polling_interval: 10_000
+        ]
+      ]
+    ]
+end
