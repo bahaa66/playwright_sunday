@@ -6,10 +6,11 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
   # --------------------- #
   # --- Index Methods --- #
   # ---------------------- #
-  def check_to_reindex() do
-    case is_active_index_setting?() do
+  def check_to_reindex(index_alias \\ Config.event_index_alias()) do
+    case is_active_index_setting?(index_alias) do
       true ->
         CogyntLogger.info("#{__MODULE__}", "check_to_reindex Event Index already exists...")
+        :ok
 
       false ->
         CogyntLogger.info(
@@ -17,7 +18,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
           "check_to_reindex Event index mapping is out dated. Triggering Reindex..."
         )
 
-        reindex(Config.event_index_alias())
+        reindex(index_alias)
     end
   end
 
@@ -45,14 +46,14 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
     end
   end
 
-  def create_index(index) do
-    name = build_name(index)
-    settings_file = index_mappings_file()
+  def create_index(index_alias \\ Config.event_index_alias()) do
+    name = build_name(index_alias)
+    settings_file = index_mappings_file(index_alias)
 
     try do
-      case Elasticsearch.Index.create_from_file(Cluster, name, settings_file) do
+      case Index.create_from_file(Cluster, name, settings_file) do
         :ok ->
-          Index.alias(Cluster, name, Config.event_index_alias())
+          Index.alias(Cluster, name, index_alias)
 
           CogyntLogger.info(
             "#{__MODULE__}",
@@ -64,7 +65,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
         {:error, error} ->
           CogyntLogger.error(
             "#{__MODULE__}",
-            "create_index/1 Failed to create index: #{index}. Error: #{inspect(error)}"
+            "create_index/1 Failed to create index: #{index_alias}. Error: #{inspect(error)}"
           )
 
           {:error, error}
@@ -73,7 +74,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
       e in HTTPoison.Error ->
         CogyntLogger.error(
           "#{__MODULE__}",
-          "create_index/1 Unable to connect to Elasticsearch while creating index alias. Index: #{index} Error: #{inspect(e.reason)}"
+          "create_index/1 Unable to connect to Elasticsearch while creating index alias. Index: #{index_alias} Error: #{inspect(e.reason)}"
         )
 
         {:error, e.reason}
@@ -162,6 +163,8 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
         index ->
           {:ok, index}
       end
+    else
+      {:error, error} -> {:error, error}
     end
   end
 
@@ -170,7 +173,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
     index_alias = String.to_atom(index)
     name = build_name(index_alias)
     index_config = config[:indexes][index_alias]
-    settings_file = index_mappings_file()
+    settings_file = index_mappings_file(index)
 
     with :ok <- Elasticsearch.Index.create_from_file(config, name, settings_file),
          bulk_upload(config, name, index_config),
@@ -190,11 +193,15 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
           "reindex/1 Failed. Error: #{inspect(errors)}"
         )
 
+        {:error, errors}
+
       {:error, errors} ->
         CogyntLogger.error(
           "#{__MODULE__}",
           "reindex/1 Failed. Error: #{inspect(errors)}"
         )
+
+        {:error, errors}
     end
   end
 
@@ -377,8 +384,8 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
     }
   end
 
-  defp is_active_index_setting?() do
-    settings_file = index_mappings_file()
+  defp is_active_index_setting?(index_alias) do
+    settings_file = index_mappings_file(index_alias)
 
     with {:ok, body} <- File.read(settings_file),
          {:ok, settings} <- get_index_mappings(),
@@ -396,8 +403,8 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
     end
   end
 
-  defp get_index_mappings() do
-    with {:ok, index} <- latest_starting_with(Config.event_index_alias()),
+  defp get_index_mappings(index_alias \\ Config.event_index_alias()) do
+    with {:ok, index} <- latest_starting_with(index_alias),
          {:ok, %{^index => %{"settings" => settings}}} <-
            Elasticsearch.get(Cluster, "#{index}/_settings"),
          {:ok, %{^index => mappings}} <-
@@ -473,15 +480,15 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
     |> String.replace(["-", ":", " ", "Z"], "")
   end
 
-  defp index_mappings_file() do
+  defp index_mappings_file(index_alias) do
     priv_folder = Application.app_dir(:cogynt_workstation_ingest, "priv/elasticsearch")
     env = if(Config.env() == :prod, do: "prod", else: "dev")
 
-    Path.join(priv_folder, "event.#{env}.active.*.json")
+    Path.join(priv_folder, "#{index_alias}.#{env}.active.*.json")
     |> Path.wildcard()
     |> case do
       # An active config without a time string doesn't exist so try without.
-      [] -> Path.join(priv_folder, "event.#{env}.active.json")
+      [] -> Path.join(priv_folder, "#{index_alias}.#{env}.active.json")
       [active_file] -> active_file
       # There are multiple acive files so we just use the first in the list.
       [active_file | _tail] -> active_file

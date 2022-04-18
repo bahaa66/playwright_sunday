@@ -1,7 +1,7 @@
 defmodule CogyntWorkstationIngest.Horde.NodeObserver do
   use GenServer
 
-  alias CogyntWorkstationIngest.Horde.HordeRegistry
+  alias CogyntWorkstationIngest.Horde.{HordeRegistry, HordeSupervisor}
   alias CogyntWorkstationIngest.Supervisors.DruidSupervisor
 
   def start_link(_), do: GenServer.start_link(__MODULE__, [])
@@ -15,17 +15,22 @@ defmodule CogyntWorkstationIngest.Horde.NodeObserver do
   def handle_info({:nodeup, node, _node_type}, state) do
     set_members(HordeRegistry)
     set_members(DruidSupervisor)
-    CogyntLogger.error(
+    set_members(HordeSupervisor)
+
+    CogyntLogger.info(
       "#{__MODULE__}",
       "Now communicating with #{node}."
     )
+
     {:noreply, state}
   end
 
   def handle_info({:nodedown, node, _node_type}, state) do
     set_members(HordeRegistry)
     set_members(DruidSupervisor)
-    CogyntLogger.error(
+    set_members(HordeSupervisor)
+
+    CogyntLogger.info(
       "#{__MODULE__}",
       "Lost contact with #{node}."
     )
