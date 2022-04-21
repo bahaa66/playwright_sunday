@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterNotificationSettingAddBeingDeleted do
+  use Migrations.AlterNotificationSettingAddBeingDeleted
+end
