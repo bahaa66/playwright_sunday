@@ -10,7 +10,4 @@ jobs:
         uses: sobelow/action@v1
         with: 
           report: "false"
-          flags: "--exit -v -i Config"
-      # - uses: github/codeql-action/upload-sarif@v1
-      #   with:
-      #     sarif_file: results.sarif
+          flags: "--exit -v -i Config --threshold high"
