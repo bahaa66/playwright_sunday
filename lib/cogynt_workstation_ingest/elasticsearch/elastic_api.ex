@@ -1,7 +1,6 @@
 defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
   alias Elasticsearch.Index
   alias CogyntWorkstationIngest.Elasticsearch.Cluster
-  alias CogyntWorkstationIngest.Config
 
   # --------------------- #
   # --- Index Methods --- #
@@ -98,7 +97,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
   # ------------------------ #
 
   def bulk_upload(config, index, index_config) do
-    case Elasticsearch.Index.Bulk.upload(config, index, index_config) do
+    case Index.Bulk.upload(config, index, index_config) do
       :ok ->
         CogyntLogger.info(
           "#{__MODULE__}",
