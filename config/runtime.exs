@@ -175,7 +175,7 @@ if config_env() not in [:dev, :test, :k8scyn] do
   config :libcluster,
     topologies: [
       k8s_ws_ingest: [
-        strategy: Elixir.Cluster.Strategy.Kubernetes.DNS,
+        strategy: Cluster.Strategy.Kubernetes.DNS,
         config: [
           service: System.get_env("SERVICE_NAME") || "ws-ingest-otp-headless",
           application_name: "ws-ingest-otp",
@@ -185,6 +185,7 @@ if config_env() not in [:dev, :test, :k8scyn] do
     ]
 end
 
+# k8s-cyn dev env only
 if config_env() in [:k8scyn] do
   config :libcluster,
     debug: true,

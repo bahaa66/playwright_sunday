@@ -13,6 +13,9 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     DeleteEventDefinitionsAndTopicsWorker
   }
 
+  alias CogyntWorkstationIngest.Notifications.NotificationsContext
+  alias Models.Notifications.NotificationSetting
+
   @drilldown_worker_id 1
   @deployment_worker_id 2
 
@@ -38,7 +41,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
 
   def after_failed_work(pipeline) do
     pipeline
-    |> demonitor_job
+    |> demonitor_job(true)
     |> retry_or_fail_job
     |> remove_job_from_backup
   end
@@ -117,6 +120,19 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
 
       # Delete Notifications
       worker_module == to_string(DeleteNotificationsWorker) ->
+        # Failsafe to make sure that the "being_deleted" field is set to "true" when running the
+        # DeleteNotificationsTask
+        case NotificationsContext.get_notification_setting(args) do
+          %NotificationSetting{} = notification_setting ->
+            NotificationsContext.update_notification_setting(notification_setting, %{
+              being_deleted: true
+            })
+
+          _ ->
+            # ignore, should not happen
+            nil
+        end
+
         Redis.add_member_to_set("dn", args)
         Redis.key_pexpire("dn", 3_600_000)
 
@@ -147,7 +163,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
     pipeline
   end
 
-  defp demonitor_job(pipeline) do
+  defp demonitor_job(pipeline, failed \\ false) do
     job = Exq.Support.Job.decode(pipeline.assigns.job_serialized)
     args = List.first(job.args)
     worker_module = "Elixir." <> job.class
@@ -165,6 +181,21 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Middleware.Job do
 
       # Delete Notifications
       worker_module == to_string(DeleteNotificationsWorker) ->
+        # If the DeleteNotification Task failed and DID NOT delete the Notification Setting
+        # yet, update the "being_deleted" field to be "false"
+        if failed do
+          case NotificationsContext.get_notification_setting(args) do
+            %NotificationSetting{} = notification_setting ->
+              NotificationsContext.update_notification_setting(notification_setting, %{
+                being_deleted: false
+              })
+
+            _ ->
+              # was deleted, do nothing
+              nil
+          end
+        end
+
         Redis.remove_member_from_set("dn", args)
         Redis.key_pexpire("dn", 3_600_000)
 
