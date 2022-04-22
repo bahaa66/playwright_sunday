@@ -102,7 +102,10 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :druid,
-        tag: "v1.17.0", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
+        # tag: "v1.17.0",
+        branch: "fix/druid-task-counts",
+        git: "git@github.com:cogility/cogynt-common.git",
+        sparse: "druid"
       },
       {
         :cogynt_graphql,
