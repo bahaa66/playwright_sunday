@@ -4,8 +4,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   """
   use Supervisor
 
-  alias CogyntWorkstationIngest.Config
-
   alias CogyntWorkstationIngest.Servers.Workers.{
     ConsumerRetryWorker,
     RedisStreamsConsumerGroupWorker
@@ -17,7 +15,8 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
 
   alias CogyntWorkstationIngest.Servers.ConsumerMonitor
 
-  alias CogyntWorkstationIngest.Elasticsearch.Indexer
+  alias CogyntElasticsearch.Indexer
+  alias CogyntWorkstationIngest.Elasticsearch.IndexerStarter
 
   def start_link do
     Supervisor.start_link(__MODULE__, [], name: __MODULE__)
@@ -34,7 +33,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
       child_spec(RedisStreamsConsumerGroupWorker),
       child_spec(ConsumerMonitor, restart: :permanent),
       child_spec(IngestPubSub, start_link_opts: [pubsub]),
-      {Indexer.Starter, [name: Indexer, aliases: [Config.event_index_alias()]]}
+      {IndexerStarter, [name: Indexer]}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

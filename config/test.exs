@@ -21,6 +21,9 @@ config :kafka, :common,
 # Redis Configurations
 config :redis, :common, client: CogyntWorkstationIngest.Clients.Redis.MockClient
 
+config :elasticsearch, :common,
+  service: CogyntWorkstationIngest.ElasticsearchMockService
+
 # Print only warnings and errors during test
 config :logger, level: :warn
 

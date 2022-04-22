@@ -55,7 +55,8 @@ config :elasticsearch, :common,
     event: %{
       settings: "priv/elasticsearch/event.#{config_env()}.json"
     }
-  ]
+  ],
+  service: CogyntElasticsearch
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster,
   event_index_alias: "event",

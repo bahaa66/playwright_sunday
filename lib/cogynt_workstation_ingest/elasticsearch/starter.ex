@@ -1,5 +1,5 @@
-defmodule CogyntWorkstationIngest.Elasticsearch.Indexer.Starter do
-  alias CogyntWorkstationIngest.Elasticsearch.Indexer
+defmodule CogyntWorkstationIngest.Elasticsearch.IndexerStarter do
+  alias CogyntElasticsearch.Indexer
   alias CogyntWorkstationIngest.Horde.{HordeRegistry, HordeSupervisor}
 
   def child_spec(opts) do

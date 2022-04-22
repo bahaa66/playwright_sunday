@@ -1,6 +1,5 @@
 defmodule CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers do
   @default_concurrency 5
-  @dev_delete_queue_name "DevDelete"
 
   def create_and_enqueue(
         queue_prefix,
