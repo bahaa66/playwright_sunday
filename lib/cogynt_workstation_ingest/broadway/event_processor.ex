@@ -114,7 +114,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         core_id: core_id,
         occurred_at: occurred_at,
         version: event[Config.version_key()],
-        action: action,
+        crud: action,
         risk_score: format_risk_score(event[Config.confidence_key()]),
         event_details: format_lexicon_data(event),
         event_definition_hash_id: event_definition_hash_id,
