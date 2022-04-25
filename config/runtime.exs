@@ -190,4 +190,5 @@ if config_env() in [:k8scyn] do
           polling_interval: 10_000
         ]
       ]
+    ]
 end
