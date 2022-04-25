@@ -57,6 +57,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         crud: [
           batch_size: 600,
           concurrency: 10
+        ],
+        event_history: [
+          batch_size: 600,
+          concurrency: 10
         ]
       ],
       context: [event_definition_hash_id: event_definition_hash_id, event_type: event_type]
@@ -265,6 +269,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           _ ->
             message
             |> Message.put_batcher(:crud)
+            |> Message.put_batcher(:event_history)
         end
     end
   end
@@ -283,7 +288,17 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   @impl true
+  def handle_batch(:event_history, messages, _batch_info, context) do
+    event_definition_hash_id = Keyword.get(context, :event_definition_hash_id, nil)
+    IO.inspect("EVENT HISTORY BATCHER")
+
+    incr_total_processed_message_count(event_definition_hash_id, Enum.count(messages))
+    messages
+  end
+
+  @impl true
   def handle_batch(:crud, messages, _batch_info, context) do
+    IO.inspect("CRUD BATCHER")
     event_definition_hash_id = Keyword.get(context, :event_definition_hash_id, nil)
     event_type = Keyword.get(context, :event_type, nil)
 
@@ -291,6 +306,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     |> Enum.group_by(fn message -> message.data.core_id end)
     |> Enum.reduce([], fn {_core_id, core_id_records}, acc ->
       last_crud_action_message = List.last(core_id_records)
+      # To track event_history we need to take all the actions that were
+      # sent in the batch of events to handle_batch
+      # ------
+      # We only need to process the last action that occurred for the
+      # core_id within the batch of events that were sent to handle_batch
 
       cond do
         event_type == Config.linkage_data_type_value() ->
