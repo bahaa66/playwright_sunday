@@ -105,6 +105,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         # details.
         elasticsearch_event_details =
           Enum.reduce(pg_event.event_details, [], fn
+            {"COG_" <> _, _value}, acc ->
+              acc
+
             {key, value}, acc ->
               # Search the event definition details and use the path to figure out the field value.
               Enum.find_value(event_definition_details, fn

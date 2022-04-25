@@ -175,6 +175,10 @@ config :cogynt_workstation_ingest, :rpc,
   cogynt_auth_service_name: "http://localhost",
   cogynt_auth_service_port: 4999
 
+config :cogynt_graphql, :common,
+  mock_license: true,
+  mock_license_status: "licensed"
+
 # Configures Elixir's Logger
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
@@ -189,14 +193,6 @@ config :phoenix, :format_encoders, "json-api": Jason
 config :plug, :types, %{
   "application/vnd.api+json" => ["json-api"]
 }
-
-# Default libcluster configs.
-config :libcluster,
-  topologies: [
-    ingest: [
-      strategy: Cluster.Strategy.Gossip
-    ]
-  ]
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

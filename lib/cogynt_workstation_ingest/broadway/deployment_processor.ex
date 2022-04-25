@@ -8,6 +8,8 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   alias CogyntWorkstationIngest.Utils.{DruidRegistryHelper, ConsumerStateManager}
   alias Broadway.Message
 
+  @data_source_id_hash_constant "00000000-0000-0000-0000-000000000000"
+
   @doc """
   process_deployment_message/1
   """
@@ -90,9 +92,15 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
       fn data_source ->
         case data_source.type == "kafka" do
           true ->
-            Map.put(deployment_message, :id, data_source.dataSourceId)
+            data_source_id = UUID.uuid5(@data_source_id_hash_constant, data_source.connectString)
+
+            Map.put(deployment_message, :id, data_source_id)
             |> Map.put(:type, data_source.type)
             |> Map.put(:data_source_name, data_source.name)
+            |> Map.put(
+              :deployment_target_name,
+              Map.get(data_source, :deploymentTargetName, "temp-default")
+            )
             |> Map.put(:connect_string, data_source.connectString)
             |> DataSourcesContext.upsert_datasource()
 
@@ -107,7 +115,9 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_event_type_object_v2(deployment_message) do
-    primary_key = UUID.uuid5(deployment_message.id, deployment_message.dataSourceId)
+    # old_primary_key = UUID.uuid5(deployment_message.id, deployment_message.dataSourceId)
+    primary_key = UUID.uuid5(deployment_message.id, deployment_message.connectString)
+    data_source_id = UUID.uuid5(@data_source_id_hash_constant, deployment_message.connectString)
 
     # Check if we have an existing Ingest pipeline running for the EventType
     {_status, consumer_state} = ConsumerStateManager.get_consumer_state(primary_key)
@@ -133,7 +143,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
 
     Map.put(deployment_message, :event_definition_id, deployment_message.id)
     |> Map.put(:id, primary_key)
-    |> Map.put(:data_source_id, deployment_message.dataSourceId)
+    |> Map.put(:data_source_id, data_source_id)
     |> Map.put(:project_name, deployment_message.projectName)
     |> Map.put(:topic, deployment_message.source.topic)
     |> Map.put(:title, deployment_message.name)
