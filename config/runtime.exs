@@ -183,12 +183,11 @@ if config_env() in [:k8scyn] do
         strategy: Cluster.Strategy.Kubernetes,
         config: [
           mode: :ip,
-          kubernetes_service_name: , System.get_env("SERVICE_NAME", "ws-ingest-otp")
-          kubernetes_node_basename: System.get_env("NAMESPACE", "ws-ingest-otp"),
+          kubernetes_service_name: System.get_env("SERVICE_NAME", "ws-ingest-otp"),
+          kubernetes_node_basename: System.get_env("NAMESPACE", "cyn"),
           kubernetes_selector: "app=ws-ingest-otp",
-          kubernetes_namespace: System.get_env("NAMESPACE", "ws-otp"),
+          kubernetes_namespace: System.get_env("NAMESPACE", "cyn"),
           polling_interval: 10_000
         ]
       ]
-    ]
 end
