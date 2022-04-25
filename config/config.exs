@@ -175,6 +175,10 @@ config :cogynt_workstation_ingest, :rpc,
   cogynt_auth_service_name: "http://localhost",
   cogynt_auth_service_port: 4999
 
+config :cogynt_graphql, :common,
+  mock_license: true,
+  mock_license_status: "licensed"
+
 # Configures Elixir's Logger
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
