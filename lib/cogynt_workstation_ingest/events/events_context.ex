@@ -11,7 +11,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     Event,
     EventDefinition,
     EventLink,
-    EventDefinitionDetail
+    EventDefinitionDetail,
+    EventHistory
   }
 
   alias Models.EventDetailTemplates.{
@@ -153,6 +154,19 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   def delete_all_events_multi(multi, core_ids) do
     multi
     |> Multi.delete_all(:delete_events, from(e in Event, where: e.core_id in ^core_ids))
+  end
+
+  # ----------------------------------- #
+  # --- EventHistory Schema Methods --- #
+  # ----------------------------------- #
+
+  def insert_all_event_history_multi(multi, event_history \\ [])
+
+  def insert_all_event_history_multi(multi, []), do: multi
+
+  def insert_all_event_history_multi(multi, event_history) do
+    multi
+    |> Multi.insert_all(:insert_event_history, EventHistory, event_history)
   end
 
   # -------------------------------------- #

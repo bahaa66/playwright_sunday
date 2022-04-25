@@ -267,9 +267,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
             |> Message.put_batcher(:default)
 
           _ ->
-            message
+            data =
+              message.data
+              |> EventProcessor.process_event_history()
+
+            Map.put(message, :data, data)
             |> Message.put_batcher(:crud)
-            |> Message.put_batcher(:event_history)
         end
     end
   end
@@ -288,29 +291,22 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   @impl true
-  def handle_batch(:event_history, messages, _batch_info, context) do
-    event_definition_hash_id = Keyword.get(context, :event_definition_hash_id, nil)
-    IO.inspect("EVENT HISTORY BATCHER")
-
-    incr_total_processed_message_count(event_definition_hash_id, Enum.count(messages))
-    messages
-  end
-
-  @impl true
   def handle_batch(:crud, messages, _batch_info, context) do
-    IO.inspect("CRUD BATCHER")
     event_definition_hash_id = Keyword.get(context, :event_definition_hash_id, nil)
     event_type = Keyword.get(context, :event_type, nil)
+
+    # To track event_history we need to take all the actions that were
+    # sent in the batch of events to handle_batch
+    pg_event_history =
+      messages
+      |> Enum.map(fn message -> message.data.pg_event_history end)
 
     messages
     |> Enum.group_by(fn message -> message.data.core_id end)
     |> Enum.reduce([], fn {_core_id, core_id_records}, acc ->
-      last_crud_action_message = List.last(core_id_records)
-      # To track event_history we need to take all the actions that were
-      # sent in the batch of events to handle_batch
-      # ------
       # We only need to process the last action that occurred for the
       # core_id within the batch of events that were sent to handle_batch
+      last_crud_action_message = List.last(core_id_records)
 
       cond do
         event_type == Config.linkage_data_type_value() ->
@@ -389,7 +385,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           end
       end
     end)
-    |> EventProcessor.execute_batch_transaction(event_type)
+    |> EventProcessor.execute_batch_transaction(event_type, pg_event_history)
 
     incr_total_processed_message_count(event_definition_hash_id, Enum.count(messages))
     messages

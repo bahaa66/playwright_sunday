@@ -76,6 +76,54 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   @doc """
+  process_event_history/1 ....
+  """
+  def process_event_history(
+        %{event: event, event_definition_hash_id: event_definition_hash_id, core_id: core_id} =
+          data
+      ) do
+    action = Map.get(event, Config.crud_key(), nil)
+
+    if is_nil(action) do
+    else
+      occurred_at =
+        case event[Config.timestamp_key()] do
+          nil ->
+            nil
+
+          date_string ->
+            {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
+
+            dt_struct
+            |> DateTime.truncate(:second)
+        end
+
+      published_at =
+        case event[Config.published_at_key()] do
+          nil ->
+            nil
+
+          date_string ->
+            {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
+
+            dt_struct
+            |> DateTime.truncate(:second)
+        end
+
+      Map.put(data, :pg_event_history, %{
+        core_id: core_id,
+        occurred_at: occurred_at,
+        version: event[Config.version_key()],
+        action: action,
+        risk_score: format_risk_score(event[Config.confidence_key()]),
+        event_details: format_lexicon_data(event),
+        event_definition_hash_id: event_definition_hash_id,
+        published_at: published_at
+      })
+    end
+  end
+
+  @doc """
   process_elasticsearch_documents/1 will build the Event Elasticsearch document that Workstation
   uses to fetch its search facets and do a lot of quick keyword searches against.
   """
@@ -283,7 +331,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   Takes all the messages that have gone through the processing steps in the pipeline up to the batch limit
   configured. Will execute one multi transaction to delete and upsert all objects
   """
-  def execute_batch_transaction(messages, event_type) do
+  def execute_batch_transaction(messages, event_type, pg_event_history \\ []) do
     # build transactional data
     default_map = %{
       pg_event: [],
@@ -304,7 +352,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             :event_definition,
             :event_definition_hash_id,
             :retry_count,
-            :pipeline_state
+            :pipeline_state,
+            :pg_event_history
           ])
 
         Map.merge(acc, data, fn k, v1, v2 ->
@@ -339,6 +388,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           end
         end)
       end)
+      |> Map.put(:pg_event_history, pg_event_history)
 
     # Build a Multi transaction to insert all the pg records
     transaction_result =
@@ -377,6 +427,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         conflict_target: [:core_id, :notification_setting_id]
       )
       |> EventsContext.upsert_all_event_links_multi(bulk_transactional_data.pg_event_links)
+      |> EventsContext.insert_all_event_history_multi(bulk_transactional_data.pg_event_history)
       |> Ecto.Multi.run(:bulk_delete_event_documents, fn _repo, _ ->
         bulk_delete_event_documents(bulk_transactional_data)
       end)
