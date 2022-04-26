@@ -26,6 +26,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
           start_event_type_pipelines()
           start_deployment_pipeline()
 
+          cleanup_druid()
+
           DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
             Config.template_solutions_topic()
           )
@@ -43,6 +45,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
             {:ok, _} ->
               start_event_type_pipelines()
               start_deployment_pipeline()
+
+              cleanup_druid()
 
               DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
                 Config.template_solutions_topic()
@@ -128,5 +132,12 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
 
         {:error, error}
     end
+  end
+
+  defp cleanup_druid() do
+    {:ok, supervisors} = Druid.list_supervisors()
+    IO.inspect(supervisors, label: "SUPERVISORS", pretty: true)
+    {:ok, datasources} = Druid.list_datasources()
+    IO.inspect(datasources, label: "DATASOURCES", pretty: true)
   end
 end
