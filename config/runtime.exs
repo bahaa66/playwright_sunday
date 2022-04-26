@@ -172,6 +172,9 @@ if config_env() not in [:dev, :test, :k8scyn] do
         ]
       ]
     ]
+
+  config :cogynt_graphql, :common,
+    license_redirect_url: "https://" <> System.get_env("COGYNT_AUTH_DOMAIN") <> "/auth/license"
 end
 
 # k8s-cyn dev env only
