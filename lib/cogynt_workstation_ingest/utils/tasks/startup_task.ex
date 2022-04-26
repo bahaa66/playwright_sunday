@@ -138,19 +138,25 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
 
   defp cleanup_druid() do
     {:ok, supervisors} = Druid.list_supervisors()
-
-    Enum.each(supervisors, fn supervisor ->
-      if !Enum.member?(@drilldown_datasources, supervisor) do
-        Druid.terminate_supervisor(supervisor)
-      end
-    end)
-
     {:ok, datasources} = Druid.list_datasources()
 
-    Enum.each(datasources, fn datasource ->
-      if !Enum.member?(@drilldown_datasources, datasource) do
-        Druid.datasource_segments_mark_unused(datasource)
-      end
+    Enum.uniq(supervisors ++ datasources)
+    |> Enum.filter(fn id -> !Enum.member?(@drilldown_datasources, id) end)
+    |> IO.inspect(label: "DEBUG******")
+    |> Enum.each(fn id ->
+      CogyntLogger.warn(
+        "#{__MODULE__}",
+        "cleanup_druid Terminating Druid Supervisor: #{id}"
+      )
+
+      Druid.terminate_supervisor(id)
+
+      CogyntLogger.warn(
+        "#{__MODULE__}",
+        "cleanup_druid Terminating Druid Datasource: #{id}"
+      )
+
+      Druid.datasource_segments_mark_unused(id)
     end)
   end
 end
