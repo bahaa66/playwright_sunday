@@ -177,7 +177,7 @@ config :cogynt_workstation_ingest, :rpc,
 
   config :cogynt_graphql, :common,
   mock_license: true,
-  mock_license_status: "licensed",
+  mock_license_status: "Licensed",
   license_redirect_url: "http://localhost:3001/auth/license"
 
 # Configures Elixir's Logger
