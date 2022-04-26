@@ -10,7 +10,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngest.Utils.{ConsumerStateManager, DruidRegistryHelper}
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Broadway.{EventProcessor, LinkEventProcessor}
 
@@ -453,7 +453,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @doc false
   def suspend_pipeline(event_definition) do
     name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id)
-    DruidRegistryHelper.suspend_druid_with_registry_lookup(event_definition.topic)
 
     String.to_atom(name <> "Pipeline")
     |> Broadway.producer_names()
@@ -465,7 +464,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @doc false
   def resume_pipeline(event_definition) do
     name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id)
-    DruidRegistryHelper.resume_druid_with_registry_lookup(event_definition.topic)
 
     String.to_atom(name <> "Pipeline")
     |> Broadway.producer_names()
