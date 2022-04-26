@@ -142,7 +142,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
 
     Enum.uniq(supervisors ++ datasources)
     |> Enum.filter(fn id -> !Enum.member?(@drilldown_datasources, id) end)
-    |> IO.inspect(label: "DEBUG******")
     |> Enum.each(fn id ->
       CogyntLogger.warn(
         "#{__MODULE__}",
