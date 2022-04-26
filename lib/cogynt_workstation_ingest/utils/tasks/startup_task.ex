@@ -9,6 +9,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
   alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
 
+  @drilldown_datasources ["template_solutions", "template_solution_events"]
+
   def start_link(_arg \\ []) do
     Task.start_link(__MODULE__, :run, [])
   end
@@ -136,8 +138,19 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
 
   defp cleanup_druid() do
     {:ok, supervisors} = Druid.list_supervisors()
-    IO.inspect(supervisors, label: "SUPERVISORS", pretty: true)
+
+    Enum.each(supervisors, fn supervisor ->
+      if !Enum.member?(@drilldown_datasources, supervisor) do
+        Druid.terminate_supervisor(supervisor)
+      end
+    end)
+
     {:ok, datasources} = Druid.list_datasources()
-    IO.inspect(datasources, label: "DATASOURCES", pretty: true)
+
+    Enum.each(datasources, fn datasource ->
+      if !Enum.member?(@drilldown_datasources, datasource) do
+        Druid.datasource_segments_mark_unused(datasource)
+      end
+    end)
   end
 end
