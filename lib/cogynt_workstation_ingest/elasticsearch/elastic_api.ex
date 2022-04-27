@@ -33,88 +33,9 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
     end
   end
 
-  @doc """
-  Returns all indexes which start with a given string.
-  ## Example
-      iex> Index.create_from_file("posts_1", "test/support/settings/posts.json")
-      ...> Index.starting_with("posts")
-      {:ok, ["posts_1"]}
-  """
-  def starting_with(prefix) do
-    with {:ok, indexes} <- Elasticsearch.get(Cluster, "/_cat/indices?format=json") do
-      prefix = prefix |> to_string() |> Regex.escape()
-      {:ok, regex} = Regex.compile("^#{prefix}_[0-9]+$")
-
-      indexes =
-        indexes
-        |> Enum.map(& &1["index"])
-        |> Enum.filter(&Regex.match?(regex, &1))
-        |> Enum.sort()
-
-      {:ok, indexes}
-    else
-      {:error, error} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Failed to get indices from Elasticsearch #{inspect(error)}"
-        )
-
-        {:error, error}
-    end
-  end
-
-  @doc """
-  Gets the most recent index name with the given prefix.
-  ## Examples
-      iex> create_from_file("posts_1", "test/support/settings/posts.json")
-      ...> create_from_file("posts_2", "test/support/settings/posts.json")
-      ...> latest_starting_with("posts")
-      {:ok, "posts-2"}
-  If there are no indexes matching that prefix:
-      iex> latest_starting_with("nonexistent")
-      {:error, :not_found}
-  """
-  def latest_starting_with(prefix) do
-    with {:ok, indexes} <- starting_with(prefix) do
-      index =
-        indexes
-        |> List.last()
-
-      case index do
-        nil ->
-          {:error, :not_found}
-
-        index ->
-          {:ok, index}
-      end
-    else
-      {:error, error} -> {:error, error}
-    end
-  end
-
   # ------------------------ #
   # --- Document Methods --- #
   # ------------------------ #
-
-  def bulk_upload(config, index, index_config) do
-    case Index.Bulk.upload(config, index, index_config) do
-      :ok ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "bulk_upload/3 complete for Elasticsearch index: #{index}"
-        )
-
-        :ok
-
-      {:error, errors} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "bulk_upload/3 Failed for Elasticsearch index: #{index}. Error: #{inspect(errors)}"
-        )
-
-        errors
-    end
-  end
 
   def bulk_upsert_document(index, bulk_docs) do
     encoded_data =
