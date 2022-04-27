@@ -297,9 +297,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     # To track event_history we need to take all the actions that were
     # sent in the batch of events to handle_batch
+    # we need to try and remove any duplicates for {version, crud, core_id} pairs
+    # from the batch
     pg_event_history =
       messages
       |> Enum.map(fn message -> message.data.pg_event_history end)
+      |> Enum.sort_by(& &1.published_at, {:desc, DateTime})
+      |> Enum.uniq_by(fn %{version: version, crud: crud, core_id: core_id} ->
+        {version, crud, core_id}
+      end)
 
     messages
     |> Enum.group_by(fn message -> message.data.core_id end)
