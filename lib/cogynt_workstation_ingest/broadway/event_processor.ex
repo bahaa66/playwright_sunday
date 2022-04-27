@@ -111,6 +111,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         end
 
       Map.put(data, :pg_event_history, %{
+        id: Ecto.UUID.generate(),
         core_id: core_id,
         occurred_at: occurred_at,
         version: event[Config.version_key()],
