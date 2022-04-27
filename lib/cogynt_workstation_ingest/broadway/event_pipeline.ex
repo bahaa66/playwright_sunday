@@ -10,7 +10,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngest.Utils.{ConsumerStateManager, DruidRegistryHelper}
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Broadway.{EventProcessor, LinkEventProcessor}
 
@@ -55,6 +55,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           concurrency: 10
         ],
         crud: [
+          batch_size: 600,
+          concurrency: 10
+        ],
+        event_history: [
           batch_size: 600,
           concurrency: 10
         ]
@@ -263,7 +267,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
             |> Message.put_batcher(:default)
 
           _ ->
-            message
+            data =
+              message.data
+              |> EventProcessor.process_event_history()
+
+            Map.put(message, :data, data)
             |> Message.put_batcher(:crud)
         end
     end
@@ -287,9 +295,23 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     event_definition_hash_id = Keyword.get(context, :event_definition_hash_id, nil)
     event_type = Keyword.get(context, :event_type, nil)
 
+    # To track event_history we need to take all the actions that were
+    # sent in the batch of events to handle_batch
+    # we need to try and remove any duplicates for {version, crud, core_id} pairs
+    # from the batch
+    pg_event_history =
+      messages
+      |> Enum.map(fn message -> message.data.pg_event_history end)
+      |> Enum.sort_by(& &1.published_at, {:desc, DateTime})
+      |> Enum.uniq_by(fn %{version: version, crud: crud, core_id: core_id} ->
+        {version, crud, core_id}
+      end)
+
     messages
     |> Enum.group_by(fn message -> message.data.core_id end)
     |> Enum.reduce([], fn {_core_id, core_id_records}, acc ->
+      # We only need to process the last action that occurred for the
+      # core_id within the batch of events that were sent to handle_batch
       last_crud_action_message = List.last(core_id_records)
 
       cond do
@@ -369,7 +391,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           end
       end
     end)
-    |> EventProcessor.execute_batch_transaction(event_type)
+    |> EventProcessor.execute_batch_transaction(event_type, pg_event_history)
 
     incr_total_processed_message_count(event_definition_hash_id, Enum.count(messages))
     messages
@@ -437,7 +459,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @doc false
   def suspend_pipeline(event_definition) do
     name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id)
-    DruidRegistryHelper.suspend_druid_with_registry_lookup(event_definition.topic)
 
     String.to_atom(name <> "Pipeline")
     |> Broadway.producer_names()
@@ -449,7 +470,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @doc false
   def resume_pipeline(event_definition) do
     name = ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id)
-    DruidRegistryHelper.resume_druid_with_registry_lookup(event_definition.topic)
 
     String.to_atom(name <> "Pipeline")
     |> Broadway.producer_names()

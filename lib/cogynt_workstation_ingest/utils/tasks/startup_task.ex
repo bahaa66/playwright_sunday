@@ -9,6 +9,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
   alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
 
+  @drilldown_datasources ["template_solutions", "template_solution_events"]
+
   def start_link(_arg \\ []) do
     Task.start_link(__MODULE__, :run, [])
   end
