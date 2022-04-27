@@ -124,7 +124,7 @@ cond do
         System.get_env("COGYNT_AUTH_SERVICE_PORT", "4999") |> String.to_integer()
 
     config :cogynt_graphql, :common,
-      license_redirect_url: "https://" <> System.get_env("COGYNT_AUTH_DOMAIN") <> "/auth/license"
+      license_redirect_url: "https://#{System.get_env("COGYNT_AUTH_DOMAIN")}/auth/license"
 
   # Configs needed for local dev environments and test envs.
   config_env() not in [:prod, :k8scyn] ->
