@@ -160,13 +160,22 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # --- EventHistory Schema Methods --- #
   # ----------------------------------- #
 
-  def insert_all_event_history_multi(multi, event_history \\ [])
+  def upsert_all_event_history_multi(multi, event_history \\ [], opts \\ [])
 
-  def insert_all_event_history_multi(multi, []), do: multi
+  def upsert_all_event_history_multi(multi, [], _opts), do: multi
 
-  def insert_all_event_history_multi(multi, event_history) do
+  def upsert_all_event_history_multi(multi, event_history, opts) do
+    returning = Keyword.get(opts, :returning, [:core_id])
+    on_conflict = Keyword.get(opts, :on_conflict, :nothing)
+    conflict_target = Keyword.get(opts, :conflict_target, [:core_id, :version, :crud])
+
     multi
-    |> Multi.insert_all(:insert_event_history, EventHistory, event_history)
+    |> Multi.insert_all(:upsert_event_history, EventHistory, event_history,
+      returning: returning,
+      on_conflict: on_conflict,
+      conflict_target: conflict_target,
+      timeout: 60_000
+    )
   end
 
   # -------------------------------------- #

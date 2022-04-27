@@ -427,7 +427,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         conflict_target: [:core_id, :notification_setting_id]
       )
       |> EventsContext.upsert_all_event_links_multi(bulk_transactional_data.pg_event_links)
-      |> EventsContext.insert_all_event_history_multi(bulk_transactional_data.pg_event_history)
+      |> EventsContext.upsert_all_event_history_multi(bulk_transactional_data.pg_event_history,
+        on_conflict: {:replace_all_except, [:id, :core_id, :version, :crud]},
+        conflict_target: [:core_id, :version, :crud]
+      )
       |> Ecto.Multi.run(:bulk_delete_event_documents, fn _repo, _ ->
         bulk_delete_event_documents(bulk_transactional_data)
       end)

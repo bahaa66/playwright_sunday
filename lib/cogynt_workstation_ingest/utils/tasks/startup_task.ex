@@ -28,8 +28,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
           start_event_type_pipelines()
           start_deployment_pipeline()
 
-          cleanup_druid()
-
           DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
             Config.template_solutions_topic()
           )
@@ -47,8 +45,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
             {:ok, _} ->
               start_event_type_pipelines()
               start_deployment_pipeline()
-
-              cleanup_druid()
 
               DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
                 Config.template_solutions_topic()
@@ -136,26 +132,26 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
     end
   end
 
-  defp cleanup_druid() do
-    {:ok, supervisors} = Druid.list_supervisors()
-    {:ok, datasources} = Druid.list_datasources()
+  # defp cleanup_druid() do
+  #   {:ok, supervisors} = Druid.list_supervisors()
+  #   {:ok, datasources} = Druid.list_datasources()
 
-    Enum.uniq(supervisors ++ datasources)
-    |> Enum.filter(fn id -> !Enum.member?(@drilldown_datasources, id) end)
-    |> Enum.each(fn id ->
-      CogyntLogger.warn(
-        "#{__MODULE__}",
-        "cleanup_druid Terminating Druid Supervisor: #{id}"
-      )
+  #   Enum.uniq(supervisors ++ datasources)
+  #   |> Enum.filter(fn id -> !Enum.member?(@drilldown_datasources, id) end)
+  #   |> Enum.each(fn id ->
+  #     CogyntLogger.warn(
+  #       "#{__MODULE__}",
+  #       "cleanup_druid Terminating Druid Supervisor: #{id}"
+  #     )
 
-      Druid.terminate_supervisor(id)
+  #     Druid.terminate_supervisor(id)
 
-      CogyntLogger.warn(
-        "#{__MODULE__}",
-        "cleanup_druid Terminating Druid Datasource: #{id}"
-      )
+  #     CogyntLogger.warn(
+  #       "#{__MODULE__}",
+  #       "cleanup_druid Terminating Druid Datasource: #{id}"
+  #     )
 
-      Druid.datasource_segments_mark_unused(id)
-    end)
-  end
+  #     Druid.datasource_segments_mark_unused(id)
+  #   end)
+  # end
 end
