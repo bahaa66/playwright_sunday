@@ -74,16 +74,14 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :models,
-        # tag: "v1.22.0",
-        branch: "feat/testing-druid-replacement-event-history",
+        tag: "v1.23.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        # tag: "v1.22.0",
-        branch: "feat/testing-druid-replacement-event-history",
+        tag: "v1.23.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
