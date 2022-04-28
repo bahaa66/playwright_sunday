@@ -16,6 +16,10 @@ defmodule CogyntWorkstationIngestWeb.Schema do
     JSON
   })
 
+  import_types(CogyntGraphql.Schema.Types.{
+    License
+  })
+
   def context(ctx) do
     loader =
       Dataloader.new()
@@ -55,6 +59,7 @@ defmodule CogyntWorkstationIngestWeb.Schema do
   query do
     import_fields(:drilldown_queries)
     import_fields(:liveness_check_queries)
+    import_fields(:license_queries)
   end
 
   mutation do

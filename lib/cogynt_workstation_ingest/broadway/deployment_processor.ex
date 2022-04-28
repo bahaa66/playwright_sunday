@@ -4,8 +4,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   """
   alias CogyntWorkstationIngest.DataSources.DataSourcesContext
   alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngest.Utils.{DruidRegistryHelper, ConsumerStateManager}
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias Broadway.Message
 
   @data_source_id_hash_constant "00000000-0000-0000-0000-000000000000"
@@ -157,19 +156,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
     )
     |> Map.put(:event_definition_details_id, deployment_message.userDataSchemaId)
     |> EventsContext.upsert_event_definition_v2()
-    |> case do
-      {:ok, event_definition} ->
-        with name <- ConsumerGroupSupervisor.fetch_event_cgid(event_definition.id),
-             true <- name != "" do
-          DruidRegistryHelper.update_druid_with_registry_lookup(event_definition)
-        end
-
-      error ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Failed to upsert EventDefinition for DeploymentProcessor. Error: #{inspect(error)}"
-        )
-    end
   end
 
   defp process_user_data_schema_object(deployment_message) do

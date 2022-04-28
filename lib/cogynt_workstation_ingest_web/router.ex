@@ -40,12 +40,6 @@ defmodule CogyntWorkstationIngestWeb.Router do
     end
   end
 
-  scope "/ingest/api", CogyntWorkstationIngestWeb do
-    pipe_through(:api)
-    get("/drilldown/all/:id", DrilldownController, :index)
-    get("/drilldown/:id", DrilldownController, :show)
-  end
-
   scope "/ingest/api" do
     pipe_through(:api)
 
