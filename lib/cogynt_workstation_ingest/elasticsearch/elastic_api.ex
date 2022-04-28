@@ -1,37 +1,5 @@
 defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
-  alias Elasticsearch.Index
   alias CogyntWorkstationIngest.Elasticsearch.Cluster
-
-  # --------------------- #
-  # --- Index Methods --- #
-  # ---------------------- #
-  def index_health?(index) do
-    try do
-      case Elasticsearch.get(
-             Cluster,
-             "_cluster/health/#{index}?wait_for_status=green&timeout=10s"
-           ) do
-        {:ok, _result} ->
-          {:ok, true}
-
-        {:error, error} ->
-          CogyntLogger.error(
-            "#{__MODULE__}",
-            "Failed to return index health, index: #{index}. Error: #{inspect(error)}"
-          )
-
-          {:error, false}
-      end
-    rescue
-      e in HTTPoison.Error ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Unable to connect to Elasticsearch while checking index health. Index: #{index} Error: #{inspect(e.reason)}"
-        )
-
-        {:error, false}
-    end
-  end
 
   # ------------------------ #
   # --- Document Methods --- #

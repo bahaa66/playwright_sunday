@@ -80,6 +80,7 @@ cond do
       url: System.get_env("ELASTIC_URL")
 
     index_env = if(config_env() == :prod, do: "prod", else: "dev")
+
     config :elasticsearch, :common,
       username: System.get_env("ELASTIC_USERNAME"),
       password: System.get_env("ELASTIC_PASSWORD"),
