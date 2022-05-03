@@ -79,6 +79,18 @@ cond do
       password: System.get_env("ELASTIC_PASSWORD"),
       url: System.get_env("ELASTIC_URL")
 
+    index_env = if(config_env() == :prod, do: "prod", else: "dev")
+
+    config :elasticsearch, :common,
+      username: System.get_env("ELASTIC_USERNAME"),
+      password: System.get_env("ELASTIC_PASSWORD"),
+      url: System.get_env("ELASTIC_URL"),
+      indices: [
+        event: %{
+          settings: "priv/elasticsearch/event.#{index_env}.json"
+        }
+      ]
+
     config :exq,
       redis_options: [
         sentinel: [

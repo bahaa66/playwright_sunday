@@ -5,7 +5,7 @@ defmodule CogyntWorkstationIngest.Application do
 
   use Application
   require Protocol
-  alias CogyntWorkstationIngest.Horde.{HordeRegistry, NodeObserver}
+  alias CogyntWorkstationIngest.Horde.{HordeRegistry, HordeSupervisor, NodeObserver}
   alias CogyntWorkstationIngest.Config
 
   Protocol.derive(Jason.Encoder, Broadway.Message,
@@ -35,6 +35,7 @@ defmodule CogyntWorkstationIngest.Application do
        [Config.libcluster_topologies(), [name: CogyntWorkstationIngest.ClusterSupervisor]]},
       HordeRegistry,
       DruidSupervisor,
+      HordeSupervisor,
       NodeObserver,
       # Start the Ecto repository
       CogyntWorkstationIngest.Repo,
@@ -46,12 +47,12 @@ defmodule CogyntWorkstationIngest.Application do
       child_spec_supervisor(RedisSupervisor, RedisSupervisor),
       # Start the Exq job queue Supervisor
       child_spec_supervisor(Exq, Exq),
+      # Start the Cluster for Elasticsearch library
+      CogyntWorkstationIngest.Elasticsearch.Cluster,
       # Start the Supervisor for all Genserver modules
       child_spec_supervisor(ServerSupervisor, ServerSupervisor),
       # Start the DynamicSupervisor for Kafka ConsumerGroups
       ConsumerGroupSupervisor,
-      # Start the Cluster for Elasticsearch library
-      CogyntWorkstationIngest.Elasticsearch.Cluster,
       # The supervisor for all Task workers
       child_spec_supervisor(TaskSupervisor, TaskSupervisor)
     ]

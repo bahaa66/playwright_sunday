@@ -47,6 +47,17 @@ config :kafka, :common,
   template_solutions_topic: "template_solutions",
   template_solution_events_topic: "template_solution_events"
 
+config :elasticsearch, :common,
+  username: "elasticsearch",
+  password: "elasticsearch",
+  url: "http://localhost:9200",
+  indices: [
+    event: %{
+      settings: "priv/elasticsearch/event.#{config_env()}.json"
+    }
+  ],
+  service: CogyntElasticsearch
+
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster,
   event_index_alias: "event",
   username: "elasticsearch",

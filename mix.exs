@@ -110,6 +110,13 @@ defmodule CogyntWorkstationIngest.MixProject do
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt_graphql",
         override: true
+      },
+      {
+        :cogynt_elasticsearch,
+        tag: "v1.23.2-beta",
+        git: "git@github.com:cogility/cogynt-common.git",
+        sparse: "cogynt-elasticsearch",
+        override: true
       }
     ]
   end
