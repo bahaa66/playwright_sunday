@@ -12,4 +12,6 @@ config :phoenix, :stacktrace_depth, 20
 # Initialize plugs at runtime for faster development compilation
 config :phoenix, :plug_init_mode, :runtime
 
-config :cogynt_graphql, :common, mock_license: true
+config :cogynt_graphql, :common,
+  mock_license: true,
+  mock_license_status: "licensed"
