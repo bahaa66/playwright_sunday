@@ -16,14 +16,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.DevDelete do
     try do
       ExqHelpers.create_job_queue_if_not_exists(@dev_delete_queue_name, nil)
 
-      # 1) delete drilldown data
-      ExqHelpers.enqueue(
-        @dev_delete_queue_name,
-        DeleteDrilldownDataWorker,
-        Map.get(args, :delete_deployment_topic, false)
-      )
-
-      # 2) delete event_definitions data
+      # 1) delete event_definitions data
       EventsContext.list_event_definitions()
       |> Enum.each(fn %{id: event_definition_hash_id} ->
         ExqHelpers.enqueue(
@@ -35,7 +28,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.DevDelete do
         )
       end)
 
-      # 3) delete deployment data
+      # 2) delete deployment data
       ExqHelpers.enqueue(
         @dev_delete_queue_name,
         DeleteDeploymentDataWorker,

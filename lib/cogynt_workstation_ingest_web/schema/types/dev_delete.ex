@@ -12,7 +12,6 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.DevDelete do
         - All PG data, except for Collections, Tag, Notes for Collections, and Attachments for Notes
         - Redis data
         - Elasticsearch data
-        - Druid data
     """
     field :delete_all_data, non_null(:delete_data_response) do
       arg(:delete_deployment_topic, :boolean, default_value: false)
