@@ -113,8 +113,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :cogynt_elasticsearch,
-        # tag: "v1.21.1-beta",
-        branch: "feat/CDST-1589-add-new-elasticsearch-library",
+        tag: "v1.23.2-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt-elasticsearch",
         override: true
