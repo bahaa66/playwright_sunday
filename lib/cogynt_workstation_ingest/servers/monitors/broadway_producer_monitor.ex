@@ -30,9 +30,7 @@ defmodule CogyntWorkstationIngest.Servers.BroadwayProducerMonitor do
     Broadway.producer_names(producer_name)
     |> IO.inspect(label: "**** PRODUCER NAMES")
     |> Enum.each(fn producer_name ->
-      pid =
-        String.to_atom(producer_name)
-        |> Process.whereis()
+      pid = Process.whereis(producer_name)
 
       unless !is_nil(pid) do
         Process.monitor(pid)
