@@ -41,6 +41,9 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
 
   @impl true
   def handle_info({:DOWN, _ref, :process, pid, reason}, state) do
+    IO.inspect(reason, label: "**** CONSUMER FAILED WITH REASON")
+    IO.inspect("DOWN", label: "**** CONSUMER STATUS")
+
     case reason do
       :shutdown ->
         new_state = Map.delete(state, pid)
@@ -80,8 +83,8 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
 
   @impl true
   def handle_info({status, _ref, _, _pid, reason}, state) do
-    IO.inspect(reason, label: "**** CONSUMER MONITOR FAILED WITH REASON")
-    IO.inspect(status, label: "**** CONSUMER MONITOR STATUS")
+    IO.inspect(reason, label: "**** CONSUMER FAILED WITH REASON")
+    IO.inspect(status, label: "**** CONSUMER STATUS")
     {:noreply, state}
   end
 
