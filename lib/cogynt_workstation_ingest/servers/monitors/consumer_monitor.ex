@@ -78,6 +78,13 @@ defmodule CogyntWorkstationIngest.Servers.ConsumerMonitor do
     end
   end
 
+  @impl true
+  def handle_info({status, _ref, _, _pid, reason}, state) do
+    IO.inspect(reason, label: "**** CONSUMER MONITOR FAILED WITH REASON")
+    IO.inspect(status, label: "**** CONSUMER MONITOR STATUS")
+    {:noreply, state}
+  end
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
