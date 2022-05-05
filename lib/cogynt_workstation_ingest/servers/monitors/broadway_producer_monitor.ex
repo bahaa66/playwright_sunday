@@ -2,9 +2,6 @@ defmodule CogyntWorkstationIngest.Servers.BroadwayProducerMonitor do
   @moduledoc """
   """
   use GenServer
-  alias Models.Enums.ConsumerStatusTypeEnum
-  alias CogyntWorkstationIngest.Broadway.EventPipeline
-  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
 
   # -------------------- #
   # --- client calls --- #
@@ -27,35 +24,41 @@ defmodule CogyntWorkstationIngest.Servers.BroadwayProducerMonitor do
 
   @impl true
   def handle_cast({:monitor, producer_name, event_definition}, state) do
-    Broadway.producer_names(producer_name)
-    |> Enum.each(fn producer_name ->
-      pid = Process.whereis(producer_name)
+    pid =
+      Broadway.producer_names(producer_name)
+      |> List.first()
+      |> Process.whereis()
 
-      unless is_nil(pid) do
-        Process.monitor(pid)
-      end
-    end)
+    unless is_nil(pid) do
+      Process.monitor(pid)
+    end
 
-    new_state = Map.put(state, producer_name, %{event_definition: event_definition})
+    new_state = Map.put(state, pid, event_definition)
 
     {:noreply, new_state}
   end
 
   @impl true
   def handle_info(
-        {:DOWN, _ref, _, pid,
+        {:DOWN, _ref, :process, pid,
          {%RuntimeError{
             message: failure_message
           }, _}},
         state
       ) do
-    unless !String.contains?(failure_message, "Reason: :unknown_topic_or_partition") do
-      IO.inspect(Process.info(pid), label: "PROCESS INFO")
-      # Redis.publish_async("ingest_channel", %{
-      #   shutdown_consumer: orig_event_definition
-      # })
+    unless !String.contains?(failure_message, ":unknown_topic_or_partition") do
+      unless !Map.has_key?(state, pid) do
+        Redis.publish_async("ingest_channel", %{
+          shutdown_consumer: Map.get(state, pid)
+        })
+      end
     end
 
-    {:noreply, state}
+    {:noreply, Map.delete(state, pid)}
+  end
+
+  @impl true
+  def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
+    {:noreply, Map.delete(state, pid)}
   end
 end
