@@ -13,7 +13,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
     IngestPubSub
   }
 
-  alias CogyntWorkstationIngest.Servers.ConsumerMonitor
+  alias CogyntWorkstationIngest.Servers.{ConsumerMonitor, BroadwayProducerMonitor}
 
   alias CogyntElasticsearch.Indexer
   alias CogyntWorkstationIngest.Elasticsearch.IndexerStarter
@@ -32,6 +32,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
       # child_spec(FailedMessagesRetryWorker),
       child_spec(RedisStreamsConsumerGroupWorker),
       child_spec(ConsumerMonitor, restart: :permanent),
+      child_spec(BroadwayProducerMonitor, restart: :permanent),
       child_spec(IngestPubSub, start_link_opts: [pubsub]),
       {IndexerStarter, [name: Indexer]}
     ]
