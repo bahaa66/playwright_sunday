@@ -28,12 +28,10 @@ defmodule CogyntWorkstationIngest.Servers.BroadwayProducerMonitor do
   @impl true
   def handle_cast({:monitor, producer_name, event_definition}, state) do
     Broadway.producer_names(producer_name)
-    |> IO.inspect(label: "**************** PRODUCER NAMES")
     |> Enum.each(fn producer_name ->
       pid = Process.whereis(producer_name)
 
       unless is_nil(pid) do
-        IO.inspect(pid, label: "**************** Monitoring PID")
         Process.monitor(pid)
       end
     end)
@@ -44,9 +42,20 @@ defmodule CogyntWorkstationIngest.Servers.BroadwayProducerMonitor do
   end
 
   @impl true
-  def handle_info({status, _ref, _, _pid, reason}, state) do
-    IO.inspect(reason, label: "***************** CONSUMER FAILED WITH REASON")
-    IO.inspect(status, label: "***************** CONSUMER STATUS")
+  def handle_info(
+        {:DOWN, _ref, _, pid,
+         {%RuntimeError{
+            message: failure_message
+          }, _}},
+        state
+      ) do
+    unless !String.contains?(failure_message, "Reason: :unknown_topic_or_partition") do
+      IO.inspect(Process.info(pid), label: "PROCESS INFO")
+      # Redis.publish_async("ingest_channel", %{
+      #   shutdown_consumer: orig_event_definition
+      # })
+    end
+
     {:noreply, state}
   end
 end
