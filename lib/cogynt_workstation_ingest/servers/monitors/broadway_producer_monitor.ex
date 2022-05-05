@@ -28,11 +28,12 @@ defmodule CogyntWorkstationIngest.Servers.BroadwayProducerMonitor do
   @impl true
   def handle_cast({:monitor, producer_name, event_definition}, state) do
     Broadway.producer_names(producer_name)
-    |> IO.inspect(label: "**** PRODUCER NAMES")
+    |> IO.inspect(label: "**************** PRODUCER NAMES")
     |> Enum.each(fn producer_name ->
       pid = Process.whereis(producer_name)
 
       unless !is_nil(pid) do
+        IO.inspect(pid, label: "**************** Monitoring PID")
         Process.monitor(pid)
       end
     end)
@@ -44,8 +45,8 @@ defmodule CogyntWorkstationIngest.Servers.BroadwayProducerMonitor do
 
   @impl true
   def handle_info({status, _ref, _, _pid, reason}, state) do
-    IO.inspect(reason, label: "**** CONSUMER FAILED WITH REASON")
-    IO.inspect(status, label: "**** CONSUMER STATUS")
+    IO.inspect(reason, label: "***************** CONSUMER FAILED WITH REASON")
+    IO.inspect(status, label: "***************** CONSUMER STATUS")
     {:noreply, state}
   end
 end
