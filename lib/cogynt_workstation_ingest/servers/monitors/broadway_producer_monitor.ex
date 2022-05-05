@@ -32,7 +32,7 @@ defmodule CogyntWorkstationIngest.Servers.BroadwayProducerMonitor do
     |> Enum.each(fn producer_name ->
       pid = Process.whereis(producer_name)
 
-      unless !is_nil(pid) do
+      unless is_nil(pid) do
         IO.inspect(pid, label: "**************** Monitoring PID")
         Process.monitor(pid)
       end
