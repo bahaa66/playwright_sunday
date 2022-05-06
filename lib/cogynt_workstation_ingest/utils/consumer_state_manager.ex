@@ -666,6 +666,7 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   defp start_pipeline(event_definition) do
     case ConsumerGroupSupervisor.start_child(event_definition) do
       {:error, nil} ->
+        # TOPIC DOES NOT EXIST
         Redis.hash_set_async("crw", event_definition.id, "et")
 
         {:ok, ConsumerStatusTypeEnum.status()[:topic_does_not_exist]}

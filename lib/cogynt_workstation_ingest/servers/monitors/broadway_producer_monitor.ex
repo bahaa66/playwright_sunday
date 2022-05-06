@@ -2,6 +2,9 @@ defmodule CogyntWorkstationIngest.Servers.BroadwayProducerMonitor do
   @moduledoc """
   """
   use GenServer
+  alias Models.Enums.ConsumerStatusTypeEnum
+  alias CogyntWorkstationIngest.Broadway.EventPipeline
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
 
   # -------------------- #
   # --- client calls --- #
@@ -48,9 +51,13 @@ defmodule CogyntWorkstationIngest.Servers.BroadwayProducerMonitor do
       ) do
     unless !String.contains?(failure_message, ":unknown_topic_or_partition") do
       unless !Map.has_key?(state, pid) do
-        Redis.publish_async("ingest_channel", %{
-          shutdown_consumer: Map.get(state, pid)
-        })
+        event_definition = Map.get(state, pid)
+        # Shut Down Consumer
+        ConsumerStateManager.manage_request(%{shutdown_consumer: event_definition})
+        # Wait till Shutsdown
+        ensure_pipeline_shutdown(event_definition)
+        # Put it in the start queue again
+        ConsumerStateManager.manage_request(%{start_consumer: event_definition})
       end
     end
 
@@ -60,5 +67,35 @@ defmodule CogyntWorkstationIngest.Servers.BroadwayProducerMonitor do
   @impl true
   def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
     {:noreply, Map.delete(state, pid)}
+  end
+
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
+  defp ensure_pipeline_shutdown(event_definition, count \\ 1) do
+    if count >= 30 do
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "ensure_pipeline_shutdown/1 exceeded number of attempts (30) Moving forward with BroadwayProducerMonitor"
+      )
+    else
+      {_status, consumer_state} = ConsumerStateManager.get_consumer_state(event_definition.id)
+
+      case EventPipeline.pipeline_started?(event_definition.id) or
+             not EventPipeline.pipeline_finished_processing?(event_definition.id) or
+             consumer_state.status != ConsumerStatusTypeEnum.status()[:unknown] do
+        true ->
+          CogyntLogger.info(
+            "#{__MODULE__}",
+            "EventPipeline #{event_definition.title} still running... waiting 5000 ms for it to shutdown before resetting data"
+          )
+
+          Process.sleep(5000)
+          ensure_pipeline_shutdown(event_definition, count + 1)
+
+        false ->
+          nil
+      end
+    end
   end
 end
