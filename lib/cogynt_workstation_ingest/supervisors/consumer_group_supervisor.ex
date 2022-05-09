@@ -7,6 +7,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   use DynamicSupervisor
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.DataSources.DataSourcesContext
+  alias CogyntWorkstationIngest.Servers.BroadwayProducerMonitor
 
   alias CogyntWorkstationIngest.Broadway.{
     EventPipeline,
@@ -62,7 +63,18 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         type: :supervisor
       }
 
-      DynamicSupervisor.start_child(__MODULE__, child_spec)
+      case DynamicSupervisor.start_child(__MODULE__, child_spec) do
+        {:ok, pid} ->
+          BroadwayProducerMonitor.monitor(
+            String.to_atom(consumer_group_id <> "Pipeline"),
+            event_definition
+          )
+
+          {:ok, pid}
+
+        result ->
+          result
+      end
     else
       {:error, nil}
     end
