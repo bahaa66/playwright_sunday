@@ -57,10 +57,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         crud: [
           batch_size: 600,
           concurrency: 10
-        ],
-        event_history: [
-          batch_size: 600,
-          concurrency: 10
         ]
       ],
       context: [event_definition_hash_id: event_definition_hash_id, event_type: event_type]
