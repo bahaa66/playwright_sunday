@@ -79,6 +79,18 @@ cond do
       password: System.get_env("ELASTIC_PASSWORD"),
       url: System.get_env("ELASTIC_URL")
 
+    index_env = if(config_env() == :prod, do: "prod", else: "dev")
+
+    config :elasticsearch, :common,
+      username: System.get_env("ELASTIC_USERNAME"),
+      password: System.get_env("ELASTIC_PASSWORD"),
+      url: System.get_env("ELASTIC_URL"),
+      indices: [
+        event: %{
+          settings: "priv/elasticsearch/event.#{index_env}.json"
+        }
+      ]
+
     config :exq,
       redis_options: [
         sentinel: [
@@ -172,6 +184,11 @@ if config_env() not in [:dev, :test, :k8scyn] do
         ]
       ]
     ]
+
+  config :cogynt_graphql, :common,
+    mock_license: System.get_env("MOCK_LICENSE", "false") == "true",
+    mock_license_status: System.get_env("MOCK_LICENSE_STATUS", "licensed"),
+    license_redirect_url: "https://#{System.get_env("COGYNT_AUTH_DOMAIN")}/license"
 end
 
 # k8s-cyn dev env only

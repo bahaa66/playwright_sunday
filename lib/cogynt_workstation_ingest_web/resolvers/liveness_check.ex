@@ -1,6 +1,7 @@
 defmodule CogyntWorkstationIngestWeb.Resolvers.LivenessCheck do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
+  alias CogyntElasticsearch.Config, as: ElasticConfig
 
   def redis_healthy?(_, _, _) do
     case Redis.ping() do
@@ -69,7 +70,40 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.LivenessCheck do
   end
 
   def elasticsearch_healthy?(_, _, _) do
-    {_, event_index_health} = ElasticApi.index_health?(Config.event_index_alias())
-    {:ok, event_index_health}
+    {:ok, indices_healthy?()}
+  end
+
+  defp indices_healthy?() do
+    # Get the indices from the configs
+    ElasticConfig.elasticsearch_indices()
+    # The keys are the aliases
+    |> Keyword.keys()
+    |> Enum.reduce_while(true, fn a, acc ->
+      Atom.to_string(a)
+      # Wait for the green status
+      |> ElasticConfig.elasticsearch_service().get_index_health(
+        query: [wait_for_status: "green", timeout: "10s"]
+      )
+      |> case do
+        {:ok, %{"status" => "green"}} ->
+          {:cont, acc && true}
+
+        {:ok, res} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "Uneexpected LivenessCheck response for #{inspect(a)} index. Response: #{inspect(res)}"
+          )
+
+          {:halt, false}
+
+        {:error, error} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "LivenessCheck for #{inspect(a)} index failed. Error: #{inspect(error)}"
+          )
+
+          {:halt, false}
+      end
+    end)
   end
 end

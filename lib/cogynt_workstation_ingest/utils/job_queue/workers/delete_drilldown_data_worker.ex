@@ -33,6 +33,20 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
     # Drop segments 4 datasources and reset supervisors
     drop_and_reset_druid(Config.template_solution_events_topic())
     drop_and_reset_druid(Config.template_solutions_topic())
+
+    if delete_drilldown_topics do
+      # Re-create topics for Drilldown
+      create_topic_result =
+        Kafka.Api.Topic.create_topics([
+          Config.template_solutions_topic(),
+          Config.template_solution_events_topic()
+        ])
+
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "Created Drilldown Topics result: #{inspect(create_topic_result, pretty: true)}"
+      )
+    end
   end
 
   # ----------------------- #

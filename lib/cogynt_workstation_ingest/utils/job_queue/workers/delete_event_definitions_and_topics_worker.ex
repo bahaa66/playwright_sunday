@@ -3,7 +3,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
   alias CogyntWorkstationIngest.Broadway.EventPipeline
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
-  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
   alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
 
   alias Models.Events.EventDefinition
@@ -27,21 +26,11 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         )
 
       event_definition ->
-        # {_, state} = ConsumerStateManager.get_consumer_state(event_definition.id)
-
-        # if !is_nil(state.topic) do
-        # 1) stop the EventPipeline if there is one running for the event_definition
         shutdown_event_pipeline(event_definition)
 
-        # 2) delete data from druid
-        delete_and_terminate_druid_datasource(event_definition.topic)
-
-        # 3) remove all records from Elasticsearch
         delete_elasticsearch_data(event_definition)
 
-        # 4) delete the event definition data
         delete_event_definition(event_definition)
-        # end
     end
   end
 
@@ -75,22 +64,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteEventDefinitionsA
         CogyntLogger.error(
           "#{__MODULE__}",
           "Something went wrong deleting the event definition: #{inspect(error)}"
-        )
-    end
-  end
-
-  defp delete_and_terminate_druid_datasource(datasource_name) do
-    case DruidRegistryHelper.drop_and_terminate_druid_with_registry_lookup(datasource_name) do
-      {:ok, result} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Dropped segments for Druid Datasource: #{datasource_name} with response: #{inspect(result)}"
-        )
-
-      {:error, error} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Failed to drop segments for Druid Datasource: #{datasource_name} with Error: #{inspect(error)}"
         )
     end
   end

@@ -1,7 +1,7 @@
 defmodule LivenessCheck do
   import Plug.Conn
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
+  alias CogyntElasticsearch.Config, as: ElasticConfig
 
   @type options :: [resp_body: String.t()]
 
@@ -15,8 +15,7 @@ defmodule LivenessCheck do
 
   @spec call(Plug.Conn.t(), options) :: Plug.Conn.t()
   def call(%Plug.Conn{} = conn, _opts) do
-    if kafka_health?() and postgres_health?() and redis_health?() and
-         event_index_health?() do
+    if kafka_health?() and postgres_health?() and redis_health?() and indices_healthy?() do
       send_resp(conn, 200, @resp_body)
     else
       send_resp(conn, 500, @resp_body_error)
@@ -86,13 +85,37 @@ defmodule LivenessCheck do
     end
   end
 
-  defp event_index_health?() do
-    with {:ok, true} <- ElasticApi.index_health?(Config.event_index_alias()) do
-      true
-    else
-      {:error, _error} ->
-        CogyntLogger.error("#{__MODULE__}", "LivenessCheck Event Index Failed")
-        false
-    end
+  defp indices_healthy?() do
+    # Get the indices from the configs
+    ElasticConfig.elasticsearch_indices()
+    # The keys are the aliases
+    |> Keyword.keys()
+    |> Enum.reduce_while(true, fn a, acc ->
+      Atom.to_string(a)
+      # Wait for the green status
+      |> ElasticConfig.elasticsearch_service().get_index_health(
+        query: [wait_for_status: "green", timeout: "10s"]
+      )
+      |> case do
+        {:ok, %{"status" => "green"}} ->
+          {:cont, acc && true}
+
+        {:ok, res} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "Uneexpected LivenessCheck response for #{inspect(a)} index. Response: #{inspect(res)}"
+          )
+
+          {:halt, false}
+
+        {:error, error} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "LivenessCheck for #{inspect(a)} index failed. Error: #{inspect(error)}"
+          )
+
+          {:halt, false}
+      end
+    end)
   end
 end

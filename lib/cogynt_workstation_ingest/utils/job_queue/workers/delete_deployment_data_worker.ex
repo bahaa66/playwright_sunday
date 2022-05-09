@@ -75,12 +75,12 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
           else
             CogyntLogger.info(
               "#{__MODULE__}",
-              "DevDelete Queued Tasks still running... waiting 120000 ms for it to shutdown before resetting data"
+              "DevDelete Queued Tasks still running... waiting 10000 ms for it to shutdown before resetting data"
             )
 
             # Will retry every 2 mins for a max retry limit of 30. Will wait for a max of 1 before
             # Finishing the Deleting of the remaining Deployment data
-            Process.sleep(120_000)
+            Process.sleep(10_000)
             ensure_enqueued_queue_tasks_finished(count + 1)
           end
 

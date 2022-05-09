@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
   use DynamicSupervisor
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.DataSources.DataSourcesContext
-  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
+  alias CogyntWorkstationIngest.Servers.BroadwayProducerMonitor
 
   alias CogyntWorkstationIngest.Broadway.{
     EventPipeline,
@@ -63,21 +63,17 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
         type: :supervisor
       }
 
-      case DruidRegistryHelper.start_druid_with_registry_lookup(event_definition) do
-        {:ok, _} ->
-          DynamicSupervisor.start_child(__MODULE__, child_spec)
-
-        {:error, nil} ->
-          CogyntLogger.error(
-            "#{__MODULE__}",
-            "Failed to start Druid Ingest Supervisor: #{event_definition.topic}. Will not start Broadway Kafka Ingest pipeline until Druid success. Retrying..."
+      case DynamicSupervisor.start_child(__MODULE__, child_spec) do
+        {:ok, pid} ->
+          BroadwayProducerMonitor.monitor(
+            String.to_atom(consumer_group_id <> "Pipeline"),
+            event_definition
           )
 
-          # TODO: right now by returning {:error, nil} if you follow this up
-          # it will eventually display an error on the FE that shows the status
-          # TOPIC_DOES_NOT_EXIST which is misleading in the case where we did not start
-          # the pipleine because Druid failed. We need to make a new error status for this
-          {:error, nil}
+          {:ok, pid}
+
+        result ->
+          result
       end
     else
       {:error, nil}
@@ -126,8 +122,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor do
 
   def stop_child(event_definition) when is_map(event_definition) do
     name = fetch_event_cgid(event_definition.id)
-
-    DruidRegistryHelper.suspend_druid_with_registry_lookup(event_definition.topic)
 
     (name <> "Pipeline")
     |> String.to_atom()

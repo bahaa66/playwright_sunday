@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterHardDeleteDataForEventDefinitionsDeleteEventHistory do
+  use Migrations.AlterHardDeleteDataForEventDefinitionsDeleteEventHistory
+end
