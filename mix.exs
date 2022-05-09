@@ -65,6 +65,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:absinthe_plug, "~> 1.5.5"},
       {:dataloader, "~> 1.0.0"},
       {:elixir_uuid, "~> 1.2"},
+      {:ecto_psql_extras, "~> 0.6"},
       {
         :kafka,
         tag: "v1.19.0",
