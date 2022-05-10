@@ -49,9 +49,9 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:plug_cowboy, "~> 2.0"},
       {:health_checkup, "~> 0.1.0"},
       {:ecto_enum, "~> 1.4"},
-      # {:broadway_kafka, "~>0.3.0", override: true},
-      {:broadway_kafka,
-       branch: "main", git: "git@github.com:dashbitco/broadway_kafka.git", override: true},
+      {:broadway_kafka, "~>0.3.0", override: true},
+      # {:broadway_kafka,
+      #  branch: "main", git: "git@github.com:dashbitco/broadway_kafka.git", override: true},
       {:httpoison, "~> 1.7"},
       {:junit_formatter, "~> 3.0"},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
@@ -84,7 +84,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :migrations,
-        tag: "v1.24.0-beta",
+        tag: "v1.24.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true

@@ -731,7 +731,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
   # ---------------------- #
   # --- PSQL Functions --- #
   # ---------------------- #
-  def hard_delete_by_event_definition_hash_id(event_definition_hash_id, limit \\ 50000) do
+  def hard_delete_by_event_definition_hash_id(event_definition_hash_id, limit \\ 10000) do
     try do
       case Repo.query(
              "SELECT hard_delete_by_event_definition_hash_id(
