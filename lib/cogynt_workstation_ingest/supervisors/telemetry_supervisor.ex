@@ -37,13 +37,25 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
       summary(
         "cogynt_workstation_ingest.repo.query.total_time",
         unit: {:native, :millisecond},
-        tags: [:source, :query, :command]
+        tag_values: &__MODULE__.query_metadata/1,
+        tags: [:source, :command]
+      ),
+      summary("cogynt_workstation_ingest.repo.query.query_time",
+        unit: {:native, :millisecond},
+        tag_values: &__MODULE__.query_metadata/1,
+        tags: [:source, :command]
+      ),
+      distribution("cogynt_workstation_ingest.repo.query.queue_time",
+        unit: {:native, :millisecond},
+        tag_values: &__MODULE__.query_metadata/1,
+        tags: [:source, :command]
       ),
 
       # Database Count Metrics - Formats `count` metric type
       counter(
         "cogynt_workstation_ingest.repo.query.count",
-        tags: [:source, :query, :command]
+        tag_values: &__MODULE__.query_metadata/1,
+        tags: [:source, :command]
       ),
 
       # Phoenix Time Metrics - Formats `timing` metric type
@@ -113,4 +125,8 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
   #     # {MyApp, :count_users, []}
   #   ]
   # end
+
+  def query_metadata(%{source: source, result: {_, %{command: command}}}) do
+    %{source: source, command: command}
+  end
 end

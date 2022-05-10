@@ -435,6 +435,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       |> Ecto.Multi.run(:bulk_delete_event_documents, fn _repo, _ ->
         bulk_delete_event_documents(bulk_transactional_data)
       end)
+      |> Ecto.Multi.run(:vacuum_events, fn _repo, _ ->
+        EventsContext.vacuum_events_table()
+      end)
+      |> Ecto.Multi.run(:vacuum_event_history, fn _repo, _ ->
+        EventsContext.vacuum_event_history_table()
+      end)
+      |> Ecto.Multi.run(:vacuum_event_links, fn _repo, _ ->
+        EventsContext.vacuum_event_links_table()
+      end)
       |> EventsContext.run_multi_transaction()
 
     case transaction_result do

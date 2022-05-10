@@ -156,6 +156,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Multi.delete_all(:delete_events, from(e in Event, where: e.core_id in ^core_ids))
   end
 
+  def vacuum_events_table() do
+    result = Repo.query("VACUUM VERBOSE events")
+    IO.inspect(result, label: "VACUUM EVENTS RESULT", pretty: true)
+    result
+  end
+
   # ----------------------------------- #
   # --- EventHistory Schema Methods --- #
   # ----------------------------------- #
@@ -176,6 +182,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       conflict_target: conflict_target,
       timeout: 60_000
     )
+  end
+
+  def vacuum_event_history_table() do
+    result = Repo.query("VACUUM VERBOSE event_history")
+    IO.inspect(result, label: "VACUUM EVENT_HISTORY RESULT", pretty: true)
+    result
   end
 
   # -------------------------------------- #
@@ -333,6 +345,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     end
   end
 
+  @spec get_event_definition_by(any) :: any
   @doc """
   Returns a single EventDefinition struct from the query
   ## Examples
@@ -725,6 +738,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         where: el.link_core_id in ^core_ids or el.entity_core_id in ^core_ids
       )
     )
+  end
+
+  def vacuum_event_links_table() do
+    result = Repo.query("VACUUM VERBOSE event_links")
+    IO.inspect(result, label: "VACUUM EVENT_LINKS RESULT", pretty: true)
+    result
   end
 
   # ---------------------- #
