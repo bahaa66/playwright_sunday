@@ -36,7 +36,11 @@ defmodule CogyntWorkstationIngestWeb.Router do
     pipe_through(:browser)
 
     if Config.enable_dev_tools?() do
-      live_dashboard("/dashboard", metrics: TelemetrySupervisor)
+      live_dashboard "/dashboard",
+        metrics: TelemetrySupervisor,
+        additional_pages: [
+          broadway: BroadwayDashboard
+        ]
     end
   end
 
