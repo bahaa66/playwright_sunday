@@ -439,10 +439,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     case transaction_result do
       {:ok, %{upsert_notifications: {_count_created, upserted_notifications}}} ->
-        EventsContext.vacuum_events_table()
-        EventsContext.vacuum_event_history_table()
-        EventsContext.vacuum_event_links_table()
-
         Redis.publish_async(
           "events_changed_listener",
           %{
@@ -455,10 +451,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         SystemNotificationContext.bulk_insert_system_notifications(upserted_notifications)
 
       {:ok, _} ->
-        EventsContext.vacuum_events_table()
-        EventsContext.vacuum_event_history_table()
-        EventsContext.vacuum_event_links_table()
-
         Redis.publish_async(
           "events_changed_listener",
           %{

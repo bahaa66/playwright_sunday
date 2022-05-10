@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterAutovacuumSettings do
+  use Migrations.AlterAutoVacuumThresholds
+end
