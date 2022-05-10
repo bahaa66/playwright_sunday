@@ -129,4 +129,8 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
   def query_metadata(%{source: source, result: {_, %{command: command}}}) do
     %{source: source, command: command}
   end
+
+  def query_metadata(metadata) do
+    metadata
+  end
 end
