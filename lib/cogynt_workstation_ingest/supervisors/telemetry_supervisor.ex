@@ -45,7 +45,7 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
         tag_values: &__MODULE__.query_metadata/1,
         tags: [:source, :command]
       ),
-      distribution("cogynt_workstation_ingest.repo.query.queue_time",
+      summary("cogynt_workstation_ingest.repo.query.queue_time",
         unit: {:native, :millisecond},
         tag_values: &__MODULE__.query_metadata/1,
         tags: [:source, :command]
