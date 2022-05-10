@@ -739,7 +739,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         CAST('#{limit}' as INT)
       )",
              [],
-             timeout: 120_000
+             timeout: :infinity
            ) do
         {:ok, %Postgrex.Result{rows: rows}} ->
           if Enum.empty?(List.flatten(rows)) do
