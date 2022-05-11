@@ -6,7 +6,7 @@ defmodule CogyntWorkstationIngestWeb.Endpoint do
     longpoll: false
   )
 
-  socket("/ingest/live", Phoenix.LiveView.Socket)
+  socket("/live", Phoenix.LiveView.Socket)
 
   # Serve at "/" the static files from "priv/static" directory.
   #
