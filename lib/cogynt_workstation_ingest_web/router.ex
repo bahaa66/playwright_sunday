@@ -1,10 +1,12 @@
 defmodule CogyntWorkstationIngestWeb.Router do
   @dialyzer {:no_return, __checks__: 0}
   use CogyntWorkstationIngestWeb, :router
-  import Phoenix.LiveDashboard.Router
+  import Phoenix.LiveView.Router
+
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Supervisors.TelemetrySupervisor
   alias CogyntWorkstationIngestWeb.FallbackController
+  alias CogyntWorkstationIngestWeb.Views.LayoutView
 
   pipeline :api do
     plug(:accepts, ["json"])
@@ -21,6 +23,8 @@ defmodule CogyntWorkstationIngestWeb.Router do
   pipeline :browser do
     plug(:accepts, ["html"])
     plug(:fetch_session)
+    plug(:fetch_live_flash)
+    plug(:put_root_layout, {LayoutView, :root})
     plug(:protect_from_forgery)
     plug(:put_secure_browser_headers)
   end
@@ -32,15 +36,18 @@ defmodule CogyntWorkstationIngestWeb.Router do
 
   forward("/rpc/cogynt", JSONRPC2.Servers.HTTP.Plug, CogyntWorkstationIngestWeb.Rpc.CogyntHandler)
 
-  scope "/ingest" do
-    pipe_through(:browser)
+  if Config.enable_dev_tools?() do
+    import Phoenix.LiveDashboard.Router
 
-    if Config.enable_dev_tools?() do
-      live_dashboard "/dashboard",
+    scope "/ingest" do
+      pipe_through(:browser)
+
+      live_dashboard("/dashboard",
         metrics: TelemetrySupervisor,
         additional_pages: [
           broadway: BroadwayDashboard
         ]
+      )
     end
   end
 
