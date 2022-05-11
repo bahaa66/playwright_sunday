@@ -35,23 +35,23 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
       summary(
         "cogynt_workstation_ingest.repo.query.idle_time",
         unit: {:native, :millisecond},
-        tags: [:source, :repo, :query]
+        tags: [:source, :repo]
       ),
       summary("cogynt_workstation_ingest.repo.query.queue_time",
         unit: {:native, :millisecond},
-        tags: [:source, :repo, :query]
+        tags: [:source, :repo]
       ),
       summary("cogynt_workstation_ingest.repo.query.query_time",
         unit: {:native, :millisecond},
-        tags: [:source, :repo, :query]
+        tags: [:source, :repo]
       ),
       summary("cogynt_workstation_ingest.repo.query.decode_time",
         unit: {:native, :millisecond},
-        tags: [:source, :repo, :query]
+        tags: [:source, :repo]
       ),
       summary("cogynt_workstation_ingest.repo.query.total_time",
         unit: {:native, :millisecond},
-        tags: [:source, :repo, :query]
+        tags: [:source, :repo]
       ),
 
       # Database Count Metrics - Formats `count` metric type

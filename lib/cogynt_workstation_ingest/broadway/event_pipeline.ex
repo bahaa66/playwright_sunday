@@ -39,23 +39,23 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
                connect_timeout: 30000
              ]
            ]},
-        concurrency: Config.event_producer_stages(),
+        concurrency: 5,
         transformer:
           {__MODULE__, :transform,
            [event_definition_hash_id: event_definition_hash_id, event_type: event_type]}
       ],
       processors: [
         default: [
-          concurrency: Config.event_processor_stages()
+          concurrency: 20
         ]
       ],
       batchers: [
         default: [
-          batch_size: 600,
+          batch_size: 1000,
           concurrency: 10
         ],
         crud: [
-          batch_size: 600,
+          batch_size: 1000,
           concurrency: 10
         ]
       ],
