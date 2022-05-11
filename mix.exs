@@ -35,8 +35,7 @@ defmodule CogyntWorkstationIngest.MixProject do
     [
       {:phoenix, "~> 1.6.6"},
       {:phoenix_pubsub, "~> 2.0"},
-      {:phoenix_live_dashboard, "~> 0.6"},
-      {:phoenix_live_view, "~> 0.17.5"},
+      {:phoenix_live_dashboard, "~> 0.6.5"},
       {:distillery, "~> 2.1"},
       {:phoenix_ecto, "~> 4.0"},
       {:ecto_sql, "~> 3.7.1"},
@@ -50,7 +49,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:plug_cowboy, "~> 2.0"},
       {:health_checkup, "~> 0.1.0"},
       {:ecto_enum, "~> 1.4"},
-      {:broadway_kafka, "~>0.3.0", override: true},
+      {:broadway_kafka, "~> 0.3.0", override: true},
       # {:broadway_kafka,
       #  branch: "main", git: "git@github.com:dashbitco/broadway_kafka.git", override: true},
       {:httpoison, "~> 1.7"},
@@ -69,7 +68,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:dataloader, "~> 1.0.0"},
       {:elixir_uuid, "~> 1.2"},
       {:ecto_psql_extras, "~> 0.6"},
-      {:broadway_dashboard, "~> 0.2.0"},
+      {:broadway_dashboard, "~> 0.2.0", override: true},
       {
         :kafka,
         tag: "v1.19.0",
