@@ -39,7 +39,7 @@ defmodule CogyntWorkstationIngestWeb.Router do
       live_dashboard "/dashboard",
         metrics: TelemetrySupervisor,
         additional_pages: [
-          broadway: BroadwayDashboard
+          broadway: {BroadwayDashboard, pipelines: [DeploymentPipeline]}
         ]
     end
   end
