@@ -33,9 +33,10 @@ defmodule CogyntWorkstationIngest.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.6.0"},
+      {:phoenix, "~> 1.6.6"},
       {:phoenix_pubsub, "~> 2.0"},
-      {:phoenix_live_dashboard, "~> 0.5"},
+      {:phoenix_live_dashboard, "~> 0.6"},
+      {:phoenix_live_view, "~> 0.17.5"},
       {:distillery, "~> 2.1"},
       {:phoenix_ecto, "~> 4.0"},
       {:ecto_sql, "~> 3.7.1"},
@@ -57,8 +58,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:scrivener_ecto, "~> 2.0"},
       {:quiet_logger, "~> 0.2.0"},
-      {:telemetry, "~> 1.0.0", override: true},
-      {:telemetry_poller, "~> 1.0.0"},
+      {:telemetry_metrics, "~> 0.6"},
+      {:telemetry_poller, "~> 1.0"},
       {:elasticsearch, "~> 1.0.0"},
       {:exq, git: "git@github.com:akira/exq.git", branch: "master"},
       {:libcluster, "~> 3.3.0"},

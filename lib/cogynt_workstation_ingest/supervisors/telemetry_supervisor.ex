@@ -8,7 +8,7 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
 
   def init(_arg) do
     children = [
-      # {:telemetry_poller, measurements: periodic_measurements(), period: 10_000}
+      {:telemetry_poller, measurements: periodic_measurements(), period: 10_000}
       # Add reporters as children of your supervision tree.
       # {Telemetry.Metrics.ConsoleReporter, metrics: metrics()}
     ]
@@ -118,13 +118,13 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
     ]
   end
 
-  # defp periodic_measurements do
-  #   [
-  #     # A module, function and arguments to be invoked periodically.
-  #     # This function must call :telemetry.execute/3 and a metric must be added above.
-  #     # {MyApp, :count_users, []}
-  #   ]
-  # end
+  defp periodic_measurements do
+    #   [
+    #     # A module, function and arguments to be invoked periodically.
+    #     # This function must call :telemetry.execute/3 and a metric must be added above.
+    #     # {MyApp, :count_users, []}
+    #   ]
+  end
 
   def query_metadata(%{source: source, result: {_, %{command: command}}}) do
     %{source: source, command: command}

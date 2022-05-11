@@ -103,7 +103,7 @@ defmodule LivenessCheck do
         {:ok, res} ->
           CogyntLogger.error(
             "#{__MODULE__}",
-            "Uneexpected LivenessCheck response for #{inspect(a)} index. Response: #{inspect(res)}"
+            "Unexpected LivenessCheck response for #{inspect(a)} index. Response: #{inspect(res)}"
           )
 
           {:halt, false}
