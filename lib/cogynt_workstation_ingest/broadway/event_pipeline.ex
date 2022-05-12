@@ -414,14 +414,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
   @impl true
   def handle_batch(:crud, messages, _batch_info, context) do
-    producer_name =
-      Broadway.producer_names()
-      |> List.first()
-
-    IO.inspect(:sys.get_state(producer_name), label: "SYS INFO", pretty: true)
-
     event_definition_hash_id = Keyword.get(context, :event_definition_hash_id, nil)
     event_type = Keyword.get(context, :event_type, nil)
+
+    (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_hash_id) <> "Pipeline")
+    |> String.to_atom()
+
+    Broadway.producer_names()
+    |> List.first()
+
+    IO.inspect(:sys.get_state(producer_name), label: "SYS INFO", pretty: true)
 
     # To track event_history we need to take all the actions that were
     # sent in the batch of events to handle_batch
