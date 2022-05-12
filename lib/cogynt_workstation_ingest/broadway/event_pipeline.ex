@@ -536,18 +536,24 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @doc false
   def pipeline_running?(event_definition_hash_id) do
     if pipeline_started?(event_definition_hash_id) do
-      (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_hash_id) <> "Pipeline")
-      |> String.to_atom()
-      |> Broadway.producer_names()
-      |> Enum.reduce(true, fn producer, acc ->
+      try do
+        producer =
+          (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_hash_id) <> "Pipeline")
+          |> String.to_atom()
+          |> Broadway.producer_names()
+          |> List.first()
+
         case GenStage.demand(producer) do
           :forward ->
-            acc and true
+            true
 
           :accumulate ->
-            acc and false
+            false
         end
-      end)
+      rescue
+        _ ->
+          false
+      end
     else
       false
     end

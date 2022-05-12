@@ -158,16 +158,22 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
   @doc false
   def pipeline_running?() do
     if pipeline_started?() do
-      Broadway.producer_names(:DeploymentPipeline)
-      |> Enum.reduce(true, fn producer, acc ->
+      try do
+        producer =
+          Broadway.producer_names(:DeploymentPipeline)
+          |> List.first()
+
         case GenStage.demand(producer) do
           :forward ->
-            acc and true
+            true
 
           :accumulate ->
-            acc and false
+            false
         end
-      end)
+      rescue
+        _ ->
+          false
+      end
     else
       false
     end
