@@ -423,7 +423,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       |> Broadway.producer_names()
       |> List.first()
 
-    IO.inspect(:sys.get_state(producer_name), label: "SYS INFO", pretty: true)
+    temp =
+      :sys.get_state(producer_name)
+      |> Map.keys()
+
+    IO.inspect(temp, label: "SYS INFO", pretty: true)
 
     # To track event_history we need to take all the actions that were
     # sent in the batch of events to handle_batch
