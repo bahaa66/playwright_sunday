@@ -10,8 +10,6 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.DevDelete do
 
   alias CogyntGraphql.Utils.Error
 
-  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-
   @dev_delete_queue_name "DevDelete"
 
   def delete_data(_, args, _) do

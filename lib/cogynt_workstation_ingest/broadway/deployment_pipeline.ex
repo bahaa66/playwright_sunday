@@ -163,7 +163,7 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
           Broadway.producer_names(:DeploymentPipeline)
           |> List.first()
 
-        case GenStage.demand(producer) do
+        case GenStage.call(producer, :"$demand", 120_000) do
           :forward ->
             true
 

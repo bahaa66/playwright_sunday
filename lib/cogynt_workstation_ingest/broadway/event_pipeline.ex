@@ -543,7 +543,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           |> Broadway.producer_names()
           |> List.first()
 
-        case GenStage.demand(producer) do
+        case GenStage.call(producer, :"$demand", 120_000) do
           :forward ->
             true
 
