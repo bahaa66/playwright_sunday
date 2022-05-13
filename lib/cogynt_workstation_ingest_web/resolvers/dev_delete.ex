@@ -83,16 +83,6 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.DevDelete do
         filter: %{event_definition_hash_ids: Map.get(args, :ids)}
       })
       |> Enum.each(fn %{id: event_definition_hash_id} ->
-        # DEBUG
-        producer_name =
-          (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_hash_id) <> "Pipeline")
-          |> String.to_atom()
-          |> Broadway.producer_names()
-          |> List.first()
-
-        temp = :sys.get_status(producer_name, :infinity)
-        IO.inspect(temp, label: "SYS INFO", pretty: true)
-
         ExqHelpers.enqueue(
           @dev_delete_queue_name,
           DeleteEventDefinitionsAndTopicsWorker,
