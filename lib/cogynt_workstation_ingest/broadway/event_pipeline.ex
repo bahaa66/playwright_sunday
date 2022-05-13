@@ -425,7 +425,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     temp = :sys.get_state(producer_name, :infinity)
 
-    IO.inspect(temp.state, label: "SYS INFO", pretty: true)
+    IO.inspect(Map.keys(temp.dispatcher_state), label: "Dispatcher State", pretty: true)
+    IO.inspect(Map.keys(temp.state), label: "State", pretty: true)
+    IO.inspect(Map.keys(temp.producers), label: "Producers", pretty: true)
 
     # To track event_history we need to take all the actions that were
     # sent in the batch of events to handle_batch
