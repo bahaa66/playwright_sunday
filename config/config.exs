@@ -48,6 +48,7 @@ config :kafka, :common,
   template_solution_events_topic: "template_solution_events"
 
 config :elasticsearch, :common,
+  otp_app: :cogynt_workstation_ingest,
   username: "elasticsearch",
   password: "elasticsearch",
   url: "http://localhost:9200",
