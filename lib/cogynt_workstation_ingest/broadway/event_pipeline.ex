@@ -417,18 +417,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     event_definition_hash_id = Keyword.get(context, :event_definition_hash_id, nil)
     event_type = Keyword.get(context, :event_type, nil)
 
-    producer_name =
-      (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_hash_id) <> "Pipeline")
-      |> String.to_atom()
-      |> Broadway.producer_names()
-      |> List.first()
-
-    temp = :sys.get_state(producer_name, :infinity)
-
-    IO.inspect(Map.keys(temp.dispatcher_state), label: "Dispatcher State", pretty: true)
-    IO.inspect(Map.keys(temp.state), label: "State", pretty: true)
-    IO.inspect(Map.keys(temp.producers), label: "Producers", pretty: true)
-
     # To track event_history we need to take all the actions that were
     # sent in the batch of events to handle_batch
     # we need to try and remove any duplicates for {version, crud, core_id} pairs
