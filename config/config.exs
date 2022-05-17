@@ -45,7 +45,8 @@ config :kafka, :common,
   kafka_client: :brod,
   deployment_topic: "deployment",
   template_solutions_topic: "template_solutions",
-  template_solution_events_topic: "template_solution_events"
+  template_solution_events_topic: "template_solution_events",
+  audit_topic: "_cogynt_audit_log"
 
 config :elasticsearch, :common,
   otp_app: :cogynt_workstation_ingest,
