@@ -71,15 +71,15 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:broadway_dashboard, "~> 0.2.0", override: true},
       {
         :kafka,
-        # tag: "v1.23.0",
-        branch: "feat/CDST-1296-audit-log-deleted-events",
+        tag: "v1.23.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "kafka",
         override: true
       },
       {
         :models,
-        tag: "v1.23.0",
+        # tag: "v1.23.0",
+        branch: "feat/CDST-1296-audit-log-deleted-events",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
