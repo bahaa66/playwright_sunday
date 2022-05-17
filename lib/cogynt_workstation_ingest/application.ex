@@ -8,16 +8,6 @@ defmodule CogyntWorkstationIngest.Application do
   alias CogyntWorkstationIngest.Horde.{HordeRegistry, HordeSupervisor, NodeObserver}
   alias CogyntWorkstationIngest.Config
 
-  Protocol.derive(Jason.Encoder, Broadway.Message,
-    only: [
-      :batch_key,
-      :batch_mode,
-      :batcher,
-      :data,
-      :metadata
-    ]
-  )
-
   alias CogyntWorkstationIngest.Supervisors.{
     ConsumerGroupSupervisor,
     ServerSupervisor,
@@ -26,7 +16,12 @@ defmodule CogyntWorkstationIngest.Application do
     DruidSupervisor
   }
 
+  alias CogyntWorkstationIngest.Tasks.RunAuditKafkaSetup
+  alias Kafka.Supervisors.KafkaSetupTaskSupervisor
+
   def start(_type, _args) do
+    kafka_setup_taks = [RunAuditKafkaSetup]
+
     # List all child processes to be supervised
     children = [
       {Phoenix.PubSub, [name: CogyntWorkstationIngestWeb.PubSub, adapter: Phoenix.PubSub.PG2]},
@@ -54,7 +49,11 @@ defmodule CogyntWorkstationIngest.Application do
       # Start the DynamicSupervisor for Kafka ConsumerGroups
       ConsumerGroupSupervisor,
       # The supervisor for all Task workers
-      child_spec_supervisor(TaskSupervisor, TaskSupervisor)
+      child_spec_supervisor(TaskSupervisor, TaskSupervisor),
+      # Kafka setup task supervisor
+      child_spec_supervisor(KafkaSetupTaskSupervisor, KafkaSetupTaskSupervisor, [
+        kafka_setup_taks
+      ])
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
