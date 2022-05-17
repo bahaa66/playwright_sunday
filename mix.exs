@@ -78,8 +78,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :models,
-        # tag: "v1.23.0",
-        branch: "feat/CDST-1296-audit-log-deleted-events",
+        tag: "v1.24.7-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
