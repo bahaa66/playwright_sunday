@@ -65,7 +65,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.DevDelete do
     end
   end
 
-  def reset_drilldown_data(_, _, _) do
+  def reset_drilldown_data(_, _, %{context: %{client_ip: client_ip, current_user: %{id: user_id}}}) do
     try do
       ExqHelpers.create_job_queue_if_not_exists(@dev_delete_queue_name, nil)
 
@@ -101,7 +101,9 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.DevDelete do
     end
   end
 
-  def delete_event_definitions(_, args, _) do
+  def delete_event_definitions(_, args, %{
+        context: %{client_ip: client_ip, current_user: %{id: user_id}}
+      }) do
     try do
       ExqHelpers.create_job_queue_if_not_exists(@dev_delete_queue_name, nil)
 
