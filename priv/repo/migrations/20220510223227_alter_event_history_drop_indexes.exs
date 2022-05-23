@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterEventHistoryDropIndexes do
+  use Migrations.AlterEventHistoryDropIndexes
+end

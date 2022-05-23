@@ -45,15 +45,36 @@ config :kafka, :common,
   kafka_client: :brod,
   deployment_topic: "deployment",
   template_solutions_topic: "template_solutions",
-  template_solution_events_topic: "template_solution_events"
+  template_solution_events_topic: "template_solution_events",
+  audit_topic: "_cogynt_audit_log"
 
 config :elasticsearch, :common,
+  otp_app: :cogynt_workstation_ingest,
   username: "elasticsearch",
   password: "elasticsearch",
   url: "http://localhost:9200",
   indices: [
     event: %{
-      settings: "priv/elasticsearch/event.#{config_env()}.json"
+      settings: %{
+        "index" => %{
+          "analysis" => %{
+            "analyzer" => %{
+              "keyword_lowercase" => %{
+                "type" => "custom",
+                "tokenizer" => "keyword",
+                "filter" => [
+                  "lowercase"
+                ]
+              }
+            }
+          },
+          "max_result_window" => "1000000",
+          "refresh_interval" => "1s",
+          "number_of_shards" => "1",
+          "number_of_replicas" => "0"
+        }
+      },
+      mappings: "priv/elasticsearch/event-mappings.json"
     }
   ],
   service: CogyntElasticsearch

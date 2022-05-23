@@ -8,9 +8,7 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
 
   def init(_arg) do
     children = [
-      # {:telemetry_poller, measurements: periodic_measurements(), period: 10_000}
-      # Add reporters as children of your supervision tree.
-      # {Telemetry.Metrics.ConsoleReporter, metrics: metrics()}
+      {:telemetry_poller, measurements: periodic_measurements(), period: 10_000}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
@@ -35,15 +33,31 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
 
       # Database Time Metrics - Formats `timing` metric type
       summary(
-        "cogynt_workstation_ingest.repo.query.total_time",
+        "cogynt_workstation_ingest.repo.query.idle_time",
         unit: {:native, :millisecond},
-        tags: [:source, :query, :command]
+        tags: [:source, :repo]
+      ),
+      summary("cogynt_workstation_ingest.repo.query.queue_time",
+        unit: {:native, :millisecond},
+        tags: [:source, :repo]
+      ),
+      summary("cogynt_workstation_ingest.repo.query.query_time",
+        unit: {:native, :millisecond},
+        tags: [:source, :repo]
+      ),
+      summary("cogynt_workstation_ingest.repo.query.decode_time",
+        unit: {:native, :millisecond},
+        tags: [:source, :repo]
+      ),
+      summary("cogynt_workstation_ingest.repo.query.total_time",
+        unit: {:native, :millisecond},
+        tags: [:source, :repo]
       ),
 
       # Database Count Metrics - Formats `count` metric type
       counter(
         "cogynt_workstation_ingest.repo.query.count",
-        tags: [:source, :query, :command]
+        tags: [:source, :repo]
       ),
 
       # Phoenix Time Metrics - Formats `timing` metric type
@@ -59,7 +73,13 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
       # Broadway Metrics
       summary(
         "broadway.processor.message.stop.duration",
-        unit: {:native, :millisecond}
+        unit: {:native, :millisecond},
+        tags: [:name]
+      ),
+      summary(
+        "broadway.batch_processor.stop.duration",
+        unit: {:native, :millisecond},
+        tags: [:name]
       ),
 
       # Redis Metrics
@@ -106,11 +126,7 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
     ]
   end
 
-  # defp periodic_measurements do
-  #   [
-  #     # A module, function and arguments to be invoked periodically.
-  #     # This function must call :telemetry.execute/3 and a metric must be added above.
-  #     # {MyApp, :count_users, []}
-  #   ]
-  # end
+  defp periodic_measurements do
+    []
+  end
 end

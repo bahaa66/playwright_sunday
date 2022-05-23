@@ -3,7 +3,6 @@ defmodule CogyntWorkstationIngest.ReleaseTasks do
   # alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
   # alias CogyntWorkstationIngest.Config
 
-
   # @deps [
   #   :elasticsearch,
   #   :httpoison

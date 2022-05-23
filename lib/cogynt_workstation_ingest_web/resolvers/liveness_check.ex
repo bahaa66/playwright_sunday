@@ -1,6 +1,5 @@
 defmodule CogyntWorkstationIngestWeb.Resolvers.LivenessCheck do
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
   alias CogyntElasticsearch.Config, as: ElasticConfig
 
   def redis_healthy?(_, _, _) do

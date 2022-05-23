@@ -70,7 +70,7 @@ cond do
             end)
             |> Keyword.new(),
           # This will auto-start the producers with default configs
-          auto_start_producers: false
+          auto_start_producers: true
         ]
       ]
 
@@ -79,17 +79,10 @@ cond do
       password: System.get_env("ELASTIC_PASSWORD"),
       url: System.get_env("ELASTIC_URL")
 
-    index_env = if(config_env() == :prod, do: "prod", else: "dev")
-
     config :elasticsearch, :common,
       username: System.get_env("ELASTIC_USERNAME"),
       password: System.get_env("ELASTIC_PASSWORD"),
-      url: System.get_env("ELASTIC_URL"),
-      indices: [
-        event: %{
-          settings: "priv/elasticsearch/event.#{index_env}.json"
-        }
-      ]
+      url: System.get_env("ELASTIC_URL")
 
     config :exq,
       redis_options: [
@@ -166,7 +159,7 @@ cond do
         internal_kafka_client: [
           endpoints: ["127.0.0.1": 9092],
           # This will auto-start the producers with default configs
-          auto_start_producers: false
+          auto_start_producers: true
         ]
       ]
 end

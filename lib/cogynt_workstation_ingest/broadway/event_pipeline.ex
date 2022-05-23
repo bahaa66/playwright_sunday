@@ -13,6 +13,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Broadway.{EventProcessor, LinkEventProcessor}
+  alias Kafka.Api.Topic
 
   def start_link(%{
         group_id: group_id,
@@ -21,6 +22,51 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         event_definition_hash_id: event_definition_hash_id,
         event_type: event_type
       }) do
+    ### --------- TEMP to find out if this has CRUD or not ---------------- ###
+    {batchers, context} =
+      case use_crud_pipeline?(topics, hosts) do
+        {:ok, true} ->
+          {[
+             crud: [
+               batch_size: 1000,
+               concurrency: 10
+             ]
+           ],
+           [
+             event_definition_hash_id: event_definition_hash_id,
+             event_type: event_type,
+             crud: true
+           ]}
+
+        {:ok, false} ->
+          {[
+             default: [
+               batch_size: 1000,
+               concurrency: 10
+             ]
+           ],
+           [
+             event_definition_hash_id: event_definition_hash_id,
+             event_type: event_type,
+             crud: false
+           ]}
+
+        {:error, _} ->
+          {[
+             default: [
+               batch_size: 1000,
+               concurrency: 10
+             ],
+             crud: [
+               batch_size: 1000,
+               concurrency: 10
+             ]
+           ],
+           [event_definition_hash_id: event_definition_hash_id, event_type: event_type, crud: nil]}
+      end
+
+    ### --------- TEMP to find out if this has CRUD or not ---------------- ###
+
     Broadway.start_link(__MODULE__,
       name: String.to_atom(group_id <> "Pipeline"),
       producer: [
@@ -39,27 +85,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
                connect_timeout: 30000
              ]
            ]},
-        concurrency: Config.event_producer_stages(),
+        concurrency: 1,
         transformer:
           {__MODULE__, :transform,
            [event_definition_hash_id: event_definition_hash_id, event_type: event_type]}
       ],
       processors: [
         default: [
-          concurrency: Config.event_processor_stages()
-        ]
-      ],
-      batchers: [
-        default: [
-          batch_size: 600,
-          concurrency: 10
-        ],
-        crud: [
-          batch_size: 600,
           concurrency: 10
         ]
       ],
-      context: [event_definition_hash_id: event_definition_hash_id, event_type: event_type]
+      batchers: batchers,
+      context: context
     )
   end
 
@@ -194,12 +231,101 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     messages
   end
 
-  @doc """
-  """
+  # handle_message/3 method for when we know the type of data for this pipeline will have
+  # `crud` data and only needs the `crud` batcher
   @impl true
-  def handle_message(_processor_name, message, context) do
-    event_type = Keyword.get(context, :event_type, nil)
+  def handle_message(
+        _processor_name,
+        message,
+        event_definition_hash_id: _,
+        event_type: _,
+        crud: true
+      ) do
+    data =
+      message.data
+      |> EventProcessor.process_event_history()
 
+    Map.put(message, :data, data)
+    |> Message.put_batcher(:crud)
+  end
+
+  # handle_message/3 method for when we know the type of data for this pipeline will not have
+  # `crud` data and only needs the `default` batcher
+  @impl true
+  def handle_message(
+        _processor_name,
+        message,
+        event_definition_hash_id: _,
+        event_type: event_type,
+        crud: false
+      ) do
+    data =
+      cond do
+        event_type == Config.linkage_data_type_value() ->
+          case message.data.pipeline_state do
+            :process_event ->
+              message.data
+              |> EventProcessor.process_elasticsearch_documents()
+              |> EventProcessor.process_notifications()
+              |> LinkEventProcessor.validate_link_event()
+              |> LinkEventProcessor.process_entities()
+
+            :process_event_details_and_elasticsearch_docs ->
+              message.data
+              |> EventProcessor.process_notifications()
+              |> LinkEventProcessor.validate_link_event()
+              |> LinkEventProcessor.process_entities()
+
+            :process_notifications ->
+              message.data
+              |> LinkEventProcessor.validate_link_event()
+              |> LinkEventProcessor.process_entities()
+
+            :validate_link_event ->
+              message.data
+              |> LinkEventProcessor.process_entities()
+
+            _ ->
+              message.data
+              |> EventProcessor.process_event()
+              |> EventProcessor.process_elasticsearch_documents()
+              |> EventProcessor.process_notifications()
+              |> LinkEventProcessor.validate_link_event()
+              |> LinkEventProcessor.process_entities()
+          end
+
+        true ->
+          case message.data.pipeline_state do
+            :process_event ->
+              message.data
+              |> EventProcessor.process_elasticsearch_documents()
+              |> EventProcessor.process_notifications()
+
+            :process_event_details_and_elasticsearch_docs ->
+              message.data
+              |> EventProcessor.process_notifications()
+
+            _ ->
+              message.data
+              |> EventProcessor.process_event()
+              |> EventProcessor.process_elasticsearch_documents()
+              |> EventProcessor.process_notifications()
+          end
+      end
+
+    Map.put(message, :data, data)
+  end
+
+  # handle_message/3 method for when we have to start a pipeline with both the `crud` and `default` batchers.
+  # A scenario when we are unsure about the type of data that exists on the topic when the pipeline is started
+  @impl true
+  def handle_message(
+        _processor_name,
+        message,
+        event_definition_hash_id: _,
+        event_type: event_type,
+        crud: nil
+      ) do
     message
     |> case do
       %Message{data: %{event: event}} ->
@@ -410,18 +536,24 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   @doc false
   def pipeline_running?(event_definition_hash_id) do
     if pipeline_started?(event_definition_hash_id) do
-      (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_hash_id) <> "Pipeline")
-      |> String.to_atom()
-      |> Broadway.producer_names()
-      |> Enum.reduce(true, fn producer, acc ->
-        case GenStage.demand(producer) do
+      try do
+        producer =
+          (ConsumerGroupSupervisor.fetch_event_cgid(event_definition_hash_id) <> "Pipeline")
+          |> String.to_atom()
+          |> Broadway.producer_names()
+          |> List.first()
+
+        case GenStage.call(producer, :"$demand", 120_000) do
           :forward ->
-            acc and true
+            true
 
           :accumulate ->
-            acc and false
+            false
         end
-      end)
+      rescue
+        _ ->
+          false
+      end
     else
       false
     end
@@ -525,6 +657,44 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       if tmp >= String.to_integer(tmc) do
         finished_processing(event_definition_hash_id)
       end
+    end
+  end
+
+  defp use_crud_pipeline?(topics, hosts) do
+    topic = List.first(topics)
+
+    {_status, %{min_offset: earliest_offset, max_offset: latest_offset}} =
+      Topic.get_partition_offset_meta(topic, 0, hosts)
+
+    total = latest_offset - earliest_offset
+    last_offset = latest_offset - 1
+
+    cond do
+      total > 0 ->
+        case Topic.fetch_message(topic, 0, last_offset, hosts) do
+          {:ok, %{payload: payload}} ->
+            if payload != nil and is_binary(payload) and byte_size(payload) > 0 do
+              case Jason.decode(payload, keys: :atoms) do
+                {:ok, decoded_payload} ->
+                  if Map.has_key?(decoded_payload, :COG_crud) do
+                    {:ok, true}
+                  else
+                    {:ok, false}
+                  end
+
+                _ ->
+                  {:error, :failed}
+              end
+            else
+              {:error, :failed}
+            end
+
+          _ ->
+            {:error, :failed}
+        end
+
+      true ->
+        {:error, :failed}
     end
   end
 end

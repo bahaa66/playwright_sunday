@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
   """
   use Broadway
   alias Broadway.Message
-  alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Broadway.DeploymentProcessor
 
   def start_link(%{group_id: group_id, topics: topics, hosts: hosts}) do
@@ -29,12 +28,12 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
                connect_timeout: 30000
              ]
            ]},
-        concurrency: Config.deployment_producer_stages(),
+        concurrency: 1,
         transformer: {__MODULE__, :transform, []}
       ],
       processors: [
         default: [
-          concurrency: Config.deployment_processor_stages()
+          concurrency: 10
         ]
       ]
     )
@@ -159,16 +158,22 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentPipeline do
   @doc false
   def pipeline_running?() do
     if pipeline_started?() do
-      Broadway.producer_names(:DeploymentPipeline)
-      |> Enum.reduce(true, fn producer, acc ->
-        case GenStage.demand(producer) do
+      try do
+        producer =
+          Broadway.producer_names(:DeploymentPipeline)
+          |> List.first()
+
+        case GenStage.call(producer, :"$demand", 120_000) do
           :forward ->
-            acc and true
+            true
 
           :accumulate ->
-            acc and false
+            false
         end
-      end)
+      rescue
+        _ ->
+          false
+      end
     else
       false
     end

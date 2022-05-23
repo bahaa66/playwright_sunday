@@ -33,9 +33,9 @@ defmodule CogyntWorkstationIngest.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.6.0"},
+      {:phoenix, "~> 1.6.6"},
       {:phoenix_pubsub, "~> 2.0"},
-      {:phoenix_live_dashboard, "~> 0.1"},
+      {:phoenix_live_dashboard, "~> 0.6.5"},
       {:distillery, "~> 2.1"},
       {:phoenix_ecto, "~> 4.0"},
       {:ecto_sql, "~> 3.7.1"},
@@ -49,14 +49,16 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:plug_cowboy, "~> 2.0"},
       {:health_checkup, "~> 0.1.0"},
       {:ecto_enum, "~> 1.4"},
-      {:broadway_kafka, "~>0.3.0", override: true},
+      # {:broadway_kafka, "~> 0.3.0", override: true},
+      {:broadway_kafka,
+       branch: "main", git: "git@github.com:dashbitco/broadway_kafka.git", override: true},
       {:httpoison, "~> 1.7"},
       {:junit_formatter, "~> 3.0"},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:scrivener_ecto, "~> 2.0"},
       {:quiet_logger, "~> 0.2.0"},
-      {:telemetry, "~> 1.0.0", override: true},
-      {:telemetry_poller, "~> 1.0.0"},
+      {:telemetry_metrics, "~> 0.6"},
+      {:telemetry_poller, "~> 1.0"},
       {:elasticsearch, "~> 1.0.0"},
       {:exq, git: "git@github.com:akira/exq.git", branch: "master"},
       {:libcluster, "~> 3.3.0"},
@@ -65,23 +67,25 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:absinthe_plug, "~> 1.5.5"},
       {:dataloader, "~> 1.0.0"},
       {:elixir_uuid, "~> 1.2"},
+      {:ecto_psql_extras, "~> 0.6"},
+      {:broadway_dashboard, "~> 0.2.0", override: true},
       {
         :kafka,
-        tag: "v1.19.0",
+        tag: "v1.23.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "kafka",
         override: true
       },
       {
         :models,
-        tag: "v1.23.0",
+        tag: "v1.25.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.23.0",
+        tag: "v1.25.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
@@ -113,7 +117,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :cogynt_elasticsearch,
-        tag: "v1.23.0",
+        tag: "v1.25.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt-elasticsearch",
         override: true

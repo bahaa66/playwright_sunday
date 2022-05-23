@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.DropTemplateSolutionEventsV2 do
+  use Migrations.DropTemplateSolutionEvents
+end

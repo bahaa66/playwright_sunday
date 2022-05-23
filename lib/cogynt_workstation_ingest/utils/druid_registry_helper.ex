@@ -408,7 +408,7 @@ defmodule CogyntWorkstationIngest.Utils.DruidRegistryHelper do
         dimensions: dimensions
       },
       timestamp_spec: %{
-        column: Config.timestamp_key(),
+        column: "publishedAt",
         format: "auto",
         missingValue: @timestamp_default
       },
