@@ -8,7 +8,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   Checks to make sure if a valid link event was passed through authoring. If incomplete data
   then :validated is set to false. Otherwise it is set to true.
   """
-  def validate_link_event(%{event: event, crud_action: actionn, event_type: event_type} = data) do
+  def validate_link_event(%{event: event, crud_action: action, event_type: event_type} = data) do
     cond do
       event_type != Config.linkage_data_type_value() ->
         data
