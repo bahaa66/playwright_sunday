@@ -140,7 +140,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           event_definition: event_definition,
           event_definition_hash_id: event_definition_hash_id,
           event_type: event_type,
-          crud_action: action
+          crud_action: action,
+          elastic_event_links: elastic_event_links
         } = data
       ) do
     cond do
@@ -149,7 +150,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
       true ->
         event_definition_details = event_definition.event_definition_details
-        event_links = Map.get(pg_event.event_details, Config.entities_key())
 
         # Iterate over each event key value pair and build the pg and elastic search event
         # details.
@@ -233,7 +233,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                  event_type: event_type,
                  occurred_at: pg_event.occurred_at,
                  risk_score: pg_event.risk_score,
-                 event_links: event_links
+                 event_links: elastic_event_links
                }) do
             {:ok, event_doc} ->
               event_doc
