@@ -356,7 +356,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             :event_definition_hash_id,
             :retry_count,
             :pipeline_state,
-            :pg_event_history
+            :pg_event_history,
+            :elastic_event_links
           ])
 
         Map.merge(acc, data, fn k, v1, v2 ->
