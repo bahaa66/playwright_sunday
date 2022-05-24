@@ -69,6 +69,8 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         entities = Map.get(event, Config.entities_key())
         entities_copy = Map.get(event, Config.entities_key())
 
+        IO.inspect(entities, label: "Starting to parse COG_entities")
+
         {pg_event_links, elastic_event_links} =
           Enum.reduce(entities, {[], entities_copy}, fn {edge_label, link_data_list},
                                                         {pg_acc, elastic_acc} ->
