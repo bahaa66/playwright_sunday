@@ -55,20 +55,45 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
           {:ok, events} ->
             events =
               events
-              |> Enum.map(fn %{"aid" => aid, "solution_id" => solution_id, "event" => event} ->
-                Jason.decode(event)
-                |> case do
-                  {:ok, event} ->
-                    event |> Map.put("solution_id", solution_id) |> Map.put("assertion_id", aid)
+              |> Enum.reduce(%{}, fn
+                %{
+                  "id" => id,
+                  "eventId" => event_id,
+                  "aid" => aid,
+                  "solution_id" => solution_id,
+                  "version" => version,
+                  "__time" => published_at
+                } = event,
+                acc ->
+                  key = "#{event_id}!#{aid}"
+                  cached_event = Map.get(acc, key)
 
-                  {:error, error} ->
-                    {:error, :json_decode_error, error}
-                end
+                  if cached_event do
+                    cached_version = Map.get(cached_event, Config.version_key())
+                    cached_published_at = Map.get(cached_event, "__time")
+
+                    if cached_event && version > cached_version do
+                      Map.put(acc, key, event)
+                    else
+                      with {:ok, published_at, _} <-
+                             DateTime.from_iso8601(published_at),
+                           {:ok, cached_published_at, _} <-
+                             DateTime.from_iso8601(cached_published_at) do
+                        if DateTime.compare(published_at, cached_published_at) == :gt do
+                          Map.put(acc, key, event)
+                        else
+                          acc
+                        end
+                      else
+                        {:error, _} -> acc
+                      end
+                    end
+                  else
+                    Map.put(acc, key, event)
+                  end
               end)
-              |> Enum.filter(
-                &(not (&1[Config.partial_key()] == true and &1[Config.confidence_key()] == 0.0))
-              )
-              |> Enum.sort_by(& &1[Config.id_key()])
+              |> Map.values()
+              |> List.flatten()
               |> Enum.group_by(&Map.get(&1, "solution_id"))
 
             for id <- solution_ids, into: %{} do
