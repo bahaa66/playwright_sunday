@@ -67,15 +67,13 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
       true ->
         entities = Map.get(event, Config.entities_key())
-        entities_copy = Map.get(event, Config.entities_key())
 
         IO.inspect(entities, label: "Starting to parse COG_entities")
 
-        {pg_event_links, elastic_event_links} =
-          Enum.reduce(entities, {[], entities_copy}, fn {edge_label, link_data_list},
-                                                        {pg_acc, elastic_acc} ->
-            {pg_links, elastic_links} =
-              Enum.reduce(link_data_list, {[], []}, fn link_object, {acc_0, acc_1} ->
+        pg_event_links =
+          Enum.reduce(entities, [], fn {edge_label, link_data_list}, pg_acc ->
+            pg_links =
+              Enum.reduce(link_data_list, [], fn link_object, acc_0 ->
                 case link_object[Config.id_key()] do
                   nil ->
                     CogyntLogger.warn(
@@ -83,36 +81,25 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                       "link object missing id field. LinkObject: #{inspect(link_object, pretty: true)}"
                     )
 
-                    {acc_0, acc_1}
+                    acc_0
 
                   entity_core_id ->
                     now = DateTime.truncate(DateTime.utc_now(), :second)
 
-                    acc_0 =
-                      acc_0 ++
-                        [
-                          %{
-                            link_core_id: core_id,
-                            label: edge_label,
-                            entity_core_id: entity_core_id,
-                            created_at: now,
-                            updated_at: now
-                          }
-                        ]
-
-                    acc_1 =
-                      acc_1 ++
-                        [
-                          %{Config.id_key() => entity_core_id}
-                        ]
-
-                    {acc_0, acc_1}
+                    acc_0 ++
+                      [
+                        %{
+                          link_core_id: core_id,
+                          label: edge_label,
+                          entity_core_id: entity_core_id,
+                          created_at: now,
+                          updated_at: now
+                        }
+                      ]
                 end
               end)
 
-            pg_acc = pg_acc ++ pg_links
-            elastic_acc = Map.put(elastic_acc, edge_label, elastic_links)
-            {pg_acc, elastic_acc}
+            pg_acc ++ pg_links
           end)
 
         pg_event_links_delete =
@@ -124,11 +111,11 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
               []
           end
 
-        IO.inspect(elastic_event_links, label: "elastic_event_links to be inserted into Elastic")
+        IO.inspect(pg_event_links, label: "elastic_event_links to be inserted into Elastic")
 
         Map.put(data, :pg_event_links, pg_event_links)
         |> Map.put(:pg_event_links_delete, pg_event_links_delete)
-        |> Map.put(:elastic_event_links, elastic_event_links)
+        |> Map.put(:elastic_event_links, pg_event_links)
         |> Map.put(:pipeline_state, :process_entities)
     end
   end

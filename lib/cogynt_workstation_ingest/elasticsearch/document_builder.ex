@@ -25,7 +25,17 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder do
     updated_at: [type: :datetime, required: true],
     occurred_at: [type: :datetime],
     risk_score: [type: :integer],
-    event_links: [type: :object]
+    event_links: [
+      type:
+        {:list,
+         %{
+           link_core_id: [type: :string, required: true],
+           label: [type: :string, required: true],
+           entity_core_id: [type: :string, required: true],
+           created_at: [type: :datetime, required: true],
+           updated_at: [type: :datetime, required: true]
+         }}
+    ]
   }
 
   def build_document(parameters) do

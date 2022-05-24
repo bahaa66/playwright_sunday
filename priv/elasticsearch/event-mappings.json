@@ -159,6 +159,56 @@
     },
     "occurred_at": {
       "type": "date"
+    },
+    "event_links": {
+      "properties": {
+        "event_link": {
+          "type": "object"
+        },
+        "link_core_id": {
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            },
+            "lowercase": {
+              "analyzer": "keyword_lowercase",
+              "type": "text"
+            }
+          },
+          "type": "text"
+        },
+        "label": {
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            },
+            "lowercase": {
+              "analyzer": "keyword_lowercase",
+              "type": "text"
+            }
+          },
+          "type": "text"
+        },
+        "entity_core_id": {
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            },
+            "lowercase": {
+              "analyzer": "keyword_lowercase",
+              "type": "text"
+            }
+          },
+          "type": "text"
+        },
+        "created_at": {
+          "type": "date"
+        },
+        "updated_at": {
+          "type": "date"
+        }
+      },
+      "type": "nested"
     }
   }
 }
