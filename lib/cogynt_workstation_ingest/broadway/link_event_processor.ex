@@ -51,8 +51,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   Itterates through the entities object on the link_event and builds the associations
   """
   def process_entities(%{validated: false} = data) do
-    IO.puts("This log means that: #{data.event_type} is being treated as NON Linkage")
-
     data
     |> Map.put(:elastic_event_links, nil)
     |> Map.put(:pipeline_state, :process_entities)
@@ -67,8 +65,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
       true ->
         entities = Map.get(event, Config.entities_key())
-
-        IO.inspect(entities, label: "Starting to parse COG_entities")
 
         pg_event_links =
           Enum.reduce(entities, [], fn {edge_label, link_data_list}, pg_acc ->
@@ -110,8 +106,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
             true ->
               []
           end
-
-        IO.inspect(pg_event_links, label: "elastic_event_links to be inserted into Elastic")
 
         Map.put(data, :pg_event_links, pg_event_links)
         |> Map.put(:pg_event_links_delete, pg_event_links_delete)

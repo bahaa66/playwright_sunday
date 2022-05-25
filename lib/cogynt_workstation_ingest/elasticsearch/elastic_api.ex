@@ -6,8 +6,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
   # ------------------------ #
 
   def bulk_upsert_document(index, bulk_docs) do
-    IO.inspect(bulk_docs, label: "bulk_upsert_document params")
-
     encoded_data =
       bulk_docs
       |> Enum.map(&encode!(&1, index))
@@ -20,7 +18,6 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
              encoded_data
            ) do
         {:ok, result} ->
-          IO.inspect(result, label: "bulk_upsert_document Result")
           {:ok, result}
 
         {:error, error} ->
