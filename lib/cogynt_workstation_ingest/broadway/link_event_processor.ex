@@ -8,8 +8,13 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   Checks to make sure if a valid link event was passed through authoring. If incomplete data
   then :validated is set to false. Otherwise it is set to true.
   """
-  def validate_link_event(%{event: event, crud_action: action} = data) do
+  def validate_link_event(%{event: event, crud_action: action, event_type: event_type} = data) do
     cond do
+      event_type != Config.linkage_data_type_value() ->
+        data
+        |> Map.put(:validated, false)
+        |> Map.put(:pipeline_state, :validate_link_event)
+
       action == Config.crud_delete_value() ->
         data
         |> Map.put(:pipeline_state, :validate_link_event)
@@ -45,22 +50,26 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   @doc """
   Itterates through the entities object on the link_event and builds the associations
   """
-  def process_entities(%{validated: false} = data),
-    do: Map.put(data, :pipeline_state, :process_entities)
+  def process_entities(%{validated: false} = data) do
+    data
+    |> Map.put(:elastic_event_links, nil)
+    |> Map.put(:pipeline_state, :process_entities)
+  end
 
   def process_entities(%{event: event, core_id: core_id, crud_action: crud_action} = data) do
     cond do
       crud_action == Config.crud_delete_value() ->
         data
+        |> Map.put(:elastic_event_links, nil)
         |> Map.put(:pipeline_state, :process_entities)
 
       true ->
         entities = Map.get(event, Config.entities_key())
 
         pg_event_links =
-          Enum.reduce(entities, [], fn {edge_label, link_data_list}, acc ->
-            links =
-              Enum.reduce(link_data_list, [], fn link_object, acc_1 ->
+          Enum.reduce(entities, [], fn {edge_label, link_data_list}, pg_acc ->
+            pg_links =
+              Enum.reduce(link_data_list, [], fn link_object, acc_0 ->
                 case link_object[Config.id_key()] do
                   nil ->
                     CogyntLogger.warn(
@@ -68,12 +77,12 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                       "link object missing id field. LinkObject: #{inspect(link_object, pretty: true)}"
                     )
 
-                    acc_1
+                    acc_0
 
                   entity_core_id ->
                     now = DateTime.truncate(DateTime.utc_now(), :second)
 
-                    acc_1 ++
+                    acc_0 ++
                       [
                         %{
                           link_core_id: core_id,
@@ -86,7 +95,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                 end
               end)
 
-            acc ++ links
+            pg_acc ++ pg_links
           end)
 
         pg_event_links_delete =
@@ -100,6 +109,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
 
         Map.put(data, :pg_event_links, pg_event_links)
         |> Map.put(:pg_event_links_delete, pg_event_links_delete)
+        |> Map.put(:elastic_event_links, pg_event_links)
         |> Map.put(:pipeline_state, :process_entities)
     end
   end
