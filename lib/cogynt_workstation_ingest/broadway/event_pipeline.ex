@@ -256,64 +256,44 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         _processor_name,
         message,
         event_definition_hash_id: _,
-        event_type: event_type,
+        event_type: _,
         crud: false
       ) do
     data =
-      cond do
-        event_type == Config.linkage_data_type_value() ->
-          case message.data.pipeline_state do
-            :process_event ->
-              message.data
-              |> EventProcessor.process_elasticsearch_documents()
-              |> EventProcessor.process_notifications()
-              |> LinkEventProcessor.validate_link_event()
-              |> LinkEventProcessor.process_entities()
+      case message.data.pipeline_state do
+        :process_event ->
+          message.data
+          |> LinkEventProcessor.validate_link_event()
+          |> LinkEventProcessor.process_entities()
+          |> EventProcessor.process_elasticsearch_documents()
+          |> EventProcessor.process_notifications()
 
-            :process_event_details_and_elasticsearch_docs ->
-              message.data
-              |> EventProcessor.process_notifications()
-              |> LinkEventProcessor.validate_link_event()
-              |> LinkEventProcessor.process_entities()
+        :validate_link_event ->
+          message.data
+          |> LinkEventProcessor.process_entities()
+          |> EventProcessor.process_elasticsearch_documents()
+          |> EventProcessor.process_notifications()
 
-            :process_notifications ->
-              message.data
-              |> LinkEventProcessor.validate_link_event()
-              |> LinkEventProcessor.process_entities()
+        :process_entities ->
+          message.data
+          |> EventProcessor.process_elasticsearch_documents()
+          |> EventProcessor.process_notifications()
 
-            :validate_link_event ->
-              message.data
-              |> LinkEventProcessor.process_entities()
+        :process_event_details_and_elasticsearch_docs ->
+          message.data
+          |> EventProcessor.process_notifications()
 
-            _ ->
-              message.data
-              |> EventProcessor.process_event()
-              |> EventProcessor.process_elasticsearch_documents()
-              |> EventProcessor.process_notifications()
-              |> LinkEventProcessor.validate_link_event()
-              |> LinkEventProcessor.process_entities()
-          end
-
-        true ->
-          case message.data.pipeline_state do
-            :process_event ->
-              message.data
-              |> EventProcessor.process_elasticsearch_documents()
-              |> EventProcessor.process_notifications()
-
-            :process_event_details_and_elasticsearch_docs ->
-              message.data
-              |> EventProcessor.process_notifications()
-
-            _ ->
-              message.data
-              |> EventProcessor.process_event()
-              |> EventProcessor.process_elasticsearch_documents()
-              |> EventProcessor.process_notifications()
-          end
+        _ ->
+          message.data
+          |> EventProcessor.process_event()
+          |> LinkEventProcessor.validate_link_event()
+          |> LinkEventProcessor.process_entities()
+          |> EventProcessor.process_elasticsearch_documents()
+          |> EventProcessor.process_notifications()
       end
 
     Map.put(message, :data, data)
+    |> Message.put_batcher(:default)
   end
 
   # handle_message/3 method for when we have to start a pipeline with both the `crud` and `default` batchers.
@@ -323,7 +303,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         _processor_name,
         message,
         event_definition_hash_id: _,
-        event_type: event_type,
+        event_type: _,
         crud: nil
       ) do
     message
@@ -332,57 +312,36 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         case Map.get(event, Config.crud_key(), nil) do
           nil ->
             data =
-              cond do
-                event_type == Config.linkage_data_type_value() ->
-                  case message.data.pipeline_state do
-                    :process_event ->
-                      message.data
-                      |> EventProcessor.process_elasticsearch_documents()
-                      |> EventProcessor.process_notifications()
-                      |> LinkEventProcessor.validate_link_event()
-                      |> LinkEventProcessor.process_entities()
+              case message.data.pipeline_state do
+                :process_event ->
+                  message.data
+                  |> LinkEventProcessor.validate_link_event()
+                  |> LinkEventProcessor.process_entities()
+                  |> EventProcessor.process_elasticsearch_documents()
+                  |> EventProcessor.process_notifications()
 
-                    :process_event_details_and_elasticsearch_docs ->
-                      message.data
-                      |> EventProcessor.process_notifications()
-                      |> LinkEventProcessor.validate_link_event()
-                      |> LinkEventProcessor.process_entities()
+                :validate_link_event ->
+                  message.data
+                  |> LinkEventProcessor.process_entities()
+                  |> EventProcessor.process_elasticsearch_documents()
+                  |> EventProcessor.process_notifications()
 
-                    :process_notifications ->
-                      message.data
-                      |> LinkEventProcessor.validate_link_event()
-                      |> LinkEventProcessor.process_entities()
+                :process_entities ->
+                  message.data
+                  |> EventProcessor.process_elasticsearch_documents()
+                  |> EventProcessor.process_notifications()
 
-                    :validate_link_event ->
-                      message.data
-                      |> LinkEventProcessor.process_entities()
+                :process_event_details_and_elasticsearch_docs ->
+                  message.data
+                  |> EventProcessor.process_notifications()
 
-                    _ ->
-                      message.data
-                      |> EventProcessor.process_event()
-                      |> EventProcessor.process_elasticsearch_documents()
-                      |> EventProcessor.process_notifications()
-                      |> LinkEventProcessor.validate_link_event()
-                      |> LinkEventProcessor.process_entities()
-                  end
-
-                true ->
-                  case message.data.pipeline_state do
-                    :process_event ->
-                      message.data
-                      |> EventProcessor.process_elasticsearch_documents()
-                      |> EventProcessor.process_notifications()
-
-                    :process_event_details_and_elasticsearch_docs ->
-                      message.data
-                      |> EventProcessor.process_notifications()
-
-                    _ ->
-                      message.data
-                      |> EventProcessor.process_event()
-                      |> EventProcessor.process_elasticsearch_documents()
-                      |> EventProcessor.process_notifications()
-                  end
+                _ ->
+                  message.data
+                  |> EventProcessor.process_event()
+                  |> LinkEventProcessor.validate_link_event()
+                  |> LinkEventProcessor.process_entities()
+                  |> EventProcessor.process_elasticsearch_documents()
+                  |> EventProcessor.process_notifications()
               end
 
             Map.put(message, :data, data)
@@ -436,81 +395,51 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       # core_id within the batch of events that were sent to handle_batch
       last_crud_action_message = List.last(core_id_records)
 
-      cond do
-        event_type == Config.linkage_data_type_value() ->
-          case last_crud_action_message.data.pipeline_state do
-            :process_event ->
-              data =
-                last_crud_action_message.data
-                |> EventProcessor.process_elasticsearch_documents()
-                |> EventProcessor.process_notifications()
-                |> LinkEventProcessor.validate_link_event()
-                |> LinkEventProcessor.process_entities()
+      case last_crud_action_message.data.pipeline_state do
+        :process_event ->
+          data =
+            last_crud_action_message.data
+            |> LinkEventProcessor.validate_link_event()
+            |> LinkEventProcessor.process_entities()
+            |> EventProcessor.process_elasticsearch_documents()
+            |> EventProcessor.process_notifications()
 
-              acc ++ [data]
+          acc ++ [data]
 
-            :process_event_details_and_elasticsearch_docs ->
-              data =
-                last_crud_action_message.data
-                |> EventProcessor.process_notifications()
-                |> LinkEventProcessor.validate_link_event()
-                |> LinkEventProcessor.process_entities()
+        :validate_link_event ->
+          data =
+            last_crud_action_message.data
+            |> LinkEventProcessor.process_entities()
+            |> EventProcessor.process_elasticsearch_documents()
+            |> EventProcessor.process_notifications()
 
-              acc ++ [data]
+          acc ++ [data]
 
-            :process_notifications ->
-              data =
-                last_crud_action_message.data
-                |> LinkEventProcessor.validate_link_event()
-                |> LinkEventProcessor.process_entities()
+        :process_entities ->
+          data =
+            last_crud_action_message.data
+            |> EventProcessor.process_elasticsearch_documents()
+            |> EventProcessor.process_notifications()
 
-              acc ++ [data]
+          acc ++ [data]
 
-            :validate_link_event ->
-              data =
-                last_crud_action_message.data
-                |> LinkEventProcessor.process_entities()
+        :process_event_details_and_elasticsearch_docs ->
+          data =
+            last_crud_action_message.data
+            |> EventProcessor.process_notifications()
 
-              acc ++ [data]
+          acc ++ [data]
 
-            _ ->
-              data =
-                last_crud_action_message.data
-                |> EventProcessor.process_event()
-                |> EventProcessor.process_elasticsearch_documents()
-                |> EventProcessor.process_notifications()
-                |> LinkEventProcessor.validate_link_event()
-                |> LinkEventProcessor.process_entities()
+        _ ->
+          data =
+            last_crud_action_message.data
+            |> EventProcessor.process_event()
+            |> LinkEventProcessor.validate_link_event()
+            |> LinkEventProcessor.process_entities()
+            |> EventProcessor.process_elasticsearch_documents()
+            |> EventProcessor.process_notifications()
 
-              acc ++ [data]
-          end
-
-        true ->
-          case last_crud_action_message.data.pipeline_state do
-            :process_event ->
-              data =
-                last_crud_action_message.data
-                |> EventProcessor.process_elasticsearch_documents()
-                |> EventProcessor.process_notifications()
-
-              acc ++ [data]
-
-            :process_event_details_and_elasticsearch_docs ->
-              data =
-                last_crud_action_message.data
-                |> EventProcessor.process_notifications()
-
-              acc ++ [data]
-
-            _ ->
-              data =
-                last_crud_action_message.data
-                |> EventProcessor.process_event()
-                |> EventProcessor.process_elasticsearch_documents()
-                |> EventProcessor.process_notifications()
-
-              acc ++ [data]
-          end
+          acc ++ [data]
       end
     end)
     |> EventProcessor.execute_batch_transaction(event_type, pg_event_history)
