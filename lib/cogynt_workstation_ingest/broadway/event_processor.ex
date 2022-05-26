@@ -140,7 +140,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           event_definition: event_definition,
           event_definition_hash_id: event_definition_hash_id,
           event_type: event_type,
-          crud_action: action
+          crud_action: action,
+          elastic_event_links: elastic_event_links
         } = data
       ) do
     cond do
@@ -231,7 +232,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                  core_event_id: core_id,
                  event_type: event_type,
                  occurred_at: pg_event.occurred_at,
-                 risk_score: pg_event.risk_score
+                 risk_score: pg_event.risk_score,
+                 event_links: elastic_event_links
                }) do
             {:ok, event_doc} ->
               event_doc
@@ -354,7 +356,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             :event_definition_hash_id,
             :retry_count,
             :pipeline_state,
-            :pg_event_history
+            :pg_event_history,
+            :elastic_event_links
           ])
 
         Map.merge(acc, data, fn k, v1, v2 ->
