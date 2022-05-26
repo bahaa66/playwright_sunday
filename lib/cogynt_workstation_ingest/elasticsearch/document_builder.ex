@@ -24,7 +24,18 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder do
     created_at: [type: :datetime, required: true],
     updated_at: [type: :datetime, required: true],
     occurred_at: [type: :datetime],
-    risk_score: [type: :integer]
+    risk_score: [type: :integer],
+    event_links: [
+      type:
+        {:list,
+         %{
+           link_core_id: [type: :string, required: true],
+           label: [type: :string, required: true],
+           entity_core_id: [type: :string, required: true],
+           created_at: [type: :datetime, required: true],
+           updated_at: [type: :datetime, required: true]
+         }}
+    ]
   }
 
   def build_document(parameters) do
@@ -162,4 +173,9 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder do
 
   defp validate_restriction!(value, {:type, :integer}),
     do: throw("#{inspect(value)} must be a valid integer")
+
+  defp validate_restriction!(value, {:type, :object}) when is_map(value), do: value
+
+  defp validate_restriction!(value, {:type, :object}),
+    do: throw("#{inspect(value)} must be a valid map")
 end
