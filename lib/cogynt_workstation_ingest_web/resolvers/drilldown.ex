@@ -8,22 +8,52 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     Config.published_by_key(),
     Config.published_at_key(),
     Config.source_key(),
+    Config.version_key(),
+    Config.data_type_key(),
+    Config.crud_key(),
+    Config.confidence_key(),
+    Config.partial_key(),
     "processed_at",
     "source_type",
-    "assertion_id",
     "templateTypeId",
-    Config.version_key(),
-    "solution_id",
-    Config.data_type_key()
+    "assertion_id",
+    "solution_id"
   ]
 
   def drilldown(_, %{id: solution_id}, %{
         context: %{loader: loader}
       }) do
-    build_drilldown([solution_id], loader, fn
-      {:ok, drilldown}, _loader ->
-        IO.inspect(drilldown, label: "FINAL DRILLDOWN")
-        {:ok, Map.put(drilldown, :id, solution_id)}
+    get_outcomes(solution_id, loader, fn
+      [], _ ->
+        {:error,
+         Error.new(%{
+           message: "Outcome event not found.",
+           code: :internal_server_error,
+           details: "There weren't any outcome events found for solutionid #{solution_id}.",
+           module: "#{__MODULE__} line: #{__ENV__.line}"
+         })}
+
+      result, outcome_loader ->
+        build_drilldown([solution_id], outcome_loader, fn
+          {:ok, %{nodes: nodes, edges: edges} = drilldown}, _loader ->
+            edges =
+              Enum.reduce(result, edges, fn
+                o, acc ->
+                  producer_id = Map.get(o, Config.published_by_key())
+                  id = Map.get(o, Config.id_key())
+
+                  if producer_id do
+                    MapSet.put(acc, %{id: "#{producer_id}:#{id}", from: producer_id, to: id})
+                  else
+                    acc
+                  end
+              end)
+
+            {:ok,
+             Map.put(drilldown, :id, solution_id)
+             |> Map.put(:nodes, MapSet.union(MapSet.new(result), nodes) |> MapSet.to_list())
+             |> Map.put(:edges, edges |> MapSet.to_list())}
+        end)
     end)
   end
 
@@ -150,8 +180,8 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   def get_fields(event, _, _) do
     {:ok,
      event
-     |> Enum.reject(fn {k, _v} ->
-       Enum.member?(@whitelist, k)
+     |> Enum.reject(fn
+       {k, _v} -> Enum.member?(@whitelist, k)
      end)
      |> Enum.into(%{})
      |> Map.delete(Config.id_key())}
@@ -179,48 +209,81 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   # Private functions #
 
   defp build_drilldown(solution_ids, loader, callback) do
-    IO.inspect(solution_ids)
-
-    get_events(solution_ids, loader, fn events, events_loader ->
-      Enum.reduce(solution_ids, loader, fn
-        id, loader_acc ->
-          loader
-          |> Dataloader.load(
-            DruidLoader,
-            :events,
-            id
-          )
-      end)
-      |> on_load(fn loader ->
-        Enum.reduce(solution_ids, %{nodes: [], edges: []}, fn id, %{nodes: nodes, edges: edges} ->
-          events =
-            Dataloader.get(
-              loader,
-              DruidLoader,
-              :events,
-              id
-            )
-            |> IO.inspect(label: "EVENTS")
-
-          solutions =
-            Enum.map(events, fn
-              %{"solution_id" => id} = e ->
-                IO.inspect(e)
-                %{id: id}
-            end)
-
-          %{nodes: nodes ++ events, edges: edges}
-        end)
-
+    get_events(solution_ids, loader, fn
+      [], events_loader ->
         callback.(
           {:ok,
            %{
-             nodes: [],
-             edges: []
+             nodes: MapSet.new(),
+             edges: MapSet.new()
            }},
           events_loader
         )
-      end)
+
+      events, events_loader ->
+        {events, solutions, new_edges, producer_ids} =
+          Enum.reduce(events, {MapSet.new(), MapSet.new(), MapSet.new(), MapSet.new()}, fn
+            %{
+              "solution_id" => s_id,
+              "aid" => aid,
+              "templateTypeId" => type_id,
+              "templateTypeName" => type_name,
+              "eventId" => e_id,
+              "event" => event
+            },
+            {events, solutions, edges, producer_ids} ->
+              Jason.decode(event)
+              |> case do
+                {:ok, event} ->
+                  event = event |> Map.put_new("assertion_id", aid)
+                  producer_id = Map.get(event, Config.published_by_key())
+
+                  producer_ids =
+                    if(producer_id, do: MapSet.put(producer_ids, producer_id), else: producer_ids)
+
+                  solution = %{
+                    id: s_id,
+                    template_type_id: type_id,
+                    template_type_name: type_name,
+                    retracted: Map.get(event, Config.crud_key()) == "delete"
+                  }
+
+                  edges =
+                    if(e_id && s_id,
+                      do: MapSet.put(edges, %{id: "#{s_id}:#{e_id}", from: e_id, to: s_id}),
+                      else: edges
+                    )
+
+                  edges =
+                    if(e_id && producer_id,
+                      do:
+                        MapSet.put(edges, %{
+                          id: "#{e_id}:#{producer_id}",
+                          from: producer_id,
+                          to: e_id
+                        }),
+                      else: edges
+                    )
+
+                  {MapSet.put(events, event), MapSet.put(solutions, solution), edges,
+                   producer_ids}
+
+                {:error, _} ->
+                  {events, solutions, edges, producer_ids}
+              end
+          end)
+
+        build_drilldown(producer_ids |> MapSet.to_list(), events_loader, fn
+          {:ok, %{nodes: nodes, edges: edges}}, final_loader ->
+            callback.(
+              {:ok,
+               %{
+                 nodes: nodes |> MapSet.union(events) |> MapSet.union(solutions),
+                 edges: edges |> MapSet.union(new_edges)
+               }},
+              final_loader
+            )
+        end)
     end)
   end
 
@@ -242,6 +305,30 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         |> Enum.reject(&is_nil(&1))
 
       callback.(solutions, loader)
+    end)
+  end
+
+  defp get_events(solution_ids, loader, callback) when is_list(solution_ids) do
+    Dataloader.load_many(
+      loader,
+      DruidLoader,
+      :events,
+      solution_ids
+    )
+    |> on_load(fn loader ->
+      events =
+        Dataloader.get_many(
+          loader,
+          DruidLoader,
+          :events,
+          solution_ids
+        )
+        |> List.flatten()
+
+      callback.(
+        events,
+        loader
+      )
     end)
   end
 
@@ -296,13 +383,8 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   defp event_solution_ids(events) do
     Enum.reduce(events, MapSet.new(), fn
       event, a ->
-        case Map.get(event, Config.published_by_key()) do
-          nil ->
-            a
-
-          id ->
-            MapSet.put(a, id)
-        end
+        published_by = Map.get(event, Config.published_by_key())
+        if(published_by, do: MapSet.put(a, published_by), else: a)
     end)
     |> MapSet.to_list()
   end
