@@ -17,19 +17,34 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
           {:ok, events} ->
             events =
               events
-              |> Enum.reduce(%{}, fn %{"solution_id" => solution_id, "event" => event}, acc ->
+              |> Enum.reduce(%{}, fn %{"solution_id" => solution_id, "version" => version, "eventId" => e_id, "event" => event}, acc ->
                 Jason.decode(event)
                 |> case do
                   {:ok, event} ->
-                    de = Map.get(acc, Map.get(event, Config.id_key()), %{})
-
                     outcome =
                       Map.put(event, "assertion_id", nil) |> Map.put("solution_id", solution_id)
+                    pa = Map.get(outcome, Config.published_at_key(), "1970-01-01T00:00:00Z")
+                    cached_outcome = Map.get(acc, e_id, %{})
+                    cached_pa = Map.get(cached_outcome, Config.published_at_key(), "1970-01-01T00:00:00Z")
+                    cached_version = Map.get(cached_outcome, Config.version_key(), 0)
 
-                    epa = Map.get(de, Config.published_at_key(), "1970-01-01T00:00:00Z")
-                    npa = Map.get(outcome, Config.published_at_key(), "1970-01-01T00:00:00Z")
+                    with {version, _} <- Integer.parse(version),
+                      {:ok, pa, _} <- DateTime.from_iso8601(pa),
+                      {:ok, cached_pa, _} <- DateTime.from_iso8601(cached_pa) do
+                      cond do
+                        version > cached_version ->
+                          Map.put(acc, e_id, outcome)
 
-                    if(de == %{} or npa > epa, do: Map.put(acc, outcome["id"], outcome), else: acc)
+                        version == cached_version and DateTime.compare(pa, cached_pa) == :gt ->
+                          Map.put(acc, e_id, outcome)
+
+                        true ->
+                          acc
+                      end
+                    else
+                      {:error, _} -> acc
+                      :error -> acc
+                    end
 
                   {:error, error} ->
                     {:error, :json_decode_error, error}
@@ -57,10 +72,8 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
               events
               |> Enum.reduce(%{}, fn
                 %{
-                  "id" => id,
                   "eventId" => event_id,
                   "aid" => aid,
-                  "solution_id" => solution_id,
                   "version" => version,
                   "__time" => published_at
                 } = event,

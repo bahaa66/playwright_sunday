@@ -22,31 +22,12 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
     Druid.sql_query(sql_query)
   end
 
-  def get_template_solution(id) do
-    sql_query = %{
-      query: """
-        SELECT *
-        FROM druid.template_solutions
-        WHERE id=?
-        LIMIT 1
-      """,
-      parameters: [%{type: "VARCHAR", value: id}]
-    }
-
-    Druid.sql_query(sql_query)
-    |> case do
-      {:ok, []} -> {:ok, nil}
-      {:ok, [template_solution]} -> {:ok, template_solution}
-      {:error, error} -> {:error, error}
-    end
-  end
-
   def get_template_solution_outcomes(ids) when is_list(ids) do
     sql_query = %{
       query: """
         SELECT id AS solution_id, *
         FROM druid.template_solution_events
-        WHERE id=ANY('#{Enum.join(ids, "','")}') and aid IS NULL
+        WHERE id=ANY('#{Enum.join(ids, "','")}') AND aid IS NULL
         ORDER BY __time DESC
       """
     }
@@ -59,7 +40,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
       query: """
         SELECT id AS solution_id, *
         FROM druid.template_solution_events
-        WHERE id=? and aid IS NULL
+        WHERE id=? AND aid IS NULL
         ORDER BY __time DESC
       """,
       parameters: [%{type: "VARCHAR", value: id}]
@@ -74,7 +55,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
         SELECT id AS solution_id, *
         FROM druid.template_solution_events
         WHERE id=ANY('#{Enum.join(ids, "','")}') AND aid IS NOT NULL
-        ORDER BY __time ASC
+        ORDER BY __time DESC
       """
     }
 
@@ -87,7 +68,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
         SELECT id AS solution_id, *
         FROM template_solution_events
         WHERE id=? AND aid IS NOT NULL
-        ORDER BY __time ASC
+        ORDER BY __time DESC
       """,
       parameters: [%{type: "VARCHAR", value: id}]
     }
