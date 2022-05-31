@@ -75,34 +75,40 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
                   "eventId" => event_id,
                   "aid" => aid,
                   "version" => version,
-                  "__time" => published_at
-                } = event,
+                  "event" => event
+                } = druid_event,
                 acc ->
                   key = "#{event_id}!#{aid}"
-                  cached_event = Map.get(acc, key)
+                  cached_event = Map.get(acc, key, %{})
+                  cached_version = Map.get(cached_event, Config.version_key(), 0)
+                  cached_pa = Map.get(cached_event, Config.published_at_key(), "1970-01-01T00:00:00Z")
 
-                  if cached_event do
-                    cached_version = Map.get(cached_event, Config.version_key())
-                    cached_published_at = Map.get(cached_event, "__time")
+                  Jason.decode(event)
+                  |> case do
+                    {:ok, event} ->
+                      druid_event = Map.put(druid_event, "event", event)
+                      pa = Map.get(event, Config.published_at_key(), "1970-01-01T00:00:00Z")
 
-                    if cached_event && version > cached_version do
-                      Map.put(acc, key, event)
-                    else
-                      with {:ok, published_at, _} <-
-                             DateTime.from_iso8601(published_at),
-                           {:ok, cached_published_at, _} <-
-                             DateTime.from_iso8601(cached_published_at) do
-                        if DateTime.compare(published_at, cached_published_at) == :gt do
-                          Map.put(acc, key, event)
-                        else
-                          acc
+                      with {version, _} <- Integer.parse(version),
+                        {:ok, pa, _} <- DateTime.from_iso8601(pa),
+                        {:ok, cached_pa, _} <- DateTime.from_iso8601(cached_pa) do
+                        cond do
+                          version > cached_version ->
+                            Map.put(acc, key, druid_event)
+
+                          version == cached_version and DateTime.compare(pa, cached_pa) == :gt ->
+                            Map.put(acc, key, druid_event)
+
+                          true ->
+                            acc
                         end
                       else
                         {:error, _} -> acc
+                        :error -> acc
                       end
-                    end
-                  else
-                    Map.put(acc, key, event)
+
+                    {:error, error} ->
+                      {:error, :json_decode_error, error}
                   end
               end)
               |> Map.values()

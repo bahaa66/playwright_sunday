@@ -232,45 +232,38 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
               "event" => event
             },
             {events, solutions, edges, producer_ids} ->
-              Jason.decode(event)
-              |> case do
-                {:ok, event} ->
-                  event = event |> Map.put_new("assertion_id", aid)
-                  producer_id = Map.get(event, Config.published_by_key())
+              event = event |> Map.put_new("assertion_id", aid)
+              producer_id = Map.get(event, Config.published_by_key())
 
-                  producer_ids =
-                    if(producer_id, do: MapSet.put(producer_ids, producer_id), else: producer_ids)
+              producer_ids =
+                if(producer_id, do: MapSet.put(producer_ids, producer_id), else: producer_ids)
 
-                  solution = %{
-                    id: s_id,
-                    template_type_id: type_id,
-                    template_type_name: type_name,
-                    retracted: Map.get(event, Config.crud_key()) == "delete"
-                  }
+              solution = %{
+                id: s_id,
+                template_type_id: type_id,
+                template_type_name: type_name,
+                retracted: Map.get(event, Config.crud_key()) == "delete"
+              }
 
-                  edges =
-                    if(e_id && s_id,
-                      do: MapSet.put(edges, %{id: "#{s_id}:#{e_id}", from: e_id, to: s_id}),
-                      else: edges
-                    )
+              edges =
+                if(e_id && s_id,
+                  do: MapSet.put(edges, %{id: "#{s_id}:#{e_id}", from: e_id, to: s_id}),
+                  else: edges
+                )
 
-                  edges =
-                    if(e_id && producer_id,
-                      do:
-                        MapSet.put(edges, %{
-                          id: "#{e_id}:#{producer_id}",
-                          from: producer_id,
-                          to: e_id
-                        }),
-                      else: edges
-                    )
+              edges =
+                if(e_id && producer_id,
+                  do:
+                    MapSet.put(edges, %{
+                      id: "#{e_id}:#{producer_id}",
+                      from: producer_id,
+                      to: e_id
+                    }),
+                  else: edges
+                )
 
-                  {MapSet.put(events, event), MapSet.put(solutions, solution), edges,
-                   producer_ids}
-
-                {:error, _} ->
-                  {events, solutions, edges, producer_ids}
-              end
+              {MapSet.put(events, event), MapSet.put(solutions, solution), edges,
+                producer_ids}
           end)
 
         build_drilldown(producer_ids |> MapSet.to_list(), events_loader, fn
