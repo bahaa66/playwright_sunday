@@ -36,8 +36,10 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
       result, outcome_loader ->
         build_drilldown([solution_id], outcome_loader, fn
           {:ok, %{nodes: nodes, edges: edges} = drilldown}, _loader ->
+            outcomes = result |> Enum.map(&Map.get(&1, "event"))
+
             edges =
-              Enum.reduce(result, edges, fn
+              Enum.reduce(outcomes, edges, fn
                 o, acc ->
                   producer_id = Map.get(o, Config.published_by_key())
                   id = Map.get(o, Config.id_key())
@@ -51,7 +53,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
 
             {:ok,
              Map.put(drilldown, :id, solution_id)
-             |> Map.put(:nodes, MapSet.union(MapSet.new(result), nodes) |> MapSet.to_list())
+             |> Map.put(:nodes, MapSet.union(MapSet.new(outcomes), nodes) |> MapSet.to_list())
              |> Map.put(:edges, edges |> MapSet.to_list())}
         end)
     end)
@@ -126,7 +128,8 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         {:ok, []}
 
       events, loader ->
-        event_solution_ids(events)
+        Enum.map(events, &Map.get(&1, "event"))
+        |> event_solution_ids()
         |> get_solutions(loader, fn solutions, _loader -> {:ok, solutions} end)
     end)
   end
@@ -148,7 +151,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
          })}
 
       events, _loader ->
-        {:ok, events || []}
+        {:ok, Enum.map(events || [], &Map.get(&1, "event"))}
     end)
   end
 
@@ -169,6 +172,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
          })}
 
       outcomes, _loader ->
+        outcomes = outcomes |> Enum.map(&Map.get(&1, "event"))
         {:ok, outcomes || []}
     end)
   end
@@ -262,8 +266,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
                   else: edges
                 )
 
-              {MapSet.put(events, event), MapSet.put(solutions, solution), edges,
-                producer_ids}
+              {MapSet.put(events, event), MapSet.put(solutions, solution), edges, producer_ids}
           end)
 
         build_drilldown(producer_ids |> MapSet.to_list(), events_loader, fn
