@@ -45,6 +45,8 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
                   id = Map.get(o, Config.id_key())
 
                   if producer_id do
+                    # Note: The ids have to be in this order in order for the halo on the front end
+                    # to work correctly.
                     MapSet.put(acc, %{id: "#{producer_id}:#{id}", from: producer_id, to: id})
                   else
                     acc
@@ -251,7 +253,9 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
 
               edges =
                 if(e_id && s_id,
-                  do: MapSet.put(edges, %{id: "#{s_id}:#{e_id}", from: e_id, to: s_id}),
+                  # Note: The ids have to be in this order in order for the halo on the front end to work
+                  # correctly.
+                  do: MapSet.put(edges, %{id: "#{e_id}:#{s_id}", from: e_id, to: s_id}),
                   else: edges
                 )
 
