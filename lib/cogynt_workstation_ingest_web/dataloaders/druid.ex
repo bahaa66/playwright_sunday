@@ -93,23 +93,9 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
                  {:ok, cached_pa, _} <- DateTime.from_iso8601(cached_pa) do
               cond do
                 version > cached_version ->
-                  IO.inspect(%{
-                    key: key,
-                    cached_version: cached_version,
-                    cached_pa: cached_pa,
-                    version: version,
-                    pa: pa
-                  }, label: "VERSION IS GREATER")
                   Map.put(acc, key, druid_event)
 
                 version == cached_version and DateTime.compare(pa, cached_pa) == :gt ->
-                  IO.inspect(%{
-                    key: key,
-                    cached_version: cached_version,
-                    cached_pa: cached_pa,
-                    version: version,
-                    pa: pa
-                  }, label: "PUBLISHED AT IS GREATER")
                   Map.put(acc, key, druid_event)
 
                 true ->
