@@ -41,86 +41,63 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           |> DateTime.truncate(:second)
       end
 
+    published_at =
+      case event[Config.published_at_key()] do
+        nil ->
+          nil
+
+        date_string ->
+          {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
+
+          dt_struct
+          |> DateTime.truncate(:second)
+      end
+
+    pg_event = %{
+      core_id: core_id,
+      occurred_at: occurred_at,
+      risk_score: format_risk_score(event[Config.confidence_key()]),
+      event_details: format_lexicon_data(event),
+      event_definition_hash_id: event_definition_hash_id,
+      created_at: now,
+      updated_at: now
+    }
+
+    pg_event_history = %{
+      id: Ecto.UUID.generate(),
+      core_id: core_id,
+      occurred_at: occurred_at,
+      version: event[Config.version_key()],
+      crud: action,
+      risk_score: format_risk_score(event[Config.confidence_key()]),
+      event_details: format_lexicon_data(event),
+      event_definition_hash_id: event_definition_hash_id,
+      published_at: published_at
+    }
+
     cond do
       action == Config.crud_delete_value() ->
         Map.put(data, :crud_action, action)
+        |> Map.put(:pg_event_history, pg_event_history)
         |> Map.put(:delete_core_id, core_id)
         |> Map.put(:pipeline_state, :process_event)
 
       action == Config.crud_update_value() ->
-        Map.put(data, :pg_event, %{
-          core_id: core_id,
-          occurred_at: occurred_at,
-          risk_score: format_risk_score(event[Config.confidence_key()]),
-          event_details: format_lexicon_data(event),
-          event_definition_hash_id: event_definition_hash_id,
-          created_at: now,
-          updated_at: now
-        })
+        Map.put(data, :pg_event, pg_event)
+        |> Map.put(:pg_event_history, pg_event_history)
+        |> Map.put(:crud_action, action)
+        |> Map.put(:pipeline_state, :process_event)
+
+      action == Config.crud_create_value() ->
+        Map.put(data, :pg_event, pg_event)
+        |> Map.put(:pg_event_history, pg_event_history)
         |> Map.put(:crud_action, action)
         |> Map.put(:pipeline_state, :process_event)
 
       true ->
-        Map.put(data, :pg_event, %{
-          core_id: core_id,
-          occurred_at: occurred_at,
-          risk_score: format_risk_score(event[Config.confidence_key()]),
-          event_details: format_lexicon_data(event),
-          event_definition_hash_id: event_definition_hash_id,
-          created_at: now,
-          updated_at: now
-        })
+        Map.put(data, :pg_event, pg_event)
         |> Map.put(:crud_action, action)
         |> Map.put(:pipeline_state, :process_event)
-    end
-  end
-
-  @doc """
-  process_event_history/1 ....
-  """
-  def process_event_history(
-        %{event: event, event_definition_hash_id: event_definition_hash_id, core_id: core_id} =
-          data
-      ) do
-    action = Map.get(event, Config.crud_key(), nil)
-
-    if is_nil(action) do
-    else
-      occurred_at =
-        case event[Config.timestamp_key()] do
-          nil ->
-            nil
-
-          date_string ->
-            {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
-
-            dt_struct
-            |> DateTime.truncate(:second)
-        end
-
-      published_at =
-        case event[Config.published_at_key()] do
-          nil ->
-            nil
-
-          date_string ->
-            {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
-
-            dt_struct
-            |> DateTime.truncate(:second)
-        end
-
-      Map.put(data, :pg_event_history, %{
-        id: Ecto.UUID.generate(),
-        core_id: core_id,
-        occurred_at: occurred_at,
-        version: event[Config.version_key()],
-        crud: action,
-        risk_score: format_risk_score(event[Config.confidence_key()]),
-        event_details: format_lexicon_data(event),
-        event_definition_hash_id: event_definition_hash_id,
-        published_at: published_at
-      })
     end
   end
 
@@ -335,6 +312,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   configured. Will execute one multi transaction to delete and upsert all objects
   """
   def execute_batch_transaction(messages, event_type, pg_event_history \\ []) do
+    IO.inspect(Enum.count(messages), label: "BATCH INSERTING UNIQUE RECORD COUNT ->")
     # build transactional data
     default_map = %{
       pg_event: [],
