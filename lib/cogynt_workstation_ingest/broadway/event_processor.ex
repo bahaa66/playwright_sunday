@@ -121,6 +121,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         event_definition_hash_id: event_definition_hash_id,
         published_at: published_at
       })
+      |> Map.put(:pipeline_state, :process_event_history)
     end
   end
 
