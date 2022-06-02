@@ -336,7 +336,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   """
   def execute_batch_transaction(messages, event_type, pg_event_history \\ []) do
     IO.inspect(Enum.count(messages), label: "BATCH INSERTING UNIQUE RECORD COUNT ->")
-    IO.inspect(self, label: "PID for Above Log")
+    IO.inspect(self(), label: "PID for Above Log")
     # build transactional data
     default_map = %{
       pg_event: [],
