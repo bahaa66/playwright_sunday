@@ -28,7 +28,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         {:ok, true} ->
           {[
              crud: [
-               batch_size: 50000,
+               batch_size: 1000,
+               batch_timeout: 10000,
                concurrency: 10
              ]
            ],
@@ -42,6 +43,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           {[
              default: [
                batch_size: 1000,
+               batch_timeout: 10000,
                concurrency: 10
              ]
            ],
@@ -55,10 +57,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           {[
              default: [
                batch_size: 1000,
+               batch_timeout: 10000,
                concurrency: 10
              ],
              crud: [
-               batch_size: 50000,
+               batch_size: 1000,
+               batch_timeout: 10000,
                concurrency: 10
              ]
            ],
