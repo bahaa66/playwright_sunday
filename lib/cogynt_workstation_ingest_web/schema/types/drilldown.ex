@@ -29,7 +29,7 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
     types([:drilldown_solution, :drilldown_event])
 
     resolve_type(fn
-      %{"templateTypeId" => _}, _ -> :drilldown_solution
+      %{template_type_id: _}, _ -> :drilldown_solution
       _, _ -> :drilldown_event
     end)
   end
@@ -45,12 +45,7 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
     field :retracted, non_null(:string)
     field :template_type_id, non_null(:id)
     field :template_type_name, non_null(:string)
-
-    field :time, non_null(:string) do
-      resolve(fn %{"__time" => time}, _, _ ->
-        {:ok, time}
-      end)
-    end
+    field :time, non_null(:string), do: resolve(fn _, _, _ -> {:ok, ""} end)
 
     field :events, non_null(list_of(non_null(:drilldown_event))) do
       resolve(&DrilldownResolver.drilldown_solution_events/3)
