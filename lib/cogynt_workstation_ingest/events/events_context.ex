@@ -403,6 +403,13 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     |> Repo.update_all(set: set)
   end
 
+  def delete_event_definitions(opts \\ []) do
+    Enum.reduce(opts, from(ed in EventDefinition), fn
+      {:select, s}, acc -> acc |> select(^s)
+    end)
+    |> Repo.delete_all()
+  end
+
   @doc """
   Converts an EventDefinition struct into a dropping the metadata and timestamp related fields
   """
