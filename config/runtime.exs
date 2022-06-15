@@ -179,9 +179,11 @@ if config_env() not in [:dev, :test, :k8scyn] do
     ]
 
   config :cogynt_graphql, :common,
-    mock_license: System.get_env("MOCK_LICENSE", "false") == "true",
-    mock_license_status: System.get_env("MOCK_LICENSE_STATUS", "licensed"),
-    license_redirect_url: "https://#{System.get_env("COGYNT_AUTH_DOMAIN")}/license"
+    license_redirect_url: "https://#{System.get_env("COGYNT_AUTH_DOMAIN")}/license",
+    k8s_token: System.get_env("KUBERNETES_TOKEN"),
+    cogynt_csl_role: System.get_env("COGYNT_CSL_ROLE"),
+    tesla_log_level: (System.get_env("LOG_LEVEL") || "info") |> String.to_atom(),
+    vault_tls_cert: System.get_env("VAULT_TLS_CERT")
 end
 
 # k8s-cyn dev env only

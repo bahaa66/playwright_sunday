@@ -32,3 +32,5 @@ config :elasticsearch, :common,
       mappings: "priv/elasticsearch/event-mappings.json"
     }
   ]
+
+config :cogynt_graphql, :common, mock_license: false
