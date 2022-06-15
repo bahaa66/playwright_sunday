@@ -110,7 +110,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :cogynt_graphql,
-        tag: "v1.23.0",
+        tag: "v1.26.1-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt_graphql",
         override: true
