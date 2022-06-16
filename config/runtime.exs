@@ -179,7 +179,7 @@ if config_env() not in [:dev, :test, :k8scyn] do
     ]
 
   config :cogynt_graphql, :common,
-    license_redirect_url: "https://#{System.get_env("COGYNT_AUTH_DOMAIN")}/license",
+    license_redirect_url: "#{System.get_env("COGYNT_AUTH_DOMAIN")}/license",
     k8s_token: System.get_env("KUBERNETES_TOKEN"),
     cogynt_csl_role: System.get_env("COGYNT_CSL_ROLE"),
     tesla_log_level: (System.get_env("LOG_LEVEL") || "info") |> String.to_atom(),
