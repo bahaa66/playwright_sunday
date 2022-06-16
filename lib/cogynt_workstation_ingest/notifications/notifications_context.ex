@@ -132,6 +132,13 @@ defmodule CogyntWorkstationIngest.Notifications.NotificationsContext do
     |> Repo.delete_all(timeout: 120_000)
   end
 
+  def delete_notification_settings(opts \\ []) do
+    Enum.reduce(opts, from(ns in NotificationSetting), fn
+      {:select, s}, acc -> acc |> select(^s)
+    end)
+    |> Repo.delete_all()
+  end
+
   # ---------------------------- #
   # --- Notification Methods --- #
   # ---------------------------- #

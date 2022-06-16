@@ -3,6 +3,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
   """
   alias CogyntWorkstationIngest.Broadway.DeploymentPipeline
   alias CogyntWorkstationIngest.Events.EventsContext
+  alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
 
   alias CogyntWorkstationIngest.Config
@@ -92,6 +93,9 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDeploymentDataWor
 
   defp reset_deployment_data() do
     EventsContext.truncate_all_tables()
+    NotificationsContext.delete_notification_settings()
+    EventsContext.delete_event_definitions()
+
     # Reset all JobQ Info
     ExqHelpers.flush_all()
 
