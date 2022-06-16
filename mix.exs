@@ -87,7 +87,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {
         :migrations,
         # tag: "v1.25.0",
-        branch: "feat/CDST-1782-fix-event-definition-delete",
+        branch: "q3_pre_develop",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
