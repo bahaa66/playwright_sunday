@@ -9,14 +9,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder do
     event_definition_id: [type: :string, required: true],
     title: [type: :string, required: true],
     event_details: [
-      type:
-        {:list,
-         %{
-           field_name: [type: :string, required: true],
-           field_value: [type: :string, required: true],
-           field_type: [type: :string, required: true],
-           path: [type: :string, required: true]
-         }},
+      type: {:list, :object},
       required: true
     ],
     core_event_id: [type: :string],

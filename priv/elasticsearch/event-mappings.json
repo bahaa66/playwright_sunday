@@ -1,6 +1,141 @@
 {
   "dynamic_templates": [
     {
+      "event_detail_geo": {
+        "path_match": "event_details.geo",
+        "match_mapping_type": "object",
+        "mapping": {
+          "type": "geo_shape"
+        }
+      }
+    },
+    {
+      "event_detail_ip": {
+        "path_match": "event_details.ip",
+        "match_mapping_type": "string",
+        "mapping": {
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            },
+            "lowercase": {
+              "analyzer": "keyword_lowercase",
+              "type": "text"
+            }
+          },
+          "type": "ip"
+        }
+      }
+    },
+    {
+      "event_detail_ip_range": {
+        "path_match": "event_details.ip-range",
+        "match_mapping_type": "string",
+        "mapping": {
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            },
+            "lowercase": {
+              "analyzer": "keyword_lowercase",
+              "type": "text"
+            }
+          },
+          "type": "ip_range"
+        }
+      }
+    },
+    {
+      "event_detail_boolean": {
+        "path_match": "event_details.boolean",
+        "mapping": {
+          "type": "boolean"
+        }
+      }
+    },
+    {
+      "event_detail_date": {
+        "path_match": "event_details.date-time",
+        "mapping": {
+          "type": "date"
+        }
+      }
+    },
+    {
+      "event_detail_integer": {
+        "path_match": "event_details.integer",
+        "mapping": {
+          "type": "long"
+        }
+      }
+    },
+    {
+      "event_detail_float": {
+        "path_match": "event_details.float",
+        "mapping": {
+          "type": "double"
+        }
+      }
+    },
+    {
+      "event_details": {
+        "match": "event_details",
+        "mapping": {
+          "dynamic": true,
+          "properties": {
+            "path": {
+              "fields": {
+                "keyword": {
+                  "type": "keyword"
+                },
+                "lowercase": {
+                  "analyzer": "keyword_lowercase",
+                  "type": "text"
+                }
+              },
+              "type": "text"
+            },
+            "field_name": {
+              "fields": {
+                "keyword": {
+                  "type": "keyword"
+                },
+                "lowercase": {
+                  "analyzer": "keyword_lowercase",
+                  "type": "text"
+                }
+              },
+              "type": "text"
+            },
+            "field_type": {
+              "fields": {
+                "keyword": {
+                  "type": "keyword"
+                },
+                "lowercase": {
+                  "analyzer": "keyword_lowercase",
+                  "type": "text"
+                }
+              },
+              "type": "text"
+            },
+            "field_value": {
+              "fields": {
+                "keyword": {
+                  "type": "keyword"
+                },
+                "lowercase": {
+                  "analyzer": "keyword_lowercase",
+                  "type": "text"
+                }
+              },
+              "type": "text"
+            }
+          }
+        }
+      }
+    },
+    {
       "fields_with_custom_analyzer": {
         "mapping": {
           "fields": {
@@ -60,59 +195,6 @@
       "type": "text"
     },
     "event_details": {
-      "properties": {
-        "event_detail": {
-          "type": "object"
-        },
-        "field_name": {
-          "fields": {
-            "keyword": {
-              "type": "keyword"
-            },
-            "lowercase": {
-              "analyzer": "keyword_lowercase",
-              "type": "text"
-            }
-          },
-          "type": "text"
-        },
-        "field_type": {
-          "fields": {
-            "keyword": {
-              "type": "keyword"
-            },
-            "lowercase": {
-              "analyzer": "keyword_lowercase",
-              "type": "text"
-            }
-          },
-          "type": "text"
-        },
-        "field_value": {
-          "fields": {
-            "keyword": {
-              "type": "keyword"
-            },
-            "lowercase": {
-              "analyzer": "keyword_lowercase",
-              "type": "text"
-            }
-          },
-          "type": "text"
-        },
-        "path": {
-          "fields": {
-            "keyword": {
-              "type": "keyword"
-            },
-            "lowercase": {
-              "analyzer": "keyword_lowercase",
-              "type": "text"
-            }
-          },
-          "type": "text"
-        }
-      },
       "type": "nested"
     },
     "event_type": {
