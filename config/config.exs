@@ -6,7 +6,8 @@ config :cogynt_workstation_ingest,
   session_key: "_cogynt_auth_key",
   signing_salt: "I45Kpw9a",
   enable_dev_tools: true,
-  authoring_version: "1"
+  authoring_version: "1",
+  event_pipeline_batch_size: 1000
 
 # Configures the endpoint
 config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,

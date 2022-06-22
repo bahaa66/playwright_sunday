@@ -1,5 +1,8 @@
 import Config
 
+config :cogynt_workstation_ingest,
+  event_pipeline_batch_size: 10
+
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo, pool_size: 20
 
 config :libcluster,
