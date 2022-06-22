@@ -1,0 +1,3 @@
+defmodule Cogynt.Repo.Migrations.AlterCollectionsAddParticipants do
+  use Migrations.AlterCollectionsAddParticipants
+end
