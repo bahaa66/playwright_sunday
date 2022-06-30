@@ -215,7 +215,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   defp determine_event_detail(%{path: path, field_name: field_name, field_type: field_type}, event_details) do
-    if(field_type == "array", do: IO.inspect(get_in(event_details, String.split(path, "|"))))
+    if(field_type == "array", do: get_in(event_details, String.split(path, "|")))
     %{field_name: field_name, field_type: field_type, path: path} |> Map.put(field_type, get_in(event_details, String.split(path, "|")))
   end
 
