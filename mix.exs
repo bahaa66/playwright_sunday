@@ -85,7 +85,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :migrations,
-        tag: "v1.28.0",
+        # tag: "v1.28.0",
+        branch: "feat/CDST-1827-custom-fields-postgres",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
