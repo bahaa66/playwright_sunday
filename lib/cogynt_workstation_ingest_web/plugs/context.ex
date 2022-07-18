@@ -7,6 +7,10 @@ defmodule CogyntWorkstationIngestWeb.Plugs.Context do
   def init(opts), do: opts
 
   def call(conn, _) do
+    operation_name = conn.params["operationName"]
+
+    CogyntLogger.info("Graphql call", "#{operation_name}")
+
     case build_context(conn) do
       {:ok, context} ->
         Absinthe.Plug.put_options(conn, context: context)

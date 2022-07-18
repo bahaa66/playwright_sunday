@@ -154,72 +154,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         # Iterate over each event key value pair and build the pg and elastic search event
         # details.
         elasticsearch_event_details =
-          Enum.reduce(pg_event.event_details, [], fn
-            {"COG_" <> _, _value}, acc ->
-              acc
-
-            {key, value}, acc ->
-              # Search the event definition details and use the path to figure out the field value.
-              Enum.find_value(event_definition_details, fn
-                %{path: path, field_name: field_name, field_type: field_type} ->
-                  # Split the path on the delimiter which currently is hard coded to |
-                  case String.split(path, "|") do
-                    # If there is only one element in the list then we don't need to dig into the object
-                    # any further and we return the value.
-                    [first] when first == key ->
-                      value
-
-                    [first | remaining_path] when first == key ->
-                      # If the path is has a length is greater than 1 then whe use it to get the value.
-                      Enum.reduce(remaining_path, value, fn
-                        p, a when is_map(a) ->
-                          Map.get(a, p)
-
-                        _, _ ->
-                          nil
-                      end)
-                      |> case do
-                        nil ->
-                          # add topoc to log
-                          CogyntLogger.warn(
-                            "#{__MODULE__}",
-                            "Could not find value at given Path: #{inspect(path)}"
-                          )
-
-                          false
-
-                        value ->
-                          value
-                      end
-
-                    _ ->
-                      nil
-                  end
-                  # Convert the value if needed
-                  |> case do
-                    nil -> false
-                    value when is_binary(value) -> {value, field_name, field_type, path}
-                    value -> {Jason.encode!(value), field_name, field_type, path}
-                  end
-              end)
-              |> case do
-                # If it has a field type then it has a corresponding event definition detail that gives
-                # us the the field_type so we save an event_detail and a elastic document
-                {field_value, field_name, field_type, path} ->
-                  acc ++
-                    [
-                      %{
-                        field_name: field_name,
-                        field_type: field_type,
-                        field_value: field_value,
-                        path: path
-                      }
-                    ]
-
-                nil ->
-                  acc
-              end
+          Enum.filter(event_definition_details, &(not String.starts_with?(Map.get(&1, :field_name), "COG_")))
+          |> Stream.unfold(fn
+            [] -> nil
+            [detail] -> {determine_event_detail(detail, pg_event.event_details), []}
+            [detail | tail] -> {determine_event_detail(detail, pg_event.event_details), tail}
           end)
+          |> Enum.to_list()
 
         # Build elasticsearch documents
         elasticsearch_event_doc =
@@ -245,6 +186,37 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         Map.put(data, :event_doc, elasticsearch_event_doc)
         |> Map.put(:pipeline_state, :process_elasticsearch_documents)
     end
+  end
+
+  defp determine_event_detail(%{path: path, field_name: field_name, field_type: "geo"}, event_details) do
+    get_in(event_details, String.split(path, "|"))
+    |> case do
+      %{"type" => "Feature", "geometry" => g} ->
+        %{field_name: field_name, field_type: "geo", path: path} |> Map.put("geo", g)
+
+      value ->
+        %{field_name: field_name, field_type: "geo", path: path} |> Map.put("geo", value)
+    end
+  end
+
+  defp determine_event_detail(%{path: path, field_name: field_name, field_type: "array"}, event_details) do
+    get_in(event_details, String.split(path, "|"))
+    |> case do
+      value when is_list(value) ->
+        Jason.encode(value)
+        |> case do
+          {:ok, value} -> %{field_name: field_name, field_type: "array", path: path} |> Map.put("array", value)
+          _ -> %{field_name: field_name, field_type: "array", path: path} |> Map.put("array", inspect(value))
+        end
+
+      value ->
+        %{field_name: field_name, field_type: "array", path: path} |> Map.put("array", inspect(value))
+    end
+  end
+
+  defp determine_event_detail(%{path: path, field_name: field_name, field_type: field_type}, event_details) do
+    if(field_type == "array", do: get_in(event_details, String.split(path, "|")))
+    %{field_name: field_name, field_type: field_type, path: path} |> Map.put(field_type, get_in(event_details, String.split(path, "|")))
   end
 
   @doc """
