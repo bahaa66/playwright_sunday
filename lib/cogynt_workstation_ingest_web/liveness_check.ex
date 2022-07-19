@@ -101,6 +101,8 @@ defmodule LivenessCheck do
           {:cont, acc && true}
 
         {:ok, res} ->
+          IO.inspect(res, label: "ELASTIC HEALTH CHECK RESP", pretty: true)
+
           CogyntLogger.error(
             "#{__MODULE__}",
             "Unexpected LivenessCheck response for #{inspect(a)} index. Response: #{inspect(res)}"

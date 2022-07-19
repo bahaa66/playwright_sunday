@@ -276,6 +276,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         data
 
       true ->
+        # Perf impr to check first if any NS exist before running through logic.
         pg_notifications =
           NotificationsContext.fetch_valid_notification_settings(
             %{
