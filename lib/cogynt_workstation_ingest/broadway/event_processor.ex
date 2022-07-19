@@ -352,10 +352,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     # IO.inspect(Enum.count(messages), label: "BATCH INSERTING UNIQUE RECORD COUNT ->")
     # IO.inspect(Enum.count(pg_event_history), label: "EVENT_HISTORY RECORD COUNT ->")
 
-    # Start timer for telemetry metrics
-    start = System.monotonic_time()
-    telemetry_metadata = %{}
-
     # build transactional data
     default_map = %{
       pg_event: [],
@@ -414,6 +410,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         end)
       end)
       |> Map.put(:pg_event_history, pg_event_history)
+
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
 
     # Build a Multi transaction to insert all the pg records
     transaction_result =
