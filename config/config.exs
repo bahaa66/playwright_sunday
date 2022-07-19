@@ -7,7 +7,8 @@ config :cogynt_workstation_ingest,
   signing_salt: "I45Kpw9a",
   enable_dev_tools: true,
   authoring_version: "1",
-  event_pipeline_batch_size: 1000
+  event_pipeline_batch_size: 1000,
+  drilldown_enabled: true
 
 # Configures the endpoint
 config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,

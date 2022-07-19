@@ -224,6 +224,9 @@ defmodule CogyntWorkstationIngest.Config do
 
   def libcluster_topologies(), do: Application.get_env(:libcluster, :topologies)
 
+  def drilldown_enabled?(),
+    do: Application.get_env(:cogynt_workstation_ingest, :drilldown_enabled)
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
