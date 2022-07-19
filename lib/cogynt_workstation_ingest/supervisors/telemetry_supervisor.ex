@@ -81,6 +81,30 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
         unit: {:native, :millisecond},
         tags: [:name]
       ),
+      summary(
+        "broadway.process_event.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.process_event_history.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.process_elasticsearch_documents.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.process_notifications.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.execute_batch_transaction.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.process_entities.duration",
+        unit: {:native, :millisecond}
+      ),
 
       # Redis Metrics
       summary(

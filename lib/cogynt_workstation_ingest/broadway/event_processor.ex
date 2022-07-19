@@ -26,6 +26,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         %{event: event, event_definition_hash_id: event_definition_hash_id, core_id: core_id} =
           data
       ) do
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+
     action = Map.get(event, Config.crud_key(), nil)
     now = DateTime.truncate(DateTime.utc_now(), :second)
 
@@ -61,17 +65,27 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         |> Map.put(:pipeline_state, :process_event)
 
       true ->
-        Map.put(data, :pg_event, %{
-          core_id: core_id,
-          occurred_at: occurred_at,
-          risk_score: format_risk_score(event[Config.confidence_key()]),
-          event_details: format_lexicon_data(event),
-          event_definition_hash_id: event_definition_hash_id,
-          created_at: now,
-          updated_at: now
-        })
-        |> Map.put(:crud_action, action)
-        |> Map.put(:pipeline_state, :process_event)
+        data =
+          Map.put(data, :pg_event, %{
+            core_id: core_id,
+            occurred_at: occurred_at,
+            risk_score: format_risk_score(event[Config.confidence_key()]),
+            event_details: format_lexicon_data(event),
+            event_definition_hash_id: event_definition_hash_id,
+            created_at: now,
+            updated_at: now
+          })
+          |> Map.put(:crud_action, action)
+          |> Map.put(:pipeline_state, :process_event)
+
+        # Execute telemtry for metrics
+        :telemetry.execute(
+          [:broadway, :process_event],
+          %{duration: System.monotonic_time() - start},
+          telemetry_metadata
+        )
+
+        data
     end
   end
 
@@ -82,6 +96,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         %{event: event, event_definition_hash_id: event_definition_hash_id, core_id: core_id} =
           data
       ) do
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+
     action = Map.get(event, Config.crud_key(), nil)
 
     if is_nil(action) do
@@ -110,17 +128,27 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             |> DateTime.truncate(:second)
         end
 
-      Map.put(data, :pg_event_history, %{
-        id: Ecto.UUID.generate(),
-        core_id: core_id,
-        occurred_at: occurred_at,
-        version: event[Config.version_key()],
-        crud: action,
-        risk_score: format_risk_score(event[Config.confidence_key()]),
-        event_details: format_lexicon_data(event),
-        event_definition_hash_id: event_definition_hash_id,
-        published_at: published_at
-      })
+      data =
+        Map.put(data, :pg_event_history, %{
+          id: Ecto.UUID.generate(),
+          core_id: core_id,
+          occurred_at: occurred_at,
+          version: event[Config.version_key()],
+          crud: action,
+          risk_score: format_risk_score(event[Config.confidence_key()]),
+          event_details: format_lexicon_data(event),
+          event_definition_hash_id: event_definition_hash_id,
+          published_at: published_at
+        })
+
+      # Execute telemtry for metrics
+      :telemetry.execute(
+        [:broadway, :process_event_history],
+        %{duration: System.monotonic_time() - start},
+        telemetry_metadata
+      )
+
+      data
     end
   end
 
@@ -144,8 +172,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           elastic_event_links: elastic_event_links
         } = data
       ) do
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+
     cond do
       action == Config.crud_delete_value() ->
+        # Execute telemtry for metrics
+        :telemetry.execute(
+          [:broadway, :process_elasticsearch_documents],
+          %{duration: System.monotonic_time() - start},
+          telemetry_metadata
+        )
+
         data
 
       true ->
@@ -154,7 +193,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         # Iterate over each event key value pair and build the pg and elastic search event
         # details.
         elasticsearch_event_details =
-          Enum.filter(event_definition_details, &(not String.starts_with?(Map.get(&1, :field_name), "COG_")))
+          Enum.filter(
+            event_definition_details,
+            &(not String.starts_with?(Map.get(&1, :field_name), "COG_"))
+          )
           |> Stream.unfold(fn
             [] -> nil
             [detail] -> {determine_event_detail(detail, pg_event.event_details), []}
@@ -183,40 +225,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               @defaults.event_document
           end
 
-        Map.put(data, :event_doc, elasticsearch_event_doc)
-        |> Map.put(:pipeline_state, :process_elasticsearch_documents)
+        data =
+          Map.put(data, :event_doc, elasticsearch_event_doc)
+          |> Map.put(:pipeline_state, :process_elasticsearch_documents)
+
+        # Execute telemtry for metrics
+        :telemetry.execute(
+          [:broadway, :process_elasticsearch_documents],
+          %{duration: System.monotonic_time() - start},
+          telemetry_metadata
+        )
+
+        data
     end
-  end
-
-  defp determine_event_detail(%{path: path, field_name: field_name, field_type: "geo"}, event_details) do
-    get_in(event_details, String.split(path, "|"))
-    |> case do
-      %{"type" => "Feature", "geometry" => g} ->
-        %{field_name: field_name, field_type: "geo", path: path} |> Map.put("geo", g)
-
-      value ->
-        %{field_name: field_name, field_type: "geo", path: path} |> Map.put("geo", value)
-    end
-  end
-
-  defp determine_event_detail(%{path: path, field_name: field_name, field_type: "array"}, event_details) do
-    get_in(event_details, String.split(path, "|"))
-    |> case do
-      value when is_list(value) ->
-        Jason.encode(value)
-        |> case do
-          {:ok, value} -> %{field_name: field_name, field_type: "array", path: path} |> Map.put("array", value)
-          _ -> %{field_name: field_name, field_type: "array", path: path} |> Map.put("array", inspect(value))
-        end
-
-      value ->
-        %{field_name: field_name, field_type: "array", path: path} |> Map.put("array", inspect(value))
-    end
-  end
-
-  defp determine_event_detail(%{path: path, field_name: field_name, field_type: field_type}, event_details) do
-    if(field_type == "array", do: get_in(event_details, String.split(path, "|")))
-    %{field_name: field_name, field_type: field_type, path: path} |> Map.put(field_type, get_in(event_details, String.split(path, "|")))
   end
 
   @doc """
@@ -239,8 +260,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           crud_action: action
         } = data
       ) do
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+
     cond do
       action == Config.crud_delete_value() ->
+        # Execute telemtry for metrics
+        :telemetry.execute(
+          [:broadway, :process_notifications],
+          %{duration: System.monotonic_time() - start},
+          telemetry_metadata
+        )
+
         data
 
       true ->
@@ -296,9 +328,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             |> Enum.map(fn notifications -> notifications.core_id end)
           end
 
-        Map.put(data, :pg_notifications, pg_notifications)
-        |> Map.put(:pg_notifications_delete, pg_notifications_delete)
-        |> Map.put(:pipeline_state, :process_notifications)
+        data =
+          Map.put(data, :pg_notifications, pg_notifications)
+          |> Map.put(:pg_notifications_delete, pg_notifications_delete)
+          |> Map.put(:pipeline_state, :process_notifications)
+
+        # Execute telemtry for metrics
+        :telemetry.execute(
+          [:broadway, :process_notifications],
+          %{duration: System.monotonic_time() - start},
+          telemetry_metadata
+        )
+
+        data
     end
   end
 
@@ -309,6 +351,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   def execute_batch_transaction(messages, event_type, pg_event_history \\ []) do
     # IO.inspect(Enum.count(messages), label: "BATCH INSERTING UNIQUE RECORD COUNT ->")
     # IO.inspect(Enum.count(pg_event_history), label: "EVENT_HISTORY RECORD COUNT ->")
+
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+
     # build transactional data
     default_map = %{
       pg_event: [],
@@ -427,6 +474,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
         SystemNotificationContext.bulk_insert_system_notifications(upserted_notifications)
 
+        # Execute telemtry for metrics
+        :telemetry.execute(
+          [:broadway, :execute_batch_transaction],
+          %{duration: System.monotonic_time() - start},
+          telemetry_metadata
+        )
+
+        nil
+
       {:ok, _} ->
         Redis.publish_async(
           "events_changed_listener",
@@ -435,6 +491,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             deleted: bulk_transactional_data.delete_core_id,
             upserted: bulk_transactional_data.pg_event
           }
+        )
+
+        # Execute telemtry for metrics
+        :telemetry.execute(
+          [:broadway, :execute_batch_transaction],
+          %{duration: System.monotonic_time() - start},
+          telemetry_metadata
         )
 
         nil
@@ -470,6 +533,53 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
+  defp determine_event_detail(
+         %{path: path, field_name: field_name, field_type: "geo"},
+         event_details
+       ) do
+    get_in(event_details, String.split(path, "|"))
+    |> case do
+      %{"type" => "Feature", "geometry" => g} ->
+        %{field_name: field_name, field_type: "geo", path: path} |> Map.put("geo", g)
+
+      value ->
+        %{field_name: field_name, field_type: "geo", path: path} |> Map.put("geo", value)
+    end
+  end
+
+  defp determine_event_detail(
+         %{path: path, field_name: field_name, field_type: "array"},
+         event_details
+       ) do
+    get_in(event_details, String.split(path, "|"))
+    |> case do
+      value when is_list(value) ->
+        Jason.encode(value)
+        |> case do
+          {:ok, value} ->
+            %{field_name: field_name, field_type: "array", path: path} |> Map.put("array", value)
+
+          _ ->
+            %{field_name: field_name, field_type: "array", path: path}
+            |> Map.put("array", inspect(value))
+        end
+
+      value ->
+        %{field_name: field_name, field_type: "array", path: path}
+        |> Map.put("array", inspect(value))
+    end
+  end
+
+  defp determine_event_detail(
+         %{path: path, field_name: field_name, field_type: field_type},
+         event_details
+       ) do
+    if(field_type == "array", do: get_in(event_details, String.split(path, "|")))
+
+    %{field_name: field_name, field_type: field_type, path: path}
+    |> Map.put(field_type, get_in(event_details, String.split(path, "|")))
+  end
+
   defp bulk_delete_event_documents(bulk_transactional_data) do
     if !Enum.empty?(bulk_transactional_data.delete_core_id) do
       case ElasticApi.bulk_delete(

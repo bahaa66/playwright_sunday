@@ -57,6 +57,10 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
   end
 
   def process_entities(%{event: event, core_id: core_id, crud_action: crud_action} = data) do
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+
     cond do
       crud_action == Config.crud_delete_value() ->
         data
@@ -107,10 +111,20 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
               []
           end
 
-        Map.put(data, :pg_event_links, pg_event_links)
-        |> Map.put(:pg_event_links_delete, pg_event_links_delete)
-        |> Map.put(:elastic_event_links, pg_event_links)
-        |> Map.put(:pipeline_state, :process_entities)
+        data =
+          Map.put(data, :pg_event_links, pg_event_links)
+          |> Map.put(:pg_event_links_delete, pg_event_links_delete)
+          |> Map.put(:elastic_event_links, pg_event_links)
+          |> Map.put(:pipeline_state, :process_entities)
+
+        # Execute telemtry for metrics
+        :telemetry.execute(
+          [:broadway, :process_entities],
+          %{duration: System.monotonic_time() - start},
+          telemetry_metadata
+        )
+
+        data
     end
   end
 end
