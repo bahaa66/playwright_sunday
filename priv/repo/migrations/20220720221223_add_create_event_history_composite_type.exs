@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AddCreateEventHistoryCompositeType do
+  use Migrations.AddCreateEventHistoryCompositeType
+end

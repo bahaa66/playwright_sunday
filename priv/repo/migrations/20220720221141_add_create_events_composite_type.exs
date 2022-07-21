@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AddCreateEventsCompositeType do
+  use Migrations.AddCreateEventsCompositeType
+end
