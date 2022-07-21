@@ -804,6 +804,45 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     end
   end
 
+  def execute_ingest_bulk_insert_function(bulk_transactional_data) do
+    try do
+      remove_notification_core_ids =
+        Enum.uniq(
+          bulk_transactional_data.delete_core_id ++
+            bulk_transactional_data.pg_notifications_delete
+        )
+
+      remove_event_link_core_ids =
+        Enum.uniq(
+          bulk_transactional_data.delete_core_id ++ bulk_transactional_data.pg_event_links_delete
+        )
+
+      case Repo.query("SELECT event_pipeline_bulk_upsert(
+            #{bulk_transactional_data.pg_event},
+            #{bulk_transactional_data.pg_event_links},
+            #{bulk_transactional_data.pg_event_history},
+            #{bulk_transactional_data.pg_notifications},
+            CAST('#{remove_notification_core_ids}'::UUID[]),
+            CAST('#{remove_event_link_core_ids}'::UUID[]),
+            CAST('#{bulk_transactional_data.delete_core_id}'::UUID[])
+            )") do
+        {:ok, result} ->
+          {:ok, result}
+
+        {:error, error} ->
+          {:error, error}
+      end
+    rescue
+      error ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "execute_ingest_bulk_insert_function/0 failed with Error: #{inspect(error)}"
+        )
+
+        {:error, :internal_server_error}
+    end
+  end
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #

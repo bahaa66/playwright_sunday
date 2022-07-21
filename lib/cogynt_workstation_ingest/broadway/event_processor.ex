@@ -57,9 +57,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           occurred_at: occurred_at,
           risk_score: format_risk_score(event[Config.confidence_key()]),
           event_details: format_lexicon_data(event),
-          event_definition_hash_id: event_definition_hash_id,
           created_at: now,
-          updated_at: now
+          updated_at: now,
+          event_definition_hash_id: event_definition_hash_id
         })
         |> Map.put(:crud_action, action)
         |> Map.put(:pipeline_state, :process_event)
@@ -71,9 +71,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             occurred_at: occurred_at,
             risk_score: format_risk_score(event[Config.confidence_key()]),
             event_details: format_lexicon_data(event),
-            event_definition_hash_id: event_definition_hash_id,
             created_at: now,
-            updated_at: now
+            updated_at: now,
+            event_definition_hash_id: event_definition_hash_id
           })
           |> Map.put(:crud_action, action)
           |> Map.put(:pipeline_state, :process_event)
@@ -132,12 +132,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         Map.put(data, :pg_event_history, %{
           id: Ecto.UUID.generate(),
           core_id: core_id,
-          occurred_at: occurred_at,
-          version: event[Config.version_key()],
+          event_definition_hash_id: event_definition_hash_id,
           crud: action,
           risk_score: format_risk_score(event[Config.confidence_key()]),
+          version: event[Config.version_key()],
           event_details: format_lexicon_data(event),
-          event_definition_hash_id: event_definition_hash_id,
+          occurred_at: occurred_at,
           published_at: published_at
         })
 
@@ -292,13 +292,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             acc ++
               [
                 %{
+                  core_id: core_id,
                   archived_at: nil,
                   priority: @defaults.notification_priority,
                   assigned_to: ns.assigned_to,
                   dismissed_at: nil,
-                  core_id: core_id,
-                  tag_id: ns.tag_id,
                   notification_setting_id: ns.id,
+                  tag_id: ns.tag_id,
                   created_at: now,
                   updated_at: now
                 }
@@ -416,119 +416,152 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     start = System.monotonic_time()
     telemetry_metadata = %{}
 
-    # Build a Multi transaction to insert all the pg records
-    transaction_result =
-      Multi.new()
-      |> Ecto.Multi.run(:bulk_upsert_event_documents, fn _repo, _ ->
-        bulk_upsert_event_documents(bulk_transactional_data)
-      end)
-      |> NotificationsContext.delete_all_notifications_multi(
-        Enum.uniq(
-          bulk_transactional_data.delete_core_id ++
-            bulk_transactional_data.pg_notifications_delete
-        )
-      )
-      |> EventsContext.delete_all_event_links_multi(
-        Enum.uniq(
-          bulk_transactional_data.delete_core_id ++ bulk_transactional_data.pg_event_links_delete
-        )
-      )
-      |> EventsContext.delete_all_events_multi(bulk_transactional_data.delete_core_id)
-      |> EventsContext.upsert_all_events_multi(bulk_transactional_data.pg_event,
-        on_conflict: {:replace_all_except, [:core_id, :created_at]},
-        conflict_target: [:core_id]
-      )
-      |> NotificationsContext.upsert_all_notifications_multi(
-        bulk_transactional_data.pg_notifications,
-        returning: [
-          :core_id,
-          :tag_id,
-          :id,
-          :notification_setting_id,
-          :created_at,
-          :updated_at,
-          :assigned_to
-        ],
-        on_conflict: {:replace_all_except, [:id, :created_at, :core_id]},
-        conflict_target: [:core_id, :notification_setting_id]
-      )
-      |> EventsContext.upsert_all_event_links_multi(bulk_transactional_data.pg_event_links)
-      |> EventsContext.upsert_all_event_history_multi(bulk_transactional_data.pg_event_history,
-        on_conflict: {:replace_all_except, [:id, :core_id, :version, :crud]},
-        conflict_target: [:core_id, :version, :crud]
-      )
-      |> Ecto.Multi.run(:bulk_delete_event_documents, fn _repo, _ ->
-        bulk_delete_event_documents(bulk_transactional_data)
-      end)
-      |> EventsContext.run_multi_transaction()
+    case bulk_upsert_event_documents(bulk_transactional_data) do
+      {:ok, :success} ->
+        case EventsContext.execute_ingest_bulk_insert_function(bulk_transactional_data) do
+          {:ok, _} ->
+            bulk_delete_event_documents(bulk_transactional_data)
 
-    case transaction_result do
-      {:ok, %{upsert_notifications: {_count_created, upserted_notifications}}} ->
-        Redis.publish_async(
-          "events_changed_listener",
-          %{
-            event_type: event_type,
-            deleted: bulk_transactional_data.delete_core_id,
-            upserted: bulk_transactional_data.pg_event
-          }
-        )
+          {:error, reason} ->
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "execute_transaction/1 failed with reason: #{inspect(reason, pretty: true)}"
+            )
 
-        SystemNotificationContext.bulk_insert_system_notifications(upserted_notifications)
+            rollback_event_index_data(bulk_transactional_data)
 
-        # Execute telemtry for metrics
-        :telemetry.execute(
-          [:broadway, :execute_batch_transaction],
-          %{duration: System.monotonic_time() - start},
-          telemetry_metadata
-        )
+            raise "execute_transaction/1 failed"
+        end
 
-        nil
-
-      {:ok, _} ->
-        Redis.publish_async(
-          "events_changed_listener",
-          %{
-            event_type: event_type,
-            deleted: bulk_transactional_data.delete_core_id,
-            upserted: bulk_transactional_data.pg_event
-          }
-        )
-
-        # Execute telemtry for metrics
-        :telemetry.execute(
-          [:broadway, :execute_batch_transaction],
-          %{duration: System.monotonic_time() - start},
-          telemetry_metadata
-        )
-
-        nil
-
-      {:error, :bulk_upsert_event_documents, :failed, _} ->
+      {:error, :failed} ->
         CogyntLogger.error(
           "#{__MODULE__}",
           "execute_transaction/1 failed with reason: bulk_upsert_event_documents failed"
         )
 
         raise "execute_transaction/1 failed"
-
-      {:error, :bulk_delete_event_documents, :failed, _} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "execute_transaction/1 failed with reason: bulk_delete_event_documents failed"
-        )
-
-        rollback_event_index_data(bulk_transactional_data)
-
-      {:error, reason} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "execute_transaction/1 failed with reason: #{inspect(reason, pretty: true)}"
-        )
-
-        rollback_event_index_data(bulk_transactional_data)
-
-        raise "execute_transaction/1 failed"
     end
+
+    # Execute telemtry for metrics
+    :telemetry.execute(
+      [:broadway, :execute_batch_transaction],
+      %{duration: System.monotonic_time() - start},
+      telemetry_metadata
+    )
+
+    # # Build a Multi transaction to insert all the pg records
+    # transaction_result =
+    #   Multi.new()
+    #   |> Ecto.Multi.run(:bulk_upsert_event_documents, fn _repo, _ ->
+    #     bulk_upsert_event_documents(bulk_transactional_data)
+    #   end)
+    #   |> NotificationsContext.delete_all_notifications_multi(
+    #     Enum.uniq(
+    #       bulk_transactional_data.delete_core_id ++
+    #         bulk_transactional_data.pg_notifications_delete
+    #     )
+    #   )
+    #   |> EventsContext.delete_all_event_links_multi(
+    #     Enum.uniq(
+    #       bulk_transactional_data.delete_core_id ++ bulk_transactional_data.pg_event_links_delete
+    #     )
+    #   )
+    #   |> EventsContext.delete_all_events_multi(bulk_transactional_data.delete_core_id)
+    #   |> EventsContext.upsert_all_events_multi(bulk_transactional_data.pg_event,
+    #     on_conflict: {:replace_all_except, [:core_id, :created_at]},
+    #     conflict_target: [:core_id]
+    #   )
+    #   |> NotificationsContext.upsert_all_notifications_multi(
+    #     bulk_transactional_data.pg_notifications,
+    #     returning: [
+    #       :core_id,
+    #       :tag_id,
+    #       :id,
+    #       :notification_setting_id,
+    #       :created_at,
+    #       :updated_at,
+    #       :assigned_to
+    #     ],
+    #     on_conflict: {:replace_all_except, [:id, :created_at, :core_id]},
+    #     conflict_target: [:core_id, :notification_setting_id]
+    #   )
+    #   |> EventsContext.upsert_all_event_links_multi(bulk_transactional_data.pg_event_links)
+    #   |> EventsContext.upsert_all_event_history_multi(bulk_transactional_data.pg_event_history,
+    #     on_conflict: {:replace_all_except, [:id, :core_id, :version, :crud]},
+    #     conflict_target: [:core_id, :version, :crud]
+    #   )
+    #   |> Ecto.Multi.run(:bulk_delete_event_documents, fn _repo, _ ->
+    #     bulk_delete_event_documents(bulk_transactional_data)
+    #   end)
+    #   |> EventsContext.run_multi_transaction()
+
+    # case transaction_result do
+    #   {:ok, %{upsert_notifications: {_count_created, upserted_notifications}}} ->
+    #     Redis.publish_async(
+    #       "events_changed_listener",
+    #       %{
+    #         event_type: event_type,
+    #         deleted: bulk_transactional_data.delete_core_id,
+    #         upserted: bulk_transactional_data.pg_event
+    #       }
+    #     )
+
+    #     SystemNotificationContext.bulk_insert_system_notifications(upserted_notifications)
+
+    #     # Execute telemtry for metrics
+    #     :telemetry.execute(
+    #       [:broadway, :execute_batch_transaction],
+    #       %{duration: System.monotonic_time() - start},
+    #       telemetry_metadata
+    #     )
+
+    #     nil
+
+    #   {:ok, _} ->
+    #     Redis.publish_async(
+    #       "events_changed_listener",
+    #       %{
+    #         event_type: event_type,
+    #         deleted: bulk_transactional_data.delete_core_id,
+    #         upserted: bulk_transactional_data.pg_event
+    #       }
+    #     )
+
+    #     # Execute telemtry for metrics
+    #     :telemetry.execute(
+    #       [:broadway, :execute_batch_transaction],
+    #       %{duration: System.monotonic_time() - start},
+    #       telemetry_metadata
+    #     )
+
+    #     nil
+
+    #   {:error, :bulk_upsert_event_documents, :failed, _} ->
+    #     CogyntLogger.error(
+    #       "#{__MODULE__}",
+    #       "execute_transaction/1 failed with reason: bulk_upsert_event_documents failed"
+    #     )
+
+    #     raise "execute_transaction/1 failed"
+
+    #   {:error, :bulk_delete_event_documents, :failed, _} ->
+    #     CogyntLogger.error(
+    #       "#{__MODULE__}",
+    #       "execute_transaction/1 failed with reason: bulk_delete_event_documents failed"
+    #     )
+
+    #     rollback_event_index_data(bulk_transactional_data)
+
+    #   {:error, reason} ->
+    #     CogyntLogger.error(
+    #       "#{__MODULE__}",
+    #       "execute_transaction/1 failed with reason: #{inspect(reason, pretty: true)}"
+    #     )
+
+    #     rollback_event_index_data(bulk_transactional_data)
+
+    #     raise "execute_transaction/1 failed"
+    # end
   end
 
   # ----------------------- #

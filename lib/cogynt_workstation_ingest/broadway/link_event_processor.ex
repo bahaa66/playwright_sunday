@@ -90,8 +90,8 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                       [
                         %{
                           link_core_id: core_id,
-                          label: edge_label,
                           entity_core_id: entity_core_id,
+                          label: edge_label,
                           created_at: now,
                           updated_at: now
                         }
