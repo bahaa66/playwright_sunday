@@ -60,7 +60,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           |> Jason.encode!()
 
         pg_event_string =
-          ~s("\x28#{core_id},#{occurred_at},#{risk_score},#{event_details},#{now},#{now},#{event_definition_hash_id}\x29")
+          ~s("\x28#{core_id},#{occurred_at || "NULL"},#{risk_score || "NULL"},#{event_details},#{now},#{now},#{event_definition_hash_id}\x29")
 
         pg_event_map = %{
           core_id: core_id,
@@ -297,9 +297,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             if acc != "" do
               acc <>
                 "," <>
-                ~s("\x28#{core_id},#{nil},#{@defaults.notification_priority},#{ns.assigned_to},#{nil},#{ns.id},#{ns.tag_id},#{now},#{now}\x29")
+                ~s("\x28#{core_id},#{"NULL"},#{@defaults.notification_priority},#{ns.assigned_to || "NULL"},#{"NULL"},#{ns.id},#{ns.tag_id},#{now},#{now}\x29")
             else
-              ~s("\x28#{core_id},#{nil},#{@defaults.notification_priority},#{ns.assigned_to},#{nil},#{ns.id},#{ns.tag_id},#{now},#{now}\x29")
+              ~s("\x28#{core_id},#{"NULL"},#{@defaults.notification_priority},#{ns.assigned_to || "NULL"},#{"NULL"},#{ns.id},#{ns.tag_id},#{now},#{now}\x29")
             end
 
             # acc ++
