@@ -391,6 +391,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       |> Enum.uniq_by(fn %{version: version, crud: crud, core_id: core_id} ->
         {version, crud, core_id}
       end)
+      |> IO.inspect(label: "EVENT HISTORY")
       |> Enum.reduce("", fn event_history, acc ->
         if acc != "" do
           acc <>
