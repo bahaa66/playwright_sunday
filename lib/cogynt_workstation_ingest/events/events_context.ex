@@ -817,15 +817,13 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           bulk_transactional_data.delete_core_id ++ bulk_transactional_data.pg_event_links_delete
         )
 
-      case Repo.query("SELECT event_pipeline_bulk_upsert(
-            '{#{bulk_transactional_data.pg_event_string}}'::events_composite_type[],
-            '{#{bulk_transactional_data.pg_event_links}}'::event_links_composite_type[],
-            '{#{bulk_transactional_data.pg_event_history}}'::event_history_composite_type[],
-            '{#{bulk_transactional_data.pg_notifications}}'::notifications_composite_type[],
+      case Repo.query(
+             "SELECT event_pipeline_bulk_upsert('{#{bulk_transactional_data.pg_event_string}}'::events_composite_type[], '{#{bulk_transactional_data.pg_event_links}}'::event_links_composite_type[], '{#{bulk_transactional_data.pg_event_history}}'::event_history_composite_type[], '{#{bulk_transactional_data.pg_notifications}}'::notifications_composite_type[],
             CAST('#{remove_notification_core_ids}'::UUID[]),
             CAST('#{remove_event_link_core_ids}'::UUID[]),
             CAST('#{bulk_transactional_data.delete_core_id}'::UUID[])
-            )") do
+            )"
+           ) do
         {:ok, result} ->
           {:ok, result}
 
