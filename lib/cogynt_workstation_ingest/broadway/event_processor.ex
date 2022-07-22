@@ -433,20 +433,22 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     start = System.monotonic_time()
     telemetry_metadata = %{}
 
+    IO.inspect(bulk_transactional_data.pg_event_string, label: "PG_EVENT_STRING", pretty: true)
+
     case bulk_upsert_event_documents(bulk_transactional_data) do
       {:ok, :success} ->
         case EventsContext.execute_ingest_bulk_insert_function(bulk_transactional_data) do
           {:ok, _} ->
             bulk_delete_event_documents(bulk_transactional_data)
 
-          Redis.publish_async(
-            "events_changed_listener",
-            %{
-              event_type: event_type,
-              deleted: bulk_transactional_data.delete_core_id,
-              upserted: bulk_transactional_data.pg_event_map
-            }
-          )
+            Redis.publish_async(
+              "events_changed_listener",
+              %{
+                event_type: event_type,
+                deleted: bulk_transactional_data.delete_core_id,
+                upserted: bulk_transactional_data.pg_event_map
+              }
+            )
 
           {:error, reason} ->
             CogyntLogger.error(
