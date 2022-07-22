@@ -71,9 +71,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         entities = Map.get(event, Config.entities_key())
 
         pg_event_links =
-          Enum.reduce(entities, [], fn {edge_label, link_data_list}, pg_acc ->
+          Enum.reduce(entities, "", fn {edge_label, link_data_list}, pg_acc ->
             pg_links =
-              Enum.reduce(link_data_list, [], fn link_object, acc_0 ->
+              Enum.reduce(link_data_list, "", fn link_object, acc_0 ->
                 case link_object[Config.id_key()] do
                   nil ->
                     CogyntLogger.warn(
@@ -86,20 +86,34 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                   entity_core_id ->
                     now = DateTime.truncate(DateTime.utc_now(), :second)
 
-                    acc_0 ++
-                      [
-                        %{
-                          link_core_id: core_id,
-                          entity_core_id: entity_core_id,
-                          label: edge_label,
-                          created_at: now,
-                          updated_at: now
-                        }
-                      ]
+                    if acc_0 != "" do
+                      acc_0 <>
+                        "," <>
+                        ~s("\x28#{core_id},#{entity_core_id},#{edge_label},#{now},#{now}\x29")
+                    else
+                      ~s("\x28#{core_id},#{entity_core_id},#{edge_label},#{now},#{now}\x29")
+                    end
+
+                    # acc_0 ++
+                    #   [
+                    #     %{
+                    #       link_core_id: core_id,
+                    #       entity_core_id: entity_core_id,
+                    #       label: edge_label,
+                    #       created_at: now,
+                    #       updated_at: now
+                    #     }
+                    #   ]
                 end
               end)
 
-            pg_acc ++ pg_links
+            if pg_acc != "" do
+              pg_acc <> "," <> pg_links
+            else
+              pg_links
+            end
+
+            # pg_acc ++ pg_links
           end)
 
         pg_event_links_delete =

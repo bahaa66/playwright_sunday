@@ -31,19 +31,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     telemetry_metadata = %{}
 
     action = Map.get(event, Config.crud_key(), nil)
-    now = DateTime.truncate(DateTime.utc_now(), :second)
-
-    occurred_at =
-      case event[Config.timestamp_key()] do
-        nil ->
-          nil
-
-        date_string ->
-          {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
-
-          dt_struct
-          |> DateTime.truncate(:second)
-      end
 
     cond do
       action == Config.crud_delete_value() ->
@@ -51,30 +38,29 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         |> Map.put(:delete_core_id, core_id)
         |> Map.put(:pipeline_state, :process_event)
 
-      action == Config.crud_update_value() ->
-        Map.put(data, :pg_event, %{
-          core_id: core_id,
-          occurred_at: occurred_at,
-          risk_score: format_risk_score(event[Config.confidence_key()]),
-          event_details: format_lexicon_data(event),
-          created_at: now,
-          updated_at: now,
-          event_definition_hash_id: event_definition_hash_id
-        })
-        |> Map.put(:crud_action, action)
-        |> Map.put(:pipeline_state, :process_event)
-
       true ->
+        now = DateTime.truncate(DateTime.utc_now(), :second)
+
+        occurred_at =
+          case event[Config.timestamp_key()] do
+            nil ->
+              nil
+
+            date_string ->
+              {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
+
+              dt_struct
+              |> DateTime.truncate(:second)
+          end
+
+        risk_score = format_risk_score(event[Config.confidence_key()])
+        event_details = format_lexicon_data(event)
+
+        pg_event =
+          ~s("\x28#{core_id},#{occurred_at},#{risk_score},#{event_details},#{now},#{now},#{event_definition_hash_id}\x29")
+
         data =
-          Map.put(data, :pg_event, %{
-            core_id: core_id,
-            occurred_at: occurred_at,
-            risk_score: format_risk_score(event[Config.confidence_key()]),
-            event_details: format_lexicon_data(event),
-            created_at: now,
-            updated_at: now,
-            event_definition_hash_id: event_definition_hash_id
-          })
+          Map.put(data, :pg_event, pg_event)
           |> Map.put(:crud_action, action)
           |> Map.put(:pipeline_state, :process_event)
 
@@ -86,6 +72,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         )
 
         data
+
+        # Map.put(data, :pg_event, %{
+        #   core_id: core_id,
+        #   occurred_at: occurred_at,
+        #   risk_score: format_risk_score(event[Config.confidence_key()]),
+        #   event_details: format_lexicon_data(event),
+        #   created_at: now,
+        #   updated_at: now,
+        #   event_definition_hash_id: event_definition_hash_id
+        # })
+        # |> Map.put(:crud_action, action)
+        # |> Map.put(:pipeline_state, :process_event)
     end
   end
 
@@ -128,15 +126,23 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             |> DateTime.truncate(:second)
         end
 
+      risk_score = format_risk_score(event[Config.confidence_key()])
+
+      version = event[Config.version_key()]
+      event_details = format_lexicon_data(event)
+
+      # pg_event_history =
+      #   ~s("\x28#{Ecto.UUID.generate()},#{core_id},#{event_definition_hash_id},#{action},#{risk_score},#{version},#{event_details},#{occurred_at},#{published_at}\x29")
+
       data =
         Map.put(data, :pg_event_history, %{
           id: Ecto.UUID.generate(),
           core_id: core_id,
           event_definition_hash_id: event_definition_hash_id,
           crud: action,
-          risk_score: format_risk_score(event[Config.confidence_key()]),
-          version: event[Config.version_key()],
-          event_details: format_lexicon_data(event),
+          risk_score: risk_score,
+          version: version,
+          event_details: event_details,
           occurred_at: occurred_at,
           published_at: published_at
         })
@@ -286,23 +292,31 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             pg_event.risk_score,
             event_definition
           )
-          |> Enum.reduce([], fn ns, acc ->
+          |> Enum.reduce("", fn ns, acc ->
             now = DateTime.truncate(DateTime.utc_now(), :second)
 
-            acc ++
-              [
-                %{
-                  core_id: core_id,
-                  archived_at: nil,
-                  priority: @defaults.notification_priority,
-                  assigned_to: ns.assigned_to,
-                  dismissed_at: nil,
-                  notification_setting_id: ns.id,
-                  tag_id: ns.tag_id,
-                  created_at: now,
-                  updated_at: now
-                }
-              ]
+            if acc != "" do
+              acc <>
+                "," <>
+                ~s("\x28#{core_id},#{nil},#{@defaults.notification_priority},#{ns.assigned_to},#{nil},#{ns.id},#{ns.tag_id},#{now},#{now}\x29")
+            else
+              ~s("\x28#{core_id},#{nil},#{@defaults.notification_priority},#{ns.assigned_to},#{nil},#{ns.id},#{ns.tag_id},#{now},#{now}\x29")
+            end
+
+            # acc ++
+            #   [
+            #     %{
+            #       core_id: core_id,
+            #       archived_at: nil,
+            #       priority: @defaults.notification_priority,
+            #       assigned_to: ns.assigned_to,
+            #       dismissed_at: nil,
+            #       notification_setting_id: ns.id,
+            #       tag_id: ns.tag_id,
+            #       created_at: now,
+            #       updated_at: now
+            #     }
+            #   ]
           end)
 
         invalid_notification_settings =
@@ -355,10 +369,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     # build transactional data
     default_map = %{
-      pg_event: [],
-      pg_notifications: [],
+      pg_event: "",
+      pg_notifications: "",
       event_doc: [],
-      pg_event_links: [],
+      pg_event_links: "",
       delete_core_id: [],
       pg_notifications_delete: [],
       pg_event_links_delete: []
@@ -388,13 +402,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               end
 
             :pg_event ->
-              v1 ++ [v2]
+              v1 <> "," <> v2
 
             :pg_notifications ->
-              v1 ++ List.flatten(v2)
+              v1 <> "," <> v2
 
             :pg_event_links ->
-              v1 ++ List.flatten(v2)
+              v1 <> "," <> v2
 
             :delete_core_id ->
               v1 ++ [v2]
@@ -422,6 +436,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           {:ok, _} ->
             bulk_delete_event_documents(bulk_transactional_data)
 
+          # Redis.publish_async(
+          #   "events_changed_listener",
+          #   %{
+          #     event_type: event_type,
+          #     deleted: bulk_transactional_data.delete_core_id,
+          #     upserted: bulk_transactional_data.pg_event
+          #   }
+          # )
+
           {:error, reason} ->
             CogyntLogger.error(
               "#{__MODULE__}",
@@ -448,6 +471,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       %{duration: System.monotonic_time() - start},
       telemetry_metadata
     )
+
+    nil
 
     # # Build a Multi transaction to insert all the pg records
     # transaction_result =

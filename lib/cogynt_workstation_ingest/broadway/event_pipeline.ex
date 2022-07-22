@@ -391,6 +391,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       |> Enum.uniq_by(fn %{version: version, crud: crud, core_id: core_id} ->
         {version, crud, core_id}
       end)
+      |> Enum.reduce("", fn event_history, acc ->
+        if acc != "" do
+          acc <>
+            "," <>
+            ~s("\x28#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score},#{event_history.version},#{event_history.event_details},#{event_history.occurred_at},#{event_history.published_at}\x29")
+        else
+          ~s("\x28#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score},#{event_history.version},#{event_history.event_details},#{event_history.occurred_at},#{event_history.published_at}\x29")
+        end
+      end)
 
     messages
     |> Enum.group_by(fn message -> message.data.core_id end)
