@@ -378,8 +378,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       pg_event_links_delete: []
     }
 
-    temp = List.first(messages)
-    IO.inspect(temp.pg_event_string, label: "PG_EVENT_STRING", pretty: true)
+    # temp = List.first(messages)
+    # IO.inspect(temp.pg_event_string, label: "PG_EVENT_STRING", pretty: true)
 
     bulk_transactional_data =
       Enum.reduce(messages, default_map, fn data, acc ->
@@ -431,6 +431,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         end)
       end)
       |> Map.put(:pg_event_history, pg_event_history)
+
+      IO.inspect(bulk_transactional_data.pg_event_string, label: "PG_EVENT_STRING", pretty: true)
 
     # Start timer for telemetry metrics
     start = System.monotonic_time()
