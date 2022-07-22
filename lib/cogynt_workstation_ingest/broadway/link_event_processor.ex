@@ -70,10 +70,12 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
       true ->
         entities = Map.get(event, Config.entities_key())
 
-        pg_event_links =
-          Enum.reduce(entities, "", fn {edge_label, link_data_list}, pg_acc ->
-            pg_links =
-              Enum.reduce(link_data_list, "", fn link_object, acc_0 ->
+        {pg_event_link_string, pg_event_link_list} =
+          Enum.reduce(entities, {"", []}, fn {edge_label, link_data_list},
+                                             {pg_string_acc, pg_list_acc} ->
+            {pg_string, pg_list} =
+              Enum.reduce(link_data_list, {"", []}, fn link_object,
+                                                       {pg_string_acc_0, pg_list_acc_0} ->
                 case link_object[Config.id_key()] do
                   nil ->
                     CogyntLogger.warn(
@@ -81,39 +83,45 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                       "link object missing id field. LinkObject: #{inspect(link_object, pretty: true)}"
                     )
 
-                    acc_0
+                    {pg_string_acc_0, pg_list_acc_0}
 
                   entity_core_id ->
                     now = DateTime.truncate(DateTime.utc_now(), :second)
 
-                    if acc_0 != "" do
-                      acc_0 <>
-                        "," <>
+                    pg_string_acc_0 =
+                      if pg_string_acc_0 != "" do
+                        pg_string_acc_0 <>
+                          "," <>
+                          ~s("\x28#{core_id},#{entity_core_id},#{edge_label},#{now},#{now}\x29")
+                      else
                         ~s("\x28#{core_id},#{entity_core_id},#{edge_label},#{now},#{now}\x29")
-                    else
-                      ~s("\x28#{core_id},#{entity_core_id},#{edge_label},#{now},#{now}\x29")
-                    end
+                      end
 
-                    # acc_0 ++
-                    #   [
-                    #     %{
-                    #       link_core_id: core_id,
-                    #       entity_core_id: entity_core_id,
-                    #       label: edge_label,
-                    #       created_at: now,
-                    #       updated_at: now
-                    #     }
-                    #   ]
+                    pg_list_acc_0 =
+                      pg_list_acc_0 ++
+                        [
+                          %{
+                            link_core_id: core_id,
+                            entity_core_id: entity_core_id,
+                            label: edge_label,
+                            created_at: now,
+                            updated_at: now
+                          }
+                        ]
+
+                    {pg_string_acc_0, pg_list_acc_0}
                 end
               end)
 
-            if pg_acc != "" do
-              pg_acc <> "," <> pg_links
-            else
-              pg_links
-            end
+            pg_string_acc =
+              if pg_string_acc != "" do
+                pg_string_acc <> "," <> pg_string
+              else
+                pg_string
+              end
 
-            # pg_acc ++ pg_links
+            pg_list_acc = pg_list_acc ++ pg_list
+            {pg_string_acc, pg_list_acc}
           end)
 
         pg_event_links_delete =
@@ -126,9 +134,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
           end
 
         data =
-          Map.put(data, :pg_event_links, pg_event_links)
+          Map.put(data, :pg_event_links, pg_event_link_string)
           |> Map.put(:pg_event_links_delete, pg_event_links_delete)
-          |> Map.put(:elastic_event_links, pg_event_links)
+          |> Map.put(:elastic_event_links, pg_event_link_list)
           |> Map.put(:pipeline_state, :process_entities)
 
         # Execute telemtry for metrics
