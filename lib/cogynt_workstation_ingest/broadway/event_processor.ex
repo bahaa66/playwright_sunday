@@ -405,6 +405,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               end
 
             :pg_event_map ->
+              IO.inspect(v1, label: "V1")
+              IO.inspect(v2, label: "V2")
               v1 ++ [v2]
 
             :pg_event_string ->
@@ -432,7 +434,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end)
       |> Map.put(:pg_event_history, pg_event_history)
 
-      IO.inspect(bulk_transactional_data.pg_event_string, label: "PG_EVENT_STRING", pretty: true)
+    # IO.inspect(bulk_transactional_data.pg_event_string, label: "PG_EVENT_STRING", pretty: true)
 
     # Start timer for telemetry metrics
     start = System.monotonic_time()
