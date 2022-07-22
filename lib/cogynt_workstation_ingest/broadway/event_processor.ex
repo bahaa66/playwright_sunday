@@ -378,6 +378,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       pg_event_links_delete: []
     }
 
+    temp = List.first(messages)
+    IO.inspect(temp.pg_event_string, label: "PG_EVENT_STRING", pretty: true)
+
     bulk_transactional_data =
       Enum.reduce(messages, default_map, fn data, acc ->
         data =
@@ -432,8 +435,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     # Start timer for telemetry metrics
     start = System.monotonic_time()
     telemetry_metadata = %{}
-
-    IO.inspect(bulk_transactional_data.pg_event_string, label: "PG_EVENT_STRING", pretty: true)
 
     case bulk_upsert_event_documents(bulk_transactional_data) do
       {:ok, :success} ->
