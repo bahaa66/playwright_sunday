@@ -405,11 +405,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               end
 
             :pg_event_map ->
-              IO.inspect(v1, label: "V1")
-              IO.inspect(v2, label: "V2")
               v1 ++ [v2]
 
             :pg_event_string ->
+              IO.inspect(v1, label: "V1")
+              IO.inspect(v2, label: "V2")
               v1 <> "," <> v2
 
             :pg_notifications ->
