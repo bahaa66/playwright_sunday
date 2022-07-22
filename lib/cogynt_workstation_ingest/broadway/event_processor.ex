@@ -54,7 +54,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           end
 
         risk_score = format_risk_score(event[Config.confidence_key()])
-        event_details = format_lexicon_data(event)
+
+        event_details =
+          format_lexicon_data(event)
+          |> Jason.encode!()
 
         pg_event =
           ~s("\x28#{core_id},#{occurred_at},#{risk_score},#{event_details},#{now},#{now},#{event_definition_hash_id}\x29")

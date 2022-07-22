@@ -384,23 +384,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     # sent in the batch of events to handle_batch
     # we need to try and remove any duplicates for {version, crud, core_id} pairs
     # from the batch
-    pg_event_history =
-      messages
-      |> Enum.map(fn message -> message.data.pg_event_history end)
-      |> Enum.sort_by(& &1.published_at, {:desc, DateTime})
-      |> Enum.uniq_by(fn %{version: version, crud: crud, core_id: core_id} ->
-        {version, crud, core_id}
-      end)
-      |> IO.inspect(label: "EVENT HISTORY")
-      |> Enum.reduce("", fn event_history, acc ->
-        if acc != "" do
-          acc <>
-            "," <>
-            ~s("\x28#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score},#{event_history.version},#{event_history.event_details},#{event_history.occurred_at},#{event_history.published_at}\x29")
-        else
-          ~s("\x28#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score},#{event_history.version},#{event_history.event_details},#{event_history.occurred_at},#{event_history.published_at}\x29")
-        end
-      end)
+    pg_event_history = format_event_history_mesasges(messages)
 
     messages
     |> Enum.group_by(fn message -> message.data.core_id end)
@@ -639,5 +623,32 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       true ->
         {:error, :failed}
     end
+  end
+
+  defp format_event_history_mesasges(broadway_messages) do
+    broadway_messages
+    |> Enum.map(fn message -> message.data.pg_event_history end)
+    |> Enum.sort_by(& &1.published_at, {:desc, DateTime})
+    |> Enum.uniq_by(fn %{version: version, crud: crud, core_id: core_id} ->
+      {version, crud, core_id}
+    end)
+    |> Enum.reduce("", fn event_history, acc ->
+      event_details =
+        case String.valid?(event_history.event_details) do
+          true ->
+            event_history.event_details
+
+          false ->
+            Jason.encode!(event_history.event_details)
+        end
+
+      if acc != "" do
+        acc <>
+          "," <>
+          ~s("\x28#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score},#{event_history.version},#{event_details},#{event_history.occurred_at},#{event_history.published_at}\x29")
+      else
+        ~s("\x28#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score},#{event_history.version},#{event_details},#{event_history.occurred_at},#{event_history.published_at}\x29")
+      end
+    end)
   end
 end
