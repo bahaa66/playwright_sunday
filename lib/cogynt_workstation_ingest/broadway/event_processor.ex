@@ -408,15 +408,25 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               v1 ++ [v2]
 
             :pg_event_string ->
-              IO.inspect(v1, label: "V1")
-              IO.inspect(v2, label: "V2")
-              v1 <> "," <> v2
+              if v1 == "" do
+                v2
+              else
+                v1 <> "," <> v2
+              end
 
             :pg_notifications ->
-              v1 <> "," <> v2
+              if v1 == "" do
+                v2
+              else
+                v1 <> "," <> v2
+              end
 
             :pg_event_links ->
-              v1 <> "," <> v2
+              if v1 == "" do
+                v2
+              else
+                v1 <> "," <> v2
+              end
 
             :delete_core_id ->
               v1 ++ [v2]
