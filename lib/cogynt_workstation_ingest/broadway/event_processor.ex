@@ -59,11 +59,22 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           format_lexicon_data(event)
           |> Jason.encode!()
 
-        pg_event =
+        pg_event_string =
           ~s("\x28#{core_id},#{occurred_at},#{risk_score},#{event_details},#{now},#{now},#{event_definition_hash_id}\x29")
 
+        pg_event_map = %{
+          core_id: core_id,
+          occurred_at: occurred_at,
+          risk_score: format_risk_score(event[Config.confidence_key()]),
+          event_details: format_lexicon_data(event),
+          created_at: now,
+          updated_at: now,
+          event_definition_hash_id: event_definition_hash_id
+        }
+
         data =
-          Map.put(data, :pg_event, pg_event)
+          Map.put(data, :pg_event_string, pg_event_string)
+          |> Map.put(:pg_event_map, pg_event_map)
           |> Map.put(:crud_action, action)
           |> Map.put(:pipeline_state, :process_event)
 
@@ -75,18 +86,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         )
 
         data
-
-        # Map.put(data, :pg_event, %{
-        #   core_id: core_id,
-        #   occurred_at: occurred_at,
-        #   risk_score: format_risk_score(event[Config.confidence_key()]),
-        #   event_details: format_lexicon_data(event),
-        #   created_at: now,
-        #   updated_at: now,
-        #   event_definition_hash_id: event_definition_hash_id
-        # })
-        # |> Map.put(:crud_action, action)
-        # |> Map.put(:pipeline_state, :process_event)
     end
   end
 
@@ -134,9 +133,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       version = event[Config.version_key()]
       event_details = format_lexicon_data(event)
 
-      # pg_event_history =
-      #   ~s("\x28#{Ecto.UUID.generate()},#{core_id},#{event_definition_hash_id},#{action},#{risk_score},#{version},#{event_details},#{occurred_at},#{published_at}\x29")
-
       data =
         Map.put(data, :pg_event_history, %{
           id: Ecto.UUID.generate(),
@@ -172,7 +168,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   def process_elasticsearch_documents(
         %{
-          pg_event: pg_event,
+          pg_event_map: pg_event_map,
           core_id: core_id,
           event_definition: event_definition,
           event_definition_hash_id: event_definition_hash_id,
@@ -208,8 +204,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           )
           |> Stream.unfold(fn
             [] -> nil
-            [detail] -> {determine_event_detail(detail, pg_event.event_details), []}
-            [detail | tail] -> {determine_event_detail(detail, pg_event.event_details), tail}
+            [detail] -> {determine_event_detail(detail, pg_event_map.event_details), []}
+            [detail | tail] -> {determine_event_detail(detail, pg_event_map.event_details), tail}
           end)
           |> Enum.to_list()
 
@@ -223,8 +219,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                  event_details: elasticsearch_event_details,
                  core_event_id: core_id,
                  event_type: event_type,
-                 occurred_at: pg_event.occurred_at,
-                 risk_score: pg_event.risk_score,
+                 occurred_at: pg_event_map.occurred_at,
+                 risk_score: pg_event_map.risk_score,
                  event_links: elastic_event_links
                }) do
             {:ok, event_doc} ->
@@ -263,7 +259,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   def process_notifications(
         %{
-          pg_event: pg_event,
+          pg_event_map: pg_event_map,
           core_id: core_id,
           event_definition: event_definition,
           crud_action: action
@@ -292,7 +288,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               event_definition_hash_id: event_definition.id,
               active: true
             },
-            pg_event.risk_score,
+            pg_event_map.risk_score,
             event_definition
           )
           |> Enum.reduce("", fn ns, acc ->
@@ -328,7 +324,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               event_definition_hash_id: event_definition.id,
               active: true
             },
-            pg_event.risk_score,
+            pg_event_map.risk_score,
             event_definition
           )
 
@@ -372,9 +368,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     # build transactional data
     default_map = %{
-      pg_event: "",
+      pg_event_string: "",
       pg_notifications: "",
       event_doc: [],
+      pg_event_map: [],
       pg_event_links: "",
       delete_core_id: [],
       pg_notifications_delete: [],
@@ -404,7 +401,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                 v1 ++ [v2]
               end
 
-            :pg_event ->
+            :pg_event_map ->
+              v1 ++ [v2]
+
+            :pg_event_string ->
               v1 <> "," <> v2
 
             :pg_notifications ->
@@ -439,14 +439,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           {:ok, _} ->
             bulk_delete_event_documents(bulk_transactional_data)
 
-          # Redis.publish_async(
-          #   "events_changed_listener",
-          #   %{
-          #     event_type: event_type,
-          #     deleted: bulk_transactional_data.delete_core_id,
-          #     upserted: bulk_transactional_data.pg_event
-          #   }
-          # )
+          Redis.publish_async(
+            "events_changed_listener",
+            %{
+              event_type: event_type,
+              deleted: bulk_transactional_data.delete_core_id,
+              upserted: bulk_transactional_data.pg_event_map
+            }
+          )
 
           {:error, reason} ->
             CogyntLogger.error(

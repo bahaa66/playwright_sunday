@@ -818,7 +818,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         )
 
       case Repo.query("SELECT event_pipeline_bulk_upsert(
-            '{#{bulk_transactional_data.pg_event}}'::events_composite_type[],
+            '{#{bulk_transactional_data.pg_event_string}}'::events_composite_type[],
             '{#{bulk_transactional_data.pg_event_links}}'::event_links_composite_type[],
             '{#{bulk_transactional_data.pg_event_history}}'::event_history_composite_type[],
             '{#{bulk_transactional_data.pg_notifications}}'::notifications_composite_type[],
