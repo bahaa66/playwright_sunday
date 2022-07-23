@@ -645,9 +645,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       if acc != "" do
         acc <>
           "," <>
-          ~s("\x28#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score || "NULL"},#{event_history.version},#{event_details},#{event_history.occurred_at || "NULL"},#{event_history.published_at || "NULL"}\x29")
+          '(#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score || "NULL"},#{event_history.version},#{event_details},#{event_history.occurred_at || "NULL"},#{event_history.published_at || "NULL"})'
       else
-        ~s("\x28#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score || "NULL"},#{event_history.version},#{event_details},#{event_history.occurred_at || "NULL"},#{event_history.published_at || "NULL"}\x29")
+        '(#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score || "NULL"},#{event_history.version},#{event_details},#{event_history.occurred_at || "NULL"},#{event_history.published_at || "NULL"})'
       end
     end)
   end

@@ -92,9 +92,9 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                       if pg_string_acc_0 != "" do
                         pg_string_acc_0 <>
                           "," <>
-                          ~s("\x28#{core_id},#{entity_core_id},#{edge_label || "NULL"},#{now},#{now}\x29")
+                          '(#{core_id},#{entity_core_id},#{edge_label || "NULL"},#{now},#{now})'
                       else
-                        ~s("\x28#{core_id},#{entity_core_id},#{edge_label || "NULL"},#{now},#{now}\x29")
+                        '(#{core_id},#{entity_core_id},#{edge_label || "NULL"},#{now},#{now})'
                       end
 
                     pg_list_acc_0 =
