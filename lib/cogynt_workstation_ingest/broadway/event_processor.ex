@@ -63,7 +63,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         #   ~s("\x28#{core_id},#{occurred_at || "NULL"},#{risk_score || "NULL"},#{event_details},#{now},#{now},#{event_definition_hash_id}\x29")
 
         pg_event_string =
-          '(#{core_id},#{occurred_at || "NULL"},#{risk_score || "NULL"},#{event_details},#{now},#{now},#{event_definition_hash_id})'
+          "'(#{core_id},#{occurred_at || "NULL"},#{risk_score || "NULL"},#{event_details},#{now},#{now},#{event_definition_hash_id})'"
 
         pg_event_map = %{
           core_id: core_id,
@@ -300,9 +300,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             if acc != "" do
               acc <>
                 "," <>
-                '(#{core_id},#{"NULL"},#{@defaults.notification_priority},#{ns.assigned_to || "NULL"},#{"NULL"},#{ns.id},#{ns.tag_id},#{now},#{now})'
+                "'(#{core_id},#{"NULL"},#{@defaults.notification_priority},#{ns.assigned_to || "NULL"},#{"NULL"},#{ns.id},#{ns.tag_id},#{now},#{now})'"
             else
-              '(#{core_id},#{"NULL"},#{@defaults.notification_priority},#{ns.assigned_to || "NULL"},#{"NULL"},#{ns.id},#{ns.tag_id},#{now},#{now})'
+              "'(#{core_id},#{"NULL"},#{@defaults.notification_priority},#{ns.assigned_to || "NULL"},#{"NULL"},#{ns.id},#{ns.tag_id},#{now},#{now})'"
             end
 
             # acc ++
@@ -447,7 +447,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end)
       |> Map.put(:pg_event_history, pg_event_history)
 
-    # IO.inspect(bulk_transactional_data.pg_event_string, label: "PG_EVENT_STRING", pretty: true)
+    IO.inspect(bulk_transactional_data.pg_event_string, label: "PG_EVENT_STRING", pretty: true)
 
     # Start timer for telemetry metrics
     start = System.monotonic_time()
