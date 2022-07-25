@@ -651,7 +651,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
             event_history.crud,
             event_history.risk_score,
             event_history.version,
-            event_history.event_details,
+            nil,
             event_history.occurred_at,
             event_history.published_at
           ]

@@ -62,7 +62,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           occurred_at,
           risk_score,
           # Jason.encode!(event_details),
-          event_details,
+          nil,
           now,
           now,
           event_definition_hash_id
