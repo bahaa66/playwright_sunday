@@ -819,14 +819,14 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       IO.inspect(bulk_transactional_data.pg_event_list, label: "PG_EVENT_LIST")
 
-      bulk_transactional_data.pg_event_list = [List.first(bulk_transactional_data.pg_event_list)]
+      temp_event_list = [List.first(bulk_transactional_data.pg_event_list)]
 
       case Ecto.Adapters.SQL.query(
              Repo,
              "SELECT event_pipeline_bulk_upsert($1::events[],$2::event_links[],$3::event_history[],$4::notifications[],$5::UUID[],$6::UUID[],$7::UUID[])",
              [
                # $1
-               bulk_transactional_data.pg_event_list,
+               temp_event_list,
                # $2
                bulk_transactional_data.pg_event_links,
                # $3
