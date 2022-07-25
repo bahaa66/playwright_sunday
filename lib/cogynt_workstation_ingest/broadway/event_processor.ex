@@ -61,7 +61,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           core_id,
           occurred_at,
           risk_score,
-          Jason.encode!(event_details),
+          # Jason.encode!(event_details),
+          event_details,
           now,
           now,
           event_definition_hash_id

@@ -29,7 +29,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           {[
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: 100000,
+               batch_timeout: 100_000,
                concurrency: 10
              ]
            ],
@@ -43,7 +43,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           {[
              default: [
                batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: 100000,
+               batch_timeout: 100_000,
                concurrency: 10
              ]
            ],
@@ -57,12 +57,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           {[
              default: [
                batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: 100000,
+               batch_timeout: 100_000,
                concurrency: 10
              ],
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: 100000,
+               batch_timeout: 100_000,
                concurrency: 10
              ]
            ],
@@ -633,22 +633,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       {version, crud, core_id}
     end)
     |> Enum.reduce([], fn event_history, acc ->
-      event_details =
-        case String.valid?(event_history.event_details) do
-          true ->
-            event_history.event_details
+      # event_details =
+      #   case String.valid?(event_history.event_details) do
+      #     true ->
+      #       event_history.event_details
 
-          false ->
-            Jason.encode!(event_history.event_details)
-        end
-
-      # if acc != "" do
-      #   acc <>
-      #     "," <>
-      #     "'(#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score || "NULL"},#{event_history.version},#{event_details},#{event_history.occurred_at || "NULL"},#{event_history.published_at || "NULL"})'"
-      # else
-      #   "'(#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score || "NULL"},#{event_history.version},#{event_details},#{event_history.occurred_at || "NULL"},#{event_history.published_at || "NULL"})'"
-      # end
+      #     false ->
+      #       Jason.encode!(event_history.event_details)
+      #   end
 
       acc ++
         [
@@ -659,7 +651,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
             event_history.crud,
             event_history.risk_score,
             event_history.version,
-            event_details,
+            event_history.event_details,
             event_history.occurred_at,
             event_history.published_at
           ]
