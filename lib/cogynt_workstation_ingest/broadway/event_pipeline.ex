@@ -652,8 +652,23 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
       acc ++
         [
-          "(#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score || "NULL"},#{event_history.version},#{event_details},#{event_history.occurred_at || "NULL"},#{event_history.published_at || "NULL"})"
+          [
+            event_history.id,
+            event_history.core_id,
+            event_history.event_definition_hash_id,
+            event_history.crud,
+            event_history.risk_score,
+            event_history.version,
+            event_details,
+            event_history.occurred_at,
+            event_history.published_at
+          ]
         ]
+
+      # acc ++
+      #   [
+      #     "(#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score || "NULL"},#{event_history.version},#{event_details},#{event_history.occurred_at || "NULL"},#{event_history.published_at || "NULL"})"
+      #   ]
     end)
   end
 end

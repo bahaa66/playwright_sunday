@@ -65,8 +65,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         # pg_event_string =
         #   "'(#{core_id},#{occurred_at || "NULL"},#{risk_score || "NULL"},#{event_details},#{now},#{now},#{event_definition_hash_id})'"
 
-        pg_event_string =
-          "(#{core_id},#{occurred_at || "NULL"},#{risk_score || "NULL"},#{event_details},#{now},#{now},#{event_definition_hash_id})"
+        pg_event_list = [
+          core_id,
+          occurred_at,
+          risk_score,
+          event_details,
+          now,
+          now,
+          event_definition_hash_id
+        ]
 
         pg_event_map = %{
           core_id: core_id,
@@ -79,7 +86,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         }
 
         data =
-          Map.put(data, :pg_event_string, pg_event_string)
+          Map.put(data, :pg_event_list, pg_event_list)
           |> Map.put(:pg_event_map, pg_event_map)
           |> Map.put(:crud_action, action)
           |> Map.put(:pipeline_state, :process_event)
@@ -310,7 +317,17 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
             acc ++
               [
-                "(#{core_id},#{"NULL"},#{@defaults.notification_priority},#{ns.assigned_to || "NULL"},#{"NULL"},#{ns.id},#{ns.tag_id},#{now},#{now})"
+                [
+                  core_id,
+                  nil,
+                  @defaults.notification_priority,
+                  ns.assigned_to,
+                  nil,
+                  ns.id,
+                  ns.tag_id,
+                  now,
+                  now
+                ]
               ]
 
             # acc ++
@@ -379,7 +396,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     # build transactional data
     default_map = %{
-      pg_event_string: [],
+      pg_event_list: [],
       pg_notifications: [],
       event_doc: [],
       pg_event_map: [],
@@ -390,7 +407,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     }
 
     # temp = List.first(messages)
-    # IO.inspect(temp.pg_event_string, label: "PG_EVENT_STRING", pretty: true)
+    # IO.inspect(temp.pg_event_list, label: "PG_EVENT_LIST", pretty: true)
 
     bulk_transactional_data =
       Enum.reduce(messages, default_map, fn data, acc ->
@@ -418,8 +435,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             :pg_event_map ->
               v1 ++ [v2]
 
-            :pg_event_string ->
-              v1 ++ [v2]
+            :pg_event_list ->
+              v1 ++ v2
 
             # if v1 == "" do
             #   v2
@@ -428,10 +445,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             # end
 
             :pg_notifications ->
-              v1 ++ List.flatten(v2)
+              v1 ++ v2
 
             :pg_event_links ->
-              v1 ++ List.flatten(v2)
+              v1 ++ v2
 
             :delete_core_id ->
               v1 ++ [v2]
@@ -449,7 +466,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end)
       |> Map.put(:pg_event_history, pg_event_history)
 
-    # IO.inspect(bulk_transactional_data.pg_event_string, label: "PG_EVENT_STRING", pretty: true)
+    # IO.inspect(bulk_transactional_data.pg_event_list, label: "PG_EVENT_LIST", pretty: true)
 
     # Start timer for telemetry metrics
     start = System.monotonic_time()

@@ -817,10 +817,27 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           bulk_transactional_data.delete_core_id ++ bulk_transactional_data.pg_event_links_delete
         )
 
-      IO.inspect(bulk_transactional_data.pg_event_string, label: "PG_EVENT_LIST", pretty: true)
+      IO.inspect(bulk_transactional_data.pg_event_list, label: "PG_EVENT_LIST", pretty: true)
 
-      case Repo.query(
-             "SELECT event_pipeline_bulk_upsert(array#{bulk_transactional_data.pg_event_string}::events_composite_type[],array#{bulk_transactional_data.pg_event_links}::event_links_composite_type[],array#{bulk_transactional_data.pg_event_history}::event_history_composite_type[],array#{bulk_transactional_data.pg_notifications}::notifications_composite_type[],CAST('#{remove_notification_core_ids}'::UUID[]),CAST('#{remove_event_link_core_ids}'::UUID[]),CAST('#{bulk_transactional_data.delete_core_id}'::UUID[]))"
+      case Ecto.Adapters.SQL.query(
+             Repo,
+             "SELECT event_pipeline_bulk_upsert($1::events_composite_type,$2::event_links_composite_type[],$3::event_history_composite_type[],$4::notifications_composite_type[],$5::UUID[],$6::UUID[],$7;;UUID[])",
+             [
+               # $1
+               bulk_transactional_data.pg_event_list,
+               # $2
+               bulk_transactional_data.pg_event_links,
+               # $3
+               bulk_transactional_data.pg_event_history,
+               # $4
+               bulk_transactional_data.pg_notifications,
+               # $5
+               remove_notification_core_ids,
+               # $6
+               remove_event_link_core_ids,
+               # $7
+               bulk_transactional_data.delete_core_id
+             ]
            ) do
         {:ok, result} ->
           {:ok, result}
@@ -828,6 +845,16 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         {:error, error} ->
           {:error, error}
       end
+
+      # case Repo.query(
+      #        "SELECT event_pipeline_bulk_upsert(array#{bulk_transactional_data.pg_event_list}::events_composite_type[],array#{bulk_transactional_data.pg_event_links}::event_links_composite_type[],array#{bulk_transactional_data.pg_event_history}::event_history_composite_type[],array#{bulk_transactional_data.pg_notifications}::notifications_composite_type[],CAST('#{remove_notification_core_ids}'::UUID[]),CAST('#{remove_event_link_core_ids}'::UUID[]),CAST('#{bulk_transactional_data.delete_core_id}'::UUID[]))"
+      #      ) do
+      #   {:ok, result} ->
+      #     {:ok, result}
+
+      #   {:error, error} ->
+      #     {:error, error}
+      # end
     rescue
       error ->
         CogyntLogger.error(
