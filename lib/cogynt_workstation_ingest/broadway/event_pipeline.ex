@@ -632,7 +632,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     |> Enum.uniq_by(fn %{version: version, crud: crud, core_id: core_id} ->
       {version, crud, core_id}
     end)
-    |> Enum.reduce("", fn event_history, acc ->
+    |> Enum.reduce([], fn event_history, acc ->
       event_details =
         case String.valid?(event_history.event_details) do
           true ->
@@ -642,13 +642,18 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
             Jason.encode!(event_history.event_details)
         end
 
-      if acc != "" do
-        acc <>
-          "," <>
-          "'(#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score || "NULL"},#{event_history.version},#{event_details},#{event_history.occurred_at || "NULL"},#{event_history.published_at || "NULL"})'"
-      else
-        "'(#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score || "NULL"},#{event_history.version},#{event_details},#{event_history.occurred_at || "NULL"},#{event_history.published_at || "NULL"})'"
-      end
+      # if acc != "" do
+      #   acc <>
+      #     "," <>
+      #     "'(#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score || "NULL"},#{event_history.version},#{event_details},#{event_history.occurred_at || "NULL"},#{event_history.published_at || "NULL"})'"
+      # else
+      #   "'(#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score || "NULL"},#{event_history.version},#{event_details},#{event_history.occurred_at || "NULL"},#{event_history.published_at || "NULL"})'"
+      # end
+
+      acc ++
+        [
+          "(#{event_history.id},#{event_history.core_id},#{event_history.event_definition_hash_id},#{event_history.crud},#{event_history.risk_score || "NULL"},#{event_history.version},#{event_details},#{event_history.occurred_at || "NULL"},#{event_history.published_at || "NULL"})"
+        ]
     end)
   end
 end

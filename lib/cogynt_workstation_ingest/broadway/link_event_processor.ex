@@ -71,10 +71,10 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         entities = Map.get(event, Config.entities_key())
 
         {pg_event_link_string, pg_event_link_list} =
-          Enum.reduce(entities, {"", []}, fn {edge_label, link_data_list},
+          Enum.reduce(entities, {[], []}, fn {edge_label, link_data_list},
                                              {pg_string_acc, pg_list_acc} ->
             {pg_string, pg_list} =
-              Enum.reduce(link_data_list, {"", []}, fn link_object,
+              Enum.reduce(link_data_list, {[], []}, fn link_object,
                                                        {pg_string_acc_0, pg_list_acc_0} ->
                 case link_object[Config.id_key()] do
                   nil ->
@@ -88,14 +88,20 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                   entity_core_id ->
                     now = DateTime.truncate(DateTime.utc_now(), :second)
 
+                    # pg_string_acc_0 =
+                    #   if pg_string_acc_0 != "" do
+                    #     pg_string_acc_0 <>
+                    #       "," <>
+                    #       "'(#{core_id},#{entity_core_id},#{edge_label || "NULL"},#{now},#{now})'"
+                    #   else
+                    #     "'(#{core_id},#{entity_core_id},#{edge_label || "NULL"},#{now},#{now})'"
+                    #   end
+
                     pg_string_acc_0 =
-                      if pg_string_acc_0 != "" do
-                        pg_string_acc_0 <>
-                          "," <>
-                          "'(#{core_id},#{entity_core_id},#{edge_label || "NULL"},#{now},#{now})'"
-                      else
-                        "'(#{core_id},#{entity_core_id},#{edge_label || "NULL"},#{now},#{now})'"
-                      end
+                      pg_string_acc_0 ++
+                        [
+                          "(#{core_id},#{entity_core_id},#{edge_label || "NULL"},#{now},#{now})"
+                        ]
 
                     pg_list_acc_0 =
                       pg_list_acc_0 ++
@@ -113,13 +119,14 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                 end
               end)
 
-            pg_string_acc =
-              if pg_string_acc != "" do
-                pg_string_acc <> "," <> pg_string
-              else
-                pg_string
-              end
+            # pg_string_acc =
+            #   if pg_string_acc != "" do
+            #     pg_string_acc <> "," <> pg_string
+            #   else
+            #     pg_string
+            #   end
 
+            pg_string_acc = pg_string_acc ++ pg_string
             pg_list_acc = pg_list_acc ++ pg_list
             {pg_string_acc, pg_list_acc}
           end)

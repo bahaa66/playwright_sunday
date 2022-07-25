@@ -62,8 +62,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         # pg_event_string =
         #   ~s("\x28#{core_id},#{occurred_at || "NULL"},#{risk_score || "NULL"},#{event_details},#{now},#{now},#{event_definition_hash_id}\x29")
 
+        # pg_event_string =
+        #   "'(#{core_id},#{occurred_at || "NULL"},#{risk_score || "NULL"},#{event_details},#{now},#{now},#{event_definition_hash_id})'"
+
         pg_event_string =
-          "'(#{core_id},#{occurred_at || "NULL"},#{risk_score || "NULL"},#{event_details},#{now},#{now},#{event_definition_hash_id})'"
+          "(#{core_id},#{occurred_at || "NULL"},#{risk_score || "NULL"},#{event_details},#{now},#{now},#{event_definition_hash_id})"
 
         pg_event_map = %{
           core_id: core_id,
@@ -294,16 +297,21 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             pg_event_map.risk_score,
             event_definition
           )
-          |> Enum.reduce("", fn ns, acc ->
+          |> Enum.reduce([], fn ns, acc ->
             now = DateTime.truncate(DateTime.utc_now(), :second)
 
-            if acc != "" do
-              acc <>
-                "," <>
-                "'(#{core_id},#{"NULL"},#{@defaults.notification_priority},#{ns.assigned_to || "NULL"},#{"NULL"},#{ns.id},#{ns.tag_id},#{now},#{now})'"
-            else
-              "'(#{core_id},#{"NULL"},#{@defaults.notification_priority},#{ns.assigned_to || "NULL"},#{"NULL"},#{ns.id},#{ns.tag_id},#{now},#{now})'"
-            end
+            # if acc != "" do
+            #   acc <>
+            #     "," <>
+            #     "'(#{core_id},#{"NULL"},#{@defaults.notification_priority},#{ns.assigned_to || "NULL"},#{"NULL"},#{ns.id},#{ns.tag_id},#{now},#{now})'"
+            # else
+            #   "'(#{core_id},#{"NULL"},#{@defaults.notification_priority},#{ns.assigned_to || "NULL"},#{"NULL"},#{ns.id},#{ns.tag_id},#{now},#{now})'"
+            # end
+
+            acc ++
+              [
+                "(#{core_id},#{"NULL"},#{@defaults.notification_priority},#{ns.assigned_to || "NULL"},#{"NULL"},#{ns.id},#{ns.tag_id},#{now},#{now})"
+              ]
 
             # acc ++
             #   [
@@ -411,25 +419,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               v1 ++ [v2]
 
             :pg_event_string ->
-              if v1 == "" do
-                v2
-              else
-                v1 <> "," <> v2
-              end
+              v1 ++ [v2]
+
+            # if v1 == "" do
+            #   v2
+            # else
+            #   v1 <> "," <> v2
+            # end
 
             :pg_notifications ->
-              if v1 == "" do
-                v2
-              else
-                v1 <> "," <> v2
-              end
+              v1 ++ List.flatten(v2)
 
             :pg_event_links ->
-              if v1 == "" do
-                v2
-              else
-                v1 <> "," <> v2
-              end
+              v1 ++ List.flatten(v2)
 
             :delete_core_id ->
               v1 ++ [v2]
@@ -447,7 +449,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end)
       |> Map.put(:pg_event_history, pg_event_history)
 
-    IO.inspect(bulk_transactional_data.pg_event_string, label: "PG_EVENT_STRING", pretty: true)
+    # IO.inspect(bulk_transactional_data.pg_event_string, label: "PG_EVENT_STRING", pretty: true)
 
     # Start timer for telemetry metrics
     start = System.monotonic_time()
