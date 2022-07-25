@@ -88,15 +88,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                   entity_core_id ->
                     now = DateTime.truncate(DateTime.utc_now(), :second)
 
-                    # pg_string_acc_0 =
-                    #   if pg_string_acc_0 != "" do
-                    #     pg_string_acc_0 <>
-                    #       "," <>
-                    #       "'(#{core_id},#{entity_core_id},#{edge_label || "NULL"},#{now},#{now})'"
-                    #   else
-                    #     "'(#{core_id},#{entity_core_id},#{edge_label || "NULL"},#{now},#{now})'"
-                    #   end
-
                     pg_list_acc_0 =
                       pg_list_acc_0 ++
                         [
@@ -124,13 +115,6 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                     {pg_list_acc_0, pg_map_acc_0}
                 end
               end)
-
-            # pg_string_acc =
-            #   if pg_string_acc != "" do
-            #     pg_string_acc <> "," <> pg_string
-            #   else
-            #     pg_string
-            #   end
 
             pg_list_acc = pg_list_acc ++ pg_list
             pg_map_acc = pg_map_acc ++ pg_map

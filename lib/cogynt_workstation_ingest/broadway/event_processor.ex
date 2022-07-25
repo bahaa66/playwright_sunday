@@ -55,21 +55,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
         risk_score = format_risk_score(event[Config.confidence_key()])
 
-        event_details =
-          format_lexicon_data(event)
-          |> Jason.encode!()
-
-        # pg_event_string =
-        #   ~s("\x28#{core_id},#{occurred_at || "NULL"},#{risk_score || "NULL"},#{event_details},#{now},#{now},#{event_definition_hash_id}\x29")
-
-        # pg_event_string =
-        #   "'(#{core_id},#{occurred_at || "NULL"},#{risk_score || "NULL"},#{event_details},#{now},#{now},#{event_definition_hash_id})'"
+        event_details = format_lexicon_data(event)
 
         pg_event_list = [
           core_id,
           occurred_at,
           risk_score,
-          event_details,
+          Jason.encode!(event_details),
           now,
           now,
           event_definition_hash_id
@@ -78,8 +70,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         pg_event_map = %{
           core_id: core_id,
           occurred_at: occurred_at,
-          risk_score: format_risk_score(event[Config.confidence_key()]),
-          event_details: format_lexicon_data(event),
+          risk_score: risk_score,
+          event_details: event_details,
           created_at: now,
           updated_at: now,
           event_definition_hash_id: event_definition_hash_id
@@ -307,14 +299,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           |> Enum.reduce([], fn ns, acc ->
             now = DateTime.truncate(DateTime.utc_now(), :second)
 
-            # if acc != "" do
-            #   acc <>
-            #     "," <>
-            #     "'(#{core_id},#{"NULL"},#{@defaults.notification_priority},#{ns.assigned_to || "NULL"},#{"NULL"},#{ns.id},#{ns.tag_id},#{now},#{now})'"
-            # else
-            #   "'(#{core_id},#{"NULL"},#{@defaults.notification_priority},#{ns.assigned_to || "NULL"},#{"NULL"},#{ns.id},#{ns.tag_id},#{now},#{now})'"
-            # end
-
             acc ++
               [
                 [
@@ -406,9 +390,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       pg_event_links_delete: []
     }
 
-    # temp = List.first(messages)
-    # IO.inspect(temp.pg_event_list, label: "PG_EVENT_LIST", pretty: true)
-
     bulk_transactional_data =
       Enum.reduce(messages, default_map, fn data, acc ->
         data =
@@ -466,7 +447,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end)
       |> Map.put(:pg_event_history, pg_event_history)
 
-    # IO.inspect(bulk_transactional_data.pg_event_list, label: "PG_EVENT_LIST", pretty: true)
+    IO.inspect(Enum.count(bulk_transactional_data.pg_event_list), label: "EVENT COUNT")
+    IO.inspect(Enum.count(bulk_transactional_data.pg_event_history), label: "EVENT HISTORY COUNT")
+    IO.inspect(Enum.count(bulk_transactional_data.pg_event_links), label: "EVENT LINKS COUNT")
+    IO.inspect(Enum.count(bulk_transactional_data.pg_notifications), label: "NOTIFICATIONS COUNT")
 
     # Start timer for telemetry metrics
     start = System.monotonic_time()
