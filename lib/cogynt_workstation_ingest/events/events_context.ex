@@ -821,7 +821,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       case Ecto.Adapters.SQL.query(
              Repo,
-             "SELECT event_pipeline_bulk_upsert($1::events_composite_type,$2::event_links_composite_type[],$3::event_history_composite_type[],$4::notifications_composite_type[],$5::UUID[],$6::UUID[],$7::UUID[])",
+             "SELECT event_pipeline_bulk_upsert($1::events_composite_type[],$2::event_links_composite_type[],$3::event_history_composite_type[],$4::notifications_composite_type[],$5::UUID[],$6::UUID[],$7::UUID[])",
              [
                # $1
                bulk_transactional_data.pg_event_list,
