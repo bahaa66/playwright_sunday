@@ -417,7 +417,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               v1 ++ [v2]
 
             :pg_event_list ->
-              v1 ++ v2
+              v1 ++ [v2]
 
             # if v1 == "" do
             #   v2
