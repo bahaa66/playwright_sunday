@@ -379,11 +379,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     # build transactional data
     default_map = %{
-      pg_event_string: "",
-      pg_notifications: "",
+      pg_event_string: [],
+      pg_notifications: [],
       event_doc: [],
       pg_event_map: [],
-      pg_event_links: "",
+      pg_event_links: [],
       delete_core_id: [],
       pg_notifications_delete: [],
       pg_event_links_delete: []
