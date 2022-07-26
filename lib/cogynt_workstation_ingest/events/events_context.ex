@@ -860,14 +860,26 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       Repo.transaction(
         fn ->
-          Ecto.Adapters.SQL.query(Repo, temp_events, [])
+          case Ecto.Adapters.SQL.query(Repo, temp_events, []) do
+            {:ok, result} ->
+              {:ok, result}
+
+            {:error, error} ->
+              IO.inspect(error, label: "TEMP EVENTS QUERY FAILED")
+          end
 
           Enum.into(
             bulk_transactional_data.pg_event_list,
             Ecto.Adapters.SQL.stream(Repo, copy_events)
           )
 
-          Ecto.Adapters.SQL.query(Repo, upsert_events, [])
+          case Ecto.Adapters.SQL.query(Repo, upsert_events, []) do
+            {:ok, result} ->
+              {:ok, result}
+
+            {:error, error} ->
+              IO.inspect(error, label: "INSERT EVENTS QUERY FAILED")
+          end
         end,
         timeout: :infinity
       )
