@@ -58,16 +58,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         event_details = format_lexicon_data(event)
 
         pg_event_list = [
-          {
-            core_id,
-            occurred_at,
-            risk_score,
-            # Jason.encode!(event_details),
-            nil,
-            now,
-            now,
-            event_definition_hash_id
-          }
+          "#{core_id};#{occurred_at};#{risk_score};#{Jason.encode!(event_details)};#{now};#{now};#{event_definition_hash_id}\n"
         ]
 
         pg_event_map = %{
@@ -304,17 +295,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
             acc ++
               [
-                {
-                  core_id,
-                  nil,
-                  @defaults.notification_priority,
-                  ns.assigned_to,
-                  nil,
-                  ns.id,
-                  ns.tag_id,
-                  now,
-                  now
-                }
+                "#{core_id};#{nil};#{@defaults.notification_priority};#{ns.assigned_to};#{nil};#{ns.id};#{ns.tag_id};#{now};#{now}\n"
               ]
 
             # acc ++
@@ -422,17 +403,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             :pg_event_list ->
               v1 ++ v2
 
-            # if v1 == "" do
-            #   v2
-            # else
-            #   v1 <> "," <> v2
-            # end
-
             :pg_notifications ->
-              v1 ++ v2
+              v1 ++ List.flatten(v2)
 
             :pg_event_links ->
-              v1 ++ v2
+              v1 ++ List.flatten(v2)
 
             :delete_core_id ->
               v1 ++ [v2]
@@ -449,11 +424,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         end)
       end)
       |> Map.put(:pg_event_history, pg_event_history)
-
-    IO.inspect(Enum.count(bulk_transactional_data.pg_event_list), label: "EVENT COUNT")
-    IO.inspect(Enum.count(bulk_transactional_data.pg_event_history), label: "EVENT HISTORY COUNT")
-    IO.inspect(Enum.count(bulk_transactional_data.pg_event_links), label: "EVENT LINKS COUNT")
-    IO.inspect(Enum.count(bulk_transactional_data.pg_notifications), label: "NOTIFICATIONS COUNT")
 
     # Start timer for telemetry metrics
     start = System.monotonic_time()

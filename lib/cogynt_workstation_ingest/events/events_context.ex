@@ -817,46 +817,30 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           bulk_transactional_data.delete_core_id ++ bulk_transactional_data.pg_event_links_delete
         )
 
+      IO.inspect(Enum.count(bulk_transactional_data.pg_event_list), label: "EVENT COUNT")
+
+      IO.inspect(Enum.count(bulk_transactional_data.pg_event_history),
+        label: "EVENT HISTORY COUNT"
+      )
+
+      IO.inspect(Enum.count(bulk_transactional_data.pg_event_links), label: "EVENT LINKS COUNT")
+
+      IO.inspect(Enum.count(bulk_transactional_data.pg_notifications),
+        label: "NOTIFICATIONS COUNT"
+      )
+
       IO.inspect(bulk_transactional_data.pg_event_list, label: "PG_EVENT_LIST")
 
-      temp_event_list = [List.first(bulk_transactional_data.pg_event_list)]
+      events_sql = """
+        COPY events(core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id)
+        FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01')
+      """
 
-      case Ecto.Adapters.SQL.query(
-             Repo,
-             "SELECT event_pipeline_bulk_upsert($1::events[],$2::event_links[],$3::event_history[],$4::notifications[],$5::UUID[],$6::UUID[],$7::UUID[])",
-             [
-               # $1
-               temp_event_list,
-               # $2
-               bulk_transactional_data.pg_event_links,
-               # $3
-               bulk_transactional_data.pg_event_history,
-               # $4
-               bulk_transactional_data.pg_notifications,
-               # $5
-               remove_notification_core_ids,
-               # $6
-               remove_event_link_core_ids,
-               # $7
-               bulk_transactional_data.delete_core_id
-             ]
-           ) do
-        {:ok, result} ->
-          {:ok, result}
+      events_stream = Ecto.Adapters.SQL.stream(Repo, events_sql)
 
-        {:error, error} ->
-          {:error, error}
-      end
-
-      # case Repo.query(
-      #        "SELECT event_pipeline_bulk_upsert(array#{bulk_transactional_data.pg_event_list}::events_composite_type[],array#{bulk_transactional_data.pg_event_links}::event_links_composite_type[],array#{bulk_transactional_data.pg_event_history}::event_history_composite_type[],array#{bulk_transactional_data.pg_notifications}::notifications_composite_type[],CAST('#{remove_notification_core_ids}'::UUID[]),CAST('#{remove_event_link_core_ids}'::UUID[]),CAST('#{bulk_transactional_data.delete_core_id}'::UUID[]))"
-      #      ) do
-      #   {:ok, result} ->
-      #     {:ok, result}
-
-      #   {:error, error} ->
-      #     {:error, error}
-      # end
+      Repo.transaction(fn ->
+        Enum.into(bulk_transactional_data.pg_event_list, events_stream)
+      end)
     rescue
       error ->
         CogyntLogger.error(
