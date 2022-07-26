@@ -831,23 +831,28 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       IO.inspect(bulk_transactional_data.pg_event_list, label: "PG_EVENT_LIST")
 
-      events_sql = """
-      CREATE TEMP TABLE temp_events(
-        core_id uuid NOT NULL,
-        occurred_at timestamp(0) NULL,
-        risk_score int4 NULL,
-        event_details jsonb NOT NULL DEFAULT '{}'::jsonb,
-        created_at timestamp(0) NOT NULL,
-        updated_at timestamp(0) NOT NULL,
-        event_definition_hash_id uuid NULL
-      );
-      COPY temp_events(core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id)
-      FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01');
+      temp_events = """
+        CREATE TEMP TABLE temp_events(
+          core_id uuid NOT NULL,
+          occurred_at timestamp(0) NULL,
+          risk_score int4 NULL,
+          event_details jsonb NOT NULL DEFAULT '{}'::jsonb,
+          created_at timestamp(0) NOT NULL,
+          updated_at timestamp(0) NOT NULL,
+          event_definition_hash_id uuid NULL
+        );
+      """
 
-      INSERT INTO events(core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id)
-      SELECT core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id FROM temp_events
-      ON CONFLICT (core_id)
-      DO UPDATE SET
+      copy_events = """
+        COPY temp_events(core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id)
+        FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01');
+      """
+
+      upsert_events = """
+        INSERT INTO events(core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id)
+        SELECT core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id FROM temp_events
+        ON CONFLICT (core_id)
+        DO UPDATE SET
           occurred_at = EXCLUDED.occurred_at,
           risk_score = EXCLUDED.risk_score,
           event_details = EXCLUDED.event_details,
@@ -855,10 +860,15 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           event_definition_hash_id = EXCLUDED.event_definition_hash_id;
       """
 
-      events_stream = Ecto.Adapters.SQL.stream(Repo, events_sql)
-
       Repo.transaction(fn ->
-        Enum.into(bulk_transactional_data.pg_event_list, events_stream)
+        Ecto.Adapters.SQL.query(Repo, temp_events, [])
+
+        Enum.into(
+          bulk_transactional_data.pg_event_list,
+          Ecto.Adapters.SQL.stream(Repo, copy_events)
+        )
+
+        Ecto.Adapters.SQL.query(Repo, upsert_events, [])
       end)
     rescue
       error ->
