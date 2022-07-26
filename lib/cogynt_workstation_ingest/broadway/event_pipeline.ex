@@ -380,9 +380,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   @impl true
-  def handle_batch(:crud, messages, _batch_info, context) do
+  def handle_batch(:crud, messages, batch_info, context) do
     event_definition_hash_id = Keyword.get(context, :event_definition_hash_id, nil)
     event_type = Keyword.get(context, :event_type, nil)
+
+    IO.inspect(batch_info, label: "BATCH INFO", pretty: true)
 
     # To track event_history we need to take all the actions that were
     # sent in the batch of events to handle_batch
