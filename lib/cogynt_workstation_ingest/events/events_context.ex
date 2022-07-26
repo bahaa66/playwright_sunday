@@ -832,7 +832,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       IO.inspect(bulk_transactional_data.pg_event_list, label: "PG_EVENT_LIST")
 
       events_sql = """
-      CREATE TEMP UNLOGGED TABLE temp_events(
+      CREATE TEMP TABLE temp_events(
         core_id uuid NOT NULL,
         occurred_at timestamp(0) NULL,
         risk_score int4 NULL,
