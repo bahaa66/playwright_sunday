@@ -835,9 +835,13 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       events_sql = """
       CREATE TEMP UNLOGGED TABLE #{events_temp_table_name} (
-          time ,
-          name,
-          description
+        core_id uuid NOT NULL,
+        occurred_at timestamp(0) NULL,
+        risk_score int4 NULL,
+        event_details jsonb NOT NULL DEFAULT '{}'::jsonb,
+        created_at timestamp(0) NOT NULL,
+        updated_at timestamp(0) NOT NULL,
+        event_definition_hash_id uuid NULL
       );
       COPY #{events_temp_table_name}(core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id)
       FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01');
