@@ -58,14 +58,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         event_details = format_lexicon_data(event)
 
         pg_event_list = [
-          core_id,
-          occurred_at,
-          risk_score,
-          # Jason.encode!(event_details),
-          nil,
-          now,
-          now,
-          event_definition_hash_id
+          {
+            core_id,
+            occurred_at,
+            risk_score,
+            # Jason.encode!(event_details),
+            nil,
+            now,
+            now,
+            event_definition_hash_id
+          }
         ]
 
         pg_event_map = %{
@@ -302,7 +304,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
             acc ++
               [
-                [
+                {
                   core_id,
                   nil,
                   @defaults.notification_priority,
@@ -312,7 +314,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                   ns.tag_id,
                   now,
                   now
-                ]
+                }
               ]
 
             # acc ++
@@ -418,7 +420,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               v1 ++ [v2]
 
             :pg_event_list ->
-              v1 ++ [v2]
+              v1 ++ v2
 
             # if v1 == "" do
             #   v2
