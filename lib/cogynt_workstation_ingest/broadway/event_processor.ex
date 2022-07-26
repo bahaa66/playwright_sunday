@@ -422,12 +422,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end)
       |> Map.put(:pg_event_history, pg_event_history)
 
-    # Start timer for telemetry metrics
-    start = System.monotonic_time()
-    telemetry_metadata = %{}
-
     case bulk_upsert_event_documents(bulk_transactional_data) do
       {:ok, :success} ->
+        # Start timer for telemetry metrics
+        start = System.monotonic_time()
+        telemetry_metadata = %{}
+
         case EventsContext.execute_ingest_bulk_insert_function(bulk_transactional_data) do
           {:ok, _} ->
             # Execute telemtry for metrics

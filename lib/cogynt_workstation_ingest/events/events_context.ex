@@ -829,10 +829,10 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         label: "NOTIFICATIONS COUNT"
       )
 
-      temp_events_table_name = "temp_events_" <> "#{Ecto.UUID.generate}"
+      # temp_events_table_name = "temp_events_" <> "#{Ecto.UUID.autogenerate}" String. underscore
 
       temp_events = """
-        CREATE TEMP TABLE #{temp_events_table_name}(
+        CREATE TEMP TABLE temp_events (
           core_id uuid NOT NULL,
           occurred_at timestamp(0) NULL,
           risk_score int4 NULL,
@@ -844,13 +844,13 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       """
 
       copy_events = """
-        COPY #{temp_events_table_name}(core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id)
+        COPY temp_events(core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id)
         FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01');
       """
 
       upsert_events = """
         INSERT INTO events(core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id)
-        SELECT core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id FROM #{temp_events_table_name}
+        SELECT core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id FROM temp_events
         ON CONFLICT (core_id)
         DO UPDATE SET
           occurred_at = EXCLUDED.occurred_at,
@@ -860,6 +860,10 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           event_definition_hash_id = EXCLUDED.event_definition_hash_id;
       """
 
+      drop_temp_events = """
+        DROP TABLE IF EXISTS temp_events;
+      """
+
       Repo.transaction(
         fn ->
           case Ecto.Adapters.SQL.query(Repo, temp_events, []) do
@@ -867,7 +871,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
               {:ok, result}
 
             {:error, error} ->
-              IO.inspect(error, label: "TEMP EVENTS QUERY FAILED")
+              IO.inspect(error, label: "CREATE TEMP EVENTS QUERY FAILED")
           end
 
           Enum.into(
@@ -881,6 +885,14 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
             {:error, error} ->
               IO.inspect(error, label: "INSERT EVENTS QUERY FAILED")
+          end
+
+          case Ecto.Adapters.SQL.query(Repo, drop_temp_events, []) do
+            {:ok, result} ->
+              {:ok, result}
+
+            {:error, error} ->
+              IO.inspect(error, label: "DROP TEMP EVENTS QUERY FAILED")
           end
         end,
         timeout: :infinity
