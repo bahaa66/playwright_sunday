@@ -831,10 +831,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       IO.inspect(bulk_transactional_data.pg_event_list, label: "PG_EVENT_LIST")
 
-      events_temp_table_name = "events_" <> "#{Ecto.UUID.generate()}"
-
       events_sql = """
-      CREATE TEMP UNLOGGED TABLE #{events_temp_table_name} (
+      CREATE TEMP UNLOGGED TABLE temp_events(
         core_id uuid NOT NULL,
         occurred_at timestamp(0) NULL,
         risk_score int4 NULL,
@@ -843,11 +841,11 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         updated_at timestamp(0) NOT NULL,
         event_definition_hash_id uuid NULL
       );
-      COPY #{events_temp_table_name}(core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id)
+      COPY temp_events(core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id)
       FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01');
 
       INSERT INTO events(core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id)
-      SELECT * FROM #{events_temp_table_name}
+      SELECT core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id FROM temp_events
       ON CONFLICT (core_id)
       DO UPDATE SET
           occurred_at = EXCLUDED.occurred_at,
@@ -856,18 +854,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           updated_at = EXCLUDED.updated_at,
           event_definition_hash_id = EXCLUDED.event_definition_hash_id;
       """
-
-      # events_sql = """
-      #   COPY events(core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id)
-      #   FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01')
-      #   ON CONFLICT (core_id)
-      #   DO UPDATE SET
-      #     occurred_at = EXCLUDED.occurred_at,
-      #     risk_score = EXCLUDED.risk_score,
-      #     event_details = EXCLUDED.event_details,
-      #     updated_at = EXCLUDED.updated_at,
-      #     event_definition_hash_id = EXCLUDED.event_definition_hash_id;
-      # """
 
       events_stream = Ecto.Adapters.SQL.stream(Repo, events_sql)
 
