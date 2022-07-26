@@ -829,8 +829,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         label: "NOTIFICATIONS COUNT"
       )
 
-      IO.inspect(bulk_transactional_data.pg_event_list, label: "PG_EVENT_LIST")
-
       temp_events = """
         CREATE TEMP TABLE temp_events(
           core_id uuid NOT NULL,
@@ -860,16 +858,19 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           event_definition_hash_id = EXCLUDED.event_definition_hash_id;
       """
 
-      Repo.transaction(fn ->
-        Ecto.Adapters.SQL.query(Repo, temp_events, [])
+      Repo.transaction(
+        fn ->
+          Ecto.Adapters.SQL.query(Repo, temp_events, [])
 
-        Enum.into(
-          bulk_transactional_data.pg_event_list,
-          Ecto.Adapters.SQL.stream(Repo, copy_events)
-        )
+          Enum.into(
+            bulk_transactional_data.pg_event_list,
+            Ecto.Adapters.SQL.stream(Repo, copy_events)
+          )
 
-        Ecto.Adapters.SQL.query(Repo, upsert_events, [])
-      end)
+          Ecto.Adapters.SQL.query(Repo, upsert_events, [])
+        end,
+        timeout: :infinity
+      )
     rescue
       error ->
         CogyntLogger.error(

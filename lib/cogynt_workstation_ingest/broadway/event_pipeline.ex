@@ -30,7 +30,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
                batch_timeout: 5000,
-               concurrency: 10
+               concurrency: 1
              ]
            ],
            [
@@ -44,7 +44,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              default: [
                batch_size: Config.event_pipeline_batch_size(),
                batch_timeout: 5000,
-               concurrency: 10
+               concurrency: 1
              ]
            ],
            [
@@ -58,12 +58,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              default: [
                batch_size: Config.event_pipeline_batch_size(),
                batch_timeout: 5000,
-               concurrency: 10
+               concurrency: 1
              ],
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
                batch_timeout: 5000,
-               concurrency: 10
+               concurrency: 1
              ]
            ],
            [event_definition_hash_id: event_definition_hash_id, event_type: event_type, crud: nil]}
@@ -380,11 +380,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   @impl true
-  def handle_batch(:crud, messages, batch_info, context) do
+  def handle_batch(:crud, messages, _batch_info, context) do
     event_definition_hash_id = Keyword.get(context, :event_definition_hash_id, nil)
     event_type = Keyword.get(context, :event_type, nil)
 
-    IO.inspect(batch_info, label: "BATCH INFO", pretty: true)
+    IO.inspect(Enum.count(messages), label: "CRUD BATCH COUNT")
 
     # To track event_history we need to take all the actions that were
     # sent in the batch of events to handle_batch
@@ -397,6 +397,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     |> Enum.reduce([], fn {_core_id, core_id_records}, acc ->
       # We only need to process the last action that occurred for the
       # core_id within the batch of events that were sent to handle_batch
+      # ex: create, update, update, update, delete, create (only need the last create)
       last_crud_action_message = List.last(core_id_records)
 
       case last_crud_action_message.data.pipeline_state do

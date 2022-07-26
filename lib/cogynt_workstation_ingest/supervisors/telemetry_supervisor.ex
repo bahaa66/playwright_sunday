@@ -98,7 +98,11 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
         unit: {:native, :millisecond}
       ),
       summary(
-        "broadway.execute_batch_transaction.duration",
+        "broadway.execute_batch_transaction_success.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.execute_batch_transaction_failed.duration",
         unit: {:native, :millisecond}
       ),
       summary(
