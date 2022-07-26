@@ -834,6 +834,13 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       events_sql = """
         COPY events(core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id)
         FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01')
+        ON CONFLICT (core_id)
+        DO UPDATE SET
+          occurred_at = EXCLUDED.occurred_at,
+          risk_score = EXCLUDED.risk_score,
+          event_details = EXCLUDED.event_details,
+          updated_at = EXCLUDED.updated_at,
+          event_definition_hash_id = EXCLUDED.event_definition_hash_id;
       """
 
       events_stream = Ecto.Adapters.SQL.stream(Repo, events_sql)
