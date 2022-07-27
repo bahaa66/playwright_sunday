@@ -877,12 +877,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       """
 
       copy_event_links = """
-        COPY temp_event_links(link_core_id, entity_core_id, label, event_details, created_at, updated_at)
+        COPY temp_event_links(link_core_id, entity_core_id, label, created_at, updated_at)
         FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01');
       """
 
       upsert_event_links = """
-        INSERT INTO event_links(link_core_id, entity_core_id, label, event_details, created_at, updated_at)
+        INSERT INTO event_links(link_core_id, entity_core_id, label, created_at, updated_at)
         SELECT * FROM temp_event_links
         ON CONFLICT (link_core_id, entity_core_id)
         DO NOTHING;
