@@ -29,7 +29,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           {[
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: 180_000,
+               batch_timeout: 30000,
                concurrency: 10
              ]
            ],
@@ -43,7 +43,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           {[
              default: [
                batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: 180_000,
+               batch_timeout: 30000,
                concurrency: 10
              ]
            ],
@@ -57,12 +57,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           {[
              default: [
                batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: 180_000,
+               batch_timeout: 30000,
                concurrency: 10
              ],
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: 180_000,
+               batch_timeout: 30000,
                concurrency: 10
              ]
            ],
