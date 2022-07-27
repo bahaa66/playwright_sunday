@@ -132,19 +132,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       version = event[Config.version_key()]
       event_details = format_lexicon_data(event)
 
-      data =
-        Map.put(data, :pg_event_history, %{
-          id: Ecto.UUID.generate(),
-          core_id: core_id,
-          event_definition_hash_id: event_definition_hash_id,
-          crud: action,
-          risk_score: risk_score,
-          version: version,
-          event_details: event_details,
-          occurred_at: occurred_at,
-          published_at: published_at
-        })
-
       # Execute telemtry for metrics
       :telemetry.execute(
         [:broadway, :process_event_history],
@@ -152,7 +139,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         telemetry_metadata
       )
 
-      data
+      pg_event_history = [
+        "#{Ecto.UUID.generate()};#{core_id};#{event_definition_hash_id};#{action};#{risk_score};#{version};#{Jason.encode!(event_details)};#{occurred_at};#{published_at}\n"
+      ]
+
+      Map.put(data, :pg_event_history, pg_event_history)
     end
   end
 
@@ -350,7 +341,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   Takes all the messages that have gone through the processing steps in the pipeline up to the batch limit
   configured. Will execute one multi transaction to delete and upsert all objects
   """
-  def execute_batch_transaction(messages, event_type, pg_event_history \\ []) do
+  def execute_batch_transaction(messages, event_type) do
     # build transactional data
     default_map = %{
       pg_event_list: [],
@@ -358,6 +349,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       event_doc: [],
       pg_event_map: [],
       pg_event_links: [],
+      pg_event_history: [],
       delete_core_id: [],
       pg_notifications_delete: [],
       pg_event_links_delete: []
@@ -373,7 +365,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             :event_definition_hash_id,
             :retry_count,
             :pipeline_state,
-            :pg_event_history,
             :elastic_event_links
           ])
 
@@ -398,6 +389,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             :pg_event_links ->
               v1 ++ List.flatten(v2)
 
+            :pg_event_history ->
+              v1 ++ v2
+
             :delete_core_id ->
               v1 ++ [v2]
 
@@ -412,7 +406,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           end
         end)
       end)
-      |> Map.put(:pg_event_history, pg_event_history)
 
     case bulk_upsert_event_documents(bulk_transactional_data) do
       {:ok, :success} ->

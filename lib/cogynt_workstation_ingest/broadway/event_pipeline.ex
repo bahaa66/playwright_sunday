@@ -455,21 +455,21 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     # IO.inspect(batch_info.batch_key, label: "BATCH KEY")
 
     # Start timer for telemetry metrics
-    start = System.monotonic_time()
-    telemetry_metadata = %{}
+    # start = System.monotonic_time()
+    # telemetry_metadata = %{}
 
     # To track event_history we need to take all the actions that were
     # sent in the batch of events to handle_batch
     # we need to try and remove any duplicates for {version, crud, core_id} pairs
     # from the batch
-    pg_event_history = format_event_history_mesasges(messages)
+    # pg_event_history = format_event_history_mesasges(messages)
 
     # Execute telemtry for metrics
-    :telemetry.execute(
-      [:broadway, :event_processor_crud_process_event_history],
-      %{duration: System.monotonic_time() - start},
-      telemetry_metadata
-    )
+    # :telemetry.execute(
+    #   [:broadway, :event_processor_crud_process_event_history],
+    #   %{duration: System.monotonic_time() - start},
+    #   telemetry_metadata
+    # )
 
     crud_bulk_data =
       messages
@@ -530,7 +530,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         # end
       end)
 
-    EventProcessor.execute_batch_transaction(crud_bulk_data, event_type, pg_event_history)
+    EventProcessor.execute_batch_transaction(crud_bulk_data, event_type)
 
     incr_total_processed_message_count(event_definition_hash_id, Enum.count(messages))
     messages
@@ -715,27 +715,27 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     end
   end
 
-  defp format_event_history_mesasges(broadway_messages) do
-    broadway_messages
-    |> Enum.map(fn message -> message.data.pg_event_history end)
-    |> Enum.sort_by(& &1.published_at, {:desc, DateTime})
-    |> Enum.uniq_by(fn %{version: version, crud: crud, core_id: core_id} ->
-      {version, crud, core_id}
-    end)
-    |> Enum.reduce([], fn event_history, acc ->
-      event_details =
-        case String.valid?(event_history.event_details) do
-          true ->
-            event_history.event_details
+  # defp format_event_history_mesasges(broadway_messages) do
+  #   broadway_messages
+  #   |> Enum.map(fn message -> message.data.pg_event_history end)
+  #   |> Enum.sort_by(& &1.published_at, {:desc, DateTime})
+  #   |> Enum.uniq_by(fn %{version: version, crud: crud, core_id: core_id} ->
+  #     {version, crud, core_id}
+  #   end)
+  #   |> Enum.reduce([], fn event_history, acc ->
+  #     event_details =
+  #       case String.valid?(event_history.event_details) do
+  #         true ->
+  #           event_history.event_details
 
-          false ->
-            Jason.encode!(event_history.event_details)
-        end
+  #         false ->
+  #           Jason.encode!(event_history.event_details)
+  #       end
 
-      acc ++
-        [
-          "#{event_history.id};#{event_history.core_id};#{event_history.event_definition_hash_id};#{event_history.crud};#{event_history.risk_score};#{event_history.version};#{event_details};#{event_history.occurred_at};#{event_history.published_at}\n"
-        ]
-    end)
-  end
+  #     acc ++
+  #       [
+  #         "#{event_history.id};#{event_history.core_id};#{event_history.event_definition_hash_id};#{event_history.crud};#{event_history.risk_score};#{event_history.version};#{event_details};#{event_history.occurred_at};#{event_history.published_at}\n"
+  #       ]
+  #   end)
+  # end
 end
