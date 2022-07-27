@@ -850,7 +850,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       copy_events = """
         COPY temp_events(core_id, occurred_at, risk_score, event_details, created_at, updated_at, event_definition_hash_id)
-        FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01');
+        FROM STDIN (FORMAT csv, DELIMITER '\,', quote E'\x01');
       """
 
       upsert_events = """
@@ -882,7 +882,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       copy_event_links = """
         COPY temp_event_links(link_core_id, entity_core_id, label, created_at, updated_at)
-        FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01');
+        FROM STDIN (FORMAT csv, DELIMITER '\,', quote E'\x01');
       """
 
       upsert_event_links = """
@@ -913,7 +913,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       copy_event_history = """
         COPY temp_event_history(id, core_id, event_definition_hash_id, crud, risk_score, version, event_details, occurred_at, published_at)
-        FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01');
+        FROM STDIN (FORMAT csv, DELIMITER '\,', quote E'\x01');
       """
 
       upsert_event_history = """
@@ -949,7 +949,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       copy_notifications = """
         COPY temp_notifications(core_id, archived_at, priority, assigned_to, dismissed_at, notification_setting_id, tag_id, created_at, updated_at)
-        FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01');
+        FROM STDIN (FORMAT csv, DELIMITER '\,', quote E'\x01');
       """
 
       upsert_notifications = """
@@ -970,12 +970,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         DROP TABLE IF EXISTS temp_notifications;
       """
 
-      IO.inspect(bulk_transactional_data.pg_event_list,
-        label: " ************************ ",
-        pretty: true,
-        printable_limit: :infinity,
-        limit: :infinity
-      )
+      # IO.inspect(bulk_transactional_data.pg_event_list,
+      #   label: " ************************ ",
+      #   pretty: true,
+      #   printable_limit: :infinity,
+      #   limit: :infinity
+      # )
 
       Repo.transaction(
         fn ->
