@@ -89,7 +89,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
                connect_timeout: 30000
              ],
              fetch_config: [
-               max_bytes: 2_097_576
+               max_bytes: 3_146_576
              ]
            ]},
         concurrency: 1,
@@ -248,6 +248,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         event_type: _,
         crud: true
       ) do
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+
     data =
       case message.data.pipeline_state do
         :process_event ->
@@ -281,6 +285,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           |> EventProcessor.process_elasticsearch_documents()
           |> EventProcessor.process_notifications()
       end
+
+    # Execute telemtry for metrics
+    :telemetry.execute(
+      [:broadway, :event_processor_all_crud_processing_stages],
+      %{duration: System.monotonic_time() - start},
+      telemetry_metadata
+    )
 
     Map.put(message, :data, data)
     # |> Message.put_batch_key(event_definition_hash_id)
@@ -453,6 +464,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     # from the batch
     pg_event_history = format_event_history_mesasges(messages)
 
+    # Execute telemtry for metrics
+    :telemetry.execute(
+      [:broadway, :event_processor_crud_process_event_history],
+      %{duration: System.monotonic_time() - start},
+      telemetry_metadata
+    )
+
     crud_bulk_data =
       messages
       |> Enum.group_by(fn message -> message.data.core_id end)
@@ -511,13 +529,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         #     acc ++ [data]
         # end
       end)
-
-    # Execute telemtry for metrics
-    :telemetry.execute(
-      [:broadway, :event_processor_all_crud_processing_stages],
-      %{duration: System.monotonic_time() - start},
-      telemetry_metadata
-    )
 
     EventProcessor.execute_batch_transaction(crud_bulk_data, event_type, pg_event_history)
 

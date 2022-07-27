@@ -104,6 +104,10 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
         unit: {:native, :millisecond}
       ),
       summary(
+        "broadway.event_processor_crud_process_event_history.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
         "broadway.execute_batch_transaction_success.duration",
         unit: {:native, :millisecond}
       ),
