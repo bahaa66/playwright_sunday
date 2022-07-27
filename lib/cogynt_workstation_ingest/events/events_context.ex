@@ -970,6 +970,13 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         DROP TABLE IF EXISTS temp_notifications;
       """
 
+      IO.inspect(bulk_transactional_data.pg_event_list,
+        label: " ************************ ",
+        pretty: true,
+        printable_limit: :infinity,
+        limit: :infinity
+      )
+
       Repo.transaction(
         fn ->
           # Deletes

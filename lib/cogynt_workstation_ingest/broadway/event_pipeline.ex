@@ -452,24 +452,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     IO.puts("------------------------------------------------")
     IO.inspect(Enum.count(messages), label: "CRUD BATCH COUNT")
-    # IO.inspect(batch_info.batch_key, label: "BATCH KEY")
-
-    # Start timer for telemetry metrics
-    # start = System.monotonic_time()
-    # telemetry_metadata = %{}
-
-    # To track event_history we need to take all the actions that were
-    # sent in the batch of events to handle_batch
-    # we need to try and remove any duplicates for {version, crud, core_id} pairs
-    # from the batch
-    # pg_event_history = format_event_history_mesasges(messages)
-
-    # Execute telemtry for metrics
-    # :telemetry.execute(
-    #   [:broadway, :event_processor_crud_process_event_history],
-    #   %{duration: System.monotonic_time() - start},
-    #   telemetry_metadata
-    # )
 
     crud_bulk_data =
       messages
@@ -481,53 +463,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         last_crud_action_message = List.last(core_id_records)
 
         acc ++ [last_crud_action_message.data]
-
-        # case last_crud_action_message.data.pipeline_state do
-        #   :process_event ->
-        #     data =
-        #       last_crud_action_message.data
-        #       |> LinkEventProcessor.validate_link_event()
-        #       |> LinkEventProcessor.process_entities()
-        #       |> EventProcessor.process_elasticsearch_documents()
-        #       |> EventProcessor.process_notifications()
-
-        #     acc ++ [data]
-
-        #   :validate_link_event ->
-        #     data =
-        #       last_crud_action_message.data
-        #       |> LinkEventProcessor.process_entities()
-        #       |> EventProcessor.process_elasticsearch_documents()
-        #       |> EventProcessor.process_notifications()
-
-        #     acc ++ [data]
-
-        #   :process_entities ->
-        #     data =
-        #       last_crud_action_message.data
-        #       |> EventProcessor.process_elasticsearch_documents()
-        #       |> EventProcessor.process_notifications()
-
-        #     acc ++ [data]
-
-        #   :process_event_details_and_elasticsearch_docs ->
-        #     data =
-        #       last_crud_action_message.data
-        #       |> EventProcessor.process_notifications()
-
-        #     acc ++ [data]
-
-        #   _ ->
-        #     data =
-        #       last_crud_action_message.data
-        #       |> EventProcessor.process_event()
-        #       |> LinkEventProcessor.validate_link_event()
-        #       |> LinkEventProcessor.process_entities()
-        #       |> EventProcessor.process_elasticsearch_documents()
-        #       |> EventProcessor.process_notifications()
-
-        #     acc ++ [data]
-        # end
       end)
 
     EventProcessor.execute_batch_transaction(crud_bulk_data, event_type)
@@ -714,28 +649,4 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         {:error, :failed}
     end
   end
-
-  # defp format_event_history_mesasges(broadway_messages) do
-  #   broadway_messages
-  #   |> Enum.map(fn message -> message.data.pg_event_history end)
-  #   |> Enum.sort_by(& &1.published_at, {:desc, DateTime})
-  #   |> Enum.uniq_by(fn %{version: version, crud: crud, core_id: core_id} ->
-  #     {version, crud, core_id}
-  #   end)
-  #   |> Enum.reduce([], fn event_history, acc ->
-  #     event_details =
-  #       case String.valid?(event_history.event_details) do
-  #         true ->
-  #           event_history.event_details
-
-  #         false ->
-  #           Jason.encode!(event_history.event_details)
-  #       end
-
-  #     acc ++
-  #       [
-  #         "#{event_history.id};#{event_history.core_id};#{event_history.event_definition_hash_id};#{event_history.crud};#{event_history.risk_score};#{event_history.version};#{event_details};#{event_history.occurred_at};#{event_history.published_at}\n"
-  #       ]
-  #   end)
-  # end
 end
