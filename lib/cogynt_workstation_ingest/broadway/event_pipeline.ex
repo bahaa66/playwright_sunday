@@ -30,7 +30,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
                batch_timeout: 5000,
-               concurrency: 10
+               concurrency: 5
              ]
            ],
            [
@@ -44,7 +44,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              default: [
                batch_size: Config.event_pipeline_batch_size(),
                batch_timeout: 5000,
-               concurrency: 10
+               concurrency: 5
              ]
            ],
            [
@@ -58,12 +58,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              default: [
                batch_size: Config.event_pipeline_batch_size(),
                batch_timeout: 5000,
-               concurrency: 10
+               concurrency: 5
              ],
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
                batch_timeout: 5000,
-               concurrency: 10
+               concurrency: 5
              ]
            ],
            [event_definition_hash_id: event_definition_hash_id, event_type: event_type, crud: nil]}
@@ -264,6 +264,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         event_type: _,
         crud: false
       ) do
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+
     data =
       case message.data.pipeline_state do
         :process_event ->
@@ -297,6 +301,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           |> EventProcessor.process_notifications()
       end
 
+    # Execute telemtry for metrics
+    :telemetry.execute(
+      [:broadway, :event_processor_all_processing_stages],
+      %{duration: System.monotonic_time() - start},
+      telemetry_metadata
+    )
+
     Map.put(message, :data, data)
     # |> Message.put_batch_key(event_definition_hash_id)
     |> Message.put_batcher(:default)
@@ -312,6 +323,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         event_type: _,
         crud: nil
       ) do
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+
     message
     |> case do
       %Message{data: %{event: event}} ->
@@ -350,6 +365,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
                   |> EventProcessor.process_notifications()
               end
 
+            # Execute telemtry for metrics
+            :telemetry.execute(
+              [:broadway, :event_processor_all_processing_stages],
+              %{duration: System.monotonic_time() - start},
+              telemetry_metadata
+            )
+
             Map.put(message, :data, data)
             # |> Message.put_batch_key(event_definition_hash_id)
             |> Message.put_batcher(:default)
@@ -387,68 +409,81 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     IO.inspect(Enum.count(messages), label: "CRUD BATCH COUNT")
     IO.inspect(batch_info.batch_key, label: "BATCH KEY")
 
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+
     # To track event_history we need to take all the actions that were
     # sent in the batch of events to handle_batch
     # we need to try and remove any duplicates for {version, crud, core_id} pairs
     # from the batch
     pg_event_history = format_event_history_mesasges(messages)
 
-    messages
-    |> Enum.group_by(fn message -> message.data.core_id end)
-    |> Enum.reduce([], fn {_core_id, core_id_records}, acc ->
-      # We only need to process the last action that occurred for the
-      # core_id within the batch of events that were sent to handle_batch
-      # ex: create, update, update, update, delete, create (only need the last create)
-      last_crud_action_message = List.last(core_id_records)
+    crud_bulk_data =
+      messages
+      |> Enum.group_by(fn message -> message.data.core_id end)
+      |> Enum.reduce([], fn {_core_id, core_id_records}, acc ->
+        # We only need to process the last action that occurred for the
+        # core_id within the batch of events that were sent to handle_batch
+        # ex: create, update, update, update, delete, create (only need the last create)
+        last_crud_action_message = List.last(core_id_records)
 
-      case last_crud_action_message.data.pipeline_state do
-        :process_event ->
-          data =
-            last_crud_action_message.data
-            |> LinkEventProcessor.validate_link_event()
-            |> LinkEventProcessor.process_entities()
-            |> EventProcessor.process_elasticsearch_documents()
-            |> EventProcessor.process_notifications()
+        case last_crud_action_message.data.pipeline_state do
+          :process_event ->
+            data =
+              last_crud_action_message.data
+              |> LinkEventProcessor.validate_link_event()
+              |> LinkEventProcessor.process_entities()
+              |> EventProcessor.process_elasticsearch_documents()
+              |> EventProcessor.process_notifications()
 
-          acc ++ [data]
+            acc ++ [data]
 
-        :validate_link_event ->
-          data =
-            last_crud_action_message.data
-            |> LinkEventProcessor.process_entities()
-            |> EventProcessor.process_elasticsearch_documents()
-            |> EventProcessor.process_notifications()
+          :validate_link_event ->
+            data =
+              last_crud_action_message.data
+              |> LinkEventProcessor.process_entities()
+              |> EventProcessor.process_elasticsearch_documents()
+              |> EventProcessor.process_notifications()
 
-          acc ++ [data]
+            acc ++ [data]
 
-        :process_entities ->
-          data =
-            last_crud_action_message.data
-            |> EventProcessor.process_elasticsearch_documents()
-            |> EventProcessor.process_notifications()
+          :process_entities ->
+            data =
+              last_crud_action_message.data
+              |> EventProcessor.process_elasticsearch_documents()
+              |> EventProcessor.process_notifications()
 
-          acc ++ [data]
+            acc ++ [data]
 
-        :process_event_details_and_elasticsearch_docs ->
-          data =
-            last_crud_action_message.data
-            |> EventProcessor.process_notifications()
+          :process_event_details_and_elasticsearch_docs ->
+            data =
+              last_crud_action_message.data
+              |> EventProcessor.process_notifications()
 
-          acc ++ [data]
+            acc ++ [data]
 
-        _ ->
-          data =
-            last_crud_action_message.data
-            |> EventProcessor.process_event()
-            |> LinkEventProcessor.validate_link_event()
-            |> LinkEventProcessor.process_entities()
-            |> EventProcessor.process_elasticsearch_documents()
-            |> EventProcessor.process_notifications()
+          _ ->
+            data =
+              last_crud_action_message.data
+              |> EventProcessor.process_event()
+              |> LinkEventProcessor.validate_link_event()
+              |> LinkEventProcessor.process_entities()
+              |> EventProcessor.process_elasticsearch_documents()
+              |> EventProcessor.process_notifications()
 
-          acc ++ [data]
-      end
-    end)
-    |> EventProcessor.execute_batch_transaction(event_type, pg_event_history)
+            acc ++ [data]
+        end
+      end)
+
+    # Execute telemtry for metrics
+    :telemetry.execute(
+      [:broadway, :event_processor_all_crud_processing_stages],
+      %{duration: System.monotonic_time() - start},
+      telemetry_metadata
+    )
+
+    EventProcessor.execute_batch_transaction(crud_bulk_data, event_type, pg_event_history)
 
     incr_total_processed_message_count(event_definition_hash_id, Enum.count(messages))
     messages

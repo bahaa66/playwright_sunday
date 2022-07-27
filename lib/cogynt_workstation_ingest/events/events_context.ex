@@ -831,6 +831,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       # temp_events_table_name = "temp_events_" <> "#{Ecto.UUID.autogenerate}" String. underscore
 
+      ## Events psql statements
       temp_events = """
         CREATE TEMP TABLE temp_events (
           core_id uuid NOT NULL,
@@ -864,15 +865,112 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         DROP TABLE IF EXISTS temp_events;
       """
 
+      ## Event Links psql statements
+      temp_event_links = """
+        CREATE TEMP TABLE temp_event_links (
+          link_core_id uuid NOT NULL,
+          entity_core_id uuid NOT NULL,
+          label varchar(255) NOT NULL,
+          created_at timestamp(0) NOT NULL DEFAULT now(),
+          updated_at timestamp(0) NOT NULL DEFAULT now()
+        );
+      """
+
+      copy_event_links = """
+        COPY temp_event_links(link_core_id, entity_core_id, label, event_details, created_at, updated_at)
+        FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01');
+      """
+
+      upsert_event_links = """
+        INSERT INTO event_links(link_core_id, entity_core_id, label, event_details, created_at, updated_at)
+        SELECT * FROM temp_event_links
+        ON CONFLICT (link_core_id, entity_core_id)
+        DO NOTHING;
+      """
+
+      drop_temp_event_links = """
+        DROP TABLE IF EXISTS temp_event_links;
+      """
+
+      ## Event History psql statements
+      temp_event_history = """
+        CREATE TEMP TABLE temp_event_history (
+          id uuid NOT NULL,
+          core_id uuid NOT NULL,
+          event_definition_hash_id uuid NOT NULL,
+          crud varchar(255) NOT NULL,
+          risk_score int4 NULL,
+          version int4 NOT NULL,
+          event_details jsonb NOT NULL DEFAULT '{}'::jsonb,
+          occurred_at timestamp(0) NULL,
+          published_at timestamp(0) NULL
+        );
+      """
+
+      copy_event_history = """
+        COPY temp_event_history(id, core_id, event_definition_hash_id, crud, risk_score, version, event_details, occurred_at, published_at)
+        FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01');
+      """
+
+      upsert_event_history = """
+        INSERT INTO event_history(id, core_id, event_definition_hash_id, crud, risk_score, version, event_details, occurred_at, published_at)
+        SELECT id, core_id, event_definition_hash_id, crud, risk_score, version, event_details, occurred_at, published_at FROM temp_event_history
+        ON CONFLICT (core_id, version, crud)
+        DO UPDATE SET
+          event_definition_hash_id = EXCLUDED.event_definition_hash_id,
+          risk_score = EXCLUDED.risk_score,
+          event_details = EXCLUDED.event_details,
+          occurred_at = EXCLUDED.occurred_at,
+          published_at = EXCLUDED.published_at;
+      """
+
+      drop_temp_event_history = """
+        DROP TABLE IF EXISTS temp_event_history;
+      """
+
+      ## Notification psql statements
+      temp_notifications = """
+        CREATE TEMP TABLE temp_notifications (
+          core_id uuid NOT NULL,
+          archived_at timestamp(0) NULL,
+          priority int4 NULL DEFAULT 3,
+          assigned_to uuid NULL,
+          dismissed_at timestamp(0) NULL,
+          notification_setting_id uuid NULL,
+          tag_id uuid NOT NULL,
+          created_at timestamp(0) NOT NULL,
+          updated_at timestamp(0) NOT NULL
+        );
+      """
+
+      copy_notifications = """
+        COPY temp_notifications(core_id, archived_at, priority, assigned_to, dismissed_at, notification_setting_id, tag_id, created_at, updated_at)
+        FROM STDIN (FORMAT csv, DELIMITER ';', quote E'\x01');
+      """
+
+      upsert_notifications = """
+        INSERT INTO notifications(core_id, archived_at, priority, assigned_to, dismissed_at, notification_setting_id, tag_id, created_at, updated_at)
+        SELECT core_id, archived_at, priority, assigned_to, dismissed_at, notification_setting_id, tag_id, created_at, updated_at FROM temp_notifications
+        ON CONFLICT (core_id, notification_setting_id)
+        DO UPDATE SET
+          archived_at = EXCLUDED.archived_at,
+          priority = EXCLUDED.priority,
+          assigned_to = EXCLUDED.assigned_to,
+          dismissed_at = EXCLUDED.dismissed_at,
+          tag_id = EXCLUDED.tag_id,
+          updated_at = EXCLUDED.updated_at,
+          notification_setting_id = EXCLUDED.notification_setting_id;
+      """
+
+      drop_temp_notifications = """
+        DROP TABLE IF EXISTS temp_notifications;
+      """
+
       Repo.transaction(
         fn ->
-          case Ecto.Adapters.SQL.query(Repo, temp_events, []) do
-            {:ok, result} ->
-              {:ok, result}
-
-            {:error, error} ->
-              IO.inspect(error, label: "CREATE TEMP EVENTS QUERY FAILED")
-          end
+          # Deletes
+          # UpsertEvents
+          Ecto.Adapters.SQL.query(Repo, temp_events, [])
 
           Enum.into(
             bulk_transactional_data.pg_event_list,
@@ -887,13 +985,58 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
               IO.inspect(error, label: "INSERT EVENTS QUERY FAILED")
           end
 
-          case Ecto.Adapters.SQL.query(Repo, drop_temp_events, []) do
+          Ecto.Adapters.SQL.query(Repo, drop_temp_events, [])
+          # UpsertEventLinks
+          Ecto.Adapters.SQL.query(Repo, temp_event_links, [])
+
+          Enum.into(
+            bulk_transactional_data.pg_event_links,
+            Ecto.Adapters.SQL.stream(Repo, copy_event_links)
+          )
+
+          case Ecto.Adapters.SQL.query(Repo, upsert_event_links, []) do
             {:ok, result} ->
               {:ok, result}
 
             {:error, error} ->
-              IO.inspect(error, label: "DROP TEMP EVENTS QUERY FAILED")
+              IO.inspect(error, label: "INSERT EVENT LINKS QUERY FAILED")
           end
+
+          Ecto.Adapters.SQL.query(Repo, drop_temp_event_links, [])
+          # UpsertEventHistory
+          Ecto.Adapters.SQL.query(Repo, temp_event_history, [])
+
+          Enum.into(
+            bulk_transactional_data.pg_event_history,
+            Ecto.Adapters.SQL.stream(Repo, copy_event_history)
+          )
+
+          case Ecto.Adapters.SQL.query(Repo, upsert_event_history, []) do
+            {:ok, result} ->
+              {:ok, result}
+
+            {:error, error} ->
+              IO.inspect(error, label: "INSERT EVENT HISTORY QUERY FAILED")
+          end
+
+          Ecto.Adapters.SQL.query(Repo, drop_temp_event_history, [])
+          # UpsertNotifications
+          Ecto.Adapters.SQL.query(Repo, temp_notifications, [])
+
+          Enum.into(
+            bulk_transactional_data.pg_notifications,
+            Ecto.Adapters.SQL.stream(Repo, copy_notifications)
+          )
+
+          case Ecto.Adapters.SQL.query(Repo, upsert_notifications, []) do
+            {:ok, result} ->
+              {:ok, result}
+
+            {:error, error} ->
+              IO.inspect(error, label: "INSERT NOTIFICATIONS QUERY FAILED")
+          end
+
+          Ecto.Adapters.SQL.query(Repo, drop_temp_notifications, [])
         end,
         timeout: :infinity
       )

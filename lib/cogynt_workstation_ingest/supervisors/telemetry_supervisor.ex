@@ -73,13 +73,11 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
       # Broadway Metrics
       summary(
         "broadway.processor.message.stop.duration",
-        unit: {:native, :millisecond},
-        tags: [:name]
+        unit: {:native, :millisecond}
       ),
       summary(
         "broadway.batch_processor.stop.duration",
-        unit: {:native, :millisecond},
-        tags: [:name]
+        unit: {:native, :millisecond}
       ),
       summary(
         "broadway.process_event.duration",
@@ -95,6 +93,14 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
       ),
       summary(
         "broadway.process_notifications.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.event_processor_all_crud_processing_stages.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.event_processor_all_processing_stages.duration",
         unit: {:native, :millisecond}
       ),
       summary(
