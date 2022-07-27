@@ -21,6 +21,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
     EventDetailTemplateGroupItem
   }
 
+  alias Models.Notifications.Notification
+
   def run_multi_transaction(multi) do
     Repo.transaction(multi)
   end
@@ -817,6 +819,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           bulk_transactional_data.delete_core_id ++ bulk_transactional_data.pg_event_links_delete
         )
 
+      remove_event_core_ids = bulk_transactional_data.delete_core_id
+
       IO.inspect(Enum.count(bulk_transactional_data.pg_event_list), label: "EVENT COUNT")
 
       IO.inspect(Enum.count(bulk_transactional_data.pg_event_history),
@@ -829,7 +833,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         label: "NOTIFICATIONS COUNT"
       )
 
-      # temp_events_table_name = "temp_events_" <> "#{Ecto.UUID.autogenerate}" String. underscore
+      IO.puts("------------------------------------------------")
 
       ## Events psql statements
       temp_events = """
@@ -969,6 +973,18 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       Repo.transaction(
         fn ->
           # Deletes
+          from(n in Notification, where: n.core_id in ^remove_notification_core_ids)
+          |> Repo.delete_all()
+
+          from(el in EventLink,
+            where:
+              el.entity_core_id in ^remove_event_link_core_ids or
+                el.link_core_id in ^remove_event_link_core_ids
+          )
+          |> Repo.delete_all()
+
+          from(e in Event, where: e.core_id in ^remove_event_core_ids) |> Repo.delete_all()
+
           # UpsertEvents
           Ecto.Adapters.SQL.query(Repo, temp_events, [])
 

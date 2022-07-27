@@ -29,8 +29,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           {[
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: 5000,
-               concurrency: 5
+               batch_timeout: 180_000,
+               concurrency: 10
              ]
            ],
            [
@@ -43,8 +43,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           {[
              default: [
                batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: 5000,
-               concurrency: 5
+               batch_timeout: 180_000,
+               concurrency: 10
              ]
            ],
            [
@@ -57,13 +57,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           {[
              default: [
                batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: 5000,
-               concurrency: 5
+               batch_timeout: 180_000,
+               concurrency: 10
              ],
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: 5000,
-               concurrency: 5
+               batch_timeout: 180_000,
+               concurrency: 10
              ]
            ],
            [event_definition_hash_id: event_definition_hash_id, event_type: event_type, crud: nil]}
@@ -402,12 +402,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   @impl true
-  def handle_batch(:crud, messages, batch_info, context) do
+  def handle_batch(:crud, messages, _batch_info, context) do
     event_definition_hash_id = Keyword.get(context, :event_definition_hash_id, nil)
     event_type = Keyword.get(context, :event_type, nil)
 
+    IO.puts("------------------------------------------------")
     IO.inspect(Enum.count(messages), label: "CRUD BATCH COUNT")
-    IO.inspect(batch_info.batch_key, label: "BATCH KEY")
+    # IO.inspect(batch_info.batch_key, label: "BATCH KEY")
 
     # Start timer for telemetry metrics
     start = System.monotonic_time()
