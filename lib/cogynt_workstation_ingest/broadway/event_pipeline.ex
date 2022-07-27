@@ -246,8 +246,38 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         crud: true
       ) do
     data =
-      message.data
-      |> EventProcessor.process_event_history()
+      case message.data.pipeline_state do
+        :process_event ->
+          message.data
+          |> LinkEventProcessor.validate_link_event()
+          |> LinkEventProcessor.process_entities()
+          |> EventProcessor.process_elasticsearch_documents()
+          |> EventProcessor.process_notifications()
+
+        :validate_link_event ->
+          message.data
+          |> LinkEventProcessor.process_entities()
+          |> EventProcessor.process_elasticsearch_documents()
+          |> EventProcessor.process_notifications()
+
+        :process_entities ->
+          message.data
+          |> EventProcessor.process_elasticsearch_documents()
+          |> EventProcessor.process_notifications()
+
+        :process_event_details_and_elasticsearch_docs ->
+          message.data
+          |> EventProcessor.process_notifications()
+
+        _ ->
+          message.data
+          |> EventProcessor.process_event_history()
+          |> EventProcessor.process_event()
+          |> LinkEventProcessor.validate_link_event()
+          |> LinkEventProcessor.process_entities()
+          |> EventProcessor.process_elasticsearch_documents()
+          |> EventProcessor.process_notifications()
+      end
 
     Map.put(message, :data, data)
     # |> Message.put_batch_key(event_definition_hash_id)
@@ -429,52 +459,54 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         # ex: create, update, update, update, delete, create (only need the last create)
         last_crud_action_message = List.last(core_id_records)
 
-        case last_crud_action_message.data.pipeline_state do
-          :process_event ->
-            data =
-              last_crud_action_message.data
-              |> LinkEventProcessor.validate_link_event()
-              |> LinkEventProcessor.process_entities()
-              |> EventProcessor.process_elasticsearch_documents()
-              |> EventProcessor.process_notifications()
+        acc ++ [last_crud_action_message.data]
 
-            acc ++ [data]
+        # case last_crud_action_message.data.pipeline_state do
+        #   :process_event ->
+        #     data =
+        #       last_crud_action_message.data
+        #       |> LinkEventProcessor.validate_link_event()
+        #       |> LinkEventProcessor.process_entities()
+        #       |> EventProcessor.process_elasticsearch_documents()
+        #       |> EventProcessor.process_notifications()
 
-          :validate_link_event ->
-            data =
-              last_crud_action_message.data
-              |> LinkEventProcessor.process_entities()
-              |> EventProcessor.process_elasticsearch_documents()
-              |> EventProcessor.process_notifications()
+        #     acc ++ [data]
 
-            acc ++ [data]
+        #   :validate_link_event ->
+        #     data =
+        #       last_crud_action_message.data
+        #       |> LinkEventProcessor.process_entities()
+        #       |> EventProcessor.process_elasticsearch_documents()
+        #       |> EventProcessor.process_notifications()
 
-          :process_entities ->
-            data =
-              last_crud_action_message.data
-              |> EventProcessor.process_elasticsearch_documents()
-              |> EventProcessor.process_notifications()
+        #     acc ++ [data]
 
-            acc ++ [data]
+        #   :process_entities ->
+        #     data =
+        #       last_crud_action_message.data
+        #       |> EventProcessor.process_elasticsearch_documents()
+        #       |> EventProcessor.process_notifications()
 
-          :process_event_details_and_elasticsearch_docs ->
-            data =
-              last_crud_action_message.data
-              |> EventProcessor.process_notifications()
+        #     acc ++ [data]
 
-            acc ++ [data]
+        #   :process_event_details_and_elasticsearch_docs ->
+        #     data =
+        #       last_crud_action_message.data
+        #       |> EventProcessor.process_notifications()
 
-          _ ->
-            data =
-              last_crud_action_message.data
-              |> EventProcessor.process_event()
-              |> LinkEventProcessor.validate_link_event()
-              |> LinkEventProcessor.process_entities()
-              |> EventProcessor.process_elasticsearch_documents()
-              |> EventProcessor.process_notifications()
+        #     acc ++ [data]
 
-            acc ++ [data]
-        end
+        #   _ ->
+        #     data =
+        #       last_crud_action_message.data
+        #       |> EventProcessor.process_event()
+        #       |> LinkEventProcessor.validate_link_event()
+        #       |> LinkEventProcessor.process_entities()
+        #       |> EventProcessor.process_elasticsearch_documents()
+        #       |> EventProcessor.process_notifications()
+
+        #     acc ++ [data]
+        # end
       end)
 
     # Execute telemtry for metrics

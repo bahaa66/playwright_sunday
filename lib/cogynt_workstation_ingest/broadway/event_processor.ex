@@ -270,87 +270,79 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     cond do
       action == Config.crud_delete_value() ->
-        # Execute telemtry for metrics
-        :telemetry.execute(
-          [:broadway, :process_notifications],
-          %{duration: System.monotonic_time() - start},
-          telemetry_metadata
-        )
-
-        data
+        Map.put(data, :pipeline_state, :process_notifications)
 
       true ->
         # Perf impr to check first if any NS exist before running through logic.
-        pg_notifications =
-          NotificationsContext.fetch_valid_notification_settings(
-            %{
-              event_definition_hash_id: event_definition.id,
-              active: true
-            },
-            pg_event_map.risk_score,
-            event_definition
-          )
-          |> Enum.reduce([], fn ns, acc ->
-            now = DateTime.truncate(DateTime.utc_now(), :second)
+        case NotificationsContext.query_notification_settings(%{
+               filter: %{
+                 event_definition_hash_id: event_definition.id
+               }
+             }) do
+          [] ->
+            # Execute telemtry for metrics
+            :telemetry.execute(
+              [:broadway, :process_notifications],
+              %{duration: System.monotonic_time() - start},
+              telemetry_metadata
+            )
 
-            acc ++
-              [
-                "#{core_id};#{nil};#{@defaults.notification_priority};#{ns.assigned_to};#{nil};#{ns.id};#{ns.tag_id};#{now};#{now}\n"
-              ]
+            Map.put(data, :pipeline_state, :process_notifications)
 
-            # acc ++
-            #   [
-            #     %{
-            #       core_id: core_id,
-            #       archived_at: nil,
-            #       priority: @defaults.notification_priority,
-            #       assigned_to: ns.assigned_to,
-            #       dismissed_at: nil,
-            #       notification_setting_id: ns.id,
-            #       tag_id: ns.tag_id,
-            #       created_at: now,
-            #       updated_at: now
-            #     }
-            #   ]
-          end)
+          _ ->
+            pg_notifications =
+              NotificationsContext.fetch_valid_notification_settings(
+                %{
+                  event_definition_hash_id: event_definition.id,
+                  active: true
+                },
+                pg_event_map.risk_score,
+                event_definition
+              )
+              |> Enum.reduce([], fn ns, acc ->
+                now = DateTime.truncate(DateTime.utc_now(), :second)
 
-        invalid_notification_settings =
-          NotificationsContext.fetch_invalid_notification_settings(
-            %{
-              event_definition_hash_id: event_definition.id,
-              active: true
-            },
-            pg_event_map.risk_score,
-            event_definition
-          )
+                acc ++
+                  [
+                    "#{core_id};#{nil};#{@defaults.notification_priority};#{ns.assigned_to};#{nil};#{ns.id};#{ns.tag_id};#{now};#{now}\n"
+                  ]
+              end)
 
-        pg_notifications_delete =
-          if Enum.empty?(invalid_notification_settings) do
-            []
-          else
-            NotificationsContext.query_notifications(%{
-              filter: %{
-                notification_setting_ids:
-                  Enum.map(invalid_notification_settings, fn invalid_ns -> invalid_ns.id end),
-                core_id: core_id
-              }
-            })
-            |> Enum.map(fn notifications -> notifications.core_id end)
-          end
+            invalid_notification_settings =
+              NotificationsContext.fetch_invalid_notification_settings(
+                %{
+                  event_definition_hash_id: event_definition.id,
+                  active: true
+                },
+                pg_event_map.risk_score,
+                event_definition
+              )
 
-        data =
-          Map.put(data, :pg_notifications, pg_notifications)
-          |> Map.put(:pg_notifications_delete, pg_notifications_delete)
-          |> Map.put(:pipeline_state, :process_notifications)
+            pg_notifications_delete =
+              if Enum.empty?(invalid_notification_settings) do
+                []
+              else
+                NotificationsContext.query_notifications(%{
+                  filter: %{
+                    notification_setting_ids:
+                      Enum.map(invalid_notification_settings, fn invalid_ns -> invalid_ns.id end),
+                    core_id: core_id
+                  }
+                })
+                |> Enum.map(fn notifications -> notifications.core_id end)
+              end
 
-        # Execute telemtry for metrics
-        :telemetry.execute(
-          [:broadway, :process_notifications],
-          %{duration: System.monotonic_time() - start},
-          telemetry_metadata
-        )
+            # Execute telemtry for metrics
+            :telemetry.execute(
+              [:broadway, :process_notifications],
+              %{duration: System.monotonic_time() - start},
+              telemetry_metadata
+            )
 
-        data
+            Map.put(data, :pg_notifications, pg_notifications)
+            |> Map.put(:pg_notifications_delete, pg_notifications_delete)
+            |> Map.put(:pipeline_state, :process_notifications)
+        end
     end
   end
 

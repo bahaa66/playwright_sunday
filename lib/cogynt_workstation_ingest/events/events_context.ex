@@ -973,17 +973,23 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       Repo.transaction(
         fn ->
           # Deletes
-          from(n in Notification, where: n.core_id in ^remove_notification_core_ids)
-          |> Repo.delete_all()
+          if !Enum.empty?(remove_notification_core_ids) do
+            from(n in Notification, where: n.core_id in ^remove_notification_core_ids)
+            |> Repo.delete_all()
+          end
 
-          from(el in EventLink,
-            where:
-              el.entity_core_id in ^remove_event_link_core_ids or
-                el.link_core_id in ^remove_event_link_core_ids
-          )
-          |> Repo.delete_all()
+          if !Enum.empty?(remove_event_link_core_ids) do
+            from(el in EventLink,
+              where:
+                el.entity_core_id in ^remove_event_link_core_ids or
+                  el.link_core_id in ^remove_event_link_core_ids
+            )
+            |> Repo.delete_all()
+          end
 
-          from(e in Event, where: e.core_id in ^remove_event_core_ids) |> Repo.delete_all()
+          if !Enum.empty?(remove_event_core_ids) do
+            from(e in Event, where: e.core_id in ^remove_event_core_ids) |> Repo.delete_all()
+          end
 
           # UpsertEvents
           Ecto.Adapters.SQL.query(Repo, temp_events, [])
