@@ -977,250 +977,100 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       start = System.monotonic_time()
       telemetry_metadata = %{}
 
-      multi = Multi.new()
+      case Repo.transaction(
+             fn ->
+               # Deletes
+               if !Enum.empty?(remove_notification_core_ids) do
+                 from(n in Notification, where: n.core_id in ^remove_notification_core_ids)
+                 |> Repo.delete_all()
+               end
 
-      multi =
-        if !Enum.empty?(remove_notification_core_ids) do
-          Multi.delete_all(
-            multi,
-            :delete_notifications,
-            from(n in Notification, where: n.core_id in ^remove_notification_core_ids)
-          )
-        else
-          multi
-        end
+               if !Enum.empty?(remove_event_link_core_ids) do
+                 from(el in EventLink,
+                   where:
+                     el.entity_core_id in ^remove_event_link_core_ids or
+                       el.link_core_id in ^remove_event_link_core_ids
+                 )
+                 |> Repo.delete_all()
+               end
 
-      multi =
-        if !Enum.empty?(remove_event_link_core_ids) do
-          Multi.delete_all(
-            multi,
-            :delete_event_links,
-            from(el in EventLink,
-              where:
-                el.entity_core_id in ^remove_event_link_core_ids or
-                  el.link_core_id in ^remove_event_link_core_ids
-            )
-          )
-        else
-          multi
-        end
+               if !Enum.empty?(remove_event_core_ids) do
+                 from(e in Event, where: e.core_id in ^remove_event_core_ids) |> Repo.delete_all()
+               end
 
-      multi =
-        if !Enum.empty?(remove_event_core_ids) do
-          Multi.delete_all(
-            multi,
-            :delete_events,
-            from(e in Event, where: e.core_id in ^remove_event_core_ids)
-          )
-        else
-          multi
-        end
+               # UpsertEvents
+               Repo.query(temp_events, [])
 
-      multi =
-        multi
-        |> Multi.run(:create_temp_events_table, fn _, _ ->
-          Repo.query(temp_events, [])
-        end)
-        |> Multi.run(:copy_temp_events, fn _, _ ->
-          Enum.into(
-            bulk_transactional_data.pg_event_list,
-            Ecto.Adapters.SQL.stream(Repo, copy_events)
-          )
-          |> Enum.to_list()
-        end)
-        |> Multi.run(:upsert_events, fn _, _ ->
-          Repo.query(upsert_events, [])
-        end)
-        |> Multi.run(:drop_temp_events, fn _, _ ->
-          Repo.query(drop_temp_events, [])
-        end)
+               Enum.into(
+                 bulk_transactional_data.pg_event_list,
+                 Ecto.Adapters.SQL.stream(Repo, copy_events)
+               )
 
-      multi =
-        if !Enum.empty?(bulk_transactional_data.pg_event_links) do
-          multi
-          |> Multi.run(:create_temp_event_links, fn _, _ ->
-            Repo.query(temp_event_links, [])
-          end)
-          |> Multi.run(:copy_temp_event_links, fn _, _ ->
-            Enum.into(
-              bulk_transactional_data.pg_event_links,
-              Ecto.Adapters.SQL.stream(Repo, copy_event_links)
-            )
-            |> Enum.to_list()
-          end)
-          |> Multi.run(:upsert_event_links, fn _, _ ->
-            Repo.query(upsert_event_links, [])
-          end)
-          |> Multi.run(:drop_temp_event_links, fn _, _ ->
-            Repo.query(drop_temp_event_links, [])
-          end)
-        else
-          multi
-        end
+               Repo.query(Repo, upsert_events, [])
 
-      multi =
-        if !Enum.empty?(bulk_transactional_data.pg_event_history) do
-          multi
-          |> Multi.run(:create_temp_event_history, fn _, _ ->
-            Repo.query(temp_event_history, [])
-          end)
-          |> Multi.run(:copy_temp_event_history, fn _, _ ->
-            Enum.into(
-              bulk_transactional_data.pg_event_history,
-              Ecto.Adapters.SQL.stream(Repo, copy_event_history)
-            )
-            |> Enum.to_list()
-          end)
-          |> Multi.run(:upsert_event_history, fn _, _ ->
-            Repo.query(upsert_event_history, [])
-          end)
-          |> Multi.run(:drop_temp_event_history, fn _, _ ->
-            Repo.query(drop_temp_event_history, [])
-          end)
-        else
-          multi
-        end
+               Repo.query(drop_temp_events, [])
+               # UpsertEventLinks
+               if !Enum.empty?(bulk_transactional_data.pg_event_links) do
+                 Repo.query(temp_event_links, [])
 
-      multi =
-        if !Enum.empty?(bulk_transactional_data.pg_notifications) do
-          multi
-          |> Multi.run(:create_temp_notifications, fn _, _ ->
-            Repo.query(temp_notifications, [])
-          end)
-          |> Multi.run(:copy_temp_notifications, fn _, _ ->
-            Enum.into(
-              bulk_transactional_data.pg_notifications,
-              Ecto.Adapters.SQL.stream(Repo, copy_notifications)
-            )
-            |> Enum.to_list()
-          end)
-          |> Multi.run(:upsert_notifications, fn _, _ ->
-            Repo.query(upsert_notifications, [])
-          end)
-          |> Multi.run(:drop_temp_notifications, fn _, _ ->
-            Repo.query(drop_temp_notifications, [])
-          end)
-        else
-          multi
-        end
+                 Enum.into(
+                   bulk_transactional_data.pg_event_links,
+                   Ecto.Adapters.SQL.stream(Repo, copy_event_links)
+                 )
 
-      multi
-      |> Repo.transaction()
-      |> case do
+                 Repo.query(upsert_event_links, [])
+
+                 Repo.query(drop_temp_event_links, [])
+               end
+
+               # UpsertEventHistory
+               if !Enum.empty?(bulk_transactional_data.pg_event_history) do
+                 Repo.query(temp_event_history, [])
+
+                 Enum.into(
+                   bulk_transactional_data.pg_event_history,
+                   Ecto.Adapters.SQL.stream(Repo, copy_event_history)
+                 )
+
+                 Repo.query(upsert_event_history, [])
+
+                 Repo.query(drop_temp_event_history, [])
+               end
+
+               # UpsertNotifications
+               if !Enum.empty?(bulk_transactional_data.pg_notifications) do
+                 Repo.query(temp_notifications, [])
+
+                 Enum.into(
+                   bulk_transactional_data.pg_notifications,
+                   Ecto.Adapters.SQL.stream(Repo, copy_notifications)
+                 )
+
+                 Repo.query(upsert_notifications, [])
+
+                 Repo.query(drop_temp_notifications, [])
+               end
+             end,
+             timeout: :infinity
+           ) do
         {:ok, result} ->
-          # Execute telemtry for metrics
           :telemetry.execute(
             [:broadway, :execute_batch_transaction_success],
             %{duration: System.monotonic_time() - start},
             telemetry_metadata
           )
 
-          IO.inspect(result, label: "Transaction Result")
           {:ok, result}
 
-        {:error, _, _, _} ->
-          # Execute telemtry for metrics
+        {:error, error} ->
           :telemetry.execute(
             [:broadway, :execute_batch_transaction_failed],
             %{duration: System.monotonic_time() - start},
             telemetry_metadata
           )
 
-          {:error, :failed}
+          {:error, error}
       end
-
-      # Repo.transaction(
-      #   fn ->
-      #     # Deletes
-      #     if !Enum.empty?(remove_notification_core_ids) do
-      #       from(n in Notification, where: n.core_id in ^remove_notification_core_ids)
-      #       |> Repo.delete_all()
-      #     end
-
-      #     if !Enum.empty?(remove_event_link_core_ids) do
-      #       from(el in EventLink,
-      #         where:
-      #           el.entity_core_id in ^remove_event_link_core_ids or
-      #             el.link_core_id in ^remove_event_link_core_ids
-      #       )
-      #       |> Repo.delete_all()
-      #     end
-
-      #     if !Enum.empty?(remove_event_core_ids) do
-      #       from(e in Event, where: e.core_id in ^remove_event_core_ids) |> Repo.delete_all()
-      #     end
-
-      #     # UpsertEvents
-      #     Ecto.Adapters.SQL.query(Repo, temp_events, [])
-
-      #     Enum.into(
-      #       bulk_transactional_data.pg_event_list,
-      #       Ecto.Adapters.SQL.stream(Repo, copy_events)
-      #     )
-
-      #     case Ecto.Adapters.SQL.query(Repo, upsert_events, []) do
-      #       {:ok, result} ->
-      #         {:ok, result}
-
-      #       {:error, error} ->
-      #         IO.inspect(error, label: "INSERT EVENTS QUERY FAILED")
-      #     end
-
-      # Ecto.Adapters.SQL.query(Repo, drop_temp_events, [])
-      # # UpsertEventLinks
-      # Ecto.Adapters.SQL.query(Repo, temp_event_links, [])
-
-      # Enum.into(
-      #   bulk_transactional_data.pg_event_links,
-      #   Ecto.Adapters.SQL.stream(Repo, copy_event_links)
-      # )
-
-      # case Ecto.Adapters.SQL.query(Repo, upsert_event_links, []) do
-      #   {:ok, result} ->
-      #     {:ok, result}
-
-      #   {:error, error} ->
-      #     IO.inspect(error, label: "INSERT EVENT LINKS QUERY FAILED")
-      # end
-
-      # Ecto.Adapters.SQL.query(Repo, drop_temp_event_links, [])
-      # UpsertEventHistory
-      # Ecto.Adapters.SQL.query(Repo, temp_event_history, [])
-
-      # Enum.into(
-      #   bulk_transactional_data.pg_event_history,
-      #   Ecto.Adapters.SQL.stream(Repo, copy_event_history)
-      # )
-
-      # case Ecto.Adapters.SQL.query(Repo, upsert_event_history, []) do
-      #   {:ok, result} ->
-      #     {:ok, result}
-
-      #   {:error, error} ->
-      #     IO.inspect(error, label: "INSERT EVENT HISTORY QUERY FAILED")
-      # end
-
-      # Ecto.Adapters.SQL.query(Repo, drop_temp_event_history, [])
-      # UpsertNotifications
-      #     Ecto.Adapters.SQL.query(Repo, temp_notifications, [])
-
-      #     Enum.into(
-      #       bulk_transactional_data.pg_notifications,
-      #       Ecto.Adapters.SQL.stream(Repo, copy_notifications)
-      #     )
-
-      #     case Ecto.Adapters.SQL.query(Repo, upsert_notifications, []) do
-      #       {:ok, result} ->
-      #         {:ok, result}
-
-      #       {:error, error} ->
-      #         IO.inspect(error, label: "INSERT NOTIFICATIONS QUERY FAILED")
-      #     end
-
-      #     Ecto.Adapters.SQL.query(Repo, drop_temp_notifications, [])
-      #   end,
-      #   timeout: :infinity
-      # )
     rescue
       error ->
         CogyntLogger.error(
