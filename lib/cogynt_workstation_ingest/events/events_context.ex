@@ -983,7 +983,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         if !Enum.empty?(remove_notification_core_ids) do
           Multi.delete_all(
             multi,
-            :delete_all_notifications,
+            :delete_notifications,
             from(n in Notification, where: n.core_id in ^remove_notification_core_ids)
           )
         else
@@ -994,7 +994,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         if !Enum.empty?(remove_event_link_core_ids) do
           Multi.delete_all(
             multi,
-            :delete_all_event_links,
+            :delete_event_links,
             from(el in EventLink,
               where:
                 el.entity_core_id in ^remove_event_link_core_ids or
@@ -1009,7 +1009,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         if !Enum.empty?(remove_event_core_ids) do
           Multi.delete_all(
             multi,
-            :delete_all_events,
+            :delete_events,
             from(e in Event, where: e.core_id in ^remove_event_core_ids)
           )
         else
@@ -1036,7 +1036,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
         end)
 
       multi =
-        if !Enum.empty?(bulk_transactional_data.pg_event_link) do
+        if !Enum.empty?(bulk_transactional_data.pg_event_links) do
           multi
           |> Multi.run(:create_temp_event_links, fn _, _ ->
             Repo.query(temp_event_links, [])
