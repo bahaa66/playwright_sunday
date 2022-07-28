@@ -2,11 +2,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @moduledoc """
   Module that acts as the Broadway Processor for the EventPipeline.
   """
-  #alias Ecto.Multi
+  # alias Ecto.Multi
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Config
-  #alias CogyntWorkstationIngest.System.SystemNotificationContext
+  # alias CogyntWorkstationIngest.System.SystemNotificationContext
   alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
   alias CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder
 
@@ -264,7 +264,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         Map.put(data, :pipeline_state, :process_notifications)
 
       true ->
-        # Perf impr to check first if any NS exist before running through logic.
         case NotificationsContext.query_notification_settings(%{
                filter: %{
                  event_definition_hash_id: event_definition.id
@@ -409,19 +408,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     case bulk_upsert_event_documents(bulk_transactional_data) do
       {:ok, :success} ->
-        # Start timer for telemetry metrics
-        start = System.monotonic_time()
-        telemetry_metadata = %{}
-
         case EventsContext.execute_ingest_bulk_insert_function(bulk_transactional_data) do
           {:ok, _} ->
-            # Execute telemtry for metrics
-            :telemetry.execute(
-              [:broadway, :execute_batch_transaction_success],
-              %{duration: System.monotonic_time() - start},
-              telemetry_metadata
-            )
-
             bulk_delete_event_documents(bulk_transactional_data)
 
             Redis.publish_async(
@@ -437,13 +425,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             CogyntLogger.error(
               "#{__MODULE__}",
               "execute_transaction/1 failed with reason: #{inspect(reason, pretty: true)}"
-            )
-
-            # Execute telemtry for metrics
-            :telemetry.execute(
-              [:broadway, :execute_batch_transaction_failed],
-              %{duration: System.monotonic_time() - start},
-              telemetry_metadata
             )
 
             rollback_event_index_data(bulk_transactional_data)
