@@ -999,56 +999,56 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
                end
 
                # UpsertEvents
-               Repo.query(temp_events, [])
+               Ecto.Adapters.SQL.query(Repo, temp_events, [])
 
                Enum.into(
                  bulk_transactional_data.pg_event_list,
                  Ecto.Adapters.SQL.stream(Repo, copy_events)
                )
 
-               Repo.query(Repo, upsert_events, [])
+               Ecto.Adapters.SQL.query(Repo, upsert_events, [])
 
-               Repo.query(drop_temp_events, [])
+               Ecto.Adapters.SQL.query(Repo, drop_temp_events, [])
                # UpsertEventLinks
                if !Enum.empty?(bulk_transactional_data.pg_event_links) do
-                 Repo.query(temp_event_links, [])
+                 Ecto.Adapters.SQL.query(Repo, temp_event_links, [])
 
                  Enum.into(
                    bulk_transactional_data.pg_event_links,
                    Ecto.Adapters.SQL.stream(Repo, copy_event_links)
                  )
 
-                 Repo.query(upsert_event_links, [])
+                 Ecto.Adapters.SQL.query(Repo, upsert_event_links, [])
 
-                 Repo.query(drop_temp_event_links, [])
+                 Ecto.Adapters.SQL.query(Repo, drop_temp_event_links, [])
                end
 
                # UpsertEventHistory
                if !Enum.empty?(bulk_transactional_data.pg_event_history) do
-                 Repo.query(temp_event_history, [])
+                 Ecto.Adapters.SQL.query(Repo, temp_event_history, [])
 
                  Enum.into(
                    bulk_transactional_data.pg_event_history,
                    Ecto.Adapters.SQL.stream(Repo, copy_event_history)
                  )
 
-                 Repo.query(upsert_event_history, [])
+                 Ecto.Adapters.SQL.query(Repo, upsert_event_history, [])
 
-                 Repo.query(drop_temp_event_history, [])
+                 Ecto.Adapters.SQL.query(Repo, drop_temp_event_history, [])
                end
 
                # UpsertNotifications
                if !Enum.empty?(bulk_transactional_data.pg_notifications) do
-                 Repo.query(temp_notifications, [])
+                 Ecto.Adapters.SQL.query(Repo, temp_notifications, [])
 
                  Enum.into(
                    bulk_transactional_data.pg_notifications,
                    Ecto.Adapters.SQL.stream(Repo, copy_notifications)
                  )
 
-                 Repo.query(upsert_notifications, [])
+                 Ecto.Adapters.SQL.query(Repo, upsert_notifications, [])
 
-                 Repo.query(drop_temp_notifications, [])
+                 Ecto.Adapters.SQL.query(Repo, drop_temp_notifications, [])
                end
              end,
              timeout: :infinity
