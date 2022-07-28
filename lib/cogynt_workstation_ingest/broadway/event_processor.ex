@@ -2,11 +2,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @moduledoc """
   Module that acts as the Broadway Processor for the EventPipeline.
   """
-  alias Ecto.Multi
+  #alias Ecto.Multi
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.System.SystemNotificationContext
+  #alias CogyntWorkstationIngest.System.SystemNotificationContext
   alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
   alias CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder
 

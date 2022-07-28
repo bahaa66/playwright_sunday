@@ -30,7 +30,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
                batch_timeout: 30000,
-               concurrency: 10
+               concurrency: 1
              ]
            ],
            [
@@ -44,7 +44,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              default: [
                batch_size: Config.event_pipeline_batch_size(),
                batch_timeout: 30000,
-               concurrency: 10
+               concurrency: 1
              ]
            ],
            [
@@ -58,12 +58,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              default: [
                batch_size: Config.event_pipeline_batch_size(),
                batch_timeout: 30000,
-               concurrency: 10
+               concurrency: 1
              ],
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
                batch_timeout: 30000,
-               concurrency: 10
+               concurrency: 1
              ]
            ],
            [event_definition_hash_id: event_definition_hash_id, event_type: event_type, crud: nil]}
@@ -89,6 +89,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
                connect_timeout: 30000
              ],
              fetch_config: [
+               # 3 Mib
                max_bytes: 3_146_576
              ]
            ]},
@@ -244,7 +245,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   def handle_message(
         _processor_name,
         message,
-        event_definition_hash_id: _event_definition_hash_id,
+        event_definition_hash_id: event_definition_hash_id,
         event_type: _,
         crud: true
       ) do
@@ -294,7 +295,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     )
 
     Map.put(message, :data, data)
-    # |> Message.put_batch_key(event_definition_hash_id)
+    |> Message.put_batch_key(event_definition_hash_id)
     |> Message.put_batcher(:crud)
   end
 
@@ -304,7 +305,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   def handle_message(
         _processor_name,
         message,
-        event_definition_hash_id: _event_definition_hash_id,
+        event_definition_hash_id: event_definition_hash_id,
         event_type: _,
         crud: false
       ) do
@@ -353,7 +354,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     )
 
     Map.put(message, :data, data)
-    # |> Message.put_batch_key(event_definition_hash_id)
+    |> Message.put_batch_key(event_definition_hash_id)
     |> Message.put_batcher(:default)
   end
 
@@ -363,7 +364,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   def handle_message(
         _processor_name,
         message,
-        event_definition_hash_id: _event_definition_hash_id,
+        event_definition_hash_id: event_definition_hash_id,
         event_type: _,
         crud: nil
       ) do
@@ -417,7 +418,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
             )
 
             Map.put(message, :data, data)
-            # |> Message.put_batch_key(event_definition_hash_id)
+            |> Message.put_batch_key(event_definition_hash_id)
             |> Message.put_batcher(:default)
 
           _ ->
@@ -426,7 +427,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
               |> EventProcessor.process_event_history()
 
             Map.put(message, :data, data)
-            # |> Message.put_batch_key(event_definition_hash_id)
+            |> Message.put_batch_key(event_definition_hash_id)
             |> Message.put_batcher(:crud)
         end
     end

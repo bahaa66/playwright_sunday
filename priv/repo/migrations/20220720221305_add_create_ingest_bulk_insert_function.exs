@@ -1,3 +1,0 @@
-defmodule CogyntWorkstationIngest.Repo.Migrations.AddCreateIngestBulkInsertFunction do
-  use Migrations.AddCreateIngestBulkInsertFunction
-end
