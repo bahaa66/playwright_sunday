@@ -58,7 +58,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         event_details = format_lexicon_data(event)
 
         pg_event_list = [
-          "#{core_id}^^#{occurred_at}^^#{risk_score}^^#{Jason.encode!(event_details)}^^#{now}^^#{now};#{event_definition_hash_id}\n"
+          "#{core_id}\a#{occurred_at}\a#{risk_score}\a#{Jason.encode!(event_details)}\a#{now}\a#{now};#{event_definition_hash_id}\n"
         ]
 
         pg_event_map = %{
@@ -140,7 +140,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       )
 
       pg_event_history = [
-        "#{Ecto.UUID.generate()}^^#{core_id}^^#{event_definition_hash_id}^^#{action}^^#{risk_score}^^#{version}^^#{Jason.encode!(event_details)}^^#{occurred_at}^^#{published_at}\n"
+        "#{Ecto.UUID.generate()}\a#{core_id}\a#{event_definition_hash_id}\a#{action}\a#{risk_score}\a#{version}\a#{Jason.encode!(event_details)}\a#{occurred_at}\a#{published_at}\n"
       ]
 
       Map.put(data, :pg_event_history, pg_event_history)
@@ -295,7 +295,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
                 acc ++
                   [
-                    "#{core_id}^^#{nil}^^#{@defaults.notification_priority}^^#{ns.assigned_to}^^#{nil}^^#{ns.id}^^#{ns.tag_id}^^#{now}^^#{now}\n"
+                    "#{core_id}\a#{nil}\a#{@defaults.notification_priority}\a#{ns.assigned_to}\a#{nil}\a#{ns.id}\a#{ns.tag_id}\a#{now}\a#{now}\n"
                   ]
               end)
 

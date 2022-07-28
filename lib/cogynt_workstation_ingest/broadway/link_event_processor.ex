@@ -91,7 +91,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                     pg_list_acc_0 =
                       pg_list_acc_0 ++
                         [
-                          "#{core_id}^^#{entity_core_id}^^#{edge_label}^^#{now}^^#{now}\n"
+                          "#{core_id}\a#{entity_core_id}\a#{edge_label}\a#{now}\a#{now}\n"
                         ]
 
                     pg_map_acc_0 =
