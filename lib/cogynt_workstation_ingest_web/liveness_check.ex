@@ -123,10 +123,13 @@ defmodule LivenessCheck do
 
   defp elastic_cluster_health?() do
     ElasticConfig.elasticsearch_service().get_cluster_health(
-      query: [wait_for_status: "green", timeout: "10s"]
+      query: [wait_for_status: "yellow", timeout: "50s"]
     )
     |> case do
       {:ok, %{"status" => "green"}} ->
+        true
+
+      {:ok, %{"status" => "yellow"}} ->
         true
 
       {:ok, res} ->
