@@ -102,6 +102,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     action = Map.get(event, Config.crud_key(), nil)
 
     if is_nil(action) do
+      data
     else
       occurred_at =
         case event[Config.timestamp_key()] do
@@ -340,7 +341,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   Takes all the messages that have gone through the processing steps in the pipeline up to the batch limit
   configured. Will execute one multi transaction to delete and upsert all objects
   """
-  def execute_batch_transaction(messages, event_type) do
+  def execute_batch_transaction(messages, event_type, pg_event_history \\ []) do
     # build transactional data
     default_map = %{
       pg_event_list: [],
@@ -348,7 +349,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       event_doc: [],
       pg_event_map: [],
       pg_event_links: [],
-      pg_event_history: [],
       delete_core_id: [],
       pg_notifications_delete: [],
       pg_event_links_delete: []
@@ -364,7 +364,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             :event_definition_hash_id,
             :retry_count,
             :pipeline_state,
-            :elastic_event_links
+            :elastic_event_links,
+            :pg_event_history
           ])
 
         Map.merge(acc, data, fn k, v1, v2 ->
@@ -405,6 +406,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           end
         end)
       end)
+      |> Map.put(:pg_event_history, pg_event_history)
 
     case bulk_upsert_event_documents(bulk_transactional_data) do
       {:ok, :success} ->

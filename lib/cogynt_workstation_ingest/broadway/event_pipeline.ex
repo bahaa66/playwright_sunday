@@ -454,19 +454,21 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     IO.puts("------------------------------------------------")
     IO.inspect(Enum.count(messages), label: "CRUD BATCH COUNT")
 
-    crud_bulk_data =
+    pg_event_history =
       messages
-      |> Enum.group_by(fn message -> message.data.core_id end)
-      |> Enum.reduce([], fn {_core_id, core_id_records}, acc ->
-        # We only need to process the last action that occurred for the
-        # core_id within the batch of events that were sent to handle_batch
-        # ex: create, update, update, update, delete, create (only need the last create)
-        last_crud_action_message = List.last(core_id_records)
+      |> Enum.map(fn message -> message.data.pg_event_history end)
 
-        acc ++ [last_crud_action_message.data]
-      end)
+    messages
+    |> Enum.group_by(fn message -> message.data.core_id end)
+    |> Enum.reduce([], fn {_core_id, core_id_records}, acc ->
+      # We only need to process the last action that occurred for the
+      # core_id within the batch of events that were sent to handle_batch
+      # ex: create, update, update, update, delete, create (only need the last create)
+      last_crud_action_message = List.last(core_id_records)
 
-    EventProcessor.execute_batch_transaction(crud_bulk_data, event_type)
+      acc ++ [last_crud_action_message.data]
+    end)
+    |> EventProcessor.execute_batch_transaction(event_type, pg_event_history)
 
     incr_total_processed_message_count(event_definition_hash_id, Enum.count(messages))
     messages
