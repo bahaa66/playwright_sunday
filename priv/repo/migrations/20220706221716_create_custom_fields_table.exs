@@ -1,3 +1,3 @@
-defmodule Cogynt.Repo.Migrations.CreateCustomFieldsTable do
+defmodule CogyntWorkstationIngest.Repo.Migrations.CreateCustomFieldsTable do
   use Migrations.CreateCustomFields
 end

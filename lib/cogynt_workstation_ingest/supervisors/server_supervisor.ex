@@ -30,10 +30,10 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
     children = [
       child_spec(ConsumerRetryWorker),
       # child_spec(FailedMessagesRetryWorker),
-      child_spec(RedisStreamsConsumerGroupWorker),
+      child_spec(RedisStreamsConsumerGroupWorker, restart: :permanent),
       child_spec(ConsumerMonitor, restart: :permanent),
       child_spec(BroadwayProducerMonitor, restart: :permanent),
-      child_spec(IngestPubSub, start_link_opts: [pubsub]),
+      child_spec(IngestPubSub, restart: :permanent, start_link_opts: [pubsub]),
       {IndexerStarter, [name: Indexer]}
     ]
 

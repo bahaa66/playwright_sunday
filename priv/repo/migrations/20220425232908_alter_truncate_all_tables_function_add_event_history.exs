@@ -1,3 +1,3 @@
 defmodule CogyntWorkstationIngest.Repo.Migrations.AlterTruncateAllTablesFunctionAddEventHistory do
-  use Migrations.AlterTruncateAllTablesFunctionRemoveDeleteNotes
+  use Migrations.AlterTruncateAllTablesFunctionAddEventHistory
 end

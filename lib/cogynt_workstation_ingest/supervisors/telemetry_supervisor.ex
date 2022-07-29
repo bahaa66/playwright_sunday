@@ -73,13 +73,51 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
       # Broadway Metrics
       summary(
         "broadway.processor.message.stop.duration",
-        unit: {:native, :millisecond},
-        tags: [:name]
+        unit: {:native, :millisecond}
       ),
       summary(
         "broadway.batch_processor.stop.duration",
-        unit: {:native, :millisecond},
-        tags: [:name]
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.process_event.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.process_event_history.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.process_elasticsearch_documents.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.process_notifications.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.event_processor_all_crud_processing_stages.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.event_processor_all_processing_stages.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.event_processor_crud_process_event_history.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.execute_batch_transaction_success.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.execute_batch_transaction_failed.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
+        "broadway.process_entities.duration",
+        unit: {:native, :millisecond}
       ),
 
       # Redis Metrics
