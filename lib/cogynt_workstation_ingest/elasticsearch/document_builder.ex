@@ -3,6 +3,8 @@ defmodule CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder do
   Formats and Builds a document for the Event Index
   """
 
+  # TODO: Move this to our cogynt-elasticsearch lib
+
   @document_schema %{
     id: [type: :string, required: true],
     event_definition_hash_id: [type: :string, required: true],
