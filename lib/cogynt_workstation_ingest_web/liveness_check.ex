@@ -121,32 +121,37 @@ defmodule LivenessCheck do
   #   end)
   # end
 
+  # TESTING HARD CODING TO TRUE
   defp elastic_cluster_health?() do
-    ElasticConfig.elasticsearch_service().get_cluster_health(
-      query: [wait_for_status: "yellow", timeout: "50s"]
-    )
-    |> case do
-      {:ok, %{"status" => "green"}} ->
-        true
-
-      {:ok, %{"status" => "yellow"}} ->
-        true
-
-      {:ok, res} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Unexpected LivenessCheck response for Elastic Cluster. Response: #{inspect(res)}"
-        )
-
-        false
-
-      {:error, error} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "LivenessCheck for Elastic Cluster failed. Error: #{inspect(error)}"
-        )
-
-        false
-    end
+    true
   end
+
+  # defp elastic_cluster_health?() do
+  #   ElasticConfig.elasticsearch_service().get_cluster_health(
+  #     query: [wait_for_status: "yellow", timeout: "50s"]
+  #   )
+  #   |> case do
+  #     {:ok, %{"status" => "green"}} ->
+  #       true
+
+  #     {:ok, %{"status" => "yellow"}} ->
+  #       true
+
+  #     {:ok, res} ->
+  #       CogyntLogger.error(
+  #         "#{__MODULE__}",
+  #         "Unexpected LivenessCheck response for Elastic Cluster. Response: #{inspect(res)}"
+  #       )
+
+  #       false
+
+  #     {:error, error} ->
+  #       CogyntLogger.error(
+  #         "#{__MODULE__}",
+  #         "LivenessCheck for Elastic Cluster failed. Error: #{inspect(error)}"
+  #       )
+
+  #       false
+  #   end
+  # end
 end
