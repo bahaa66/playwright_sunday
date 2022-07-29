@@ -85,8 +85,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :migrations,
-        #tag: "v1.29.0",
-        branch: "feat/ingest-perf-testing",
+        tag: "v1.30.0-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
