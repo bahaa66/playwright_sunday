@@ -15,7 +15,7 @@ defmodule LivenessCheck do
 
   @spec call(Plug.Conn.t(), options) :: Plug.Conn.t()
   def call(%Plug.Conn{} = conn, _opts) do
-    if kafka_health?() and postgres_health?() and redis_health?() and indices_healthy?() do
+    if kafka_health?() and postgres_health?() and redis_health?() and elastic_cluster_health?() do
       send_resp(conn, 200, @resp_body)
     else
       send_resp(conn, 500, @resp_body_error)
@@ -85,37 +85,73 @@ defmodule LivenessCheck do
     end
   end
 
-  defp indices_healthy?() do
-    # Get the indices from the configs
-    ElasticConfig.elasticsearch_indices()
-    # The keys are the aliases
-    |> Keyword.keys()
-    |> Enum.reduce_while(true, fn a, acc ->
-      Atom.to_string(a)
-      # Wait for the green status
-      |> ElasticConfig.elasticsearch_service().get_index_health(
-        query: [wait_for_status: "green", timeout: "10s"]
-      )
-      |> case do
-        {:ok, %{"status" => "green"}} ->
-          {:cont, acc && true}
+  # defp indices_healthy?() do
+  #   # Get the indices from the configs
+  #   ElasticConfig.elasticsearch_indices()
+  #   # The keys are the aliases
+  #   |> Keyword.keys()
+  #   |> Enum.reduce_while(true, fn a, acc ->
+  #     Atom.to_string(a)
+  #     # Wait for the green status
+  #     |> ElasticConfig.elasticsearch_service().get_index_health(
+  #       query: [wait_for_status: "green", timeout: "10s"]
+  #     )
+  #     |> case do
+  #       {:ok, %{"status" => "green"}} ->
+  #         {:cont, acc && true}
 
-        {:ok, res} ->
-          CogyntLogger.error(
-            "#{__MODULE__}",
-            "Unexpected LivenessCheck response for #{inspect(a)} index. Response: #{inspect(res)}"
-          )
+  #       {:ok, res} ->
+  #         IO.inspect(res, label: "ELASTIC HEALTH CHECK RESP", pretty: true)
 
-          {:halt, false}
+  #         CogyntLogger.error(
+  #           "#{__MODULE__}",
+  #           "Unexpected LivenessCheck response for #{inspect(a)} index. Response: #{inspect(res)}"
+  #         )
 
-        {:error, error} ->
-          CogyntLogger.error(
-            "#{__MODULE__}",
-            "LivenessCheck for #{inspect(a)} index failed. Error: #{inspect(error)}"
-          )
+  #         {:halt, false}
 
-          {:halt, false}
-      end
-    end)
+  #       {:error, error} ->
+  #         CogyntLogger.error(
+  #           "#{__MODULE__}",
+  #           "LivenessCheck for #{inspect(a)} index failed. Error: #{inspect(error)}"
+  #         )
+
+  #         {:halt, false}
+  #     end
+  #   end)
+  # end
+
+  # TESTING HARD CODING TO TRUE
+  defp elastic_cluster_health?() do
+    true
   end
+
+  # defp elastic_cluster_health?() do
+  #   ElasticConfig.elasticsearch_service().get_cluster_health(
+  #     query: [wait_for_status: "yellow", timeout: "50s"]
+  #   )
+  #   |> case do
+  #     {:ok, %{"status" => "green"}} ->
+  #       true
+
+  #     {:ok, %{"status" => "yellow"}} ->
+  #       true
+
+  #     {:ok, res} ->
+  #       CogyntLogger.error(
+  #         "#{__MODULE__}",
+  #         "Unexpected LivenessCheck response for Elastic Cluster. Response: #{inspect(res)}"
+  #       )
+
+  #       false
+
+  #     {:error, error} ->
+  #       CogyntLogger.error(
+  #         "#{__MODULE__}",
+  #         "LivenessCheck for Elastic Cluster failed. Error: #{inspect(error)}"
+  #       )
+
+  #       false
+  #   end
+  # end
 end

@@ -2,11 +2,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   @moduledoc """
   Module that acts as the Broadway Processor for the EventPipeline.
   """
-  alias Ecto.Multi
+  # alias Ecto.Multi
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.System.SystemNotificationContext
+  # alias CogyntWorkstationIngest.System.SystemNotificationContext
   alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
   alias CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder
 
@@ -26,20 +26,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         %{event: event, event_definition_hash_id: event_definition_hash_id, core_id: core_id} =
           data
       ) do
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+
     action = Map.get(event, Config.crud_key(), nil)
-    now = DateTime.truncate(DateTime.utc_now(), :second)
-
-    occurred_at =
-      case event[Config.timestamp_key()] do
-        nil ->
-          nil
-
-        date_string ->
-          {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
-
-          dt_struct
-          |> DateTime.truncate(:second)
-      end
 
     cond do
       action == Config.crud_delete_value() ->
@@ -47,31 +38,53 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         |> Map.put(:delete_core_id, core_id)
         |> Map.put(:pipeline_state, :process_event)
 
-      action == Config.crud_update_value() ->
-        Map.put(data, :pg_event, %{
-          core_id: core_id,
-          occurred_at: occurred_at,
-          risk_score: format_risk_score(event[Config.confidence_key()]),
-          event_details: format_lexicon_data(event),
-          event_definition_hash_id: event_definition_hash_id,
-          created_at: now,
-          updated_at: now
-        })
-        |> Map.put(:crud_action, action)
-        |> Map.put(:pipeline_state, :process_event)
-
       true ->
-        Map.put(data, :pg_event, %{
+        now = DateTime.truncate(DateTime.utc_now(), :second)
+
+        occurred_at =
+          case event[Config.timestamp_key()] do
+            nil ->
+              nil
+
+            date_string ->
+              {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
+
+              dt_struct
+              |> DateTime.truncate(:second)
+          end
+
+        risk_score = format_risk_score(event[Config.confidence_key()])
+
+        event_details = format_lexicon_data(event)
+
+        pg_event_list = [
+          "#{core_id}\t#{occurred_at}\t#{risk_score}\t#{Jason.encode!(event_details)}\t#{now}\t#{now}\t#{event_definition_hash_id}\n"
+        ]
+
+        pg_event_map = %{
           core_id: core_id,
           occurred_at: occurred_at,
-          risk_score: format_risk_score(event[Config.confidence_key()]),
-          event_details: format_lexicon_data(event),
-          event_definition_hash_id: event_definition_hash_id,
+          risk_score: risk_score,
+          event_details: event_details,
           created_at: now,
-          updated_at: now
-        })
-        |> Map.put(:crud_action, action)
-        |> Map.put(:pipeline_state, :process_event)
+          updated_at: now,
+          event_definition_hash_id: event_definition_hash_id
+        }
+
+        data =
+          Map.put(data, :pg_event_list, pg_event_list)
+          |> Map.put(:pg_event_map, pg_event_map)
+          |> Map.put(:crud_action, action)
+          |> Map.put(:pipeline_state, :process_event)
+
+        # Execute telemtry for metrics
+        :telemetry.execute(
+          [:broadway, :process_event],
+          %{duration: System.monotonic_time() - start},
+          telemetry_metadata
+        )
+
+        data
     end
   end
 
@@ -82,9 +95,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         %{event: event, event_definition_hash_id: event_definition_hash_id, core_id: core_id} =
           data
       ) do
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+
     action = Map.get(event, Config.crud_key(), nil)
 
     if is_nil(action) do
+      data
     else
       occurred_at =
         case event[Config.timestamp_key()] do
@@ -110,17 +128,23 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             |> DateTime.truncate(:second)
         end
 
-      Map.put(data, :pg_event_history, %{
-        id: Ecto.UUID.generate(),
-        core_id: core_id,
-        occurred_at: occurred_at,
-        version: event[Config.version_key()],
-        crud: action,
-        risk_score: format_risk_score(event[Config.confidence_key()]),
-        event_details: format_lexicon_data(event),
-        event_definition_hash_id: event_definition_hash_id,
-        published_at: published_at
-      })
+      risk_score = format_risk_score(event[Config.confidence_key()])
+
+      version = event[Config.version_key()]
+      event_details = format_lexicon_data(event)
+
+      # Execute telemtry for metrics
+      :telemetry.execute(
+        [:broadway, :process_event_history],
+        %{duration: System.monotonic_time() - start},
+        telemetry_metadata
+      )
+
+      pg_event_history = [
+        "#{Ecto.UUID.generate()}\t#{core_id}\t#{event_definition_hash_id}\t#{action}\t#{risk_score}\t#{version}\t#{Jason.encode!(event_details)}\t#{occurred_at}\t#{published_at}\n"
+      ]
+
+      Map.put(data, :pg_event_history, pg_event_history)
     end
   end
 
@@ -135,7 +159,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   def process_elasticsearch_documents(
         %{
-          pg_event: pg_event,
+          pg_event_map: pg_event_map,
           core_id: core_id,
           event_definition: event_definition,
           event_definition_hash_id: event_definition_hash_id,
@@ -144,8 +168,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           elastic_event_links: elastic_event_links
         } = data
       ) do
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+
     cond do
       action == Config.crud_delete_value() ->
+        # Execute telemtry for metrics
+        :telemetry.execute(
+          [:broadway, :process_elasticsearch_documents],
+          %{duration: System.monotonic_time() - start},
+          telemetry_metadata
+        )
+
         data
 
       true ->
@@ -154,11 +189,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         # Iterate over each event key value pair and build the pg and elastic search event
         # details.
         elasticsearch_event_details =
-          Enum.filter(event_definition_details, &(not String.starts_with?(Map.get(&1, :field_name), "COG_")))
+          Enum.filter(
+            event_definition_details,
+            &(not String.starts_with?(Map.get(&1, :field_name), "COG_"))
+          )
           |> Stream.unfold(fn
             [] -> nil
-            [detail] -> {determine_event_detail(detail, pg_event.event_details), []}
-            [detail | tail] -> {determine_event_detail(detail, pg_event.event_details), tail}
+            [detail] -> {determine_event_detail(detail, pg_event_map.event_details), []}
+            [detail | tail] -> {determine_event_detail(detail, pg_event_map.event_details), tail}
           end)
           |> Enum.to_list()
 
@@ -172,8 +210,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                  event_details: elasticsearch_event_details,
                  core_event_id: core_id,
                  event_type: event_type,
-                 occurred_at: pg_event.occurred_at,
-                 risk_score: pg_event.risk_score,
+                 occurred_at: pg_event_map.occurred_at,
+                 risk_score: pg_event_map.risk_score,
                  event_links: elastic_event_links
                }) do
             {:ok, event_doc} ->
@@ -183,40 +221,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               @defaults.event_document
           end
 
-        Map.put(data, :event_doc, elasticsearch_event_doc)
-        |> Map.put(:pipeline_state, :process_elasticsearch_documents)
+        data =
+          Map.put(data, :event_doc, elasticsearch_event_doc)
+          |> Map.put(:pipeline_state, :process_elasticsearch_documents)
+
+        # Execute telemtry for metrics
+        :telemetry.execute(
+          [:broadway, :process_elasticsearch_documents],
+          %{duration: System.monotonic_time() - start},
+          telemetry_metadata
+        )
+
+        data
     end
-  end
-
-  defp determine_event_detail(%{path: path, field_name: field_name, field_type: "geo"}, event_details) do
-    get_in(event_details, String.split(path, "|"))
-    |> case do
-      %{"type" => "Feature", "geometry" => g} ->
-        %{field_name: field_name, field_type: "geo", path: path} |> Map.put("geo", g)
-
-      value ->
-        %{field_name: field_name, field_type: "geo", path: path} |> Map.put("geo", value)
-    end
-  end
-
-  defp determine_event_detail(%{path: path, field_name: field_name, field_type: "array"}, event_details) do
-    get_in(event_details, String.split(path, "|"))
-    |> case do
-      value when is_list(value) ->
-        Jason.encode(value)
-        |> case do
-          {:ok, value} -> %{field_name: field_name, field_type: "array", path: path} |> Map.put("array", value)
-          _ -> %{field_name: field_name, field_type: "array", path: path} |> Map.put("array", inspect(value))
-        end
-
-      value ->
-        %{field_name: field_name, field_type: "array", path: path} |> Map.put("array", inspect(value))
-    end
-  end
-
-  defp determine_event_detail(%{path: path, field_name: field_name, field_type: field_type}, event_details) do
-    if(field_type == "array", do: get_in(event_details, String.split(path, "|")))
-    %{field_name: field_name, field_type: field_type, path: path} |> Map.put(field_type, get_in(event_details, String.split(path, "|")))
   end
 
   @doc """
@@ -233,72 +250,90 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   def process_notifications(
         %{
-          pg_event: pg_event,
+          pg_event_map: pg_event_map,
           core_id: core_id,
           event_definition: event_definition,
           crud_action: action
         } = data
       ) do
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+
     cond do
       action == Config.crud_delete_value() ->
-        data
+        Map.put(data, :pipeline_state, :process_notifications)
 
       true ->
-        pg_notifications =
-          NotificationsContext.fetch_valid_notification_settings(
-            %{
-              event_definition_hash_id: event_definition.id,
-              active: true
-            },
-            pg_event.risk_score,
-            event_definition
-          )
-          |> Enum.reduce([], fn ns, acc ->
-            now = DateTime.truncate(DateTime.utc_now(), :second)
+        case NotificationsContext.query_notification_settings(%{
+               filter: %{
+                 event_definition_hash_id: event_definition.id
+               }
+             }) do
+          [] ->
+            # Execute telemtry for metrics
+            :telemetry.execute(
+              [:broadway, :process_notifications],
+              %{duration: System.monotonic_time() - start},
+              telemetry_metadata
+            )
 
-            acc ++
-              [
+            Map.put(data, :pipeline_state, :process_notifications)
+
+          _ ->
+            pg_notifications =
+              NotificationsContext.fetch_valid_notification_settings(
                 %{
-                  archived_at: nil,
-                  priority: @defaults.notification_priority,
-                  assigned_to: ns.assigned_to,
-                  dismissed_at: nil,
-                  core_id: core_id,
-                  tag_id: ns.tag_id,
-                  notification_setting_id: ns.id,
-                  created_at: now,
-                  updated_at: now
-                }
-              ]
-          end)
+                  event_definition_hash_id: event_definition.id,
+                  active: true
+                },
+                pg_event_map.risk_score,
+                event_definition
+              )
+              |> Enum.reduce([], fn ns, acc ->
+                now = DateTime.truncate(DateTime.utc_now(), :second)
 
-        invalid_notification_settings =
-          NotificationsContext.fetch_invalid_notification_settings(
-            %{
-              event_definition_hash_id: event_definition.id,
-              active: true
-            },
-            pg_event.risk_score,
-            event_definition
-          )
+                acc ++
+                  [
+                    "#{core_id}\t#{nil}\t#{@defaults.notification_priority}\t#{ns.assigned_to}\t#{nil}\t#{ns.id}\t#{ns.tag_id}\t#{now}\t#{now}\n"
+                  ]
+              end)
 
-        pg_notifications_delete =
-          if Enum.empty?(invalid_notification_settings) do
-            []
-          else
-            NotificationsContext.query_notifications(%{
-              filter: %{
-                notification_setting_ids:
-                  Enum.map(invalid_notification_settings, fn invalid_ns -> invalid_ns.id end),
-                core_id: core_id
-              }
-            })
-            |> Enum.map(fn notifications -> notifications.core_id end)
-          end
+            invalid_notification_settings =
+              NotificationsContext.fetch_invalid_notification_settings(
+                %{
+                  event_definition_hash_id: event_definition.id,
+                  active: true
+                },
+                pg_event_map.risk_score,
+                event_definition
+              )
 
-        Map.put(data, :pg_notifications, pg_notifications)
-        |> Map.put(:pg_notifications_delete, pg_notifications_delete)
-        |> Map.put(:pipeline_state, :process_notifications)
+            pg_notifications_delete =
+              if Enum.empty?(invalid_notification_settings) do
+                []
+              else
+                NotificationsContext.query_notifications(%{
+                  filter: %{
+                    notification_setting_ids:
+                      Enum.map(invalid_notification_settings, fn invalid_ns -> invalid_ns.id end),
+                    core_id: core_id
+                  }
+                })
+                |> Enum.map(fn notifications -> notifications.core_id end)
+              end
+
+            # Execute telemtry for metrics
+            :telemetry.execute(
+              [:broadway, :process_notifications],
+              %{duration: System.monotonic_time() - start},
+              telemetry_metadata
+            )
+
+            Map.put(data, :pg_notifications, pg_notifications)
+            |> Map.put(:pg_notifications_delete, pg_notifications_delete)
+            |> Map.put(:pipeline_state, :process_notifications)
+        end
     end
   end
 
@@ -307,13 +342,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   configured. Will execute one multi transaction to delete and upsert all objects
   """
   def execute_batch_transaction(messages, event_type, pg_event_history \\ []) do
-    # IO.inspect(Enum.count(messages), label: "BATCH INSERTING UNIQUE RECORD COUNT ->")
-    # IO.inspect(Enum.count(pg_event_history), label: "EVENT_HISTORY RECORD COUNT ->")
     # build transactional data
     default_map = %{
-      pg_event: [],
+      pg_event_list: [],
       pg_notifications: [],
       event_doc: [],
+      pg_event_map: [],
       pg_event_links: [],
       delete_core_id: [],
       pg_notifications_delete: [],
@@ -330,8 +364,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
             :event_definition_hash_id,
             :retry_count,
             :pipeline_state,
-            :pg_event_history,
-            :elastic_event_links
+            :elastic_event_links,
+            :pg_event_history
           ])
 
         Map.merge(acc, data, fn k, v1, v2 ->
@@ -343,14 +377,20 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
                 v1 ++ [v2]
               end
 
-            :pg_event ->
+            :pg_event_map ->
               v1 ++ [v2]
+
+            :pg_event_list ->
+              v1 ++ v2
 
             :pg_notifications ->
               v1 ++ List.flatten(v2)
 
             :pg_event_links ->
               v1 ++ List.flatten(v2)
+
+            :pg_event_history ->
+              v1 ++ v2
 
             :delete_core_id ->
               v1 ++ [v2]
@@ -368,108 +408,94 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       end)
       |> Map.put(:pg_event_history, pg_event_history)
 
-    # Build a Multi transaction to insert all the pg records
-    transaction_result =
-      Multi.new()
-      |> Ecto.Multi.run(:bulk_upsert_event_documents, fn _repo, _ ->
-        bulk_upsert_event_documents(bulk_transactional_data)
-      end)
-      |> NotificationsContext.delete_all_notifications_multi(
-        Enum.uniq(
-          bulk_transactional_data.delete_core_id ++
-            bulk_transactional_data.pg_notifications_delete
-        )
-      )
-      |> EventsContext.delete_all_event_links_multi(
-        Enum.uniq(
-          bulk_transactional_data.delete_core_id ++ bulk_transactional_data.pg_event_links_delete
-        )
-      )
-      |> EventsContext.delete_all_events_multi(bulk_transactional_data.delete_core_id)
-      |> EventsContext.upsert_all_events_multi(bulk_transactional_data.pg_event,
-        on_conflict: {:replace_all_except, [:core_id, :created_at]},
-        conflict_target: [:core_id]
-      )
-      |> NotificationsContext.upsert_all_notifications_multi(
-        bulk_transactional_data.pg_notifications,
-        returning: [
-          :core_id,
-          :tag_id,
-          :id,
-          :notification_setting_id,
-          :created_at,
-          :updated_at,
-          :assigned_to
-        ],
-        on_conflict: {:replace_all_except, [:id, :created_at, :core_id]},
-        conflict_target: [:core_id, :notification_setting_id]
-      )
-      |> EventsContext.upsert_all_event_links_multi(bulk_transactional_data.pg_event_links)
-      |> EventsContext.upsert_all_event_history_multi(bulk_transactional_data.pg_event_history,
-        on_conflict: {:replace_all_except, [:id, :core_id, :version, :crud]},
-        conflict_target: [:core_id, :version, :crud]
-      )
-      |> Ecto.Multi.run(:bulk_delete_event_documents, fn _repo, _ ->
-        bulk_delete_event_documents(bulk_transactional_data)
-      end)
-      |> EventsContext.run_multi_transaction()
+    case bulk_upsert_event_documents(bulk_transactional_data) do
+      {:ok, :success} ->
+        case EventsContext.execute_ingest_bulk_insert_function(bulk_transactional_data) do
+          {:ok, _} ->
+            bulk_delete_event_documents(bulk_transactional_data)
 
-    case transaction_result do
-      {:ok, %{upsert_notifications: {_count_created, upserted_notifications}}} ->
-        Redis.publish_async(
-          "events_changed_listener",
-          %{
-            event_type: event_type,
-            deleted: bulk_transactional_data.delete_core_id,
-            upserted: bulk_transactional_data.pg_event
-          }
-        )
+            Redis.publish_async(
+              "events_changed_listener",
+              %{
+                event_type: event_type,
+                deleted: bulk_transactional_data.delete_core_id,
+                upserted: bulk_transactional_data.pg_event_map
+              }
+            )
 
-        SystemNotificationContext.bulk_insert_system_notifications(upserted_notifications)
+          {:error, reason} ->
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "execute_transaction/1 failed with reason: #{inspect(reason, pretty: true)}"
+            )
 
-      {:ok, _} ->
-        Redis.publish_async(
-          "events_changed_listener",
-          %{
-            event_type: event_type,
-            deleted: bulk_transactional_data.delete_core_id,
-            upserted: bulk_transactional_data.pg_event
-          }
-        )
+            rollback_event_index_data(bulk_transactional_data)
 
-        nil
+            raise "execute_transaction/1 failed"
+        end
 
-      {:error, :bulk_upsert_event_documents, :failed, _} ->
+      {:error, :failed} ->
         CogyntLogger.error(
           "#{__MODULE__}",
           "execute_transaction/1 failed with reason: bulk_upsert_event_documents failed"
         )
 
         raise "execute_transaction/1 failed"
-
-      {:error, :bulk_delete_event_documents, :failed, _} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "execute_transaction/1 failed with reason: bulk_delete_event_documents failed"
-        )
-
-        rollback_event_index_data(bulk_transactional_data)
-
-      {:error, reason} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "execute_transaction/1 failed with reason: #{inspect(reason, pretty: true)}"
-        )
-
-        rollback_event_index_data(bulk_transactional_data)
-
-        raise "execute_transaction/1 failed"
     end
+
+    nil
   end
 
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
+  defp determine_event_detail(
+         %{path: path, field_name: field_name, field_type: "geo"},
+         event_details
+       ) do
+    get_in(event_details, String.split(path, "|"))
+    |> case do
+      %{"type" => "Feature", "geometry" => g} ->
+        %{field_name: field_name, field_type: "geo", path: path} |> Map.put("geo", g)
+
+      value ->
+        %{field_name: field_name, field_type: "geo", path: path} |> Map.put("geo", value)
+    end
+  end
+
+  defp determine_event_detail(
+         %{path: path, field_name: field_name, field_type: "array"},
+         event_details
+       ) do
+    get_in(event_details, String.split(path, "|"))
+    |> case do
+      value when is_list(value) ->
+        Jason.encode(value)
+        |> case do
+          {:ok, value} ->
+            %{field_name: field_name, field_type: "array", path: path} |> Map.put("array", value)
+
+          _ ->
+            %{field_name: field_name, field_type: "array", path: path}
+            |> Map.put("array", inspect(value))
+        end
+
+      value ->
+        %{field_name: field_name, field_type: "array", path: path}
+        |> Map.put("array", inspect(value))
+    end
+  end
+
+  defp determine_event_detail(
+         %{path: path, field_name: field_name, field_type: field_type},
+         event_details
+       ) do
+    if(field_type == "array", do: get_in(event_details, String.split(path, "|")))
+
+    %{field_name: field_name, field_type: field_type, path: path}
+    |> Map.put(field_type, get_in(event_details, String.split(path, "|")))
+  end
+
   defp bulk_delete_event_documents(bulk_transactional_data) do
     if !Enum.empty?(bulk_transactional_data.delete_core_id) do
       case ElasticApi.bulk_delete(

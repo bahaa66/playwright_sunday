@@ -1,4 +1,5 @@
 defimpl Elasticsearch.Document, for: Models.Events.Event do
+  # TODO: Drop this and move completely to our cogynt-elasticsearch lib
   def id(event), do: event.core_id
   def routing(_), do: false
 

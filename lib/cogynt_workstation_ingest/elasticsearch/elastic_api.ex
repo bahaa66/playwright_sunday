@@ -5,6 +5,8 @@ defmodule CogyntWorkstationIngest.Elasticsearch.ElasticApi do
   # --- Document Methods --- #
   # ------------------------ #
 
+  # TODO: Move remaining APIs to our cogynt-elasticsearch lib
+
   def bulk_upsert_document(index, bulk_docs) do
     encoded_data =
       bulk_docs

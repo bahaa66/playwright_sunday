@@ -3,6 +3,8 @@ defmodule CogyntWorkstationIngest.Elasticsearch.Store do
 
   alias CogyntWorkstationIngest.Repo
 
+  # TODO: Drop this and move completely to our cogynt-elasticsearch lib
+
   @impl true
   def stream(schema) do
     schema

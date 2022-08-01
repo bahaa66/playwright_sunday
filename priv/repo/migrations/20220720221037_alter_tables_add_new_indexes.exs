@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterTablesAddNewIndexes do
+  use Migrations.AlterTablesAddNewIndexes
+end
