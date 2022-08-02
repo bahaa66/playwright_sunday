@@ -117,7 +117,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :cogynt_elasticsearch,
-        tag: "v1.26.0",
+        # tag: "v1.26.0",
+        branch: "fix/CDST-1891-liveness-check-timing-out",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt-elasticsearch",
         override: true
