@@ -89,8 +89,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
                connect_timeout: 30000
              ],
              fetch_config: [
-               # 3 Mib
-               max_bytes: 3_146_576
+               # 6 Mib
+               max_bytes: 6_291_576
              ]
            ]},
         concurrency: 1,
