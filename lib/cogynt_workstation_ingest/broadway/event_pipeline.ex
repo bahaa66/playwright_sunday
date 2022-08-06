@@ -460,6 +460,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     messages
     |> Enum.group_by(fn message -> message.data.core_id end)
+    |> IO.inspect(label: "BATCH MESSAGE DATA", pretty: true)
     |> Enum.reduce([], fn {_core_id, core_id_records}, acc ->
       # We only need to process the last action that occurred for the
       # core_id within the batch of events that were sent to handle_batch
