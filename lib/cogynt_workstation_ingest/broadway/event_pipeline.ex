@@ -658,6 +658,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     case Topic.get_offset_meta(topic, hosts) do
       {:ok, partition_results} ->
+        IO.inspect(partition_results, label: "PARTITION RESULT", pretty: true)
+
         {earliest_offset, latest_offset} =
           Enum.reduce_while(partition_results, {0, 0}, fn {_key, value}, acc_min, acc_max ->
             total = value.max_offset - value.min_offset
