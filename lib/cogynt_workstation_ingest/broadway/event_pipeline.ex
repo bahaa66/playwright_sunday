@@ -659,6 +659,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     {_status, %{min_offset: earliest_offset, max_offset: latest_offset}} =
       Topic.get_partition_offset_meta(topic, 0, hosts)
 
+    IO.inspect(Topic.get_topics_metadata(topics, hosts), label: "Topic Meta", pretty: true)
+
     total = latest_offset - earliest_offset
     last_offset = latest_offset - 1
 
