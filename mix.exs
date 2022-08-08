@@ -71,7 +71,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:broadway_dashboard, "~> 0.2.0", override: true},
       {
         :kafka,
-        tag: "v1.29.0",
+        #tag: "v1.29.0",
+        branch: "testing/fix-get-offset-metadata",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "kafka",
         override: true
