@@ -26,8 +26,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     {batchers, context} =
       case use_crud_pipeline?(topics, hosts) do
         {:ok, true} ->
-          IO.puts("use_crud_pipeline RETURNED TRUE")
-
           {[
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
@@ -42,8 +40,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
            ]}
 
         {:ok, false} ->
-          IO.puts("use_crud_pipeline RETURNED FALSE")
-
           {[
              default: [
                batch_size: Config.event_pipeline_batch_size(),
@@ -58,8 +54,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
            ]}
 
         {:error, _} ->
-          IO.puts("use_crud_pipeline RETURNED ERROR")
-
           {[
              default: [
                batch_size: Config.event_pipeline_batch_size(),
@@ -462,6 +456,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
                   |> EventProcessor.process_notifications()
               end
 
+            # Execute telemtry for metrics
+            :telemetry.execute(
+              [:broadway, :event_processor_all_crud_processing_stages],
+              %{duration: System.monotonic_time() - start},
+              telemetry_metadata
+            )
+
             Map.put(message, :data, data)
             # |> Message.put_batch_key(event_definition_hash_id)
             |> Message.put_batcher(:crud)
@@ -496,6 +497,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     messages
     |> Enum.group_by(fn message -> message.data.core_id end)
+    |> IO.inspect(label: "BATCH MESSAGES", pretty: true)
     |> Enum.reduce([], fn {_core_id, core_id_records}, acc ->
       # We only need to process the last action that occurred for the
       # core_id within the batch of events that were sent to handle_batch
@@ -670,21 +672,26 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
                   if Map.has_key?(decoded_payload, :COG_crud) do
                     {:ok, true}
                   else
+                    IO.puts("use_crud_pipeline has no COG_crud key")
                     {:ok, false}
                   end
 
-                _ ->
+                error ->
+                  IO.inspect(error, label: "use_crue_pipeline JSON ERROR")
                   {:error, :failed}
               end
             else
+              IO.puts("use_crud_pipeline payload is empty")
               {:error, :failed}
             end
 
-          _ ->
+          error ->
+            IO.inspect(error, label: "use_crue_pipeline ERROR")
             {:error, :failed}
         end
 
       true ->
+        IO.puts("use_crud_pipeline total count <= 0")
         {:error, :failed}
     end
   end
