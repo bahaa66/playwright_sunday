@@ -656,44 +656,56 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   defp use_crud_pipeline?(topics, hosts) do
     topic = List.first(topics)
 
-    {_status, %{min_offset: earliest_offset, max_offset: latest_offset}} =
-      Topic.get_partition_offset_meta(topic, 0, hosts)
+    case Topic.get_offset_meta(topic, hosts) do
+      {:ok, partition_results} ->
+        {earliest_offset, latest_offset} =
+          Enum.reduce_while(partition_results, {0, 0}, fn {_key, value}, acc_min, acc_max ->
+            total = value.max_offset - value.min_offset
 
-    IO.inspect(Topic.get_topics_metadata(topics, hosts), label: "Topic Meta", pretty: true)
-
-    total = latest_offset - earliest_offset
-    last_offset = latest_offset - 1
-
-    cond do
-      total > 0 ->
-        case Topic.fetch_message(topic, 0, last_offset, hosts) do
-          {:ok, %{payload: payload}} ->
-            if payload != nil and is_binary(payload) and byte_size(payload) > 0 do
-              case Jason.decode(payload, keys: :atoms) do
-                {:ok, decoded_payload} ->
-                  if Map.has_key?(decoded_payload, :COG_crud) do
-                    {:ok, true}
-                  else
-                    IO.puts("use_crud_pipeline has no COG_crud key")
-                    {:ok, false}
-                  end
-
-                error ->
-                  IO.inspect(error, label: "use_crue_pipeline JSON ERROR")
-                  {:error, :failed}
-              end
+            if total <= 0 do
+              {:cont, {acc_min, acc_max}}
             else
-              IO.puts("use_crud_pipeline payload is empty")
-              {:error, :failed}
+              {:halt, {value.min_offset, value.max_offset}}
+            end
+          end)
+
+        total = latest_offset - earliest_offset
+        last_offset = latest_offset - 1
+
+        cond do
+          total > 0 ->
+            case Topic.fetch_message(topic, 0, last_offset, hosts) do
+              {:ok, %{payload: payload}} ->
+                if payload != nil and is_binary(payload) and byte_size(payload) > 0 do
+                  case Jason.decode(payload, keys: :atoms) do
+                    {:ok, decoded_payload} ->
+                      if Map.has_key?(decoded_payload, :COG_crud) do
+                        {:ok, true}
+                      else
+                        IO.puts("use_crud_pipeline has no COG_crud key")
+                        {:ok, false}
+                      end
+
+                    error ->
+                      IO.inspect(error, label: "use_crue_pipeline JSON ERROR")
+                      {:error, :failed}
+                  end
+                else
+                  IO.puts("use_crud_pipeline payload is empty")
+                  {:error, :failed}
+                end
+
+              error ->
+                IO.inspect(error, label: "use_crue_pipeline ERROR")
+                {:error, :failed}
             end
 
-          error ->
-            IO.inspect(error, label: "use_crue_pipeline ERROR")
+          true ->
+            IO.puts("use_crud_pipeline total count <= 0")
             {:error, :failed}
         end
 
-      true ->
-        IO.puts("use_crud_pipeline total count <= 0")
+      {:error, _error} ->
         {:error, :failed}
     end
   end
