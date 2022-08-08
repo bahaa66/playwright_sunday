@@ -26,6 +26,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     {batchers, context} =
       case use_crud_pipeline?(topics, hosts) do
         {:ok, true} ->
+          IO.puts("use_crud_pipeline RETURNED TRUE")
+
           {[
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
@@ -40,6 +42,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
            ]}
 
         {:ok, false} ->
+          IO.puts("use_crud_pipeline RETURNED FALSE")
+
           {[
              default: [
                batch_size: Config.event_pipeline_batch_size(),
@@ -54,6 +58,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
            ]}
 
         {:error, _} ->
+          IO.puts("use_crud_pipeline RETURNED ERROR")
+
           {[
              default: [
                batch_size: Config.event_pipeline_batch_size(),
@@ -423,8 +429,38 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
           _ ->
             data =
-              message.data
-              |> EventProcessor.process_event_history()
+              case message.data.pipeline_state do
+                :process_event ->
+                  message.data
+                  |> LinkEventProcessor.validate_link_event()
+                  |> LinkEventProcessor.process_entities()
+                  |> EventProcessor.process_elasticsearch_documents()
+                  |> EventProcessor.process_notifications()
+
+                :validate_link_event ->
+                  message.data
+                  |> LinkEventProcessor.process_entities()
+                  |> EventProcessor.process_elasticsearch_documents()
+                  |> EventProcessor.process_notifications()
+
+                :process_entities ->
+                  message.data
+                  |> EventProcessor.process_elasticsearch_documents()
+                  |> EventProcessor.process_notifications()
+
+                :process_event_details_and_elasticsearch_docs ->
+                  message.data
+                  |> EventProcessor.process_notifications()
+
+                _ ->
+                  message.data
+                  |> EventProcessor.process_event_history()
+                  |> EventProcessor.process_event()
+                  |> LinkEventProcessor.validate_link_event()
+                  |> LinkEventProcessor.process_entities()
+                  |> EventProcessor.process_elasticsearch_documents()
+                  |> EventProcessor.process_notifications()
+              end
 
             Map.put(message, :data, data)
             # |> Message.put_batch_key(event_definition_hash_id)
@@ -460,7 +496,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     messages
     |> Enum.group_by(fn message -> message.data.core_id end)
-    |> IO.inspect(label: "BATCH MESSAGE DATA", pretty: true)
     |> Enum.reduce([], fn {_core_id, core_id_records}, acc ->
       # We only need to process the last action that occurred for the
       # core_id within the batch of events that were sent to handle_batch
