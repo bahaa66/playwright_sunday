@@ -693,8 +693,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
               _error ->
                 {:halt, {:error, :failed}}
             end
-
-            {:halt, {min_offset, max_offset}}
           end
         end)
 
