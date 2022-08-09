@@ -658,8 +658,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     case Topic.get_offset_meta(topic, hosts) do
       {:ok, partition_results} ->
-        IO.inspect(partition_results, label: "PARTITION RESULT", pretty: true)
-
         {earliest_offset, latest_offset} =
           Enum.reduce_while(partition_results, {0, 0}, fn {_key, value}, acc_min, acc_max ->
             total = value.max_offset - value.min_offset
@@ -684,26 +682,26 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
                       if Map.has_key?(decoded_payload, :COG_crud) do
                         {:ok, true}
                       else
-                        IO.puts("use_crud_pipeline has no COG_crud key")
+                        # IO.puts("use_crud_pipeline has no COG_crud key")
                         {:ok, false}
                       end
 
                     error ->
-                      IO.inspect(error, label: "use_crue_pipeline JSON ERROR")
+                      # IO.inspect(error, label: "use_crue_pipeline JSON ERROR")
                       {:error, :failed}
                   end
                 else
-                  IO.puts("use_crud_pipeline payload is empty")
+                  # IO.puts("use_crud_pipeline payload is empty")
                   {:error, :failed}
                 end
 
               error ->
-                IO.inspect(error, label: "use_crue_pipeline ERROR")
+                # IO.inspect(error, label: "use_crue_pipeline ERROR")
                 {:error, :failed}
             end
 
           true ->
-            IO.puts("use_crud_pipeline total count <= 0")
+            # IO.puts("use_crud_pipeline total count <= 0")
             {:error, :failed}
         end
 
