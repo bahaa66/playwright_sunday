@@ -931,6 +931,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       ## Notification psql statements
       temp_notifications = """
         CREATE TEMP TABLE temp_notifications (
+          id uuid NOT NULL,
           core_id uuid NOT NULL,
           archived_at timestamp(0) NULL,
           priority int4 NULL DEFAULT 3,
@@ -944,13 +945,13 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       """
 
       copy_notifications = """
-        COPY temp_notifications(core_id, archived_at, priority, assigned_to, dismissed_at, notification_setting_id, tag_id, created_at, updated_at)
+        COPY temp_notifications(id, core_id, archived_at, priority, assigned_to, dismissed_at, notification_setting_id, tag_id, created_at, updated_at)
         FROM STDIN (FORMAT csv, DELIMITER E'\t', quote E'\x01');
       """
 
       upsert_notifications = """
-        INSERT INTO notifications(core_id, archived_at, priority, assigned_to, dismissed_at, notification_setting_id, tag_id, created_at, updated_at)
-        SELECT core_id, archived_at, priority, assigned_to, dismissed_at, notification_setting_id, tag_id, created_at, updated_at FROM temp_notifications
+        INSERT INTO notifications(id, core_id, archived_at, priority, assigned_to, dismissed_at, notification_setting_id, tag_id, created_at, updated_at)
+        SELECT id, core_id, archived_at, priority, assigned_to, dismissed_at, notification_setting_id, tag_id, created_at, updated_at FROM temp_notifications
         ON CONFLICT (core_id, notification_setting_id)
         DO UPDATE SET
           archived_at = EXCLUDED.archived_at,

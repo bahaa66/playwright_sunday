@@ -295,7 +295,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
                 acc ++
                   [
-                    "#{core_id}\t#{nil}\t#{@defaults.notification_priority}\t#{ns.assigned_to}\t#{nil}\t#{ns.id}\t#{ns.tag_id}\t#{now}\t#{now}\n"
+                    "#{Ecto.UUID.generate()}\t#{core_id}\t#{nil}\t#{@defaults.notification_priority}\t#{ns.assigned_to}\t#{nil}\t#{ns.id}\t#{ns.tag_id}\t#{now}\t#{now}\n"
                   ]
               end)
 
