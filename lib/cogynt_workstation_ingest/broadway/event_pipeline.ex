@@ -658,53 +658,45 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     case Topic.get_offset_meta(topic, hosts) do
       {:ok, partition_results} ->
-        {earliest_offset, latest_offset} =
-          Enum.reduce_while(partition_results, {0, 0}, fn {_key, value}, {acc_min, acc_max} ->
-            IO.inspect(value, label: "PART VALUE", pretty: true)
-            total = value.max_offset - value.min_offset
+        Enum.reduce_while(partition_results, {:error, :failed}, fn %{
+                                                                     partition_index: p_index,
+                                                                     offset_metadata: %{
+                                                                       min_offset: min_offset,
+                                                                       max_offset: max_offset
+                                                                     }
+                                                                   },
+                                                                   {acc_status, acc_message} ->
+          total = max_offset - min_offset
+          last_offset = max_offset - 1
 
-            if total <= 0 do
-              {:cont, {acc_min, acc_max}}
-            else
-              {:halt, {value.min_offset, value.max_offset}}
-            end
-          end)
-
-        total = latest_offset - earliest_offset
-        last_offset = latest_offset - 1
-
-        cond do
-          total > 0 ->
-            case Topic.fetch_message(topic, 0, last_offset, hosts) do
+          if total <= 0 do
+            {:cont, {acc_status, acc_message}}
+          else
+            case Topic.fetch_message(topic, p_index, last_offset, hosts) do
               {:ok, %{payload: payload}} ->
                 if payload != nil and is_binary(payload) and byte_size(payload) > 0 do
                   case Jason.decode(payload, keys: :atoms) do
                     {:ok, decoded_payload} ->
                       if Map.has_key?(decoded_payload, :COG_crud) do
-                        {:ok, true}
+                        {:halt, {:ok, true}}
                       else
-                        # IO.puts("use_crud_pipeline has no COG_crud key")
-                        {:ok, false}
+                        {:halt, {:ok, false}}
                       end
 
-                    error ->
-                      # IO.inspect(error, label: "use_crue_pipeline JSON ERROR")
-                      {:error, :failed}
+                    _error ->
+                      {:halt, {:error, :failed}}
                   end
                 else
-                  # IO.puts("use_crud_pipeline payload is empty")
-                  {:error, :failed}
+                  {:halt, {:error, :failed}}
                 end
 
-              error ->
-                # IO.inspect(error, label: "use_crue_pipeline ERROR")
-                {:error, :failed}
+              _error ->
+                {:halt, {:error, :failed}}
             end
 
-          true ->
-            # IO.puts("use_crud_pipeline total count <= 0")
-            {:error, :failed}
-        end
+            {:halt, {min_offset, max_offset}}
+          end
+        end)
 
       {:error, _error} ->
         {:error, :failed}
