@@ -1039,16 +1039,34 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
                # UpsertNotifications
                if !Enum.empty?(bulk_transactional_data.pg_notifications) do
-                 Ecto.Adapters.SQL.query(Repo, temp_notifications, [])
+                 case Ecto.Adapters.SQL.query(Repo, temp_notifications, []) do
+                   {:ok, success} ->
+                     {:ok, success}
+
+                   {:error, error} ->
+                     IO.inspect(error, label: "CREATE TEMP NOTIFICATION ERROR", pretty: true)
+                 end
 
                  Enum.into(
                    bulk_transactional_data.pg_notifications,
                    Ecto.Adapters.SQL.stream(Repo, copy_notifications)
                  )
 
-                 Ecto.Adapters.SQL.query(Repo, upsert_notifications, [])
+                 case Ecto.Adapters.SQL.query(Repo, upsert_notifications, []) do
+                   {:ok, success} ->
+                     {:ok, success}
 
-                 Ecto.Adapters.SQL.query(Repo, drop_temp_notifications, [])
+                   {:error, error} ->
+                     IO.inspect(error, label: "UPSERT NOTIFICATION ERROR", pretty: true)
+                 end
+
+                 case Ecto.Adapters.SQL.query(Repo, drop_temp_notifications, []) do
+                   {:ok, success} ->
+                     {:ok, success}
+
+                   {:error, error} ->
+                     IO.inspect(error, label: "DROP TEMP NOTIFICATION ERROR", pretty: true)
+                 end
                end
              end,
              timeout: :infinity
