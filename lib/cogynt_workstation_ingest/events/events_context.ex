@@ -915,13 +915,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       upsert_event_history = """
         INSERT INTO event_history(id, core_id, event_definition_hash_id, crud, risk_score, version, event_details, occurred_at, published_at)
         SELECT id, core_id, event_definition_hash_id, crud, risk_score, version, event_details, occurred_at, published_at FROM temp_event_history
-        ON CONFLICT (core_id, version, crud)
+        ON CONFLICT (core_id, version, crud, published_at)
         DO UPDATE SET
           event_definition_hash_id = EXCLUDED.event_definition_hash_id,
           risk_score = EXCLUDED.risk_score,
           event_details = EXCLUDED.event_details,
-          occurred_at = EXCLUDED.occurred_at,
-          published_at = EXCLUDED.published_at;
+          occurred_at = EXCLUDED.occurred_at;
       """
 
       drop_temp_event_history = """
