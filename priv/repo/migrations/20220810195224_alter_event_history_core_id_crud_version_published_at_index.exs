@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterEventHistoryCoreIdCrudVersionPublishedAtIndex do
+  use Migrations.AlterEventHistoryCoreIdCrudVersionPublishedAtIndex
+end

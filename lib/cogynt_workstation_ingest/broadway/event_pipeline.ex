@@ -89,8 +89,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
                connect_timeout: 30000
              ],
              fetch_config: [
-               # 3 Mib
-               max_bytes: 3_146_576
+               # 6 Mib
+               max_bytes: 6_291_576
              ]
            ]},
         concurrency: 1,
@@ -423,8 +423,45 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
           _ ->
             data =
-              message.data
-              |> EventProcessor.process_event_history()
+              case message.data.pipeline_state do
+                :process_event ->
+                  message.data
+                  |> LinkEventProcessor.validate_link_event()
+                  |> LinkEventProcessor.process_entities()
+                  |> EventProcessor.process_elasticsearch_documents()
+                  |> EventProcessor.process_notifications()
+
+                :validate_link_event ->
+                  message.data
+                  |> LinkEventProcessor.process_entities()
+                  |> EventProcessor.process_elasticsearch_documents()
+                  |> EventProcessor.process_notifications()
+
+                :process_entities ->
+                  message.data
+                  |> EventProcessor.process_elasticsearch_documents()
+                  |> EventProcessor.process_notifications()
+
+                :process_event_details_and_elasticsearch_docs ->
+                  message.data
+                  |> EventProcessor.process_notifications()
+
+                _ ->
+                  message.data
+                  |> EventProcessor.process_event_history()
+                  |> EventProcessor.process_event()
+                  |> LinkEventProcessor.validate_link_event()
+                  |> LinkEventProcessor.process_entities()
+                  |> EventProcessor.process_elasticsearch_documents()
+                  |> EventProcessor.process_notifications()
+              end
+
+            # Execute telemtry for metrics
+            :telemetry.execute(
+              [:broadway, :event_processor_all_crud_processing_stages],
+              %{duration: System.monotonic_time() - start},
+              telemetry_metadata
+            )
 
             Map.put(message, :data, data)
             # |> Message.put_batch_key(event_definition_hash_id)
@@ -618,37 +655,47 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   defp use_crud_pipeline?(topics, hosts) do
     topic = List.first(topics)
 
-    {_status, %{min_offset: earliest_offset, max_offset: latest_offset}} =
-      Topic.get_partition_offset_meta(topic, 0, hosts)
+    case Topic.get_offset_meta(topic, hosts) do
+      {:ok, partition_results} ->
+        Enum.reduce_while(partition_results, {:error, :failed}, fn %{
+                                                                     partition_index: p_index,
+                                                                     offset_metadata: %{
+                                                                       min_offset: min_offset,
+                                                                       max_offset: max_offset
+                                                                     }
+                                                                   },
+                                                                   {acc_status, acc_message} ->
+          total = max_offset - min_offset
+          last_offset = max_offset - 1
 
-    total = latest_offset - earliest_offset
-    last_offset = latest_offset - 1
+          if total <= 0 do
+            {:cont, {acc_status, acc_message}}
+          else
+            case Topic.fetch_message(topic, p_index, last_offset, hosts) do
+              {:ok, %{payload: payload}} ->
+                if payload != nil and is_binary(payload) and byte_size(payload) > 0 do
+                  case Jason.decode(payload, keys: :atoms) do
+                    {:ok, decoded_payload} ->
+                      if Map.has_key?(decoded_payload, :COG_crud) do
+                        {:halt, {:ok, true}}
+                      else
+                        {:halt, {:ok, false}}
+                      end
 
-    cond do
-      total > 0 ->
-        case Topic.fetch_message(topic, 0, last_offset, hosts) do
-          {:ok, %{payload: payload}} ->
-            if payload != nil and is_binary(payload) and byte_size(payload) > 0 do
-              case Jason.decode(payload, keys: :atoms) do
-                {:ok, decoded_payload} ->
-                  if Map.has_key?(decoded_payload, :COG_crud) do
-                    {:ok, true}
-                  else
-                    {:ok, false}
+                    _error ->
+                      {:halt, {:error, :failed}}
                   end
+                else
+                  {:halt, {:error, :failed}}
+                end
 
-                _ ->
-                  {:error, :failed}
-              end
-            else
-              {:error, :failed}
+              _error ->
+                {:halt, {:error, :failed}}
             end
+          end
+        end)
 
-          _ ->
-            {:error, :failed}
-        end
-
-      true ->
+      {:error, _error} ->
         {:error, :failed}
     end
   end

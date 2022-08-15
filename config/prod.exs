@@ -1,9 +1,9 @@
 import Config
 
-config :cogynt, CogyntWorkstationIngest.Repo, pool_size: 10
+config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo, pool_size: 10
 
 # CogyntWorkstationIngestWeb.Endpoint configurations
-config :cogynt, CogyntWorkstationIngestWeb.Endpoint,
+config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
   debug_errors: false,
   code_reloader: false
 

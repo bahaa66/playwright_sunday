@@ -71,21 +71,21 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:broadway_dashboard, "~> 0.2.0", override: true},
       {
         :kafka,
-        tag: "v1.29.0",
+        tag: "v1.31.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "kafka",
         override: true
       },
       {
         :models,
-        tag: "v1.29.0",
+        tag: "v1.31.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "models",
         override: true
       },
       {
         :migrations,
-        tag: "v1.30.0",
+        tag: "v1.31.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "migrations",
         override: true
@@ -117,7 +117,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :cogynt_elasticsearch,
-        tag: "v1.26.0",
+        tag: "v1.31.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt-elasticsearch",
         override: true

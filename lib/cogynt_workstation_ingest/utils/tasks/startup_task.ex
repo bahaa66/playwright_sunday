@@ -7,15 +7,12 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
   alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
-  alias CogyntWorkstationIngest.Elasticsearch.IndexerStarter
-  alias CogyntElasticsearch.Indexer
 
   def start_link(_arg \\ []) do
     Task.start_link(__MODULE__, :run, [])
   end
 
   def run() do
-    wait_for_indices()
     start_event_type_pipelines()
     start_deployment_pipeline()
 
@@ -30,26 +27,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
     end
 
     ExqHelpers.resubscribe_to_all_queues()
-  end
-
-  def wait_for_indices(retry_count \\ 0) do
-    if Indexer.indices_ready?(IndexerStarter.whereis()) do
-      :ok
-    else
-      wait_time = 15 * Integer.pow(2, retry_count)
-
-      if retry_count < 6 do
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Elasticsearch indices not ready. Checking again in #{wait_time} seconds..."
-        )
-
-        Process.sleep(1000 * wait_time)
-        wait_for_indices(retry_count + 1)
-      else
-        raise "Retry count limit reached while trying waiting for elasticsearch indices to be ready."
-      end
-    end
   end
 
   # ----------------------- #

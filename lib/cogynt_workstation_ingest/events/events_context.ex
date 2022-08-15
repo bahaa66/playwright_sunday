@@ -915,13 +915,12 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       upsert_event_history = """
         INSERT INTO event_history(id, core_id, event_definition_hash_id, crud, risk_score, version, event_details, occurred_at, published_at)
         SELECT id, core_id, event_definition_hash_id, crud, risk_score, version, event_details, occurred_at, published_at FROM temp_event_history
-        ON CONFLICT (core_id, version, crud)
+        ON CONFLICT (core_id, version, crud, published_at)
         DO UPDATE SET
           event_definition_hash_id = EXCLUDED.event_definition_hash_id,
           risk_score = EXCLUDED.risk_score,
           event_details = EXCLUDED.event_details,
-          occurred_at = EXCLUDED.occurred_at,
-          published_at = EXCLUDED.published_at;
+          occurred_at = EXCLUDED.occurred_at;
       """
 
       drop_temp_event_history = """
@@ -931,6 +930,7 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       ## Notification psql statements
       temp_notifications = """
         CREATE TEMP TABLE temp_notifications (
+          id uuid NOT NULL,
           core_id uuid NOT NULL,
           archived_at timestamp(0) NULL,
           priority int4 NULL DEFAULT 3,
@@ -944,13 +944,13 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       """
 
       copy_notifications = """
-        COPY temp_notifications(core_id, archived_at, priority, assigned_to, dismissed_at, notification_setting_id, tag_id, created_at, updated_at)
+        COPY temp_notifications(id, core_id, archived_at, priority, assigned_to, dismissed_at, notification_setting_id, tag_id, created_at, updated_at)
         FROM STDIN (FORMAT csv, DELIMITER E'\t', quote E'\x01');
       """
 
       upsert_notifications = """
-        INSERT INTO notifications(core_id, archived_at, priority, assigned_to, dismissed_at, notification_setting_id, tag_id, created_at, updated_at)
-        SELECT core_id, archived_at, priority, assigned_to, dismissed_at, notification_setting_id, tag_id, created_at, updated_at FROM temp_notifications
+        INSERT INTO notifications(id, core_id, archived_at, priority, assigned_to, dismissed_at, notification_setting_id, tag_id, created_at, updated_at)
+        SELECT id, core_id, archived_at, priority, assigned_to, dismissed_at, notification_setting_id, tag_id, created_at, updated_at FROM temp_notifications
         ON CONFLICT (core_id, notification_setting_id)
         DO UPDATE SET
           archived_at = EXCLUDED.archived_at,
@@ -965,13 +965,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       drop_temp_notifications = """
         DROP TABLE IF EXISTS temp_notifications;
       """
-
-      # IO.inspect(bulk_transactional_data.pg_event_list,
-      #   label: " ************************ ",
-      #   pretty: true,
-      #   printable_limit: :infinity,
-      #   limit: :infinity
-      # )
 
       # Start timer for telemetry metrics
       start = System.monotonic_time()
@@ -999,56 +992,141 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
                end
 
                # UpsertEvents
-               Ecto.Adapters.SQL.query(Repo, temp_events, [])
+               case Ecto.Adapters.SQL.query(Repo, temp_events, []) do
+                 {:ok, success} ->
+                   {:ok, success}
+
+                 {:error, error} ->
+                   IO.inspect(error, label: "CREATE TEMP EVENTS ERROR", pretty: true)
+                   {:error, error}
+               end
 
                Enum.into(
                  bulk_transactional_data.pg_event_list,
                  Ecto.Adapters.SQL.stream(Repo, copy_events)
                )
 
-               Ecto.Adapters.SQL.query(Repo, upsert_events, [])
+               case Ecto.Adapters.SQL.query(Repo, upsert_events, []) do
+                 {:ok, success} ->
+                   {:ok, success}
 
-               Ecto.Adapters.SQL.query(Repo, drop_temp_events, [])
+                 {:error, error} ->
+                   IO.inspect(error, label: "UPSERT EVENTS ERROR", pretty: true)
+                   {:error, error}
+               end
+
+               case Ecto.Adapters.SQL.query(Repo, drop_temp_events, []) do
+                 {:ok, success} ->
+                   {:ok, success}
+
+                 {:error, error} ->
+                   IO.inspect(error, label: "DROP TEMP EVENTS ERROR", pretty: true)
+                   {:error, error}
+               end
+
                # UpsertEventLinks
                if !Enum.empty?(bulk_transactional_data.pg_event_links) do
-                 Ecto.Adapters.SQL.query(Repo, temp_event_links, [])
+                 case Ecto.Adapters.SQL.query(Repo, temp_event_links, []) do
+                   {:ok, success} ->
+                     {:ok, success}
+
+                   {:error, error} ->
+                     IO.inspect(error, label: "CREATE TEMP EVENTLINKS ERROR", pretty: true)
+                     {:error, error}
+                 end
 
                  Enum.into(
                    bulk_transactional_data.pg_event_links,
                    Ecto.Adapters.SQL.stream(Repo, copy_event_links)
                  )
 
-                 Ecto.Adapters.SQL.query(Repo, upsert_event_links, [])
+                 case Ecto.Adapters.SQL.query(Repo, upsert_event_links, []) do
+                   {:ok, success} ->
+                     {:ok, success}
 
-                 Ecto.Adapters.SQL.query(Repo, drop_temp_event_links, [])
+                   {:error, error} ->
+                     IO.inspect(error, label: "UPSERT EVENTLINKS ERROR", pretty: true)
+                     {:error, error}
+                 end
+
+                 case Ecto.Adapters.SQL.query(Repo, drop_temp_event_links, []) do
+                   {:ok, success} ->
+                     {:ok, success}
+
+                   {:error, error} ->
+                     IO.inspect(error, label: "DROP TEMP EVENTLINKS ERROR", pretty: true)
+                     {:error, error}
+                 end
                end
 
                # UpsertEventHistory
                if !Enum.empty?(bulk_transactional_data.pg_event_history) do
-                 Ecto.Adapters.SQL.query(Repo, temp_event_history, [])
+                 case Ecto.Adapters.SQL.query(Repo, temp_event_history, []) do
+                   {:ok, success} ->
+                     {:ok, success}
+
+                   {:error, error} ->
+                     IO.inspect(error, label: "CREATE TEMP EVENT HISTORY ERROR", pretty: true)
+                     {:error, error}
+                 end
 
                  Enum.into(
                    bulk_transactional_data.pg_event_history,
                    Ecto.Adapters.SQL.stream(Repo, copy_event_history)
                  )
 
-                 Ecto.Adapters.SQL.query(Repo, upsert_event_history, [])
+                 case Ecto.Adapters.SQL.query(Repo, upsert_event_history, []) do
+                   {:ok, success} ->
+                     {:ok, success}
 
-                 Ecto.Adapters.SQL.query(Repo, drop_temp_event_history, [])
+                   {:error, error} ->
+                     IO.inspect(error, label: "UPSERT EVENT HISTORY ERROR", pretty: true)
+                     {:error, error}
+                 end
+
+                 case Ecto.Adapters.SQL.query(Repo, drop_temp_event_history, []) do
+                   {:ok, success} ->
+                     {:ok, success}
+
+                   {:error, error} ->
+                     IO.inspect(error, label: "DROP TEMP EVENT HISTORY ERROR", pretty: true)
+                     {:error, error}
+                 end
                end
 
                # UpsertNotifications
                if !Enum.empty?(bulk_transactional_data.pg_notifications) do
-                 Ecto.Adapters.SQL.query(Repo, temp_notifications, [])
+                 case Ecto.Adapters.SQL.query(Repo, temp_notifications, []) do
+                   {:ok, success} ->
+                     {:ok, success}
+
+                   {:error, error} ->
+                     IO.inspect(error, label: "CREATE TEMP NOTIFICATION ERROR", pretty: true)
+                     {:error, error}
+                 end
 
                  Enum.into(
                    bulk_transactional_data.pg_notifications,
                    Ecto.Adapters.SQL.stream(Repo, copy_notifications)
                  )
 
-                 Ecto.Adapters.SQL.query(Repo, upsert_notifications, [])
+                 case Ecto.Adapters.SQL.query(Repo, upsert_notifications, []) do
+                   {:ok, success} ->
+                     {:ok, success}
 
-                 Ecto.Adapters.SQL.query(Repo, drop_temp_notifications, [])
+                   {:error, error} ->
+                     IO.inspect(error, label: "UPSERT NOTIFICATION ERROR", pretty: true)
+                     {:error, error}
+                 end
+
+                 case Ecto.Adapters.SQL.query(Repo, drop_temp_notifications, []) do
+                   {:ok, success} ->
+                     {:ok, success}
+
+                   {:error, error} ->
+                     IO.inspect(error, label: "DROP TEMP NOTIFICATION ERROR", pretty: true)
+                     {:error, error}
+                 end
                end
              end,
              timeout: :infinity

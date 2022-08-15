@@ -85,73 +85,27 @@ defmodule LivenessCheck do
     end
   end
 
-  # defp indices_healthy?() do
-  #   # Get the indices from the configs
-  #   ElasticConfig.elasticsearch_indices()
-  #   # The keys are the aliases
-  #   |> Keyword.keys()
-  #   |> Enum.reduce_while(true, fn a, acc ->
-  #     Atom.to_string(a)
-  #     # Wait for the green status
-  #     |> ElasticConfig.elasticsearch_service().get_index_health(
-  #       query: [wait_for_status: "green", timeout: "10s"]
-  #     )
-  #     |> case do
-  #       {:ok, %{"status" => "green"}} ->
-  #         {:cont, acc && true}
-
-  #       {:ok, res} ->
-  #         IO.inspect(res, label: "ELASTIC HEALTH CHECK RESP", pretty: true)
-
-  #         CogyntLogger.error(
-  #           "#{__MODULE__}",
-  #           "Unexpected LivenessCheck response for #{inspect(a)} index. Response: #{inspect(res)}"
-  #         )
-
-  #         {:halt, false}
-
-  #       {:error, error} ->
-  #         CogyntLogger.error(
-  #           "#{__MODULE__}",
-  #           "LivenessCheck for #{inspect(a)} index failed. Error: #{inspect(error)}"
-  #         )
-
-  #         {:halt, false}
-  #     end
-  #   end)
-  # end
-
-  # TESTING HARD CODING TO TRUE
   defp elastic_cluster_health?() do
-    true
+    ElasticConfig.elasticsearch_service().get_cluster_health()
+    |> case do
+      {:ok, %{"status" => status}} when status in ["green", "yellow"] ->
+        true
+
+      {:ok, res} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Unexpected LivenessCheck response for Elastic Cluster. Response: #{inspect(res)}"
+        )
+
+        false
+
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "LivenessCheck for Elastic Cluster failed. Error: #{inspect(error)}"
+        )
+
+        false
+    end
   end
-
-  # defp elastic_cluster_health?() do
-  #   ElasticConfig.elasticsearch_service().get_cluster_health(
-  #     query: [wait_for_status: "yellow", timeout: "50s"]
-  #   )
-  #   |> case do
-  #     {:ok, %{"status" => "green"}} ->
-  #       true
-
-  #     {:ok, %{"status" => "yellow"}} ->
-  #       true
-
-  #     {:ok, res} ->
-  #       CogyntLogger.error(
-  #         "#{__MODULE__}",
-  #         "Unexpected LivenessCheck response for Elastic Cluster. Response: #{inspect(res)}"
-  #       )
-
-  #       false
-
-  #     {:error, error} ->
-  #       CogyntLogger.error(
-  #         "#{__MODULE__}",
-  #         "LivenessCheck for Elastic Cluster failed. Error: #{inspect(error)}"
-  #       )
-
-  #       false
-  #   end
-  # end
 end
