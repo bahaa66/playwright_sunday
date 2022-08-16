@@ -221,6 +221,7 @@ defmodule CogyntWorkstationIngest.Strategy.Kubernetes do
           {:ok, {{_version, 200, _status}, _headers, body}} ->
             parse_response(ip_lookup_mode, Jason.decode!(body))
             |> Enum.map(fn node_info ->
+              IO.inspect(Node.self(), label: "THE NODE CONNECTING FROM")
               format_node(
                 Keyword.get(config, :mode, :ip),
                 node_info,
@@ -275,7 +276,6 @@ defmodule CogyntWorkstationIngest.Strategy.Kubernetes do
             addrs =
               Enum.flat_map(subsets, fn
                 %{"addresses" => addresses} when is_list(addresses) ->
-                  IO.inspect(addresses, label: "ADDRESSES")
                   Enum.map(addresses, fn %{"ip" => ip, "targetRef" => %{"namespace" => namespace}} =
                                            address ->
                     %{ip: ip, namespace: namespace, hostname: address["hostname"]}
