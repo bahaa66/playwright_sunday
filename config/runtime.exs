@@ -167,7 +167,7 @@ end
 # Configs ONLY needed for production
 if config_env() not in [:dev, :test, :k8scyn] do
   config :libcluster,
-    # TODO: REMOVE THIS AND DON'T LET IT GO TO PROD
+    # TODO: REMOVE THIS AND DONT LET IT GO TO PROD
     debug: true,
     topologies: [
       k8s_ws_ingest: [
