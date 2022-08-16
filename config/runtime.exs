@@ -171,7 +171,7 @@ if config_env() not in [:dev, :test, :k8scyn] do
     debug: true,
     topologies: [
       k8s_ws_ingest: [
-        strategy: CogyntWorkstationIngest.KubernetesCog,
+        strategy: CogyntWorkstationIngest.Strategy.Kubernetes,
         config: [
           mode: :dns,
           kubernetes_node_basename: "ws-ingest-otp",
