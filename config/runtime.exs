@@ -167,12 +167,18 @@ end
 # Configs ONLY needed for production
 if config_env() not in [:dev, :test, :k8scyn] do
   config :libcluster,
+    # TODO: REMOVE THIS AND DON'T LET IT GO TO PROD
+    debug: true,
     topologies: [
       k8s_ws_ingest: [
-        strategy: Cluster.Strategy.Kubernetes.DNS,
+        strategy: CogyntWorkstationIngest.KubernetesCog,
         config: [
-          service: System.get_env("SERVICE_NAME") || "ws-ingest-otp-headless",
-          application_name: "ws-ingest-otp",
+          mode: :dns,
+          kubernetes_node_basename: "ws-ingest-otp",
+          kubernetes_service_name: System.get_env("SERVICE_NAME", "ws-ingest-otp"),
+          kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
+          kubernetes_namespace: System.get_env("NAMESPACE", "cogynt"),
+          kubernetes_ip_lookup_mode: :pods,
           polling_interval: 10_000
         ]
       ]
