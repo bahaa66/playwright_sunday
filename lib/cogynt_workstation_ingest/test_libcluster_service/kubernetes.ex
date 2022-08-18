@@ -137,6 +137,7 @@ defmodule CogyntWorkstationIngest.Strategy.Kubernetes do
             MapSet.delete(acc, n)
           end)
       end
+      |> IO.inspect(label: "CONNECTED NODES")
 
     Process.send_after(self(), :load, polling_interval(state))
 
@@ -221,7 +222,6 @@ defmodule CogyntWorkstationIngest.Strategy.Kubernetes do
           {:ok, {{_version, 200, _status}, _headers, body}} ->
             parse_response(ip_lookup_mode, Jason.decode!(body))
             |> Enum.map(fn node_info ->
-              IO.inspect(Node.self(), label: "THE NODE CONNECTING FROM")
               format_node(
                 Keyword.get(config, :mode, :ip),
                 node_info,
@@ -229,7 +229,6 @@ defmodule CogyntWorkstationIngest.Strategy.Kubernetes do
                 cluster_name,
                 service_name
               )
-              |> IO.inspect(label: "FORMATTED NODE TO CONNECT TO")
             end)
 
           {:ok, {{_version, 403, _status}, _headers, body}} ->
@@ -305,9 +304,9 @@ defmodule CogyntWorkstationIngest.Strategy.Kubernetes do
             "metadata" => %{"namespace" => ns} = meta,
             "spec" => pod_spec
           } ->
-            IO.inspect(status, label: "STATUS")
-            IO.inspect(meta, label: "METADATA")
-            IO.inspect(pod_spec, label: "POD SPEC")
+            # IO.inspect(status, label: "STATUS")
+            # IO.inspect(meta, label: "METADATA")
+            # IO.inspect(List.first(status["containerStatuses"])["image"], label: "CONTAINER STATUS")
             %{ip: ip, namespace: ns, hostname: pod_spec["hostname"]}
 
           _ ->
