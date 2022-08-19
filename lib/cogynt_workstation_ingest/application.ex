@@ -26,11 +26,11 @@ defmodule CogyntWorkstationIngest.Application do
     children = [
       {Phoenix.PubSub, [name: CogyntWorkstationIngestWeb.PubSub, adapter: Phoenix.PubSub.PG2]},
       # Start Horde an libcluster related supervisors. The registry needs to come before the TaskSupervisor.
-      {Cluster.Supervisor,
-       [Config.libcluster_topologies(), [name: CogyntWorkstationIngest.ClusterSupervisor]]},
       HordeRegistry,
       DruidSupervisor,
       HordeSupervisor,
+      {Cluster.Supervisor,
+       [Config.libcluster_topologies(), [name: CogyntWorkstationIngest.ClusterSupervisor]]},
       NodeObserver,
       # Start the Ecto repository
       CogyntWorkstationIngest.Repo,
