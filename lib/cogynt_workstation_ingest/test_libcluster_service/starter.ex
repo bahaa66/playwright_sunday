@@ -1,6 +1,7 @@
 defmodule CogyntWorkstationIngest.TestLibclusterService.Starter do
   alias CogyntWorkstationIngest.TestLibclusterService, as: TestService
-  alias CogyntWorkstationIngest.Horde.{HordeRegistry, HordeSupervisor}
+  alias CogyntWorkstationIngest.Horde.HordeRegistry
+  alias CogyntWorkstationIngest.TestLibclusterService.Supervisor, as: TestSupervisor
 
   def child_spec(opts) do
     %{
@@ -25,7 +26,7 @@ defmodule CogyntWorkstationIngest.TestLibclusterService.Starter do
       start: {TestService, :start_link, [new_opts]}
     }
 
-    HordeSupervisor.start_child(child_spec)
+    TestSupervisor.start_child(child_spec)
     |> case do
       {:error, {:already_started, pid}} -> {:ok, pid}
       res -> res

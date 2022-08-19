@@ -14,7 +14,7 @@ defmodule CogyntWorkstationIngest.TestLibclusterService do
     {:ok, args}
   end
 
-  @imple GenServer
+  @impl GenServer
   def handle_info(:display_message, state) do
     display_message(state)
     Process.send_after(self(), :display_message, 15_000)

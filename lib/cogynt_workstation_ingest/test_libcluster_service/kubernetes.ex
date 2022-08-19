@@ -137,7 +137,7 @@ defmodule CogyntWorkstationIngest.Strategy.Kubernetes do
             MapSet.delete(acc, n)
           end)
       end
-      |> IO.inspect(label: "CONNECTED NODES")
+      # |> IO.inspect(label: "CONNECTED NODES")
 
     Process.send_after(self(), :load, polling_interval(state))
 
@@ -300,8 +300,8 @@ defmodule CogyntWorkstationIngest.Strategy.Kubernetes do
       %{"items" => items} when is_list(items) ->
         Enum.map(items, fn
           %{
-            "status" => %{"podIP" => ip} = status,
-            "metadata" => %{"namespace" => ns} = meta,
+            "status" => %{"podIP" => ip},
+            "metadata" => %{"namespace" => ns},
             "spec" => pod_spec
           } ->
             # IO.inspect(status, label: "STATUS")
