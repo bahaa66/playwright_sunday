@@ -18,9 +18,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   alias CogyntElasticsearch.Indexer
   alias CogyntWorkstationIngest.Elasticsearch.IndexerStarter
 
-  alias CogyntWorkstationIngest.TestLibclusterService, as: TestService
-  alias CogyntWorkstationIngest.TestLibclusterService.Starter, as: TestStarter
-
   def start_link do
     Supervisor.start_link(__MODULE__, [], name: __MODULE__)
   end
@@ -37,7 +34,6 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
       child_spec(ConsumerMonitor, restart: :permanent),
       child_spec(BroadwayProducerMonitor, restart: :permanent),
       child_spec(IngestPubSub, restart: :permanent, start_link_opts: [pubsub]),
-      {TestStarter, [name: TestService]},
       {IndexerStarter, [name: Indexer]}
     ]
 

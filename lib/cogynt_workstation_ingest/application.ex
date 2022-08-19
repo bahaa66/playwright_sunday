@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.Application do
   use Application
   require Protocol
   alias CogyntWorkstationIngest.Horde.{HordeRegistry, HordeSupervisor, NodeObserver}
-  alias CogyntWorkstationIngest.TestLibclusterService.Supervisor, as: TestSupervisor
   alias CogyntWorkstationIngest.Config
 
   alias CogyntWorkstationIngest.Supervisors.{
@@ -30,7 +29,6 @@ defmodule CogyntWorkstationIngest.Application do
       HordeRegistry,
       DruidSupervisor,
       HordeSupervisor,
-      TestSupervisor,
       {Cluster.Supervisor,
        [Config.libcluster_topologies(), [name: CogyntWorkstationIngest.ClusterSupervisor]]},
       NodeObserver,

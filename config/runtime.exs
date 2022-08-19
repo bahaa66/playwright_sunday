@@ -169,7 +169,7 @@ if config_env() not in [:dev, :test, :k8scyn] do
   config :libcluster,
     topologies: [
       k8s_ws_ingest: [
-        strategy: CogyntWorkstationIngest.Strategy.Kubernetes,
+        strategy: Cluster.Strategy.Kubernetes,
         config: [
           mode: :dns,
           kubernetes_node_basename: "ws-ingest-otp",

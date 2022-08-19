@@ -3,7 +3,6 @@ defmodule CogyntWorkstationIngest.Horde.NodeObserver do
 
   alias CogyntWorkstationIngest.Horde.{HordeRegistry, HordeSupervisor}
   alias CogyntWorkstationIngest.Supervisors.DruidSupervisor
-  alias CogyntWorkstationIngest.TestLibclusterService.Supervisor, as: TestSupervisor
 
   def start_link(_), do: GenServer.start_link(__MODULE__, [])
 
@@ -17,7 +16,6 @@ defmodule CogyntWorkstationIngest.Horde.NodeObserver do
     set_members(HordeRegistry)
     set_members(DruidSupervisor)
     set_members(HordeSupervisor)
-    set_members(TestSupervisor)
 
     CogyntLogger.info(
       "#{__MODULE__}",
@@ -31,7 +29,6 @@ defmodule CogyntWorkstationIngest.Horde.NodeObserver do
     set_members(HordeRegistry)
     set_members(DruidSupervisor)
     set_members(HordeSupervisor)
-    set_members(TestSupervisor)
 
     CogyntLogger.info(
       "#{__MODULE__}",
