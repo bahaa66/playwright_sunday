@@ -621,10 +621,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
               String.contains?(val.dataType, "array") == true ->
                 "array"
 
-              # val.dataType == "poly-array" or
-              #     val.dataType == "geo-array" ->
-              #   "geo-array"
-
               true ->
                 val.dataType
             end
@@ -647,10 +643,6 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
               String.contains?(val["dataType"], "array") == true ->
                 "array"
-
-              # val["dataType"] == "poly-array" or
-              #     val["dataType"] == "geo-array" ->
-              #   "geo-array"
 
               true ->
                 val["dataType"]
