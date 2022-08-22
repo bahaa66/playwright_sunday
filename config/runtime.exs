@@ -199,11 +199,13 @@ if config_env() in [:k8scyn] do
       k8s_ws_ingest: [
         strategy: Cluster.Strategy.Kubernetes,
         config: [
-          mode: :ip,
+          mode: :dns,
+          kubernetes_node_basename: "ws-ingest-otp",
           kubernetes_service_name: System.get_env("SERVICE_NAME", "ws-ingest-otp"),
-          kubernetes_node_basename: System.get_env("NAMESPACE", "cyn"),
           kubernetes_selector: "app=ws-ingest-otp",
           kubernetes_namespace: System.get_env("NAMESPACE", "cyn"),
+          # could use :pods but would beed to update the rbac permissions
+          kubernetes_ip_lookup_mode: :pods,
           polling_interval: 10_000
         ]
       ]
