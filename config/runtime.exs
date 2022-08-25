@@ -166,18 +166,30 @@ end
 
 # Configs ONLY needed for production
 if config_env() not in [:dev, :test, :k8scyn] do
+  # config :libcluster,
+  #   topologies: [
+  #     k8s_ws_ingest: [
+  #       strategy: Cluster.Strategy.Kubernetes,
+  #       config: [
+  #         mode: :dns,
+  #         kubernetes_node_basename: "ws-ingest-otp",
+  #         kubernetes_service_name: System.get_env("SERVICE_NAME", "ws-ingest-otp-headless"),
+  #         kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
+  #         kubernetes_namespace: System.get_env("NAMESPACE", "cogynt"),
+  #         # could use :pods but would beed to update the rbac permissions
+  #         kubernetes_ip_lookup_mode: :endpoints,
+  #         polling_interval: 10_000
+  #       ]
+  #     ]
+  #   ]
+
   config :libcluster,
     topologies: [
       k8s_ws_ingest: [
-        strategy: Cluster.Strategy.Kubernetes,
+        strategy: Cluster.Strategy.Kubernetes.DNS,
         config: [
-          mode: :dns,
-          kubernetes_node_basename: "ws-ingest-otp",
-          kubernetes_service_name: System.get_env("SERVICE_NAME", "ws-ingest-otp-headless"),
-          kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
-          kubernetes_namespace: System.get_env("NAMESPACE", "cogynt"),
-          # could use :pods but would beed to update the rbac permissions
-          kubernetes_ip_lookup_mode: :endpoints,
+          service: System.get_env("SERVICE_NAME") || "ws-ingest-otp-headless",
+          application_name: "ws-ingest-otp",
           polling_interval: 10_000
         ]
       ]
