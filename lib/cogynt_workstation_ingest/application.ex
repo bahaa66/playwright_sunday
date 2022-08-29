@@ -5,8 +5,9 @@ defmodule CogyntWorkstationIngest.Application do
 
   use Application
   require Protocol
-  alias CogyntWorkstationIngest.Horde.{HordeRegistry, HordeSupervisor, NodeObserver}
+  alias CogyntWorkstationIngest.Horde.{HordeRegistry, NodeObserver}
   alias CogyntWorkstationIngest.Config
+  alias CogyntWorkstationIngest.Elasticsearch.IndexerSupervisor
 
   alias CogyntWorkstationIngest.Supervisors.{
     ConsumerGroupSupervisor,
@@ -26,11 +27,11 @@ defmodule CogyntWorkstationIngest.Application do
     children = [
       {Phoenix.PubSub, [name: CogyntWorkstationIngestWeb.PubSub, adapter: Phoenix.PubSub.PG2]},
       # Start Horde an libcluster related supervisors. The registry needs to come before the TaskSupervisor.
-      {Cluster.Supervisor,
-       [Config.libcluster_topologies(), [name: CogyntWorkstationIngest.ClusterSupervisor]]},
       HordeRegistry,
       DruidSupervisor,
-      HordeSupervisor,
+      IndexerSupervisor,
+      {Cluster.Supervisor,
+       [Config.libcluster_topologies(), [name: CogyntWorkstationIngest.ClusterSupervisor]]},
       NodeObserver,
       # Start the Ecto repository
       CogyntWorkstationIngest.Repo,

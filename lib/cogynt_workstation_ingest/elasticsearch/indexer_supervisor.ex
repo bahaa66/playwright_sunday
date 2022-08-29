@@ -1,4 +1,4 @@
-defmodule CogyntWorkstationIngest.Horde.HordeSupervisor do
+defmodule CogyntWorkstationIngest.Elasticsearch.IndexerSupervisor do
   use Horde.DynamicSupervisor
 
   def start_link(_) do

@@ -1,6 +1,7 @@
 defmodule CogyntWorkstationIngest.Elasticsearch.IndexerStarter do
   alias CogyntElasticsearch.Indexer
-  alias CogyntWorkstationIngest.Horde.{HordeRegistry, HordeSupervisor}
+  alias CogyntWorkstationIngest.Horde.HordeRegistry
+  alias CogyntWorkstationIngest.Elasticsearch.IndexerSupervisor
 
   def child_spec(opts) do
     %{
@@ -25,7 +26,7 @@ defmodule CogyntWorkstationIngest.Elasticsearch.IndexerStarter do
       start: {Indexer, :start_link, [new_opts]}
     }
 
-    HordeSupervisor.start_child(child_spec)
+    IndexerSupervisor.start_child(child_spec)
     |> case do
       {:error, {:already_started, pid}} -> {:ok, pid}
       res -> res
