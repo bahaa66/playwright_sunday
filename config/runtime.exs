@@ -178,7 +178,7 @@ if config_env() not in [:dev, :test, :k8scyn] do
           kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
           kubernetes_namespace: System.get_env("NAMESPACE", "cogynt"),
           # # could use :pods but would beed to update the rbac permissions
-          # kubernetes_ip_lookup_mode: :endpoints,
+          kubernetes_ip_lookup_mode: :pods,
           polling_interval: 10_000
         ]
       ]
