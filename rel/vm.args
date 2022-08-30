@@ -3,7 +3,8 @@
 ## http://erlang.org/doc/man/erl.html
 
 ## Name of the node
--name ws-ingest-otp@${POD_IP}
+#-name ws-ingest-otp@${POD_IP}
+-name ws-ingest-otp@<%=`(hostname -f)`%>
 
 ## Cookie for distributed erlang
 -setcookie ${RELEASE_COOKIE}
