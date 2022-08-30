@@ -169,10 +169,10 @@ if config_env() not in [:dev, :test, :k8scyn] do
   config :libcluster,
     topologies: [
       k8s_ws_ingest: [
-        strategy: Cluster.Strategy.Kubernetes,
+        strategy: Cluster.Strategy.Kubernetes.Debug,
         config: [
           mode: :hostname,
-          kubernetes_node_basename: "cogynt_workstation_ingest",
+          kubernetes_node_basename: "ws-ingest-otp",
           kubernetes_service_name: "ws-ingest-otp",
           kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
           kubernetes_namespace: System.get_env("NAMESPACE", "cogynt"),
