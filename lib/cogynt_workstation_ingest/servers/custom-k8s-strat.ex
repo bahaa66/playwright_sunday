@@ -101,6 +101,7 @@ defmodule Cluster.Strategy.Kubernetes.Debug do
   end
 
   defp load(%State{topology: topology} = state) do
+    IO.inspect(state, label: "STATE OF GENSERVER ON LOAD CALL", pretty: true)
     new_nodelist = MapSet.new(get_nodes(state))
     removed = MapSet.difference(state.meta, new_nodelist)
 
@@ -123,6 +124,7 @@ defmodule Cluster.Strategy.Kubernetes.Debug do
 
     IO.inspect(state.connect, label: "STATE CONNECT")
     IO.inspect(state.list_nodes, label: "STATE LIST NODES")
+    IO.inspect(MapSet.to_list(new_nodelist), label: "NEW NODE LIST")
 
     new_nodelist =
       case Cluster.Strategy.connect_nodes(
@@ -236,7 +238,7 @@ defmodule Cluster.Strategy.Kubernetes.Debug do
 
         case :httpc.request(:get, {'https://#{master}/#{path}', headers}, http_options, []) do
           {:ok, {{_version, 200, _status}, _headers, body}} ->
-            IO.inspect(Jason.decode!(body), label: "IP LOOKUP RESPONSE", pretty: true)
+            # IO.inspect(Jason.decode!(body), label: "IP LOOKUP RESPONSE", pretty: true)
 
             parse_response(ip_lookup_mode, Jason.decode!(body))
             |> Enum.map(fn node_info ->
@@ -248,6 +250,7 @@ defmodule Cluster.Strategy.Kubernetes.Debug do
                 service_name
               )
             end)
+            |> IO.inspect(label: "IP LOOKUP RESPONSE PARSED", pretty: true)
 
           {:ok, {{_version, 403, _status}, _headers, body}} ->
             %{"message" => msg} = Jason.decode!(body)
