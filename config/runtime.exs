@@ -167,6 +167,7 @@ end
 # Configs ONLY needed for production
 if config_env() not in [:dev, :test, :k8scyn] do
   config :libcluster,
+    debug: true,
     topologies: [
       k8s_ws_ingest: [
         strategy: Cluster.Strategy.Kubernetes.Debug,
