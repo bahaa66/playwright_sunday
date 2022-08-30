@@ -121,6 +121,9 @@ defmodule Cluster.Strategy.Kubernetes.Debug do
           end)
       end
 
+    IO.inspect(state.connect, label: "STATE CONNECT")
+    IO.inspect(state.list_nodes, label: "STATE LIST NODES")
+
     new_nodelist =
       case Cluster.Strategy.connect_nodes(
              topology,
@@ -218,6 +221,7 @@ defmodule Cluster.Strategy.Kubernetes.Debug do
         http_options = [ssl: [verify: :verify_none], timeout: 15000]
 
         # Debug Logs #
+        IO.puts("-----Start of Debug Logs----")
         IO.inspect(service_account_path, label: "SERVICE ACCOUNT PATH")
         IO.inspect(namespace, label: "NAMESPACE")
         IO.inspect(app_name, label: "APP NAME")
@@ -232,6 +236,8 @@ defmodule Cluster.Strategy.Kubernetes.Debug do
 
         case :httpc.request(:get, {'https://#{master}/#{path}', headers}, http_options, []) do
           {:ok, {{_version, 200, _status}, _headers, body}} ->
+            IO.inspect(Jason.decode!(body), label: "IP LOOKUP RESPONSE", pretty: true)
+
             parse_response(ip_lookup_mode, Jason.decode!(body))
             |> Enum.map(fn node_info ->
               format_node(
