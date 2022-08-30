@@ -235,6 +235,7 @@ defmodule Cluster.Strategy.Kubernetes.Debug do
         IO.inspect(cluster_domain, label: "CLUSTER DOMAIN")
         IO.inspect(master, label: "MASTER")
         IO.inspect(path, label: "PATH")
+        IO.inspect(:erlang.get_cookie(), label: "MAGIC COOKIE")
 
         case :httpc.request(:get, {'https://#{master}/#{path}', headers}, http_options, []) do
           {:ok, {{_version, 200, _status}, _headers, body}} ->

@@ -4,10 +4,10 @@
 
 ## Name of the node
 #-name ws-ingest-otp@${POD_IP}
--name ws-ingest-otp@<%=`(hostname -f)`%>
+# -name ws-ingest-otp@<%=`(hostname -f)`%>
 
 ## Cookie for distributed erlang
--setcookie ${RELEASE_COOKIE}
+# -setcookie ${RELEASE_COOKIE}
 
 ## Heartbeat management; auto-restarts VM if it dies or becomes unresponsive
 ## (Disabled by default..use with caution!)
