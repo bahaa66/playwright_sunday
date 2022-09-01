@@ -350,7 +350,7 @@ defmodule Cluster.Strategy.Kubernetes.Debug do
          cluster_name,
          service_name
        ) do
-    :"#{app_name}@#{hostname}.#{service_name}.#{namespace}.svc.#{cluster_name}.local:4000"
+    :"#{app_name}@#{hostname}.#{service_name}.#{namespace}.svc.#{cluster_name}.local"
   end
 
   defp format_node(:dns, %{ip: ip, namespace: namespace}, app_name, cluster_name, _service_name) do
