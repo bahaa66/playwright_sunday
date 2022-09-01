@@ -1,4 +1,6 @@
 defmodule CogyntWorkstationIngest.Supervisors.DruidSupervisor do
+  # CURRENTLY NOT USED UNTIL WE START USING LIBCLUSTER AND HORDE REGISTRY AGAIN
+  # NEED TO FIGURE OUT WHY THEY DONT WORK WITH ISTIO
   use Horde.DynamicSupervisor
 
   alias CogyntWorkstationIngest.Horde.HordeRegistry

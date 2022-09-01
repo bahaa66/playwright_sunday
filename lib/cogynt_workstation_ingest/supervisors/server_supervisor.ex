@@ -30,28 +30,23 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
     # Start Redis pub/sub
     {:ok, pubsub} = Redis.pub_sub_start()
 
+    children = [
+      child_spec(ConsumerRetryWorker),
+      # child_spec(FailedMessagesRetryWorker),
+      child_spec(RedisStreamsConsumerGroupWorker, restart: :permanent),
+      child_spec(ConsumerMonitor, restart: :permanent),
+      child_spec(BroadwayProducerMonitor, restart: :permanent),
+      child_spec(IngestPubSub, restart: :permanent, start_link_opts: [pubsub])
+      # {IndexerStarter, [name: Indexer]}
+    ]
+
+    # This is a hacky solution to create any service as a singleton only running on
+    # pod-name-0. This is because we currently cannot get Libcluster working with Istio
     children =
       if Config.pod_name() == @singleton_pod do
-        [
-          child_spec(ConsumerRetryWorker),
-          # child_spec(FailedMessagesRetryWorker),
-          child_spec(RedisStreamsConsumerGroupWorker, restart: :permanent),
-          child_spec(ConsumerMonitor, restart: :permanent),
-          child_spec(BroadwayProducerMonitor, restart: :permanent),
-          child_spec(IngestPubSub, restart: :permanent, start_link_opts: [pubsub]),
-          child_spec(Indexer, restart: :temporary)
-          # {IndexerStarter, [name: Indexer]}
-        ]
+        children ++ [child_spec(Indexer, restart: :temporary)]
       else
-        [
-          child_spec(ConsumerRetryWorker),
-          # child_spec(FailedMessagesRetryWorker),
-          child_spec(RedisStreamsConsumerGroupWorker, restart: :permanent),
-          child_spec(ConsumerMonitor, restart: :permanent),
-          child_spec(BroadwayProducerMonitor, restart: :permanent),
-          child_spec(IngestPubSub, restart: :permanent, start_link_opts: [pubsub])
-          # {IndexerStarter, [name: Indexer]}
-        ]
+        children
       end
 
     Supervisor.init(children, strategy: :one_for_one)
