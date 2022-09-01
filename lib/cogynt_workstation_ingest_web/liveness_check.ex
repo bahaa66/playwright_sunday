@@ -2,6 +2,7 @@ defmodule LivenessCheck do
   import Plug.Conn
   alias CogyntWorkstationIngest.Config
   alias CogyntElasticsearch.Config, as: ElasticConfig
+  alias CogyntWorkstationIngest.Pinot
 
   @type options :: [resp_body: String.t()]
 
@@ -15,6 +16,8 @@ defmodule LivenessCheck do
 
   @spec call(Plug.Conn.t(), options) :: Plug.Conn.t()
   def call(%Plug.Conn{} = conn, _opts) do
+    pinot_healthy?()
+
     if kafka_health?() and postgres_health?() and redis_health?() and elastic_cluster_health?() do
       send_resp(conn, 200, @resp_body)
     else
@@ -39,26 +42,60 @@ defmodule LivenessCheck do
     end
   end
 
+  @tables_to_check [
+    "collection_items",
+    "data_sources",
+    "events",
+    "event_definitions",
+    "event_definition_details",
+    "event_detail_templates",
+    "event_detail_template_groups",
+    "event_detail_template_group_items",
+    "event_history",
+    "event_links",
+    "notes",
+    "notification_system_tags",
+    "notifications",
+    "notification_settings",
+    "system_notifications",
+    "system_notification_configurations",
+    "system_notification_types"
+  ]
+
   defp postgres_health?() do
     try do
-      query = "SELECT tablename FROM pg_tables
-      WHERE tableowner = #{Config.postgres_username()} AND schemaname = 'public' AND tablename IN (
-        'collection_items',
-        'event_definition_details',
-        'event_detail_template_group_items',
-        'event_detail_template_groups',
-        'event_detail_templates',
-        'event_details',
-        'event_links',
-        'notification_system_tags',
-        'notifications',
-        'notification_settings',
-        'events',
-        'event_definitions'
-      );"
+      query =
+        "SELECT tablename FROM pg_tables WHERE tableowner = $1 AND schemaname = 'public' AND tablename = ANY($2);"
 
-      Ecto.Adapters.SQL.query(CogyntWorkstationIngest.Repo, query, [])
-      true
+      Ecto.Adapters.SQL.query(CogyntWorkstationIngest.Repo, query, [
+        Config.postgres_username(),
+        @tables_to_check
+      ])
+      |> case do
+        {:ok, %{rows: rows}} ->
+          rows = rows |> List.flatten() |> MapSet.new()
+          expected = @tables_to_check |> MapSet.new()
+          difference = MapSet.to_list(MapSet.difference(expected, rows))
+
+          if difference == [] do
+            true
+          else
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "LivenessCheck PostgreSQL Failed the database is missing the folowing expected tabels: #{inspect(difference)}"
+            )
+
+            false
+          end
+
+        {:error, error} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "LivenessCheck PostgreSQL Failed with error: #{inspect(error)}"
+          )
+
+          false
+      end
     rescue
       DBConnection.ConnectionError ->
         CogyntLogger.error(
@@ -105,6 +142,21 @@ defmodule LivenessCheck do
           "LivenessCheck for Elastic Cluster failed. Error: #{inspect(error)}"
         )
 
+        false
+    end
+  end
+
+  defp pinot_healthy?() do
+    Pinot.get_health()
+    |> case do
+      {:ok, "OK"} ->
+        true
+
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "LivenessCheck for Pinot failed. Error: #{inspect(error)}"
+        )
         false
     end
   end

@@ -15,11 +15,12 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
         DrilldownContext.get_template_solution_outcomes(MapSet.to_list(solution_ids))
         |> case do
           {:ok, events} ->
-            events = events
-            |> latest_events()
-            |> Map.values()
-            |> Enum.sort_by(& &1[Config.id_key()])
-            |> Enum.group_by(&Map.get(&1, "solution_id"))
+            events =
+              events
+              |> latest_events()
+              |> Map.values()
+              |> Enum.sort_by(& &1[Config.id_key()])
+              |> Enum.group_by(&Map.get(&1, "solution_id"))
 
             for id <- solution_ids, into: %{} do
               {id, events[id] || []}
@@ -35,11 +36,12 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
         DrilldownContext.get_template_solution_events(MapSet.to_list(solution_ids))
         |> case do
           {:ok, events} ->
-            events = events
-            |> latest_events("{{eventId}}!{{aid}}")
-            |> Map.values()
-            |> List.flatten()
-            |> Enum.group_by(&Map.get(&1, "solution_id"))
+            events =
+              events
+              |> latest_events("{{eventId}}!{{aid}}")
+              |> Map.values()
+              |> List.flatten()
+              |> Enum.group_by(&Map.get(&1, "solution_id"))
 
             for id <- solution_ids, into: %{} do
               {id, events[id] || []}
@@ -80,7 +82,9 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Druid do
         key = get_key(druid_event, parse_key)
         cached_event = Map.get(acc, key, %{"event" => %{}})
         cached_version = get_in(cached_event, ["event", Config.version_key()]) || 0
-        cached_pa = get_in(cached_event, ["event", Config.published_at_key()]) || "1970-01-01T00:00:00Z"
+
+        cached_pa =
+          get_in(cached_event, ["event", Config.published_at_key()]) || "1970-01-01T00:00:00Z"
 
         Jason.decode(event)
         |> case do
