@@ -16,7 +16,10 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   alias CogyntWorkstationIngest.Servers.{ConsumerMonitor, BroadwayProducerMonitor}
 
   alias CogyntElasticsearch.Indexer
-  alias CogyntWorkstationIngest.Elasticsearch.IndexerStarter
+  alias CogyntWorkstationIngest.Config
+  # alias CogyntWorkstationIngest.Elasticsearch.IndexerStarter
+
+  @singleton_pod "ws-ingest-otp-0"
 
   def start_link do
     Supervisor.start_link(__MODULE__, [], name: __MODULE__)
@@ -27,15 +30,29 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
     # Start Redis pub/sub
     {:ok, pubsub} = Redis.pub_sub_start()
 
-    children = [
-      child_spec(ConsumerRetryWorker),
-      # child_spec(FailedMessagesRetryWorker),
-      child_spec(RedisStreamsConsumerGroupWorker, restart: :permanent),
-      child_spec(ConsumerMonitor, restart: :permanent),
-      child_spec(BroadwayProducerMonitor, restart: :permanent),
-      child_spec(IngestPubSub, restart: :permanent, start_link_opts: [pubsub]),
-      {IndexerStarter, [name: Indexer]}
-    ]
+    children =
+      if Config.pod_name() == @singleton_pod do
+        [
+          child_spec(ConsumerRetryWorker),
+          # child_spec(FailedMessagesRetryWorker),
+          child_spec(RedisStreamsConsumerGroupWorker, restart: :permanent),
+          child_spec(ConsumerMonitor, restart: :permanent),
+          child_spec(BroadwayProducerMonitor, restart: :permanent),
+          child_spec(IngestPubSub, restart: :permanent, start_link_opts: [pubsub]),
+          child_spec(Indexer, restart: :temporary)
+          # {IndexerStarter, [name: Indexer]}
+        ]
+      else
+        [
+          child_spec(ConsumerRetryWorker),
+          # child_spec(FailedMessagesRetryWorker),
+          child_spec(RedisStreamsConsumerGroupWorker, restart: :permanent),
+          child_spec(ConsumerMonitor, restart: :permanent),
+          child_spec(BroadwayProducerMonitor, restart: :permanent),
+          child_spec(IngestPubSub, restart: :permanent, start_link_opts: [pubsub])
+          # {IndexerStarter, [name: Indexer]}
+        ]
+      end
 
     Supervisor.init(children, strategy: :one_for_one)
   end

@@ -14,7 +14,8 @@ cond do
       session_key: System.get_env("COGYNT_AUTH_SESSION_KEY", "_cogynt_auth_key"),
       signing_salt: signing_salt,
       enable_dev_tools: (System.get_env("ENABLE_DEV_TOOLS") || "true") == "true",
-      authoring_version: System.get_env("COGYNT_AUTHORING_VERSION", "1")
+      authoring_version: System.get_env("COGYNT_AUTHORING_VERSION", "1"),
+      pod_name: System.get_env("POD_NAME")
 
     config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
       url: [host: System.get_env("COGYNT_DOMAIN")],
