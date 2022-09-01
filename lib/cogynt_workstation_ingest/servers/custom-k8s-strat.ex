@@ -224,6 +224,8 @@ defmodule Cluster.Strategy.Kubernetes.Debug do
 
         # Debug Logs #
         IO.puts("-----Start of Debug Logs----")
+        IO.inspect(node(), label: "NODE NAME")
+        IO.inspect(:erl_epmd.names(), label: "ERLANG EPMD NAMES")
         IO.inspect(service_account_path, label: "SERVICE ACCOUNT PATH")
         IO.inspect(namespace, label: "NAMESPACE")
         IO.inspect(app_name, label: "APP NAME")

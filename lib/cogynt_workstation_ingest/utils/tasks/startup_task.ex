@@ -13,7 +13,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   end
 
   def run() do
-    IO.inspect(node(), label: "NODE NAME")
     start_event_type_pipelines()
     start_deployment_pipeline()
 
