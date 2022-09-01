@@ -157,6 +157,7 @@ defmodule LivenessCheck do
           "#{__MODULE__}",
           "LivenessCheck for Pinot failed. Error: #{inspect(error)}"
         )
+
         false
     end
   end

@@ -13,6 +13,25 @@ defmodule CogyntWorkstationIngest.Pinot do
     |> handle_response()
   end
 
+  @typedoc """
+  "realtime" | "offline"
+  """
+  @type table_type :: String.t()
+  @typedoc """
+  "name" | "creationTime" | "lastModifiedTime"
+  """
+  @type sort_tabel :: String.t()
+  @type get_tables_query_params :: [
+          type: table_type(),
+          sortType: sort_tabel(),
+          sortAsc: boolean()
+        ]
+  @callback get_tables(opts :: [query: get_tables_query_params()]) :: {:ok, %{"tables" => [map()]}} | api_error
+  def get_tables(opts \\ []) do
+    get("/tables", opts)
+    |> handle_response()
+  end
+
   @spec handle_response(response :: Tesla.Env.result()) ::
           {:ok, any()} | {:error, {integer(), map()}} | {:error, any()}
   defp handle_response(response) do
