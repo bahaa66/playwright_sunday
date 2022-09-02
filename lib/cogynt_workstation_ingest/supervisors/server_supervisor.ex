@@ -16,7 +16,10 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
   alias CogyntWorkstationIngest.Servers.{ConsumerMonitor, BroadwayProducerMonitor}
 
   alias CogyntElasticsearch.Indexer
-  alias CogyntWorkstationIngest.Elasticsearch.IndexerStarter
+  alias CogyntWorkstationIngest.Config
+  # alias CogyntWorkstationIngest.Elasticsearch.IndexerStarter
+
+  @singleton_pod "ws-ingest-otp-0"
 
   def start_link do
     Supervisor.start_link(__MODULE__, [], name: __MODULE__)
@@ -33,9 +36,18 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
       child_spec(RedisStreamsConsumerGroupWorker, restart: :permanent),
       child_spec(ConsumerMonitor, restart: :permanent),
       child_spec(BroadwayProducerMonitor, restart: :permanent),
-      child_spec(IngestPubSub, restart: :permanent, start_link_opts: [pubsub]),
-      {IndexerStarter, [name: Indexer]}
+      child_spec(IngestPubSub, restart: :permanent, start_link_opts: [pubsub])
+      # {IndexerStarter, [name: Indexer]}
     ]
+
+    # This is a hacky solution to create any service as a singleton only running on
+    # pod-name-0. This is because we currently cannot get Libcluster working with Istio
+    children =
+      if Config.pod_name() == @singleton_pod do
+        children ++ [child_spec(Indexer, restart: :temporary)]
+      else
+        children
+      end
 
     Supervisor.init(children, strategy: :one_for_one)
   end
