@@ -46,7 +46,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
       if Config.pod_name() == @singleton_pod do
         indexer = %{
           id: Indexer,
-          start: {Indexer, :start_link, [name: Indexer]},
+          start: {Indexer, :start_link, Keyword.new({:name, Indexer})},
           restart: :temporary,
           shutdown: 5000,
           type: :worker
