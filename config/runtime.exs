@@ -14,7 +14,8 @@ cond do
       session_key: System.get_env("COGYNT_AUTH_SESSION_KEY", "_cogynt_auth_key"),
       signing_salt: signing_salt,
       enable_dev_tools: (System.get_env("ENABLE_DEV_TOOLS") || "true") == "true",
-      authoring_version: System.get_env("COGYNT_AUTHORING_VERSION", "1")
+      authoring_version: System.get_env("COGYNT_AUTHORING_VERSION", "1"),
+      pod_name: System.get_env("POD_NAME")
 
     config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
       url: [host: System.get_env("COGYNT_DOMAIN")],
@@ -166,30 +167,20 @@ end
 
 # Configs ONLY needed for production
 if config_env() not in [:dev, :test, :k8scyn] do
-  # config :libcluster,
-  #   topologies: [
-  #     k8s_ws_ingest: [
-  #       strategy: Cluster.Strategy.Kubernetes,
-  #       config: [
-  #         mode: :dns,
-  #         kubernetes_node_basename: "ws-ingest-otp",
-  #         kubernetes_service_name: System.get_env("SERVICE_NAME", "ws-ingest-otp-headless"),
-  #         kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
-  #         kubernetes_namespace: System.get_env("NAMESPACE", "cogynt"),
-  #         # could use :pods but would beed to update the rbac permissions
-  #         kubernetes_ip_lookup_mode: :endpoints,
-  #         polling_interval: 10_000
-  #       ]
-  #     ]
-  #   ]
-
+  # Currently not using Libcluster because of Istio blocker
   config :libcluster,
+    debug: true,
     topologies: [
       k8s_ws_ingest: [
-        strategy: Cluster.Strategy.Kubernetes.DNS,
+        strategy: Cluster.Strategy.Kubernetes.Debug,
         config: [
-          service: System.get_env("SERVICE_NAME") || "ws-ingest-otp-headless",
-          application_name: "ws-ingest-otp",
+          mode: :hostname,
+          kubernetes_node_basename: "ws-ingest-otp",
+          kubernetes_service_name: System.get_env("SERVICE_NAME") || "ws-ingest-otp-headless",
+          kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
+          kubernetes_namespace: System.get_env("NAMESPACE", "cogynt"),
+          # # could use :pods but would beed to update the rbac permissions
+          kubernetes_ip_lookup_mode: :pods,
           polling_interval: 10_000
         ]
       ]
@@ -205,6 +196,7 @@ end
 
 # k8s-cyn dev env only
 if config_env() in [:k8scyn] do
+  # Currently not using Libcluster because of Istio blocker
   config :libcluster,
     debug: true,
     topologies: [

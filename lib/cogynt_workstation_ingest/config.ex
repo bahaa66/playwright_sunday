@@ -227,6 +227,8 @@ defmodule CogyntWorkstationIngest.Config do
   def drilldown_enabled?(),
     do: Application.get_env(:cogynt_workstation_ingest, :drilldown_enabled)
 
+  def pod_name(), do: Application.get_env(:cogynt_workstation_ingest, :pod_name)
+
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
