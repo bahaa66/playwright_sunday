@@ -44,7 +44,7 @@ defmodule CogyntWorkstationIngest.Supervisors.ServerSupervisor do
     # pod-name-0. This is because we currently cannot get Libcluster working with Istio
     children =
       if Config.pod_name() == @singleton_pod do
-        children ++ [child_spec(Indexer, restart: :temporary)]
+        children ++ [child_spec(Indexer, restart: :permanent)]
       else
         children
       end
