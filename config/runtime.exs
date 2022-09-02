@@ -175,7 +175,7 @@ if config_env() not in [:dev, :test, :k8scyn] do
         config: [
           mode: :hostname,
           kubernetes_node_basename: "ws-ingest-otp",
-          kubernetes_service_name: "ws-ingest-otp-headless",
+          kubernetes_service_name: System.get_env("SERVICE_NAME") || "ws-ingest-otp-headless",
           kubernetes_selector: "k8s.cogynt.io/name=ws-ingest-otp",
           kubernetes_namespace: System.get_env("NAMESPACE", "cogynt"),
           # # could use :pods but would beed to update the rbac permissions
