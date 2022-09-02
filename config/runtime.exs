@@ -167,6 +167,7 @@ end
 
 # Configs ONLY needed for production
 if config_env() not in [:dev, :test, :k8scyn] do
+  # Currently not using Libcluster because of Istio blocker
   config :libcluster,
     debug: true,
     topologies: [
@@ -185,18 +186,6 @@ if config_env() not in [:dev, :test, :k8scyn] do
       ]
     ]
 
-  # config :libcluster,
-  #   topologies: [
-  #     k8s_ws_ingest: [
-  #       strategy: Cluster.Strategy.Kubernetes.DNS,
-  #       config: [
-  #         service: System.get_env("SERVICE_NAME") || "ws-ingest-otp-headless",
-  #         application_name: "ws-ingest-otp",
-  #         polling_interval: 10_000
-  #       ]
-  #     ]
-  #   ]
-
   config :cogynt_graphql, :common,
     license_redirect_url: "#{System.get_env("COGYNT_AUTH_DOMAIN")}/license",
     k8s_token: System.get_env("KUBERNETES_TOKEN"),
@@ -207,6 +196,7 @@ end
 
 # k8s-cyn dev env only
 if config_env() in [:k8scyn] do
+  # Currently not using Libcluster because of Istio blocker
   config :libcluster,
     debug: true,
     topologies: [
