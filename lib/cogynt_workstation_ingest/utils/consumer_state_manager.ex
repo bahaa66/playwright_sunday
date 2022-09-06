@@ -708,6 +708,32 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
     {:ok, consumer_status}
   end
 
+  defp handle_unknown_status(%EventDefinition{} = event_definition) do
+    if event_definition.active do
+      # update event_definition to be active false
+      EventsContext.update_event_definition(event_definition, %{
+        active: false
+      })
+    end
+
+    # check if there is a consumer running
+    if EventPipeline.pipeline_started?(event_definition.id) do
+      ConsumerGroupSupervisor.stop_child(event_definition)
+    end
+
+    # remove the ConsumerStatus Redis key
+    Redis.key_delete("cs:#{event_definition.id}")
+
+    # set the consumer status
+    upsert_consumer_state(event_definition.id,
+      status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
+      prev_status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
+      topic: event_definition.topic
+    )
+
+    %{response: {:ok, ConsumerStatusTypeEnum.status()[:paused_and_finished]}}
+  end
+
   defp handle_unknown_status(event_definition) do
     if event_definition.active do
       # update event_definition to be active false
