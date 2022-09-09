@@ -106,8 +106,8 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers do
         end
       end)
     rescue
-      _ ->
-        CogyntLogger.error("#{__MODULE__}", "is_job_queue_finished?/1 Failed.")
+      e ->
+        CogyntLogger.error("#{__MODULE__}", "is_job_queue_finished?/1 failed with exception #{inspect(e)}")
         true
     end
   end
