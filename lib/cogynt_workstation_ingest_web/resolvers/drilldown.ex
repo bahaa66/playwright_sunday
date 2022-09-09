@@ -2,7 +2,8 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   import Absinthe.Resolution.Helpers, only: [on_load: 2]
   alias CogyntWorkstationIngest.Config
   alias CogyntGraphql.Utils.Error
-  alias CogyntWorkstationIngestWeb.Dataloaders.Druid, as: DruidLoader
+  # alias CogyntWorkstationIngestWeb.Dataloaders.Druid, as: DruidLoader
+  alias CogyntWorkstationIngestWeb.Dataloaders.Pinot, as: PinotLoader
 
   @whitelist [
     Config.published_by_key(),
@@ -94,7 +95,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   defp get_solution(solution_id, loader, callback) do
     loader
     |> Dataloader.load(
-      DruidLoader,
+      PinotLoader,
       :template_solutions,
       solution_id
     )
@@ -102,7 +103,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
       callback.(
         Dataloader.get(
           loader,
-          DruidLoader,
+          PinotLoader,
           :template_solutions,
           solution_id
         ),
@@ -216,6 +217,17 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
 
   defp build_drilldown(solution_ids, loader, callback) do
     get_events(solution_ids, loader, fn
+      {:data_loader_error, original_error}, _loader ->
+        {:error,
+         Error.new(%{
+           message: "An internal server occurred while querying for child solutions.",
+           code: :internal_server_error,
+           details:
+             "There was an error when querying for child solutions for template solutions #{inspect(solution_ids)}. Pinot may be down or can not be reached.",
+           original_error: original_error,
+           module: "#{__MODULE__} line: #{__ENV__.line}"
+         })}
+
       [], events_loader ->
         callback.(
           {:ok,
@@ -290,7 +302,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   defp get_solutions(solution_ids, loader, callback) when is_list(solution_ids) do
     loader
     |> Dataloader.load_many(
-      DruidLoader,
+      PinotLoader,
       :template_solutions,
       solution_ids
     )
@@ -298,7 +310,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
       solutions =
         Dataloader.get_many(
           loader,
-          DruidLoader,
+          PinotLoader,
           :template_solutions,
           solution_ids
         )
@@ -311,7 +323,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   defp get_events(solution_ids, loader, callback) when is_list(solution_ids) do
     Dataloader.load_many(
       loader,
-      DruidLoader,
+      PinotLoader,
       :events,
       solution_ids
     )
@@ -319,7 +331,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
       events =
         Dataloader.get_many(
           loader,
-          DruidLoader,
+          PinotLoader,
           :events,
           solution_ids
         )
@@ -335,7 +347,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   defp get_events(solution_id, loader, callback) do
     loader
     |> Dataloader.load(
-      DruidLoader,
+      PinotLoader,
       :events,
       solution_id
     )
@@ -343,7 +355,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
       events =
         Dataloader.get(
           loader,
-          DruidLoader,
+          PinotLoader,
           :events,
           solution_id
         )
@@ -358,7 +370,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   defp get_outcomes(solution_id, loader, callback) do
     loader
     |> Dataloader.load(
-      DruidLoader,
+      PinotLoader,
       :outcomes,
       solution_id
     )
@@ -366,7 +378,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
       outcomes =
         Dataloader.get(
           loader,
-          DruidLoader,
+          PinotLoader,
           :outcomes,
           solution_id
         )

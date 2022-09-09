@@ -1,105 +1,28 @@
 defmodule CogyntWorkstationIngest.Pinot do
-  use Tesla
+  @callback query(query :: %{required(:sql) => map}) :: {:ok, map()}
+  @optional_callbacks query: 1
 
-  # TODO: Make this configurable
-  plug Tesla.Middleware.BaseUrl, "https://pinot-dev1.cogilitycloud.com"
-  plug Tesla.Middleware.JSON, engine_opts: [keys: :atoms]
+  defmacro __using__(_) do
+    quote do
+      @behaviour CogyntWorkstationIngest.Pinot
 
-  @type api_error :: {:error, {integer(), map()}} | {:error, any()}
-
-  @callback get_health() :: {:ok, String.t()} | api_error
-  def get_health() do
-    get("/health")
-    |> handle_response()
-  end
-
-  @callback get_schemas() :: {:ok, list(map)} | api_error()
-  def get_schemas() do
-    get("/schemas")
-    |> handle_response()
-  end
-
-  @callback get_schema(name :: String.t()) :: {:ok, map} | api_error()
-  def get_schema(name) when is_binary(name) do
-    get("/schemas/#{name}")
-    |> handle_response()
-  end
-
-  @type schema_input :: %{
-          required(:schemaName) => map(),
-          required(:dimensionFieldSpecs) => list(map()),
-          required(:dateTimeFieldSpecs) => list(map())
-        }
-  @callback validate_schema(schema :: schema_input()) :: {:ok, map} | api_error()
-  def validate_schema(schema) do
-    post("/schemas/validate", schema)
-    |> handle_response()
-  end
-
-  @callback validate_schema(
-              schema :: schema_input(),
-              opts :: [query: [override: boolean()]] | nil
-            ) :: {:ok, map} | api_error()
-  def create_schema(schema, opts \\ []) do
-    post("/schemas", schema, opts)
-    |> handle_response()
-  end
-
-  @typedoc """
-  "realtime" | "offline"
-  """
-  @type table_type :: String.t()
-  @typedoc """
-  "name" | "creationTime" | "lastModifiedTime"
-  """
-  @type sort_tabel :: String.t()
-  @type get_tables_query_params :: [
-          type: table_type(),
-          sortType: sort_tabel(),
-          sortAsc: boolean()
-        ]
-  @type tables_response :: %{tables: list(map())}
-  @callback get_tables(opts :: [query: get_tables_query_params()] | nil) ::
-              {:ok, tables_response()} | api_error
-  def get_tables(opts \\ []) do
-    get("/tables", opts)
-    |> handle_response()
-  end
-
-  @callback get_table(name :: String.t(), opts: [] | nil) :: {:ok, map} | api_error
-  def get_table(name, opts \\ []) do
-    get("/tables/#{name}", opts)
-    |> handle_response()
-  end
-
-  def validate_table(table) do
-    post("/tables/validate", table)
-    |> handle_response()
-  end
-
-  def create_table(table) do
-    post("/tables", table)
-    |> handle_response()
-  end
-
-  def update_table(table_name, table) do
-    put("/tables/#{table_name}", table)
-    |> handle_response()
-  end
-
-  @spec handle_response(response :: Tesla.Env.result()) ::
+      @spec handle_response(response :: Tesla.Env.result()) ::
           {:ok, any()} | {:error, {integer(), map()}} | {:error, any()}
-  defp handle_response(response) do
-    response
-    |> case do
-      {:ok, %Tesla.Env{body: %{error: error, code: status}}} ->
-        {:error, {status, error}}
+      defp handle_response(response) do
+        response
+        |> case do
+          {:ok, %Tesla.Env{body: %{error: error, code: status}}} ->
+            {:error, {status, error}}
 
-      {:ok, %Tesla.Env{body: body}} ->
-        {:ok, body}
+          {:ok, %Tesla.Env{body: body}} ->
+            {:ok, body}
 
-      {:error, error} ->
-        {:error, error}
+          {:error, error} ->
+            {:error, error}
+        end
+      end
+
+      defoverridable handle_response: 1
     end
   end
 end

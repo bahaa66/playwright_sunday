@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
   alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
-  alias CogyntWorkstationIngest.Pinot
+  alias CogyntWorkstationIngest.Pinot.Controller
 
   def start_link(_arg \\ []) do
     Task.start_link(__MODULE__, :run, [])
@@ -23,7 +23,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
       # DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
       #   Config.template_solutions_topic()
       # )
-      Pinot.get_schema(Config.template_solution_events_topic())
+      Controller.get_schema(Config.template_solution_events_topic())
       |> then(fn
         {:error, {404, _}} ->
           %{
@@ -67,10 +67,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
               }
             ]
           }
-          |> Pinot.validate_schema()
+          |> Controller.validate_schema()
           |> then(fn
             {:ok, schema} ->
-              Pinot.create_schema(schema, query: [override: true])
+              Controller.create_schema(schema, query: [override: true])
 
             {:error, error} ->
               CogyntLogger.error(
@@ -137,7 +137,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
             },
             isDimTable: false
           }
-          |> Pinot.validate_table()
+          |> Controller.validate_table()
           |> then(fn
             {:error, error} ->
               CogyntLogger.error(
@@ -148,10 +148,10 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
               {:error, error}
 
             {:ok, %{REALTIME: %{tableName: table_name} = table_config}} ->
-              Pinot.get_table(Config.template_solution_events_topic(), query: [type: "realtime"])
+              Controller.get_table(Config.template_solution_events_topic(), query: [type: "realtime"])
               |> then(fn
                 {:ok, %{REALTIME: %{tableName: table_name} = table}} ->
-                  Pinot.update_table(table_name, table_config)
+                  Controller.update_table(table_name, table_config)
                   |> case do
                     {:ok, %{status: status}} ->
                       CogyntLogger.info("#{__MODULE__}", status)
@@ -167,7 +167,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
                   end
 
                 {:ok, table} when table == %{} ->
-                  Pinot.create_table(table_config)
+                  Controller.create_table(table_config)
                   |> case do
                     {:ok, %{status: status}} ->
                       CogyntLogger.info("#{__MODULE__}", status)
