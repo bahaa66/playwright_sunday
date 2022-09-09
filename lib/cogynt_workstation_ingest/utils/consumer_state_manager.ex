@@ -81,6 +81,13 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         consumer_state
       end
 
+    if consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] do
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "CONSUMER STATE IS BEING SET TO UNKNOWN FOR EVENT DEFINITION #{event_definition_hash_id}: #{inspect(consumer_state, pretty: true)}"
+      )
+    end
+
     Redis.hash_set_async("cs", event_definition_hash_id, consumer_state)
 
     CogyntLogger.info(
@@ -396,6 +403,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   defp backfill_notifications(notification_setting_id) do
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
+    # TODO: Remove note after looking into further. Note: This is the reason for the second
+    # handle_unknown_status/1 with EventDefinition as argument
     event_definition =
       EventsContext.get_event_definition(notification_setting.event_definition_hash_id)
 
@@ -485,6 +494,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   defp update_notifications(notification_setting_id) do
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
+    # TODO: Remove note after looking into further. Note: This is the reason for the second
+    # handle_unknown_status/1 with EventDefinition as argument
     event_definition =
       EventsContext.get_event_definition(notification_setting.event_definition_hash_id)
 
@@ -574,6 +585,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   defp delete_notifications(notification_setting_id) do
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
+    # TODO: Remove note after looking into further. Note: This is the reason for the second
+    # handle_unknown_status/1 with EventDefinition as argument
     event_definition =
       EventsContext.get_event_definition(notification_setting.event_definition_hash_id)
 
