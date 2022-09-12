@@ -81,6 +81,13 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
         consumer_state
       end
 
+    if consumer_state.status == ConsumerStatusTypeEnum.status()[:unknown] do
+      CogyntLogger.info(
+        "#{__MODULE__}",
+        "CONSUMER STATE IS BEING SET TO UNKNOWN FOR EVENT DEFINITION #{event_definition_hash_id}: #{inspect(consumer_state, pretty: true)}"
+      )
+    end
+
     Redis.hash_set_async("cs", event_definition_hash_id, consumer_state)
 
     CogyntLogger.info(
@@ -396,6 +403,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   defp backfill_notifications(notification_setting_id) do
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
+    # TODO: Remove note after looking into further. Note: This is the reason for the second
+    # handle_unknown_status/1 with EventDefinition as argument
     event_definition =
       EventsContext.get_event_definition(notification_setting.event_definition_hash_id)
 
@@ -485,6 +494,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   defp update_notifications(notification_setting_id) do
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
+    # TODO: Remove note after looking into further. Note: This is the reason for the second
+    # handle_unknown_status/1 with EventDefinition as argument
     event_definition =
       EventsContext.get_event_definition(notification_setting.event_definition_hash_id)
 
@@ -574,6 +585,8 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
   defp delete_notifications(notification_setting_id) do
     notification_setting = NotificationsContext.get_notification_setting(notification_setting_id)
 
+    # TODO: Remove note after looking into further. Note: This is the reason for the second
+    # handle_unknown_status/1 with EventDefinition as argument
     event_definition =
       EventsContext.get_event_definition(notification_setting.event_definition_hash_id)
 
@@ -706,6 +719,32 @@ defmodule CogyntWorkstationIngest.Utils.ConsumerStateManager do
       end
 
     {:ok, consumer_status}
+  end
+
+  defp handle_unknown_status(%EventDefinition{} = event_definition) do
+    if event_definition.active do
+      # update event_definition to be active false
+      EventsContext.update_event_definition(event_definition, %{
+        active: false
+      })
+    end
+
+    # check if there is a consumer running
+    if EventPipeline.pipeline_started?(event_definition.id) do
+      ConsumerGroupSupervisor.stop_child(event_definition)
+    end
+
+    # remove the ConsumerStatus Redis key
+    Redis.key_delete("cs:#{event_definition.id}")
+
+    # set the consumer status
+    upsert_consumer_state(event_definition.id,
+      status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
+      prev_status: ConsumerStatusTypeEnum.status()[:paused_and_finished],
+      topic: event_definition.topic
+    )
+
+    %{response: {:ok, ConsumerStatusTypeEnum.status()[:paused_and_finished]}}
   end
 
   defp handle_unknown_status(event_definition) do

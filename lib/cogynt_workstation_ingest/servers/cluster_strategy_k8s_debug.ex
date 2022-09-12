@@ -67,7 +67,7 @@ defmodule Cluster.Strategy.Kubernetes.Debug do
               polling_interval: 10_000]]]
   """
   use GenServer
-  use Cluster.Strategy
+  use Cluster.Strategy.Debug
   import Cluster.Logger
 
   alias Cluster.Strategy.State
@@ -106,7 +106,7 @@ defmodule Cluster.Strategy.Kubernetes.Debug do
     removed = MapSet.difference(state.meta, new_nodelist)
 
     new_nodelist =
-      case Cluster.Strategy.disconnect_nodes(
+      case Cluster.Strategy.Debug.disconnect_nodes(
              topology,
              state.disconnect,
              state.list_nodes,
@@ -127,7 +127,7 @@ defmodule Cluster.Strategy.Kubernetes.Debug do
     IO.inspect(MapSet.to_list(new_nodelist), label: "NEW NODE LIST")
 
     new_nodelist =
-      case Cluster.Strategy.connect_nodes(
+      case Cluster.Strategy.Debug.connect_nodes(
              topology,
              state.connect,
              state.list_nodes,
@@ -224,6 +224,8 @@ defmodule Cluster.Strategy.Kubernetes.Debug do
 
         # Debug Logs #
         IO.puts("-----Start of Debug Logs----")
+        IO.inspect(node(), label: "NODE NAME")
+        IO.inspect(:erl_epmd.names(), label: "ERLANG EPMD NAMES")
         IO.inspect(service_account_path, label: "SERVICE ACCOUNT PATH")
         IO.inspect(namespace, label: "NAMESPACE")
         IO.inspect(app_name, label: "APP NAME")

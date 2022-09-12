@@ -34,8 +34,6 @@ defmodule CogyntWorkstationIngestWeb.Router do
   ## Liveness Check route
   forward("/livenessCheck", LivenessCheck)
 
-  forward("/rpc/cogynt", JSONRPC2.Servers.HTTP.Plug, CogyntWorkstationIngestWeb.Rpc.CogyntHandler)
-
   if Config.enable_dev_tools?() do
     import Phoenix.LiveDashboard.Router
 

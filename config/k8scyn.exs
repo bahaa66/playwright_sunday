@@ -6,6 +6,7 @@ config :cogynt_workstation_ingest,
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo, pool_size: 20
 
+# Currently not using Libcluster because of Istio blocker
 config :libcluster,
   debug: true
 

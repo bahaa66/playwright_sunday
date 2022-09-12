@@ -1,5 +1,8 @@
 import Config
 
+config :cogynt_workstation_ingest,
+  drilldown_enabled: false
+
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo, pool_size: 10
 
 # CogyntWorkstationIngestWeb.Endpoint configurations
@@ -34,3 +37,6 @@ config :elasticsearch, :common,
   ]
 
 config :cogynt_graphql, :common, mock_license: false
+
+config :cogynt_workstation_ingest,
+  drilldown_enabled: false

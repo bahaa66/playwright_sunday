@@ -1,4 +1,6 @@
 defmodule CogyntWorkstationIngest.Elasticsearch.IndexerSupervisor do
+  # CURRENTLY NOT USED UNTIL WE START USING LIBCLUSTER AND HORDE REGISTRY AGAIN
+  # NEED TO FIGURE OUT WHY THEY DONT WORK WITH ISTIO
   use Horde.DynamicSupervisor
 
   def start_link(_) do

@@ -1,4 +1,6 @@
 defmodule CogyntWorkstationIngest.Elasticsearch.IndexerStarter do
+  # CURRENTLY NOT USED UNTIL WE START USING LIBCLUSTER AND HORDE REGISTRY AGAIN
+  # NEED TO FIGURE OUT WHY THEY DONT WORK WITH ISTIO
   alias CogyntElasticsearch.Indexer
   alias CogyntWorkstationIngest.Horde.HordeRegistry
   alias CogyntWorkstationIngest.Elasticsearch.IndexerSupervisor
