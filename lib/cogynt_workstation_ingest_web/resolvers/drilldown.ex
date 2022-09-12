@@ -2,7 +2,6 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   import Absinthe.Resolution.Helpers, only: [on_load: 2]
   alias CogyntWorkstationIngest.Config
   alias CogyntGraphql.Utils.Error
-  # alias CogyntWorkstationIngestWeb.Dataloaders.Druid, as: DruidLoader
   alias CogyntWorkstationIngestWeb.Dataloaders.Pinot, as: PinotLoader
 
   @whitelist [

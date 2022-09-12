@@ -14,7 +14,6 @@ defmodule CogyntWorkstationIngest.Application do
     ServerSupervisor,
     TaskSupervisor,
     TelemetrySupervisor
-    # DruidSupervisor
   }
 
   alias CogyntWorkstationIngest.Tasks.RunAuditKafkaSetup
@@ -28,7 +27,6 @@ defmodule CogyntWorkstationIngest.Application do
       {Phoenix.PubSub, [name: CogyntWorkstationIngestWeb.PubSub, adapter: Phoenix.PubSub.PG2]},
       # Start Horde an libcluster related supervisors. The registry needs to come before the TaskSupervisor.
       # HordeRegistry,
-      # DruidSupervisor,
       # IndexerSupervisor,
       # {Cluster.Supervisor,
       #  [Config.libcluster_topologies(), [name: CogyntWorkstationIngest.ClusterSupervisor]]},
