@@ -60,7 +60,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"},
       {:elasticsearch, "~> 1.0.0"},
-      {:exq, git: "git@github.com:akira/exq.git", branch: "master"},
+      {:exq, "~> 0.16.2"},
       {:libcluster, "~> 3.3.0"},
       {:horde, "~> 0.8.3"},
       {:absinthe, "~> 1.7.0"},
