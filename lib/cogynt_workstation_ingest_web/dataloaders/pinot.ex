@@ -92,8 +92,7 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Pinot do
             pinot_event = Map.put(pinot_event, "event", event)
             pa = Map.get(event, Config.published_at_key(), "1970-01-01T00:00:00Z")
 
-            with {version, _} <- Integer.parse(version),
-                 {:ok, pa, _} <- DateTime.from_iso8601(pa),
+            with {:ok, pa, _} <- DateTime.from_iso8601(pa),
                  {:ok, cached_pa, _} <- DateTime.from_iso8601(cached_pa) do
               cond do
                 version > cached_version ->

@@ -6,8 +6,10 @@ defmodule CogyntWorkstationIngest.Pinot do
     quote do
       @behaviour CogyntWorkstationIngest.Pinot
 
+      @type api_error :: {:error, {integer(), map()}} | {:error, any()}
+
       @spec handle_response(response :: Tesla.Env.result()) ::
-          {:ok, any()} | {:error, {integer(), map()}} | {:error, any()}
+              {:ok, any()} | {:error, {integer(), map()}} | {:error, any()}
       defp handle_response(response) do
         response
         |> case do

@@ -1,11 +1,10 @@
 defmodule CogyntWorkstationIngest.Pinot.Controller do
   use Tesla
+  use CogyntWorkstationIngest.Pinot
 
   # TODO: Make this configurable
   plug Tesla.Middleware.BaseUrl, "https://pinot-dev1.cogilitycloud.com"
   plug Tesla.Middleware.JSON, engine_opts: [keys: :atoms]
-
-  @type api_error :: {:error, {integer(), map()}} | {:error, any()}
 
   @callback get_health() :: {:ok, String.t()} | api_error
   def get_health() do
@@ -66,40 +65,27 @@ defmodule CogyntWorkstationIngest.Pinot.Controller do
     |> handle_response()
   end
 
-  @callback get_table(name :: String.t(), opts: [] | nil) :: {:ok, map} | api_error
+  @callback get_table(name :: String.t(), opts: [] | nil) :: {:ok, map()} | api_error
   def get_table(name, opts \\ []) do
     get("/tables/#{name}", opts)
     |> handle_response()
   end
 
+  @callback validate_table(table :: map()) :: {:ok, map()} | api_error
   def validate_table(table) do
     post("/tables/validate", table)
     |> handle_response()
   end
 
+  @callback create_table(table :: map()) :: {:ok, map()} | api_error
   def create_table(table) do
     post("/tables", table)
     |> handle_response()
   end
 
+  @callback update_table(table_name :: String.t(), table :: map()) :: {:ok, map()} | api_error
   def update_table(table_name, table) do
     put("/tables/#{table_name}", table)
     |> handle_response()
-  end
-
-  @spec handle_response(response :: Tesla.Env.result()) ::
-          {:ok, any()} | {:error, {integer(), map()}} | {:error, any()}
-  defp handle_response(response) do
-    response
-    |> case do
-      {:ok, %Tesla.Env{body: %{error: error, code: status}}} ->
-        {:error, {status, error}}
-
-      {:ok, %Tesla.Env{body: body}} ->
-        {:ok, body}
-
-      {:error, error} ->
-        {:error, error}
-    end
   end
 end

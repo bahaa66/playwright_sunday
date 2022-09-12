@@ -61,7 +61,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
             dateTimeFieldSpecs: [
               %{
                 name: "publishedAt",
-                dataType: "STRING",
+                dataType: "TIMESTAMP",
                 format: "1:MILLISECONDS:EPOCH",
                 granularity: "1:MILLISECONDS"
               }
@@ -85,12 +85,12 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
           response
       end)
       |> then(fn
-        {:ok, %{schemaName: schema_name}} ->
+        {:ok, _} ->
           %{
-            tableName: schema_name,
+            tableName: Config.template_solution_events_topic(),
             tableType: "REALTIME",
             segmentsConfig: %{
-              schemaName: schema_name,
+              schemaName: Config.template_solution_events_topic(),
               replication: "1",
               replicasPerPartition: "1",
               minimizeDataMovement: false,
@@ -148,7 +148,9 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
               {:error, error}
 
             {:ok, %{REALTIME: %{tableName: table_name} = table_config}} ->
-              Controller.get_table(Config.template_solution_events_topic(), query: [type: "realtime"])
+              Controller.get_table(Config.template_solution_events_topic(),
+                query: [type: "realtime"]
+              )
               |> then(fn
                 {:ok, %{REALTIME: %{tableName: table_name} = table}} ->
                   Controller.update_table(table_name, table_config)
