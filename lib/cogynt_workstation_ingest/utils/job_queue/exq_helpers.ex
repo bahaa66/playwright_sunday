@@ -86,10 +86,16 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers do
 
   def queue_finished_processing?(queue_prefix, queue_id) do
     try do
+      IO.inspect(queue_prefix, label: "Queue Prefix")
+      IO.inspect(queue_id, label: "Queue ID")
+
       Enum.reduce([queue_prefix], true, fn prefix, acc ->
         queue_name = prefix <> "-" <> "#{queue_id}"
+        IO.inspect(queue_name, label: "Queue Name")
         {:ok, count} = Exq.Api.queue_size(Exq.Api, queue_name)
         {:ok, processes} = Exq.Api.processes(Exq.Api)
+
+        IO.inspect(processes, label: "Processes", pretty: true)
 
         grouped =
           Enum.group_by(processes, fn process ->
@@ -107,7 +113,11 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers do
       end)
     rescue
       e ->
-        CogyntLogger.error("#{__MODULE__}", "is_job_queue_finished?/1 failed with exception #{inspect(e)}")
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "is_job_queue_finished?/1 failed with exception #{inspect(e)}"
+        )
+
         true
     end
   end
