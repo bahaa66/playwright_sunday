@@ -106,7 +106,7 @@ cond do
       database: System.get_env("COGYNT_REDIS_DATABASE"),
       pools: System.get_env("COGYNT_REDIS_POOLS", "5") |> String.to_integer(),
       exit_on_disconnection:
-        System.get_env("COGYNT_REDIS_EXIT_ON_DISCONNECTION", "true") == "true",
+        System.get_env("COGYNT_REDIS_EXIT_ON_DISCONNECTION", "false") == "true",
       sync_connect: System.get_env("COGYNT_REDIS_SYNC_CONNECT", "true") == "true",
       instance: System.get_env("COGYNT_REDIS_INSTANCE", "single") |> String.to_atom()
 

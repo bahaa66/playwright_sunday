@@ -110,7 +110,7 @@ config :redis, :common,
   port: 6379,
   sentinel_group: "main",
   pools: 5,
-  exit_on_disconnection: true,
+  exit_on_disconnection: false,
   sync_connect: true,
   instance: :single,
   client: Redis
