@@ -35,6 +35,16 @@ defmodule CogyntWorkstationIngest.Servers.PubSub.IngestPubSub do
   end
 
   @impl true
+  def handle_info({:redix_pubsub, _pid, _ref, :disconnected, %{channel: channel}}, state) do
+    CogyntLogger.info(
+      "#{__MODULE__}",
+      "Redis connection was disconnected for channel: #{inspect(channel, pretty: true)}"
+    )
+
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_info(
         {:redix_pubsub, _pubsub, _ref, :message, %{channel: channel, payload: json_payload}},
         state
