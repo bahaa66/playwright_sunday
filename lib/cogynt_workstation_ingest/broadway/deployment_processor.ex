@@ -114,6 +114,10 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_event_type_object_v2(deployment_message) do
+    # TODO: filter out anything not kafka and also filter out anything hcep_output == false
+    # deployment_message.source.sourceType
+    # deployment_message.filter == null
+
     # old_primary_key = UUID.uuid5(deployment_message.id, deployment_message.dataSourceId)
     primary_key = UUID.uuid5(deployment_message.id, deployment_message.connectString)
     data_source_id = UUID.uuid5(@data_source_id_hash_constant, deployment_message.connectString)
