@@ -6,7 +6,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
-  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
   alias CogyntWorkstationIngest.Pinot.Controller
 
   def start_link(_arg \\ []) do
@@ -20,14 +19,12 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
     start_deployment_pipeline()
 
     if Config.drilldown_enabled?() do
-      # DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
-      #   Config.template_solutions_topic()
-      # )
       Controller.get_schema(Config.template_solution_events_topic())
       |> then(fn
         {:error, {404, _}} ->
           %{
             schemaName: Config.template_solution_events_topic(),
+            primaryKeyColumns: ["id", "eventId", "aid"],
             dimensionFieldSpecs: [
               %{
                 name: "id",
@@ -84,6 +81,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
         response ->
           response
       end)
+      |> IO.inspect(label: "GOT SCHEMA")
       |> then(fn
         {:ok, _} ->
           %{
@@ -135,9 +133,16 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
                 }
               ]
             },
+            routing: %{
+              instanceSelectorType: "strictReplicaGroup"
+            },
+            upsertConfig: %{
+              mode: "FULL"
+            },
             isDimTable: false
           }
           |> Controller.validate_table()
+          |> IO.inspect()
           |> then(fn
             {:error, error} ->
               CogyntLogger.error(
@@ -197,10 +202,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
         {:error, error} ->
           {:error, error}
       end)
-
-      DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
-        Config.template_solution_events_topic()
-      )
     end
 
     ExqHelpers.resubscribe_to_all_queues()

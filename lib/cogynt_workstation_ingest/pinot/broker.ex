@@ -5,7 +5,6 @@ defmodule CogyntWorkstationIngest.Pinot.Broker do
   # TODO: Make this configurable
   plug Tesla.Middleware.BaseUrl, "https://pinot-broker-dev1.cogilitycloud.com:443"
   plug Tesla.Middleware.JSON, engine_opts: [keys: :atoms]
-  plug Tesla.Middleware.Logger, format: "$method $url ====> $status / time=$time"
 
   @type pinot_sql_query :: %{required(:sql) => String.t()}
   @callback query(query :: pinot_sql_query()) :: {:ok, map()} | api_error()

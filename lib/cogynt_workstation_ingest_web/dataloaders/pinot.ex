@@ -17,8 +17,7 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Pinot do
           {:ok, events} ->
             events =
               events
-              |> latest_events()
-              |> Map.values()
+              |> decoded_events()
               |> Enum.sort_by(& &1[Config.id_key()])
               |> Enum.group_by(&Map.get(&1, "solution_id"))
 
@@ -38,9 +37,7 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Pinot do
           {:ok, events} ->
             events =
               events
-              |> latest_events("{{eventId}}!{{aid}}")
-              |> Map.values()
-              |> List.flatten()
+              |> decoded_events()
               |> Enum.group_by(&Map.get(&1, "solution_id"))
 
             for id <- solution_ids, into: %{} do
@@ -58,10 +55,8 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Pinot do
         |> DrilldownContext.get_template_solution_outcomes()
         |> case do
           {:ok, outcome_events} ->
-            outcome_events = latest_events(outcome_events, "{{solution_id}}")
-
             for id <- MapSet.to_list(solution_ids), into: %{} do
-              {id, Map.get(outcome_events, id)}
+              {id, Map.get(decoded_events(outcome_events), id)}
             end
 
           {:error, error} ->
@@ -72,60 +67,16 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Pinot do
     end
   end
 
-  defp latest_events(events, parse_key \\ "{{eventId}}") do
-    Enum.reduce(events, %{}, fn
-      %{
-        "version" => version,
-        "event" => event
-      } = pinot_event,
-      acc ->
-        key = get_key(pinot_event, parse_key)
-        cached_event = Map.get(acc, key, %{"event" => %{}})
-        cached_version = get_in(cached_event, ["event", Config.version_key()]) || 0
+  defp decoded_events(events) do
+    Enum.map(events, fn %{"event" => event} = pinot_event ->
+      Jason.decode(event)
+      |> case do
+        {:ok, event} ->
+          Map.put(pinot_event, "event", event)
 
-        cached_pa =
-          get_in(cached_event, ["event", Config.published_at_key()]) || "1970-01-01T00:00:00Z"
-
-        Jason.decode(event)
-        |> case do
-          {:ok, event} ->
-            pinot_event = Map.put(pinot_event, "event", event)
-            pa = Map.get(event, Config.published_at_key(), "1970-01-01T00:00:00Z")
-
-            with {:ok, pa, _} <- DateTime.from_iso8601(pa),
-                 {:ok, cached_pa, _} <- DateTime.from_iso8601(cached_pa) do
-              cond do
-                version > cached_version ->
-                  Map.put(acc, key, pinot_event)
-
-                version == cached_version and DateTime.compare(pa, cached_pa) == :gt ->
-                  Map.put(acc, key, pinot_event)
-
-                true ->
-                  acc
-              end
-            else
-              {:error, error} -> {:error, :date_parse_error, error}
-              :error -> {:error, :version_parse_error}
-            end
-
-          {:error, error} ->
-            {:error, :json_decode_error, error}
-        end
-    end)
-  end
-
-  defp get_key(event, parse_key) do
-    Enum.reduce(event, parse_key, fn
-      {k, v}, acc when is_binary(v) ->
-        "{{#{k}}}"
-        |> Regex.compile!()
-        |> Regex.replace(acc, v)
-
-      {k, v}, acc ->
-        "{{#{k}}}"
-        |> Regex.compile!()
-        |> Regex.replace(acc, Jason.encode!(v))
+        {:error, error} ->
+          {:error, :json_decode_error, error}
+      end
     end)
   end
 end
