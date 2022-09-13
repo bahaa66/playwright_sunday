@@ -187,8 +187,6 @@ defmodule CogyntWorkstationIngest.Config do
   def postgres_hostname(), do: postgres()[:hostname]
   def postgres_database(), do: postgres()[:database]
 
-  def schema_registry_url(), do: Application.get_env(:druid, :schema_registry_url)
-
   def parse_kafka_brokers() do
     String.split(kafka()[:brokers], ",", trim: true)
     |> Enum.reduce([], fn x, acc ->

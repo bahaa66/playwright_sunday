@@ -1,6 +1,6 @@
 defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWorker do
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
+  alias Pinot.Controller, as: PinotController
 
   def perform(delete_drilldown_topics) do
     CogyntLogger.info(
@@ -23,16 +23,35 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
       )
     end
 
-    # Suspend Supervisors
-    DruidRegistryHelper.suspend_druid_with_registry_lookup(
-      Config.template_solution_events_topic()
+    # Delete table and schema from Pinot
+    PinotController.delete_table(Config.template_solution_events_topic(),
+      query: [type: "realtime"]
     )
+    |> then(fn
+      {:ok, %{status: status}} ->
+        CogyntLogger.info("#{__MODULE__}", status)
+        PinotController.delete_schema(Config.template_solution_events_topic())
 
-    DruidRegistryHelper.suspend_druid_with_registry_lookup(Config.template_solutions_topic())
+      {:error, {404, status}} ->
+        CogyntLogger.info("#{__MODULE__}", status)
+        PinotController.delete_schema(Config.template_solution_events_topic())
 
-    # Drop segments 4 datasources and reset supervisors
-    drop_and_reset_druid(Config.template_solution_events_topic())
-    drop_and_reset_druid(Config.template_solutions_topic())
+      {:error, error} ->
+        {:error, error}
+    end)
+    |> then(fn
+      {:ok, %{status: status}} ->
+        CogyntLogger.info("#{__MODULE__}", status)
+
+      {:error, {404, status}} ->
+        CogyntLogger.info("#{__MODULE__}", status)
+
+      {:error, error} ->
+        CogyntLogger.info(
+          "#{__MODULE__}",
+          "An error occurred while trying to delete the Pinot schema table for #{Config.template_solution_events_topic()}. Error: #{inspect(error)}"
+        )
+    end)
 
     if delete_drilldown_topics do
       # Re-create topics for Drilldown
@@ -46,25 +65,6 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
         "#{__MODULE__}",
         "Created Drilldown Topics result: #{inspect(create_topic_result, pretty: true)}"
       )
-    end
-  end
-
-  # ----------------------- #
-  # --- private methods --- #
-  # ----------------------- #
-  defp drop_and_reset_druid(datasource_name) do
-    case DruidRegistryHelper.drop_and_reset_druid_with_registry_lookup(datasource_name) do
-      {:ok, result} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Dropped segments for Druid Datasource: #{datasource_name} with response: #{inspect(result)}"
-        )
-
-      {:error, error} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Failed to drop segments for Druid Datasource: #{datasource_name} with Error: #{inspect(error)}"
-        )
     end
   end
 end

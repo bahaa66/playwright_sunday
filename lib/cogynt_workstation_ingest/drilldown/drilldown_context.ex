@@ -1,5 +1,5 @@
 defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
-  alias CogyntWorkstationIngest.Pinot.Broker
+  alias Pinot.Broker
 
   def get_template_solution_outcomes(ids) when is_list(ids) do
     sql_query = %{

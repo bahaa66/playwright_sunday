@@ -6,7 +6,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
-  alias CogyntWorkstationIngest.Pinot.Controller
+  alias Pinot.Controller
+  alias CogyntWorkstationIngest.Utils.PinotUtils
 
   def start_link(_arg \\ []) do
     Task.start_link(__MODULE__, :run, [])
@@ -22,48 +23,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
       Controller.get_schema(Config.template_solution_events_topic())
       |> then(fn
         {:error, {404, _}} ->
-          %{
-            schemaName: Config.template_solution_events_topic(),
-            primaryKeyColumns: ["id", "eventId", "aid"],
-            dimensionFieldSpecs: [
-              %{
-                name: "id",
-                dataType: "STRING"
-              },
-              %{
-                name: "event",
-                dataType: "JSON"
-              },
-              %{
-                name: "eventId",
-                dataType: "STRING"
-              },
-              %{
-                name: "version",
-                dataType: "LONG"
-              },
-              %{
-                name: "aid",
-                dataType: "STRING"
-              },
-              %{
-                name: "templateTypeId",
-                dataType: "STRING"
-              },
-              %{
-                name: "templateTypeName",
-                dataType: "STRING"
-              }
-            ],
-            dateTimeFieldSpecs: [
-              %{
-                name: "publishedAt",
-                dataType: "TIMESTAMP",
-                format: "1:MILLISECONDS:EPOCH",
-                granularity: "1:MILLISECONDS"
-              }
-            ]
-          }
+          PinotUtils.schema_config!(Config.template_solution_events_topic())
           |> Controller.validate_schema()
           |> then(fn
             {:ok, schema} ->
@@ -81,7 +41,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
         response ->
           response
       end)
-      |> IO.inspect(label: "GOT SCHEMA")
       |> then(fn
         {:ok, _} ->
           %{
@@ -142,7 +101,6 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
             isDimTable: false
           }
           |> Controller.validate_table()
-          |> IO.inspect()
           |> then(fn
             {:error, error} ->
               CogyntLogger.error(
@@ -157,7 +115,7 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
                 query: [type: "realtime"]
               )
               |> then(fn
-                {:ok, %{REALTIME: %{tableName: table_name} = table}} ->
+                {:ok, %{REALTIME: %{tableName: table_name}}} ->
                   Controller.update_table(table_name, table_config)
                   |> case do
                     {:ok, %{status: status}} ->

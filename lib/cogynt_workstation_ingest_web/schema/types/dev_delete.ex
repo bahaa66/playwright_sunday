@@ -19,7 +19,7 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.DevDelete do
       resolve(&DevDeleteResolver.delete_data/3)
     end
 
-    @desc "Removes drillown data from druid."
+    @desc "Removes drillown data from Pinot."
     field :reset_drilldown_data, non_null(:delete_data_response) do
       middleware(Permissions, resources: [%{resource: "workstation.ingest", action: "write"}])
       resolve(&DevDeleteResolver.reset_drilldown_data/3)

@@ -20,3 +20,11 @@ config :phoenix, :plug_init_mode, :runtime
 config :cogynt_graphql, :common,
   mock_license: true,
   mock_license_status: "licensed"
+
+config :pinot, :common,
+  controller_url: "https://pinot-dev1.cogilitycloud.com",
+  broker_url: "https://pinot-broker-dev1.cogilitycloud.com:443",
+  kafka_broker_list: "kafka.cogynt.svc.cluster.local:9071",
+  schema_registry_url: "http://schemaregistry.cogynt.svc.cluster.local:8081",
+  controller_service: Pinot.Controller,
+  broker_service: Pinot.Broker

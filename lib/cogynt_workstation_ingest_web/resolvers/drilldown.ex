@@ -71,7 +71,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
            message: "An internal server occurred while querying for the drilldown solution.",
            code: :internal_server_error,
            details:
-             "There was an error when querying for template solution #{solution_id}. Druid may be down or the datasource may not exist.",
+             "There was an error when querying for template solution #{solution_id}. Pinot may be down or the table may not exist.",
            original_error: error,
            module: "#{__MODULE__} line: #{__ENV__.line}"
          })}
@@ -121,7 +121,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
            message: "An internal server occurred while querying for child solutions.",
            code: :internal_server_error,
            details:
-             "There was an error when querying for child solutions for template solution #{solution_id}. Druid may be down or the datasource may not exist.",
+             "There was an error when querying for child solutions for template solution #{solution_id}. Pinot may be down or the table may not exist.",
            original_error: original_error,
            module: "#{__MODULE__} line: #{__ENV__.line}"
          })}
@@ -147,7 +147,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
              "An internal server occurred while querying for the drilldown solution events.",
            code: :internal_server_error,
            details:
-             "There was an error when querying for template solution events for template solution #{solution_id}. Druid may be down or the datasource may not exist.",
+             "There was an error when querying for template solution events for template solution #{solution_id}. Pinot may be down or the datasource may not exist.",
            original_error: original_error,
            module: "#{__MODULE__} line: #{__ENV__.line}"
          })}
@@ -168,7 +168,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
              "An internal server occurred while querying for the drilldown solution outcomes.",
            code: :internal_server_error,
            details:
-             "There was an error when querying for template solution outcomes for template solution #{solution_id}. Druid may be down or the datasource may not exist.",
+             "There was an error when querying for template solution outcomes for template solution #{solution_id}. Pinot may be down or the datasource may not exist.",
            original_error: original_error,
            module: "#{__MODULE__} line: #{__ENV__.line}"
          })}

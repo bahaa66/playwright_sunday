@@ -2,7 +2,7 @@ defmodule LivenessCheck do
   import Plug.Conn
   alias CogyntWorkstationIngest.Config
   alias CogyntElasticsearch.Config, as: ElasticConfig
-  alias CogyntWorkstationIngest.Pinot.Controller
+  alias Pinot.Controller
 
   @type options :: [resp_body: String.t()]
 

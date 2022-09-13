@@ -107,10 +107,6 @@ defmodule CogyntWorkstationIngest.MixProject do
         override: true
       },
       {
-        :druid,
-        tag: "v1.22.0", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
-      },
-      {
         :cogynt_graphql,
         tag: "v1.27.0",
         git: "git@github.com:cogility/cogynt-common.git",
@@ -122,6 +118,13 @@ defmodule CogyntWorkstationIngest.MixProject do
         tag: "v1.33.0-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt-elasticsearch",
+        override: true
+      },
+      {
+        :pinot,
+        # git: "git@github.com:cogility/cogynt-common.git",
+        # sparse: "cogynt-elasticsearch",
+        path: "../cogynt-common/pinot",
         override: true
       }
     ]
