@@ -1,6 +1,7 @@
 defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWorker do
   alias CogyntWorkstationIngest.Config
   alias Pinot.Controller, as: PinotController
+  alias CogyntWorkstationIngest.Utils.PinotUtils
 
   def perform(delete_drilldown_topics) do
     CogyntLogger.info(
@@ -65,6 +66,12 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
         "#{__MODULE__}",
         "Created Drilldown Topics result: #{inspect(create_topic_result, pretty: true)}"
       )
+    end
+
+    PinotUtils.create_schema_and_table(Config.template_solution_events_topic())
+    |> case do
+      :ok-> nil
+      {:error, error} -> CogyntLogger.error( "#{__MODULE__}", error)
     end
   end
 end

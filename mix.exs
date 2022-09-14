@@ -124,8 +124,7 @@ defmodule CogyntWorkstationIngest.MixProject do
         :pinot,
         # git: "git@github.com:cogility/cogynt-common.git",
         # sparse: "cogynt-elasticsearch",
-        path: "../cogynt-common/pinot",
-        override: true
+        path: "../cogynt-common/pinot", override: true
       }
     ]
   end

@@ -15,7 +15,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
     Config.partial_key(),
     "processed_at",
     "source_type",
-    "templateTypeId",
+    "template_type_id",
     "assertion_id",
     "solution_id"
   ]
@@ -243,9 +243,9 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
             %{
               "solution_id" => s_id,
               "aid" => aid,
-              "templateTypeId" => type_id,
-              "templateTypeName" => type_name,
-              "eventId" => e_id,
+              "template_type_id" => type_id,
+              "template_type_name" => type_name,
+              "event_id" => e_id,
               "event" => event
             },
             {events, solutions, edges, producer_ids} ->
