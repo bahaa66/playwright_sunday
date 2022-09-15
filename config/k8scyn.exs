@@ -2,7 +2,7 @@ import Config
 
 config :cogynt_workstation_ingest,
   # event_pipeline_batch_size: 10,
-  drilldown_enabled: true
+  drilldown_enabled: false
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo, pool_size: 20
 
