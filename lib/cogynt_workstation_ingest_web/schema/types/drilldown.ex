@@ -68,7 +68,7 @@ defmodule CogyntWorkstationIngestWeb.Schema.Types.Drilldown do
     field :processed_at, :string
     field :published_at, :string, do: resolve(&DrilldownResolver.get_published_at/3)
     field :published_by, :id, do: resolve(&DrilldownResolver.get_published_by/3)
-    field :version, non_null(:integer)
+    field :version, non_null(:integer), do: resolve(&DrilldownResolver.get_version/3)
     field :source, non_null(:string), do: resolve(&DrilldownResolver.get_source/3)
     field :risk_score, :integer, do: resolve(&DrilldownResolver.get_risk_score/3)
     field :data_type, non_null(:string), do: resolve(&DrilldownResolver.get_data_type/3)

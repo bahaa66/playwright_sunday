@@ -2,7 +2,6 @@ defmodule LivenessCheck do
   import Plug.Conn
   alias CogyntWorkstationIngest.Config
   alias CogyntElasticsearch.Config, as: ElasticConfig
-  alias Pinot.Controller
 
   @type options :: [resp_body: String.t()]
 
@@ -147,7 +146,7 @@ defmodule LivenessCheck do
   end
 
   defp pinot_healthy?() do
-    Controller.get_health()
+    Pinot.get_health()
     |> case do
       {:ok, "OK"} ->
         true

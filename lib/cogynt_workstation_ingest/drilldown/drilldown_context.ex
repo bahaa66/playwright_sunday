@@ -1,6 +1,4 @@
 defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
-  alias Pinot.Broker
-
   def get_template_solution_outcomes(ids) when is_list(ids) do
     sql_query = %{
       sql: """
@@ -12,7 +10,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
       """
     }
 
-    Broker.query(sql_query)
+    Pinot.query(sql_query)
   end
 
   def get_template_solution_outcomes(id) do
@@ -26,7 +24,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
       """
     }
 
-    Broker.query(sql_query)
+    Pinot.query(sql_query)
   end
 
   def get_template_solution_events(ids) when is_list(ids) do
@@ -40,7 +38,7 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
       """
     }
 
-    Broker.query(sql_query)
+    Pinot.query(sql_query)
   end
 
   def get_template_solution_events(id) do
@@ -54,6 +52,6 @@ defmodule CogyntWorkstationIngest.Drilldown.DrilldownContext do
       """
     }
 
-    Broker.query(sql_query)
+    Pinot.query(sql_query)
   end
 end

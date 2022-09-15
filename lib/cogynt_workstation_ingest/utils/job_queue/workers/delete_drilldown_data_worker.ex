@@ -1,6 +1,5 @@
 defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWorker do
   alias CogyntWorkstationIngest.Config
-  alias Pinot.Controller, as: PinotController
   alias CogyntWorkstationIngest.Utils.PinotUtils
 
   def perform(delete_drilldown_topics) do
@@ -25,34 +24,11 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
     end
 
     # Delete table and schema from Pinot
-    PinotController.delete_table(Config.template_solution_events_topic(),
-      query: [type: "realtime"]
-    )
-    |> then(fn
-      {:ok, %{status: status}} ->
-        CogyntLogger.info("#{__MODULE__}", status)
-        PinotController.delete_schema(Config.template_solution_events_topic())
-
-      {:error, {404, status}} ->
-        CogyntLogger.info("#{__MODULE__}", status)
-        PinotController.delete_schema(Config.template_solution_events_topic())
-
-      {:error, error} ->
-        {:error, error}
-    end)
-    |> then(fn
-      {:ok, %{status: status}} ->
-        CogyntLogger.info("#{__MODULE__}", status)
-
-      {:error, {404, status}} ->
-        CogyntLogger.info("#{__MODULE__}", status)
-
-      {:error, error} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "An error occurred while trying to delete the Pinot schema table for #{Config.template_solution_events_topic()}. Error: #{inspect(error)}"
-        )
-    end)
+    PinotUtils.delete_table_and_schema(Config.template_solution_events_topic())
+    |> case do
+      :ok -> nil
+      {:error, error} -> CogyntLogger.error("#{__MODULE__}", error)
+    end
 
     if delete_drilldown_topics do
       # Re-create topics for Drilldown
@@ -68,10 +44,11 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
       )
     end
 
+    # Recreate schema and table in Pinot
     PinotUtils.create_schema_and_table(Config.template_solution_events_topic())
     |> case do
-      :ok-> nil
-      {:error, error} -> CogyntLogger.error( "#{__MODULE__}", error)
+      :ok -> nil
+      {:error, error} -> CogyntLogger.error("#{__MODULE__}", error)
     end
   end
 end

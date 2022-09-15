@@ -1,44 +1,69 @@
 defmodule CogyntWorkstationIngest.Utils.PinotUtils do
   alias CogyntWorkstationIngest.Config
-  alias Pinot.Controller
   alias Pinot.Config, as: PinotConfig
 
   def create_schema_and_table(table_name, opts \\ []) do
     schema_name = Keyword.get(opts, :schema_name, table_name)
+
     create_schema(schema_name)
-      |> then(fn
-        {:ok, %{status: status}} ->
-          CogyntLogger.info("#{__MODULE__}", "Pinot schema #{status}")
+    |> then(fn
+      {:ok, %{status: status}} ->
+        CogyntLogger.info("#{__MODULE__}", "Pinot schema #{status}")
 
-          create_table(table_name)
-          |> then(fn
-            {:ok, %{status: status}} ->
-              CogyntLogger.info("#{__MODULE__}", status)
-              :ok
+        create_table(table_name)
+        |> then(fn
+          {:ok, %{status: status}} ->
+            CogyntLogger.info("#{__MODULE__}", status)
+            :ok
 
-            {:error, error} ->
-              {:error, "An error occurred while creating the #{table_name} Pinot table. Error: #{inspect(error)}"}
-          end)
+          {:error, error} ->
+            {:error,
+             "An error occurred while creating the #{table_name} Pinot table. Error: #{inspect(error)}"}
+        end)
 
-        {:error, error} ->
-          CogyntLogger.error(
-            "#{__MODULE__}",
-            "An error occurred while creating the #{Config.template_solution_events_topic()} Pinot schema. Error: #{inspect(error)}"
-          )
+      {:error, error} ->
+        {:error,
+         "An error occurred while creating the #{schema_name} Pinot schema. Error: #{inspect(error)}"}
+    end)
+  end
 
-          {:error, "An error occurred while creating the #{Config.template_solution_events_topic()} Pinot schema. Error: #{inspect(error)}"}
-      end)
+  def delete_table_and_schema(table_name, opts \\ []) do
+    schema_name = Keyword.get(opts, :schema_name, table_name)
+
+    Pinot.delete_table(table_name, query: [type: "realtime"])
+    |> then(fn
+      {:ok, %{status: status}} ->
+        CogyntLogger.info("#{__MODULE__}", status)
+        Pinot.delete_schema(schema_name)
+
+      {:error, {404, status}} ->
+        CogyntLogger.info("#{__MODULE__}", status)
+        Pinot.delete_schema(schema_name)
+
+      {:error, error} ->
+        {:error, error}
+    end)
+    |> then(fn
+      {:ok, %{status: status}} ->
+        CogyntLogger.info("#{__MODULE__}", status)
+
+      {:error, {404, status}} ->
+        CogyntLogger.info("#{__MODULE__}", status)
+
+      {:error, error} ->
+        {:error, error}
+    end)
   end
 
   def create_schema(schema_name) do
-    Controller.get_schema(schema_name)
+    Pinot.get_schema(schema_name)
     |> then(fn
       {:error, {404, _}} ->
         schema_config!(schema_name)
-        |> Controller.validate_schema()
+        |> Pinot.validate_schema()
         |> then(fn
           {:ok, schema} ->
-            Controller.create_schema(schema, query: [override: true])
+            Pinot.create_schema(schema, query: [override: true])
 
           {:error, error} ->
             CogyntLogger.error(
@@ -60,16 +85,16 @@ defmodule CogyntWorkstationIngest.Utils.PinotUtils do
       kafka_brokers: PinotConfig.kafka_broker_list(),
       schema_registry_url: PinotConfig.schema_registry_url()
     )
-    |> Controller.validate_table()
+    |> Pinot.validate_table()
     |> then(fn
       {:ok, %{REALTIME: %{tableName: table_name} = table_config}} ->
-        Controller.get_table(table_name)
+        Pinot.get_table(table_name)
         |> then(fn
           {:ok, table} when table == %{} ->
-            Controller.create_table(table_config)
+            Pinot.create_table(table_config)
 
           {:ok, %{REALTIME: %{tableName: table_name}}} ->
-            Controller.update_table(table_name, table_config)
+            Pinot.update_table(table_name, table_config)
 
           response ->
             response

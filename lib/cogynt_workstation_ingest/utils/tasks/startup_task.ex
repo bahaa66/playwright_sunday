@@ -21,8 +21,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
     if Config.drilldown_enabled?() do
       PinotUtils.create_schema_and_table(Config.template_solution_events_topic())
       |> case do
-        :ok-> nil
-        {:error, error} -> CogyntLogger.error( "#{__MODULE__}", error)
+        :ok -> nil
+        {:error, error} -> CogyntLogger.error("#{__MODULE__}", error)
       end
     end
 
