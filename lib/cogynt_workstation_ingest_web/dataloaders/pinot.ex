@@ -14,6 +14,11 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Pinot do
       :outcomes, solution_ids ->
         DrilldownContext.get_template_solution_outcomes(MapSet.to_list(solution_ids))
         |> case do
+          {:ok, %{exceptions: [%{message: "TableDoesNotExistError"}]}} ->
+            for id <- solution_ids, into: %{} do
+              {id, []}
+            end
+
           {:ok, events} ->
             events =
               events
@@ -34,6 +39,11 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Pinot do
       :events, solution_ids ->
         DrilldownContext.get_template_solution_events(MapSet.to_list(solution_ids))
         |> case do
+          {:ok, %{exceptions: [%{message: "TableDoesNotExistError"}]}} ->
+            for id <- solution_ids, into: %{} do
+              {id, []}
+            end
+
           {:ok, events} ->
             events =
               events
@@ -54,6 +64,11 @@ defmodule CogyntWorkstationIngestWeb.Dataloaders.Pinot do
         MapSet.to_list(solution_ids)
         |> DrilldownContext.get_template_solution_outcomes()
         |> case do
+          {:ok, %{exceptions: [%{message: "TableDoesNotExistError"}]}} ->
+            for id <- solution_ids, into: %{} do
+              {id, []}
+            end
+
           {:ok, outcome_events} ->
             for id <- MapSet.to_list(solution_ids), into: %{} do
               {id, Map.get(decoded_events(outcome_events), id)}

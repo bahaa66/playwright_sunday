@@ -122,7 +122,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :pinot,
-        branch: "feat/CDST-1928-pinot-apis",
+        tag: "v1.33.2-beta",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "pinot",
         override: true

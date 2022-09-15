@@ -21,6 +21,8 @@ config :cogynt_graphql, :common,
   mock_license: true,
   mock_license_status: "licensed"
 
+# The cyn env doesn't currently have pinot set up so we have to point to dev1
+# If you enable drilldown know that you will be effecting the dev1 env.
 config :pinot, :common,
   controller_url: "https://pinot-dev1.cogilitycloud.com",
   broker_url: "https://pinot-broker-dev1.cogilitycloud.com:443",
