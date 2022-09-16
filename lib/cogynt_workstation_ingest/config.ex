@@ -15,6 +15,7 @@ defmodule CogyntWorkstationIngest.Config do
 
   def ingest_task_worker_timer(), do: ingest_task_worker()[:timer]
 
+  def kafka_broker_string, do: kafka()[:brokers]
   def kafka_brokers, do: parse_kafka_brokers()
   def kafka_client, do: kafka()[:kafka_client]
   def partition_strategy, do: kafka()[:partition_strategy]
@@ -185,8 +186,6 @@ defmodule CogyntWorkstationIngest.Config do
   def postgres_password(), do: postgres()[:password]
   def postgres_hostname(), do: postgres()[:hostname]
   def postgres_database(), do: postgres()[:database]
-
-  def schema_registry_url(), do: Application.get_env(:druid, :schema_registry_url)
 
   def parse_kafka_brokers() do
     String.split(kafka()[:brokers], ",", trim: true)

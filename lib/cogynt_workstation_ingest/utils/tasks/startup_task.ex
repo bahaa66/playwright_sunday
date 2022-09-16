@@ -6,24 +6,23 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   alias CogyntWorkstationIngest.Config
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers
-  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
+  alias CogyntWorkstationIngest.Utils.PinotUtils
 
   def start_link(_arg \\ []) do
     Task.start_link(__MODULE__, :run, [])
   end
 
   def run() do
-    start_event_type_pipelines()
+    event_definitions = EventsContext.query_event_definitions(%{})
+    start_event_type_pipelines(event_definitions)
     start_deployment_pipeline()
 
     if Config.drilldown_enabled?() do
-      DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
-        Config.template_solutions_topic()
-      )
-
-      DruidRegistryHelper.start_drilldown_druid_with_registry_lookup(
-        Config.template_solution_events_topic()
-      )
+      PinotUtils.create_schema_and_table(Config.template_solution_events_topic())
+      |> case do
+        :ok -> nil
+        {:error, error} -> CogyntLogger.error("#{__MODULE__}", error)
+      end
     end
 
     ExqHelpers.resubscribe_to_all_queues()
@@ -32,13 +31,8 @@ defmodule CogyntWorkstationIngest.Utils.Tasks.StartUpTask do
   # ----------------------- #
   # --- private methods --- #
   # ----------------------- #
-  defp start_event_type_pipelines() do
-    event_definitions =
-      EventsContext.query_event_definitions(%{
-        filter: %{
-          active: true
-        }
-      })
+  defp start_event_type_pipelines(event_definitions) do
+    event_definitions = Enum.filter(event_definitions, &Map.get(&1, :active, false))
 
     Enum.each(event_definitions, fn event_definition ->
       Redis.publish_async("ingest_channel", %{
