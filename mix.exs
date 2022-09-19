@@ -101,7 +101,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :redis,
-        tag: "v1.33.1-beta",
+        tag: "v1.33.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true
@@ -115,14 +115,14 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :cogynt_elasticsearch,
-        tag: "v1.33.0-beta",
+        tag: "v1.33.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt-elasticsearch",
         override: true
       },
       {
         :pinot,
-        tag: "v1.33.2-beta",
+        tag: "v1.33.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "pinot",
         override: true
