@@ -183,8 +183,8 @@ if config_env() not in [:dev, :test, :k8scyn] do
   config :pinot, :common,
     controller_url: System.get_env("PINOT_CONTROLLER_URL"),
     broker_url: System.get_env("PINOT_BROKER_URL"),
-    kafka_broker_list: System.get_env("KAFKA_BROKERS", ""),
-    schema_registry_url: System.get_env("SCHEMA_REGISTRY_URL", "http://schemaregistry:8081")
+    kafka_broker_list: System.get_env("PINONT_KAFKA_BROKERS", ""),
+    schema_registry_url: System.get_env("PINOT_SCHEMA_REGISTRY_URL", "http://schemaregistry:8081")
 end
 
 # k8s-cyn dev env only
