@@ -81,6 +81,14 @@ config :elasticsearch, :common,
   ],
   service: CogyntElasticsearch
 
+config :pinot, :common,
+  controller_url: "http://localhost:9000",
+  broker_url: "http://localhost:8099",
+  kafka_brokers: "localhost:9071",
+  schema_registry_url: "http://localhost:8081",
+  controller_service: Pinot.Controller,
+  broker_service: Pinot.Broker
+
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Elasticsearch.Cluster,
   event_index_alias: "event",
   username: "elasticsearch",
@@ -110,7 +118,7 @@ config :redis, :common,
   port: 6379,
   sentinel_group: "main",
   pools: 5,
-  exit_on_disconnection: true,
+  exit_on_disconnection: false,
   sync_connect: true,
   instance: :single,
   client: Redis
@@ -136,19 +144,6 @@ config :exq,
   heartbeat_enable: true,
   heartbeat_interval: 60_000,
   missed_heartbeats_allowed: 5
-
-config :druid,
-  request_timeout: 120_000,
-  query_priority: 0,
-  broker_profiles: [
-    default: [
-      base_url: "http://localhost:8888",
-      cacertfile: "path/to/druid-certificate.crt",
-      http_username: "username",
-      http_password: "password"
-    ]
-  ],
-  schema_registry_url: "http://schemaregistry:8081"
 
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, :event_pipeline,

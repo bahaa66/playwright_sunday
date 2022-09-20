@@ -4,7 +4,6 @@ defmodule CogyntWorkstationIngest.Horde.NodeObserver do
   use GenServer
 
   alias CogyntWorkstationIngest.Horde.HordeRegistry
-  alias CogyntWorkstationIngest.Supervisors.DruidSupervisor
   alias CogyntWorkstationIngest.Elasticsearch.IndexerSupervisor
 
   def start_link(_), do: GenServer.start_link(__MODULE__, [])
@@ -17,7 +16,6 @@ defmodule CogyntWorkstationIngest.Horde.NodeObserver do
 
   def handle_info({:nodeup, node, _node_type}, state) do
     set_members(HordeRegistry)
-    set_members(DruidSupervisor)
     set_members(IndexerSupervisor)
 
     CogyntLogger.info(
@@ -30,7 +28,6 @@ defmodule CogyntWorkstationIngest.Horde.NodeObserver do
 
   def handle_info({:nodedown, node, _node_type}, state) do
     set_members(HordeRegistry)
-    set_members(DruidSupervisor)
     set_members(IndexerSupervisor)
 
     CogyntLogger.info(

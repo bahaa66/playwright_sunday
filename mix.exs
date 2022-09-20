@@ -7,7 +7,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       version: "0.1.0",
       elixir: "~> 1.12",
       elixirc_paths: elixirc_paths(Mix.env()),
-      compilers: [:phoenix, :gettext] ++ Mix.compilers(),
+      compilers: [:phoenix] ++ Mix.compilers(),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps()
@@ -42,10 +42,10 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:postgrex, "~> 0.15.8"},
       {:gettext, "~> 0.11"},
       {:jason, "~> 1.0"},
-      {:ja_serializer, "~> 0.16.0"},
+      {:ja_serializer, "~> 0.17.0"},
       {:jsonrpc2, "~> 2.0"},
       {:plug, "~> 1.8"},
-      {:cowboy, "~> 2.6"},
+      {:cowboy, "~> 2.8"},
       {:plug_cowboy, "~> 2.0"},
       {:health_checkup, "~> 0.1.0"},
       {:ecto_enum, "~> 1.4"},
@@ -69,6 +69,8 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:elixir_uuid, "~> 1.2"},
       {:ecto_psql_extras, "~> 0.6"},
       {:broadway_dashboard, "~> 0.2.0", override: true},
+      {:tesla, "~> 1.4"},
+      {:hackney, "~> 1.17"},
       {
         :kafka,
         tag: "v1.31.0",
@@ -99,14 +101,10 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :redis,
-        tag: "v1.20.0",
+        tag: "v1.33.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "redis",
         override: true
-      },
-      {
-        :druid,
-        tag: "v1.22.0", git: "git@github.com:cogility/cogynt-common.git", sparse: "druid"
       },
       {
         :cogynt_graphql,
@@ -117,9 +115,16 @@ defmodule CogyntWorkstationIngest.MixProject do
       },
       {
         :cogynt_elasticsearch,
-        tag: "v1.33.0-beta",
+        tag: "v1.33.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "cogynt-elasticsearch",
+        override: true
+      },
+      {
+        :pinot,
+        tag: "v1.33.0",
+        git: "git@github.com:cogility/cogynt-common.git",
+        sparse: "pinot",
         override: true
       }
     ]

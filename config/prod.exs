@@ -1,7 +1,7 @@
 import Config
 
 config :cogynt_workstation_ingest,
-  drilldown_enabled: false
+  drilldown_enabled: true
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo, pool_size: 10
 

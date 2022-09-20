@@ -106,22 +106,9 @@ cond do
       database: System.get_env("COGYNT_REDIS_DATABASE"),
       pools: System.get_env("COGYNT_REDIS_POOLS", "5") |> String.to_integer(),
       exit_on_disconnection:
-        System.get_env("COGYNT_REDIS_EXIT_ON_DISCONNECTION", "true") == "true",
+        System.get_env("COGYNT_REDIS_EXIT_ON_DISCONNECTION", "false") == "true",
       sync_connect: System.get_env("COGYNT_REDIS_SYNC_CONNECT", "true") == "true",
       instance: System.get_env("COGYNT_REDIS_INSTANCE", "single") |> String.to_atom()
-
-    config :druid,
-      request_timeout: System.get_env("DRUID_REQUEST_TIMEOUT", "120000") |> String.to_integer(),
-      query_priority: System.get_env("DRUID_QUERY_PRIORITY", "0") |> String.to_integer(),
-      broker_profiles: [
-        default: [
-          base_url: System.get_env("DRUID_BASE_URL"),
-          cacertfile: System.get_env("DRUID_CERT_FILE_PATH", "path/to/druid-certificate.crt"),
-          http_username: System.get_env("DRUID_HTTP_USERNAME", "username"),
-          http_password: System.get_env("DRUID_HTTP_PASSWORD", "password")
-        ]
-      ],
-      schema_registry_url: System.get_env("SCHEMA_REGISTRY_URL", "http://schemaregistry:8081")
 
     # RPC configurations
     config :cogynt_workstation_ingest, :rpc,
@@ -192,6 +179,12 @@ if config_env() not in [:dev, :test, :k8scyn] do
     cogynt_csl_role: System.get_env("COGYNT_CSL_ROLE"),
     tesla_log_level: (System.get_env("LOG_LEVEL") || "info") |> String.to_atom(),
     vault_tls_cert: System.get_env("VAULT_TLS_CERT")
+
+  config :pinot, :common,
+    controller_url: System.get_env("PINOT_CONTROLLER_URL"),
+    broker_url: System.get_env("PINOT_BROKER_URL"),
+    kafka_broker_list: System.get_env("KAFKA_BROKERS", ""),
+    schema_registry_url: System.get_env("SCHEMA_REGISTRY_URL", "http://schemaregistry:8081")
 end
 
 # k8s-cyn dev env only

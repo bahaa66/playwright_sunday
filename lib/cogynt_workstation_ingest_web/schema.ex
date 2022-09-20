@@ -1,7 +1,7 @@
 defmodule CogyntWorkstationIngestWeb.Schema do
   use Absinthe.Schema
   alias CogyntGraphql.Middleware.{ErrorHandler, ErrorException}
-  alias CogyntWorkstationIngestWeb.Dataloaders.Druid, as: DruidLoader
+  alias CogyntWorkstationIngestWeb.Dataloaders.Pinot, as: PinotLoader
   alias Absinthe.Utils, as: AbsintheUtils
 
   import_types(Absinthe.Type.Custom)
@@ -23,7 +23,7 @@ defmodule CogyntWorkstationIngestWeb.Schema do
   def context(ctx) do
     loader =
       Dataloader.new()
-      |> Dataloader.add_source(DruidLoader, DruidLoader.data())
+      |> Dataloader.add_source(PinotLoader, PinotLoader.data())
 
     Map.put(ctx, :loader, loader)
   end

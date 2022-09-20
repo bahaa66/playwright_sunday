@@ -1,6 +1,6 @@
 defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWorker do
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Utils.DruidRegistryHelper
+  alias CogyntWorkstationIngest.Utils.PinotUtils
 
   def perform(delete_drilldown_topics) do
     CogyntLogger.info(
@@ -23,16 +23,12 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
       )
     end
 
-    # Suspend Supervisors
-    DruidRegistryHelper.suspend_druid_with_registry_lookup(
-      Config.template_solution_events_topic()
-    )
-
-    DruidRegistryHelper.suspend_druid_with_registry_lookup(Config.template_solutions_topic())
-
-    # Drop segments 4 datasources and reset supervisors
-    drop_and_reset_druid(Config.template_solution_events_topic())
-    drop_and_reset_druid(Config.template_solutions_topic())
+    # Delete table and schema from Pinot
+    PinotUtils.delete_table_and_schema(Config.template_solution_events_topic())
+    |> case do
+      :ok -> nil
+      {:error, error} -> CogyntLogger.error("#{__MODULE__}", error)
+    end
 
     if delete_drilldown_topics do
       # Re-create topics for Drilldown
@@ -47,24 +43,12 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.Workers.DeleteDrilldownDataWork
         "Created Drilldown Topics result: #{inspect(create_topic_result, pretty: true)}"
       )
     end
-  end
 
-  # ----------------------- #
-  # --- private methods --- #
-  # ----------------------- #
-  defp drop_and_reset_druid(datasource_name) do
-    case DruidRegistryHelper.drop_and_reset_druid_with_registry_lookup(datasource_name) do
-      {:ok, result} ->
-        CogyntLogger.info(
-          "#{__MODULE__}",
-          "Dropped segments for Druid Datasource: #{datasource_name} with response: #{inspect(result)}"
-        )
-
-      {:error, error} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "Failed to drop segments for Druid Datasource: #{datasource_name} with Error: #{inspect(error)}"
-        )
+    # Recreate schema and table in Pinot
+    PinotUtils.create_schema_and_table(Config.template_solution_events_topic())
+    |> case do
+      :ok -> nil
+      {:error, error} -> CogyntLogger.error("#{__MODULE__}", error)
     end
   end
 end
