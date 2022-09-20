@@ -15,9 +15,7 @@ defmodule LivenessCheck do
 
   @spec call(Plug.Conn.t(), options) :: Plug.Conn.t()
   def call(%Plug.Conn{} = conn, _opts) do
-    pinot_healthy?()
-
-    if kafka_health?() and postgres_health?() and redis_health?() and elastic_cluster_health?() do
+    if kafka_health?() and postgres_health?() and redis_health?() and elastic_cluster_health?() and pinot_healthy?() do
       send_resp(conn, 200, @resp_body)
     else
       send_resp(conn, 500, @resp_body_error)
