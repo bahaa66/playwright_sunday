@@ -6,7 +6,6 @@ config :cogynt_workstation_ingest,
   session_key: "_cogynt_auth_key",
   signing_salt: "I45Kpw9a",
   enable_dev_tools: true,
-  authoring_version: "1",
   event_pipeline_batch_size: 10000,
   drilldown_enabled: true
 
@@ -156,24 +155,6 @@ config :cogynt_workstation_ingest, :deployment_pipeline,
 
 # Configurations for keys in Cogynt Core events
 config :cogynt_workstation_ingest, :cogynt_keys,
-  link_data_type: "linkage",
-  update: "update",
-  delete: "delete",
-  create: "create",
-  published_by: "published_by",
-  published_at: "published_at",
-  timestamp: "_timestamp",
-  id: "id",
-  version: "$version",
-  crud: "$crud",
-  confidence: "_confidence",
-  partial: "$partial",
-  entities: "$$entities",
-  matches: "$matches",
-  source: "source",
-  data_type: "data_type"
-
-config :cogynt_workstation_ingest, :cogynt_keys_v2,
   link_data_type: "linkage",
   update: "update",
   delete: "delete",
