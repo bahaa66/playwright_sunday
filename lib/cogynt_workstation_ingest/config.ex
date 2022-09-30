@@ -1,12 +1,10 @@
 defmodule CogyntWorkstationIngest.Config do
-  def event_pipeline_batch_size(),
-    do: Application.get_env(:cogynt_workstation_ingest, :event_pipeline_batch_size)
-
   def deployment_processor_stages(), do: deployment_pipeline()[:processor_stages]
   def deployment_producer_stages(), do: deployment_pipeline()[:producer_stages]
 
-  def event_processor_stages(), do: event_pipeline()[:processor_stages]
-  def event_producer_stages(), do: event_pipeline()[:producer_stages]
+  def event_pipeline_batch_size(), do: event_pipeline()[:batch_size]
+  def event_pipeline_max_bytes(), do: event_pipeline()[:max_bytes]
+  def event_pipeline_batch_timeout(), do: event_pipeline()[:batch_timeout]
 
   def consumer_retry_retry_timer(), do: consumer_retry_worker()[:retry_timer]
 
@@ -44,21 +42,41 @@ defmodule CogyntWorkstationIngest.Config do
   def signing_salt(), do: Application.get_env(:cogynt_workstation_ingest, :signing_salt)
 
   def crud_key(), do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:crud]
-  def linkage_data_type_value(), do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:link_data_type]
-  def crud_update_value(), do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:update]
-  def crud_create_value(), do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:create]
-  def crud_delete_value(), do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:delete]
-  def published_by_key(), do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:published_by]
-  def published_at_key(), do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:published_at]
-  def timestamp_key(), do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:timestamp]
+
+  def linkage_data_type_value(),
+    do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:link_data_type]
+
+  def crud_update_value(),
+    do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:update]
+
+  def crud_create_value(),
+    do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:create]
+
+  def crud_delete_value(),
+    do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:delete]
+
+  def published_by_key(),
+    do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:published_by]
+
+  def published_at_key(),
+    do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:published_at]
+
+  def timestamp_key(),
+    do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:timestamp]
+
   def version_key(), do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:version]
   def id_key(), do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:id]
-  def confidence_key(), do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:confidence]
+
+  def confidence_key(),
+    do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:confidence]
+
   def partial_key(), do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:partial]
   def entities_key(), do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:entities]
   def matches_key(), do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:matches]
   def source_key(), do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:source]
-  def data_type_key(), do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:data_type]
+
+  def data_type_key(),
+    do: Application.get_env(:cogynt_workstation_ingest, :cogynt_keys)[:data_type]
 
   def startup_delay(), do: startup()[:init_delay]
 
@@ -115,6 +133,7 @@ defmodule CogyntWorkstationIngest.Config do
     do: Application.get_env(:cogynt_workstation_ingest, :drilldown_enabled)
 
   def pod_name(), do: Application.get_env(:cogynt_workstation_ingest, :pod_name)
+  def replicas(), do: Application.get_env(:cogynt_workstation_ingest, :replicas)
 
   # ----------------------- #
   # --- private methods --- #

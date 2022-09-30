@@ -29,8 +29,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           {[
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: 30000,
-               concurrency: 10
+               batch_timeout: Config.event_pipeline_batch_timeout(),
+               concurrency: calc_pipeline_concurrency(topics, hosts)
              ]
            ],
            [
@@ -43,8 +43,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           {[
              default: [
                batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: 30000,
-               concurrency: 10
+               batch_timeout: Config.event_pipeline_batch_timeout(),
+               concurrency: calc_pipeline_concurrency(topics, hosts)
              ]
            ],
            [
@@ -57,13 +57,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           {[
              default: [
                batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: 30000,
-               concurrency: 10
+               batch_timeout: Config.event_pipeline_batch_timeout(),
+               concurrency: calc_pipeline_concurrency(topics, hosts)
              ],
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: 30000,
-               concurrency: 10
+               batch_timeout: Config.event_pipeline_batch_timeout(),
+               concurrency: calc_pipeline_concurrency(topics, hosts)
              ]
            ],
            [event_definition_hash_id: event_definition_hash_id, event_type: event_type, crud: nil]}
@@ -89,8 +89,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
                connect_timeout: 30000
              ],
              fetch_config: [
-               # 6 Mib
-               max_bytes: 6_291_576
+               max_bytes: Config.event_pipeline_max_bytes()
              ]
            ]},
         concurrency: 1,
@@ -100,7 +99,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       ],
       processors: [
         default: [
-          concurrency: 10
+          concurrency: calc_pipeline_concurrency(topics, hosts)
         ]
       ],
       batchers: batchers,
@@ -697,6 +696,55 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
       {:error, _error} ->
         {:error, :failed}
+    end
+  end
+
+  defp calc_pipeline_concurrency(topics, brokers) do
+    topic = List.first(topics)
+
+    kafka_client_atom =
+      try do
+        String.to_existing_atom("$brod.client." <> brokers)
+      rescue
+        _error ->
+          String.to_atom("$brod.client." <> brokers)
+      end
+
+    with :ok <- :brod.start_client(brokers, kafka_client_atom),
+         :ok <- :brod.start_producer(kafka_client_atom, topic, []),
+         {:ok, partition_count} <- Topic.fetch_partition_count(kafka_client_atom, topic) do
+      # :brod.close_client(kafka_client_atom)
+      if Config.replicas() > 0 do
+        Float.round(partition_count / Config.replicas())
+      else
+        Float.round(partition_count / 1)
+      end
+    else
+      :error ->
+        # :brod.close_client(kafka_client_atom)
+
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "Stopped brod client for #{inspect(kafka_client_atom)}"
+        )
+
+        10
+
+      {:error, error} ->
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "calc_pipeline_concurrency/2 failed to fetch_partition_count/2. Setting pipeline concurrency to 10. Error: #{inspect(error)}"
+        )
+
+        10
+
+      all_other_errors ->
+        CogyntLogger.warn(
+          "#{__MODULE__}",
+          "calc_pipeline_concurrency/2 Failed. Setting pipeline concurrency to 10. Error: #{inspect(all_other_errors)}"
+        )
+
+        10
     end
   end
 end

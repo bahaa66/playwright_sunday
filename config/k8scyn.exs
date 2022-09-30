@@ -1,7 +1,6 @@
 import Config
 
 config :cogynt_workstation_ingest,
-  # event_pipeline_batch_size: 10,
   drilldown_enabled: false
 
 config :cogynt_workstation_ingest, CogyntWorkstationIngest.Repo, pool_size: 20
@@ -30,3 +29,11 @@ config :pinot, :common,
   schema_registry_url: "http://schemaregistry.cogynt.svc.cluster.local:8081",
   controller_service: Pinot.Controller,
   broker_service: Pinot.Broker
+
+# Broadway Pipelines configurations
+config :cogynt_workstation_ingest, :event_pipeline,
+  # 5 mib
+  max_bytes: 5_242_880,
+  batch_size: 1000,
+  # 10 sec
+  batch_timeout: 10000
