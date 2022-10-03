@@ -116,7 +116,7 @@ defmodule CogyntWorkstationIngest.Utils.JobQueue.ExqHelpers do
         {:ok, processes} = Exq.Api.processes(Exq.Api)
 
         grouped =
-          Enum.group_by(processes, fn %Exq.Support.Process{queue: q} = process ->
+          Enum.group_by(processes, fn %Exq.Support.Process{queue: q} = _process ->
             q
           end)
 
