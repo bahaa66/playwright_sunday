@@ -30,7 +30,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
                batch_timeout: Config.event_pipeline_batch_timeout(),
-               concurrency: calc_pipeline_concurrency(topics, hosts)
+               concurrency: calc_pipeline_concurrency(topics, hosts, group_id)
              ]
            ],
            [
@@ -44,7 +44,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              default: [
                batch_size: Config.event_pipeline_batch_size(),
                batch_timeout: Config.event_pipeline_batch_timeout(),
-               concurrency: calc_pipeline_concurrency(topics, hosts)
+               concurrency: calc_pipeline_concurrency(topics, hosts, group_id)
              ]
            ],
            [
@@ -58,12 +58,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
              default: [
                batch_size: Config.event_pipeline_batch_size(),
                batch_timeout: Config.event_pipeline_batch_timeout(),
-               concurrency: calc_pipeline_concurrency(topics, hosts)
+               concurrency: calc_pipeline_concurrency(topics, hosts, group_id)
              ],
              crud: [
                batch_size: Config.event_pipeline_batch_size(),
                batch_timeout: Config.event_pipeline_batch_timeout(),
-               concurrency: calc_pipeline_concurrency(topics, hosts)
+               concurrency: calc_pipeline_concurrency(topics, hosts, group_id)
              ]
            ],
            [event_definition_hash_id: event_definition_hash_id, event_type: event_type, crud: nil]}
@@ -99,7 +99,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       ],
       processors: [
         default: [
-          concurrency: calc_pipeline_concurrency(topics, hosts)
+          concurrency: calc_pipeline_concurrency(topics, hosts, group_id)
         ]
       ],
       batchers: batchers,
