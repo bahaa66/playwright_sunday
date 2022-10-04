@@ -702,6 +702,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   defp calc_pipeline_concurrency(topics, brokers) do
     topic = List.first(topics)
 
+    IO.inspect(topic, label: "CALC TOPIC")
+    IO.inspect(brokers, label: "CALC BROKERS")
+
     kafka_client_atom =
       try do
         String.to_existing_atom("$brod.client." <> brokers)
