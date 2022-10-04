@@ -715,9 +715,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
          {:ok, partition_count} <- Topic.fetch_partition_count(kafka_client_atom, topic) do
       # :brod.close_client(kafka_client_atom)
       if Config.replicas() > 0 do
-        Float.round(partition_count / Config.replicas())
+        result = Float.round(partition_count / Config.replicas())
+        IO.inspect(result, label: "CALC RESULT")
+        result
       else
-        Float.round(partition_count / 1)
+        result = Float.round(partition_count / 1)
+        IO.inspect(result, label: "CALC RESULT")
+        result
       end
     else
       :error ->
