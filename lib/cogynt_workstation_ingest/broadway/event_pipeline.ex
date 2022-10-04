@@ -719,9 +719,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         partition_count
       else
         if Config.replicas() > 0 do
-          Float.round(partition_count / Config.replicas())
+          round(partition_count / Config.replicas())
         else
-          Float.round(partition_count / 1)
+          round(partition_count / 1)
         end
       end
     else
