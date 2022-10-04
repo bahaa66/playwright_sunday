@@ -699,18 +699,15 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     end
   end
 
-  defp calc_pipeline_concurrency(topics, brokers) do
+  defp calc_pipeline_concurrency(topics, brokers, consumer_group_id) do
     topic = List.first(topics)
-
-    IO.inspect(topic, label: "CALC TOPIC")
-    IO.inspect(brokers, label: "CALC BROKERS")
 
     kafka_client_atom =
       try do
-        String.to_existing_atom("$brod.client." <> brokers)
+        String.to_existing_atom(consumer_group_id)
       rescue
         _error ->
-          String.to_atom("$brod.client." <> brokers)
+          String.to_atom(consumer_group_id)
       end
 
     with :ok <- :brod.start_client(brokers, kafka_client_atom),
