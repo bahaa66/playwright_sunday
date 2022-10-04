@@ -16,7 +16,7 @@ cond do
       enable_dev_tools: (System.get_env("ENABLE_DEV_TOOLS") || "true") == "true",
       authoring_version: System.get_env("COGYNT_AUTHORING_VERSION", "1"),
       pod_name: System.get_env("POD_NAME"),
-      replicas: (System.get_env("REPLICAS") || "3") |> String.to_integer(),
+      replicas: (System.get_env("REPLICAS") || "3") |> String.to_integer()
 
     config :cogynt_workstation_ingest, CogyntWorkstationIngestWeb.Endpoint,
       url: [host: System.get_env("COGYNT_DOMAIN")],
