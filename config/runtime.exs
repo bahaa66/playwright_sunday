@@ -189,9 +189,10 @@ if config_env() not in [:dev, :test, :k8scyn] do
 
   # Broadway Pipelines configurations
   config :cogynt_workstation_ingest, :event_pipeline,
-    max_bytes: System.get_env("EVENT_PIPELINE_MAX_BYTES"),
-    batch_size: System.get_env("EVENT_PIPELINE_BATCH_SIZE"),
-    batch_timeout: System.get_env("EVENT_PIPELINE_BATCH_TIMEOUT")
+    max_bytes: (System.get_env("EVENT_PIPELINE_MAX_BYTES") || "15728640") |> String.to_integer(),
+    batch_size: (System.get_env("EVENT_PIPELINE_BATCH_SIZE") || "10000") |> String.to_integer(),
+    batch_timeout:
+      (System.get_env("EVENT_PIPELINE_BATCH_TIMEOUT") || "30000") |> String.to_integer()
 end
 
 # k8s-cyn dev env only
