@@ -96,6 +96,10 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
         unit: {:native, :millisecond}
       ),
       summary(
+        "broadway.transform.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary(
         "broadway.event_processor_all_crud_processing_stages.duration",
         unit: {:native, :millisecond}
       ),

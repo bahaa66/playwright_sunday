@@ -112,6 +112,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
   def transform(%Message{data: encoded_data} = message, opts) do
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+
     event_definition_hash_id = Keyword.get(opts, :event_definition_hash_id, nil)
     event_type = Keyword.get(opts, :event_type, "none")
 
@@ -128,19 +132,29 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           # Incr the total message count that has been consumed from kafka
           incr_total_fetched_message_count(event_definition_hash_id)
 
-          Map.put(message, :data, %{
-            event: decoded_data,
-            event_definition_hash_id: event_definition_hash_id,
-            core_id: decoded_data[Config.id_key()] || Ecto.UUID.generate(),
-            pipeline_state: nil,
-            retry_count: 0,
-            event_type: event_type,
-            event_definition:
-              EventsContext.get_event_definition(event_definition_hash_id, preload_details: true)
-              |> EventsContext.remove_event_definition_virtual_fields(
-                include_event_definition_details: true
-              )
-          })
+          message =
+            Map.put(message, :data, %{
+              event: decoded_data,
+              event_definition_hash_id: event_definition_hash_id,
+              core_id: decoded_data[Config.id_key()] || Ecto.UUID.generate(),
+              pipeline_state: nil,
+              retry_count: 0,
+              event_type: event_type,
+              event_definition:
+                EventsContext.get_event_definition(event_definition_hash_id, preload_details: true)
+                |> EventsContext.remove_event_definition_virtual_fields(
+                  include_event_definition_details: true
+                )
+            })
+
+          # Execute telemtry for metrics
+          :telemetry.execute(
+            [:broadway, :transform],
+            %{duration: System.monotonic_time() - start},
+            telemetry_metadata
+          )
+
+          message
 
         {:error, error} ->
           CogyntLogger.error(
@@ -254,7 +268,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
     data =
       case message.data.pipeline_state do
-        :process_event ->
+        :process_event_history ->
           message.data
           |> LinkEventProcessor.validate_link_event()
           |> LinkEventProcessor.process_entities()
@@ -279,7 +293,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         _ ->
           message.data
           |> EventProcessor.process_event_history()
-          |> EventProcessor.process_event()
           |> LinkEventProcessor.validate_link_event()
           |> LinkEventProcessor.process_entities()
           |> EventProcessor.process_elasticsearch_documents()
@@ -423,7 +436,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
           _ ->
             data =
               case message.data.pipeline_state do
-                :process_event ->
+                :process_event_history ->
                   message.data
                   |> LinkEventProcessor.validate_link_event()
                   |> LinkEventProcessor.process_entities()
@@ -448,7 +461,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
                 _ ->
                   message.data
                   |> EventProcessor.process_event_history()
-                  |> EventProcessor.process_event()
                   |> LinkEventProcessor.validate_link_event()
                   |> LinkEventProcessor.process_entities()
                   |> EventProcessor.process_elasticsearch_documents()
@@ -493,6 +505,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     pg_event_history =
       messages
       |> Enum.map(fn message -> message.data.pg_event_history end)
+      |> List.flatten()
 
     messages
     |> Enum.group_by(fn message -> message.data.core_id end)

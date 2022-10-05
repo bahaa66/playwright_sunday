@@ -71,12 +71,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           event_definition_hash_id: event_definition_hash_id
         }
 
-        data =
-          Map.put(data, :pg_event_list, pg_event_list)
-          |> Map.put(:pg_event_map, pg_event_map)
-          |> Map.put(:crud_action, action)
-          |> Map.put(:pipeline_state, :process_event)
-
         # Execute telemtry for metrics
         :telemetry.execute(
           [:broadway, :process_event],
@@ -84,13 +78,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           telemetry_metadata
         )
 
-        data
+        Map.put(data, :pg_event_list, pg_event_list)
+        |> Map.put(:pg_event_map, pg_event_map)
+        |> Map.put(:crud_action, action)
+        |> Map.put(:pipeline_state, :process_event)
     end
   end
 
-  @doc """
-  process_event_history/1 ....
-  """
   def process_event_history(
         %{event: event, event_definition_hash_id: event_definition_hash_id, core_id: core_id} =
           data
@@ -101,50 +95,113 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     action = Map.get(event, Config.crud_key(), nil)
 
-    if is_nil(action) do
-      data
-    else
-      occurred_at =
-        case event[Config.timestamp_key()] do
-          nil ->
-            nil
+    now = DateTime.truncate(DateTime.utc_now(), :second)
 
-          date_string ->
-            {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
+    occurred_at =
+      case event[Config.timestamp_key()] do
+        nil ->
+          nil
 
-            dt_struct
-            |> DateTime.truncate(:second)
-        end
+        date_string ->
+          {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
 
-      published_at =
-        case event[Config.published_at_key()] do
-          nil ->
-            nil
+          dt_struct
+          |> DateTime.truncate(:second)
+      end
 
-          date_string ->
-            {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
+    published_at =
+      case event[Config.published_at_key()] do
+        nil ->
+          nil
 
-            dt_struct
-            |> DateTime.truncate(:second)
-        end
+        date_string ->
+          {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
 
-      risk_score = format_risk_score(event[Config.confidence_key()])
+          dt_struct
+          |> DateTime.truncate(:second)
+      end
 
-      version = event[Config.version_key()]
-      event_details = format_lexicon_data(event)
+    risk_score = format_risk_score(event[Config.confidence_key()])
 
-      # Execute telemtry for metrics
-      :telemetry.execute(
-        [:broadway, :process_event_history],
-        %{duration: System.monotonic_time() - start},
-        telemetry_metadata
-      )
+    version = event[Config.version_key()]
+    event_details = format_lexicon_data(event)
 
-      pg_event_history = [
-        "#{Ecto.UUID.generate()}\t#{core_id}\t#{event_definition_hash_id}\t#{action}\t#{risk_score}\t#{version}\t#{Jason.encode!(event_details)}\t#{occurred_at}\t#{published_at}\n"
-      ]
+    cond do
+      action == Config.crud_delete_value() ->
+        pg_event_history = [
+          "#{Ecto.UUID.generate()}\t#{core_id}\t#{event_definition_hash_id}\t#{action}\t#{risk_score}\t#{version}\t#{Jason.encode!(event_details)}\t#{occurred_at}\t#{published_at}\n"
+        ]
 
-      Map.put(data, :pg_event_history, pg_event_history)
+        # Execute telemtry for metrics
+        :telemetry.execute(
+          [:broadway, :process_event_history],
+          %{duration: System.monotonic_time() - start},
+          telemetry_metadata
+        )
+
+        Map.put(data, :crud_action, action)
+        |> Map.put(:pg_event_history, pg_event_history)
+        |> Map.put(:delete_core_id, core_id)
+        |> Map.put(:pipeline_state, :process_event_history)
+
+      action == Config.crud_create_value() or action == Config.crud_update_value() ->
+        pg_event_history = [
+          "#{Ecto.UUID.generate()}\t#{core_id}\t#{event_definition_hash_id}\t#{action}\t#{risk_score}\t#{version}\t#{Jason.encode!(event_details)}\t#{occurred_at}\t#{published_at}\n"
+        ]
+
+        pg_event_list = [
+          "#{core_id}\t#{occurred_at}\t#{risk_score}\t#{Jason.encode!(event_details)}\t#{now}\t#{now}\t#{event_definition_hash_id}\n"
+        ]
+
+        pg_event_map = %{
+          core_id: core_id,
+          occurred_at: occurred_at,
+          risk_score: risk_score,
+          event_details: event_details,
+          created_at: now,
+          updated_at: now,
+          event_definition_hash_id: event_definition_hash_id
+        }
+
+        # Execute telemtry for metrics
+        :telemetry.execute(
+          [:broadway, :process_event_history],
+          %{duration: System.monotonic_time() - start},
+          telemetry_metadata
+        )
+
+        Map.put(data, :pg_event_list, pg_event_list)
+        |> Map.put(:pg_event_map, pg_event_map)
+        |> Map.put(:pg_event_history, pg_event_history)
+        |> Map.put(:crud_action, action)
+        |> Map.put(:pipeline_state, :process_event_history)
+
+      true ->
+        pg_event_list = [
+          "#{core_id}\t#{occurred_at}\t#{risk_score}\t#{Jason.encode!(event_details)}\t#{now}\t#{now}\t#{event_definition_hash_id}\n"
+        ]
+
+        pg_event_map = %{
+          core_id: core_id,
+          occurred_at: occurred_at,
+          risk_score: risk_score,
+          event_details: event_details,
+          created_at: now,
+          updated_at: now,
+          event_definition_hash_id: event_definition_hash_id
+        }
+
+        # Execute telemtry for metrics
+        :telemetry.execute(
+          [:broadway, :process_event_history],
+          %{duration: System.monotonic_time() - start},
+          telemetry_metadata
+        )
+
+        Map.put(data, :pg_event_list, pg_event_list)
+        |> Map.put(:pg_event_map, pg_event_map)
+        |> Map.put(:crud_action, action)
+        |> Map.put(:pipeline_state, :process_event_history)
     end
   end
 
@@ -174,13 +231,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
     cond do
       action == Config.crud_delete_value() ->
-        # Execute telemtry for metrics
-        :telemetry.execute(
-          [:broadway, :process_elasticsearch_documents],
-          %{duration: System.monotonic_time() - start},
-          telemetry_metadata
-        )
-
         data
 
       true ->
@@ -221,10 +271,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
               @defaults.event_document
           end
 
-        data =
-          Map.put(data, :event_doc, elasticsearch_event_doc)
-          |> Map.put(:pipeline_state, :process_elasticsearch_documents)
-
         # Execute telemtry for metrics
         :telemetry.execute(
           [:broadway, :process_elasticsearch_documents],
@@ -232,7 +278,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           telemetry_metadata
         )
 
-        data
+        Map.put(data, :event_doc, elasticsearch_event_doc)
+        |> Map.put(:pipeline_state, :process_elasticsearch_documents)
     end
   end
 
@@ -388,9 +435,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
             :pg_event_links ->
               v1 ++ List.flatten(v2)
-
-            :pg_event_history ->
-              v1 ++ v2
 
             :delete_core_id ->
               v1 ++ [v2]

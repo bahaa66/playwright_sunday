@@ -817,6 +817,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
 
       IO.inspect(Enum.count(bulk_transactional_data.pg_event_list), label: "EVENT COUNT")
 
+      IO.inspect(Enum.count(bulk_transactional_data.event_doc), label: "EVENT DOCUMENT COUNT")
+
       IO.inspect(Enum.count(bulk_transactional_data.pg_event_history),
         label: "EVENT HISTORY COUNT"
       )
