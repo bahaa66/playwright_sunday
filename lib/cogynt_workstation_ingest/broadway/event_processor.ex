@@ -485,6 +485,37 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         )
 
         raise "execute_transaction/1 failed"
+
+      {:error, error_ids} when is_list(error_ids) ->
+        bulk_transactional_data
+        |> filter_failed_pg_events(error_ids)
+        |> filter_failed_notifications(error_ids)
+        |> filter_failed_event_history(error_ids)
+        |> filter_failed_event_links(error_ids)
+        |> EventsContext.execute_ingest_bulk_insert_function()
+        |> case do
+          {:ok, _} ->
+            bulk_delete_event_documents(bulk_transactional_data)
+
+            Redis.publish_async(
+              "events_changed_listener",
+              %{
+                event_type: event_type,
+                deleted: bulk_transactional_data.delete_core_id,
+                upserted: bulk_transactional_data.pg_event_map
+              }
+            )
+
+          {:error, reason} ->
+            CogyntLogger.error(
+              "#{__MODULE__}",
+              "execute_transaction/1 failed with reason: #{inspect(reason, pretty: true)}"
+            )
+
+            rollback_event_index_data(bulk_transactional_data)
+
+            raise "execute_transaction/1 failed"
+        end
     end
 
     nil
@@ -563,7 +594,39 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
              Config.event_index_alias(),
              bulk_transactional_data.event_doc
            ) do
-        {:ok, _} ->
+        {:ok, %{"errors" => true, "items" => items}} ->
+          error_ids =
+            Enum.group_by(
+              items,
+              fn
+                %{"update" => event} -> get_in(event, ["error", "type"])
+                %{"create" => event} -> get_in(event, ["error", "type"])
+                # We shouldn't hit this since we are doing an upsert but I don't want
+                # this to cause an exception
+                _ -> nil
+              end,
+              fn
+                %{"update" => event} -> get_in(event, ["_id"])
+                %{"create" => event} -> get_in(event, ["_id"])
+                # We shouldn't hit this since we are doing an upsert but I don't want
+                # this to cause an exception
+                _ -> nil
+              end
+            )
+            |> Map.drop([nil])
+
+          # Log the errors
+          Enum.each(error_ids, fn
+            {reason, events} ->
+              CogyntLogger.error(
+                "#{__MODULE__}",
+                "Failed to upsert #{length(events)} events into Elasticsearch for the following reason \"#{reason}\""
+              )
+          end)
+
+          {:error, Map.values(error_ids) |> List.flatten()}
+
+        {:ok, %{"errors" => false}} ->
           {:ok, :success}
 
         _ ->
@@ -630,4 +693,72 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       risk_score
     end
   end
+
+  defp filter_failed_event_links(%{pg_event_links: links} = bulk_transactional_data, error_ids) do
+    filtered_links =
+      links
+      |> Enum.reject(fn
+        <<core_id::binary-size(36), "\t"::binary, enitity_core_id::binary-size(36),
+          _rest::binary>> ->
+          core_id in error_ids or enitity_core_id in error_ids
+
+        _ ->
+          false
+      end)
+
+    Map.put(bulk_transactional_data, :pg_event_links, filtered_links)
+  end
+
+  defp filter_failed_event_links(bulk_transactional_data, _), do: bulk_transactional_data
+
+  defp filter_failed_event_history(
+         %{pg_event_history: history_list} = bulk_transactional_data,
+         error_ids
+       ) do
+    filtered_history =
+      history_list
+      |> Enum.reject(fn
+        <<_id::binary-size(36), "\t"::binary, core_id::binary-size(36), _rest::binary>> ->
+          core_id in error_ids
+
+        _ ->
+          false
+      end)
+
+    Map.put(bulk_transactional_data, :pg_event_history, filtered_history)
+  end
+
+  defp filter_failed_event_history(bulk_transactional_data, _), do: bulk_transactional_data
+
+  defp filter_failed_notifications(
+         %{pg_notifications: notification_list} = bulk_transactional_data,
+         error_ids
+       ) do
+    filtered_notifications =
+      notification_list
+      |> Enum.reject(fn
+        <<_id::binary-size(36), "\t"::binary, core_id::binary-size(36), _rest::binary>> ->
+          core_id in error_ids
+
+        _ ->
+          false
+      end)
+
+    Map.put(bulk_transactional_data, :pg_notifications, filtered_notifications)
+  end
+
+  defp filter_failed_notifications(bulk_transactional_data, _), do: bulk_transactional_data
+
+  defp filter_failed_pg_events(%{pg_event_list: event_list} = bulk_transactional_data, error_ids) do
+    filtered_events =
+      event_list
+      |> Enum.reject(fn
+        <<core_id::binary-size(36), _rest::binary>> -> core_id in error_ids
+        _ -> false
+      end)
+
+    Map.put(bulk_transactional_data, :pg_event_list, filtered_events)
+  end
+
+  defp filter_failed_pg_events(bulk_transactional_data, _), do: bulk_transactional_data
 end
