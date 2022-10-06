@@ -114,10 +114,6 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
   end
 
   defp process_event_type_object_v2(deployment_message) do
-    # TODO: filter out anything not kafka and also filter out anything hcep_output == false
-    # deployment_message.source.sourceType
-    # deployment_message.filter == null
-
     lex_filter = Map.get(deployment_message, :filter, nil)
 
     if deployment_message.source.sourceType == "kafka" and deployment_message.hcepOutput == true and
