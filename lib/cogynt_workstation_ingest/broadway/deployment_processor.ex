@@ -118,48 +118,53 @@ defmodule CogyntWorkstationIngest.Broadway.DeploymentProcessor do
     # deployment_message.source.sourceType
     # deployment_message.filter == null
 
-    # old_primary_key = UUID.uuid5(deployment_message.id, deployment_message.dataSourceId)
-    primary_key = UUID.uuid5(deployment_message.id, deployment_message.connectString)
-    data_source_id = UUID.uuid5(@data_source_id_hash_constant, deployment_message.connectString)
+    lex_filter = Map.get(deployment_message, :filter, nil)
 
-    # Check if we have an existing Ingest pipeline running for the EventType
-    {_status, consumer_state} = ConsumerStateManager.get_consumer_state(primary_key)
+    if deployment_message.source.sourceType == "kafka" and deployment_message.hcepOutput == true and
+         is_nil(lex_filter) do
+      # old_primary_key = UUID.uuid5(deployment_message.id, deployment_message.dataSourceId)
+      primary_key = UUID.uuid5(deployment_message.id, deployment_message.connectString)
+      data_source_id = UUID.uuid5(@data_source_id_hash_constant, deployment_message.connectString)
 
-    if !is_nil(consumer_state.topic) do
-      if consumer_state.topic != deployment_message.source.topic do
-        CogyntLogger.warn(
-          "#{__MODULE__}",
-          "EventType: #{deployment_message.name} changed topic from old_topic: #{consumer_state.topic} to new_topic: #{deployment_message.source.topic}"
-        )
+      # Check if we have an existing Ingest pipeline running for the EventType
+      {_status, consumer_state} = ConsumerStateManager.get_consumer_state(primary_key)
 
-        # Topic value has been update and re deployed for this event_type in Authoring
-        # need to stop the running ingest pipeline before updating event_type value in PG
-        orig_event_definition =
-          EventsContext.get_event_definition(primary_key)
-          |> EventsContext.remove_event_definition_virtual_fields()
+      if !is_nil(consumer_state.topic) do
+        if consumer_state.topic != deployment_message.source.topic do
+          CogyntLogger.warn(
+            "#{__MODULE__}",
+            "EventType: #{deployment_message.name} changed topic from old_topic: #{consumer_state.topic} to new_topic: #{deployment_message.source.topic}"
+          )
 
-        Redis.publish_async("ingest_channel", %{
-          shutdown_consumer: orig_event_definition
-        })
+          # Topic value has been update and re deployed for this event_type in Authoring
+          # need to stop the running ingest pipeline before updating event_type value in PG
+          orig_event_definition =
+            EventsContext.get_event_definition(primary_key)
+            |> EventsContext.remove_event_definition_virtual_fields()
+
+          Redis.publish_async("ingest_channel", %{
+            shutdown_consumer: orig_event_definition
+          })
+        end
       end
-    end
 
-    Map.put(deployment_message, :event_definition_id, deployment_message.id)
-    |> Map.put(:id, primary_key)
-    |> Map.put(:data_source_id, data_source_id)
-    |> Map.put(:project_name, deployment_message.projectName)
-    |> Map.put(:topic, deployment_message.source.topic)
-    |> Map.put(:title, deployment_message.name)
-    |> Map.put(
-      :manual_actions,
-      Map.get(deployment_message, :manualActions, nil)
-    )
-    |> Map.put(
-      :event_type,
-      Map.get(deployment_message, :linkAnalysisType, :none)
-    )
-    |> Map.put(:event_definition_details_id, deployment_message.userDataSchemaId)
-    |> EventsContext.upsert_event_definition_v2()
+      Map.put(deployment_message, :event_definition_id, deployment_message.id)
+      |> Map.put(:id, primary_key)
+      |> Map.put(:data_source_id, data_source_id)
+      |> Map.put(:project_name, deployment_message.projectName)
+      |> Map.put(:topic, deployment_message.source.topic)
+      |> Map.put(:title, deployment_message.name)
+      |> Map.put(
+        :manual_actions,
+        Map.get(deployment_message, :manualActions, nil)
+      )
+      |> Map.put(
+        :event_type,
+        Map.get(deployment_message, :linkAnalysisType, :none)
+      )
+      |> Map.put(:event_definition_details_id, deployment_message.userDataSchemaId)
+      |> EventsContext.upsert_event_definition_v2()
+    end
   end
 
   defp process_user_data_schema_object(deployment_message) do
