@@ -322,7 +322,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   Takes all the messages that have gone through the processing steps in the pipeline up to the batch limit
   configured. Will execute one multi transaction to delete and upsert all objects
   """
-  def execute_batch_transaction(messages, is_crud? \\ false) do
+  def execute_batch_transaction(messages, is_crud?, event_type) do
+    IO.inspect(event_type, label: "EVENT TYPE")
     # build transactional data
     default_map = %{
       pg_event_list: [],
@@ -397,14 +398,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           {:ok, _} ->
             bulk_delete_event_documents(bulk_transactional_data)
 
-          # Redis.publish_async(
-          #   "events_changed_listener",
-          #   %{
-          #     event_type: event_type,
-          #     deleted: bulk_transactional_data.delete_core_id,
-          #     upserted: bulk_transactional_data.pg_event_map
-          #   }
-          # )
+          Redis.publish_async(
+            "events_changed_listener",
+            %{
+              event_type: event_type,
+              deleted: bulk_transactional_data.delete_core_id,
+              upserted: bulk_transactional_data.pg_event_map
+            }
+          )
 
           {:error, reason} ->
             CogyntLogger.error(
@@ -436,14 +437,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           {:ok, _} ->
             bulk_delete_event_documents(bulk_transactional_data)
 
-          # Redis.publish_async(
-          #   "events_changed_listener",
-          #   %{
-          #     event_type: event_type,
-          #     deleted: bulk_transactional_data.delete_core_id,
-          #     upserted: bulk_transactional_data.pg_event_map
-          #   }
-          # )
+          Redis.publish_async(
+            "events_changed_listener",
+            %{
+              event_type: event_type,
+              deleted: bulk_transactional_data.delete_core_id,
+              upserted: bulk_transactional_data.pg_event_map
+            }
+          )
 
           {:error, reason} ->
             CogyntLogger.error(

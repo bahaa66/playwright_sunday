@@ -126,7 +126,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   def handle_message(
         _processor_name,
         %{data: %{kafka_event: k_event}} = message,
-        _context
+        context
       ) do
     # Start timer for telemetry metrics
     start = System.monotonic_time()
@@ -141,9 +141,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     )
     |> Message.update_data(fn data ->
       data =
+        Map.put(data, :core_id, core_id)
+        |> Map.put(:event_type, Keyword.get(context, :event_type, "none"))
+
+      data =
         case data.pipeline_state do
           :process_event ->
-            Map.put(data, :core_id, core_id)
+            data
             |> EventProcessor.process_event_history()
             |> LinkEventProcessor.validate_link_event()
             |> LinkEventProcessor.process_entities()
@@ -151,29 +155,29 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
             |> EventProcessor.process_notifications()
 
           :process_event_history ->
-            Map.put(data, :core_id, core_id)
+            data
             |> LinkEventProcessor.validate_link_event()
             |> LinkEventProcessor.process_entities()
             |> EventProcessor.process_elasticsearch_documents()
             |> EventProcessor.process_notifications()
 
           :validate_link_event ->
-            Map.put(data, :core_id, core_id)
+            data
             |> LinkEventProcessor.process_entities()
             |> EventProcessor.process_elasticsearch_documents()
             |> EventProcessor.process_notifications()
 
           :process_entities ->
-            Map.put(data, :core_id, core_id)
+            data
             |> EventProcessor.process_elasticsearch_documents()
             |> EventProcessor.process_notifications()
 
           :process_elasticsearch_documents ->
-            Map.put(data, :core_id, core_id)
+            data
             |> EventProcessor.process_notifications()
 
           _ ->
-            Map.put(data, :core_id, core_id)
+            data
             |> EventProcessor.process_event()
             |> EventProcessor.process_event_history()
             |> LinkEventProcessor.validate_link_event()
@@ -200,7 +204,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   end
 
   @impl true
-  def handle_batch(batch_type, messages, _batch_info, _context) do
+  def handle_batch(batch_type, messages, _batch_info, context) do
     IO.puts("------------------------------------------------")
 
     IO.inspect(Enum.count(messages),
@@ -208,7 +212,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     )
 
     Enum.map(messages, fn message -> message.data end)
-    |> EventProcessor.execute_batch_transaction(batch_type == :crud)
+    |> EventProcessor.execute_batch_transaction(batch_type == :crud, Keyword.get(context, :event_type))
 
     messages
   end
