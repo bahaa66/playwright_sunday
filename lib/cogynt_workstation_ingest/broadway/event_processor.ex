@@ -323,7 +323,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   configured. Will execute one multi transaction to delete and upsert all objects
   """
   def execute_batch_transaction(messages, is_crud?, event_type) do
-    IO.inspect(event_type, label: "EVENT TYPE")
     # build transactional data
     default_map = %{
       pg_event_list: [],
