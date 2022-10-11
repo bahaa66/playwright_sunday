@@ -6,14 +6,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   use Broadway
   alias Broadway.Message
-  alias Models.Enums.ConsumerStatusTypeEnum
-
   alias CogyntWorkstationIngest.Config
-  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
-  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias CogyntWorkstationIngest.Events.EventsContext
   alias CogyntWorkstationIngest.Broadway.{EventProcessor, LinkEventProcessor}
+  alias CogyntWorkstationIngest.Supervisors.ConsumerGroupSupervisor
+  alias CogyntWorkstationIngest.Utils.ConsumerStateManager
   alias Kafka.Api.Topic
+  alias Models.Enums.ConsumerStatusTypeEnum
 
   def start_link(%{
         group_id: group_id,
@@ -22,54 +21,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         event_definition_hash_id: event_definition_hash_id,
         event_type: event_type
       }) do
-    ### --------- TEMP to find out if this has CRUD or not ---------------- ###
-    {batchers, context} =
-      case use_crud_pipeline?(topics, hosts) do
-        {:ok, true} ->
-          {[
-             crud: [
-               batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: Config.event_pipeline_batch_timeout(),
-               concurrency: calc_pipeline_concurrency(topics, hosts, group_id)
-             ]
-           ],
-           [
-             event_definition_hash_id: event_definition_hash_id,
-             event_type: event_type,
-             crud: true
-           ]}
-
-        {:ok, false} ->
-          {[
-             default: [
-               batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: Config.event_pipeline_batch_timeout(),
-               concurrency: calc_pipeline_concurrency(topics, hosts, group_id)
-             ]
-           ],
-           [
-             event_definition_hash_id: event_definition_hash_id,
-             event_type: event_type,
-             crud: false
-           ]}
-
-        {:error, _} ->
-          {[
-             default: [
-               batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: Config.event_pipeline_batch_timeout(),
-               concurrency: calc_pipeline_concurrency(topics, hosts, group_id)
-             ],
-             crud: [
-               batch_size: Config.event_pipeline_batch_size(),
-               batch_timeout: Config.event_pipeline_batch_timeout(),
-               concurrency: calc_pipeline_concurrency(topics, hosts, group_id)
-             ]
-           ],
-           [event_definition_hash_id: event_definition_hash_id, event_type: event_type, crud: nil]}
-      end
-
-    ### --------- TEMP to find out if this has CRUD or not ---------------- ###
+    concurrency = calc_pipeline_concurrency(topics, hosts, group_id)
 
     Broadway.start_link(__MODULE__,
       name: String.to_atom(group_id <> "Pipeline"),
@@ -92,18 +44,34 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
                max_bytes: Config.event_pipeline_max_bytes()
              ]
            ]},
-        concurrency: 1,
-        transformer:
-          {__MODULE__, :transform,
-           [event_definition_hash_id: event_definition_hash_id, event_type: event_type]}
+        concurrency: concurrency,
+        transformer: {__MODULE__, :transform, []}
       ],
       processors: [
         default: [
-          concurrency: calc_pipeline_concurrency(topics, hosts, group_id)
+          concurrency: concurrency
         ]
       ],
-      batchers: batchers,
-      context: context
+      # TODO: Look into whether we need to have two batchers. If pipeline will only use
+      # one or the other then we could just use the :default batcher and use the crud
+      # keys to determine how the events are processed and handled. The only reason I
+      # could see having two is if there were ever mixed kafka topics.
+      batchers: [
+        default: [
+          batch_size: Config.event_pipeline_batch_size(),
+          batch_timeout: Config.event_pipeline_batch_timeout(),
+          concurrency: concurrency
+        ],
+        crud: [
+          batch_size: Config.event_pipeline_batch_size(),
+          batch_timeout: Config.event_pipeline_batch_timeout(),
+          concurrency: concurrency
+        ]
+      ],
+      context: [
+        event_definition_hash_id: event_definition_hash_id,
+        event_type: event_type
+      ]
     )
   end
 
@@ -111,68 +79,138 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   Transformation callback. Will transform the message that is returned
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
-  def transform(%Message{data: encoded_data} = message, opts) do
+  def transform(%Message{data: encoded_data} = message, context) do
     # Start timer for telemetry metrics
     start = System.monotonic_time()
     telemetry_metadata = %{}
 
-    event_definition_hash_id = Keyword.get(opts, :event_definition_hash_id, nil)
-    event_type = Keyword.get(opts, :event_type, "none")
+    case Jason.decode(encoded_data, keys: :atoms) do
+      {:ok, decoded_data} ->
+        # Can this be moved to the batcher before we make the postgres and other calls?
+        incr_total_fetched_message_count(Keyword.get(context, :event_definition_hash_id))
 
-    if is_nil(event_definition_hash_id) do
-      CogyntLogger.error(
-        "#{__MODULE__}",
-        "event_definition_hash_id was not passed to EventPipeline. Passing empty data object to the EventPipeline"
-      )
+        # Execute telemtry for metrics
+        :telemetry.execute(
+          [:broadway, :transform],
+          %{duration: System.monotonic_time() - start},
+          telemetry_metadata
+        )
 
-      Map.put(message, :data, nil)
-    else
-      case Jason.decode(encoded_data) do
-        {:ok, decoded_data} ->
-          # Incr the total message count that has been consumed from kafka
-          incr_total_fetched_message_count(event_definition_hash_id)
+        Message.put_data(message, %{kafka_event: decoded_data, pipeline_state: nil})
 
-          message =
-            Map.put(message, :data, %{
-              event: decoded_data,
-              event_definition_hash_id: event_definition_hash_id,
-              core_id: decoded_data[Config.id_key()] || Ecto.UUID.generate(),
-              pipeline_state: nil,
-              retry_count: 0,
-              event_type: event_type,
-              event_definition:
-                EventsContext.get_event_definition(event_definition_hash_id, preload_details: true)
-                |> EventsContext.remove_event_definition_virtual_fields(
-                  include_event_definition_details: true
-                )
-            })
+      {:error, error} ->
+        CogyntLogger.error(
+          "#{__MODULE__}",
+          "Failed to decode EventPipeline Kafka message. Error: #{inspect(error)}"
+        )
 
-          # Execute telemtry for metrics
-          :telemetry.execute(
-            [:broadway, :transform],
-            %{duration: System.monotonic_time() - start},
-            telemetry_metadata
-          )
-
-          message
-
-        {:error, error} ->
-          CogyntLogger.error(
-            "#{__MODULE__}",
-            "Failed to decode EventPipeline Kafka message. Error: #{inspect(error)}"
-          )
-
-          Map.put(message, :data, nil)
-      end
+        Message.failed(message, :json_decode_error)
     end
   end
 
-  @doc """
-  Acknowledgment callback only triggered for when failed messages are republished
-  through the pipeline
-  """
-  def ack(:ack_id, _successful, _failed) do
-    :ok
+  @impl true
+  def prepare_messages(messages, context) do
+    event_definition =
+      EventsContext.get_event_definition(
+        Keyword.get(context, :event_definition_hash_id),
+        preload_details: true,
+        preload_notification_settings: true
+      )
+
+    Enum.map(messages, fn m ->
+      Message.update_data(m, &Map.put(&1, :event_definition, event_definition))
+    end)
+  end
+
+  @impl true
+  def handle_message(
+        _processor_name,
+        %{data: %{kafka_event: k_event}} = message,
+        _context
+      ) do
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+    crud = not is_nil(Map.get(k_event, String.to_atom(Config.crud_key())))
+    core_id = Map.get(k_event, String.to_atom(Config.id_key()), Ecto.UUID.generate())
+
+    if(
+      crud,
+      do: Message.put_batcher(message, :crud),
+      else: Message.put_batcher(message, :default)
+    )
+    |> Message.update_data(fn data ->
+      data =
+        case data.pipeline_state do
+          :process_event ->
+            Map.put(data, :core_id, core_id)
+            |> EventProcessor.process_event_history()
+            |> LinkEventProcessor.validate_link_event()
+            |> LinkEventProcessor.process_entities()
+            |> EventProcessor.process_elasticsearch_documents()
+            |> EventProcessor.process_notifications()
+
+          :process_event_history ->
+            Map.put(data, :core_id, core_id)
+            |> LinkEventProcessor.validate_link_event()
+            |> LinkEventProcessor.process_entities()
+            |> EventProcessor.process_elasticsearch_documents()
+            |> EventProcessor.process_notifications()
+
+          :validate_link_event ->
+            Map.put(data, :core_id, core_id)
+            |> LinkEventProcessor.process_entities()
+            |> EventProcessor.process_elasticsearch_documents()
+            |> EventProcessor.process_notifications()
+
+          :process_entities ->
+            Map.put(data, :core_id, core_id)
+            |> EventProcessor.process_elasticsearch_documents()
+            |> EventProcessor.process_notifications()
+
+          :process_elasticsearch_documents ->
+            Map.put(data, :core_id, core_id)
+            |> EventProcessor.process_notifications()
+
+          _ ->
+            Map.put(data, :core_id, core_id)
+            |> EventProcessor.process_event()
+            |> EventProcessor.process_event_history()
+            |> LinkEventProcessor.validate_link_event()
+            |> LinkEventProcessor.process_entities()
+            |> EventProcessor.process_elasticsearch_documents()
+            |> EventProcessor.process_notifications()
+        end
+
+      # Execute telemtry for metrics
+      :telemetry.execute(
+        [
+          :broadway,
+          if(crud,
+            do: :event_processor_all_crud_processing_stages,
+            else: :event_processor_all_processing_stages
+          )
+        ],
+        %{duration: System.monotonic_time() - start},
+        telemetry_metadata
+      )
+
+      data
+    end)
+  end
+
+  @impl true
+  def handle_batch(batch_type, messages, _batch_info, _context) do
+    IO.puts("------------------------------------------------")
+
+    IO.inspect(Enum.count(messages),
+      label: "#{String.upcase(Atom.to_string(batch_type))} BATCH COUNT"
+    )
+
+    Enum.map(messages, fn message -> message.data end)
+    |> EventProcessor.execute_batch_transaction(batch_type == :crud)
+
+    messages
   end
 
   @doc """
@@ -182,68 +220,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   """
   @impl true
   def handle_failed(messages, _context) do
-    # event_definition_hash_id = Keyword.get(context, :event_definition_hash_id, nil)
-
-    # incr_total_processed_message_count(event_definition_hash_id, Enum.count(messages))
-
-    # failed_messages =
-    #   Enum.reduce(messages, [], fn %Broadway.Message{
-    #                                  data:
-    #                                    %{
-    #                                      event_definition_hash_id: event_definition_hash_id,
-    #                                      retry_count: retry_count
-    #                                    } = data
-    #                                } = message,
-    #                                acc ->
-    #     if retry_count < Config.failed_messages_max_retry() do
-    #       new_retry_count = retry_count + 1
-
-    #       CogyntLogger.warn(
-    #         "#{__MODULE__}",
-    #         "Retrying Failed EventPipeline Message. EventDefinitionHashId: #{event_definition_hash_id}. Attempt: #{
-    #           new_retry_count
-    #         }"
-    #       )
-
-    #       data = Map.put(data, :retry_count, new_retry_count)
-
-    #       message =
-    #         Map.from_struct(message)
-    #         |> Map.put(:data, data)
-    #         |> Map.drop([:status, :acknowledger])
-
-    #       metadata =
-    #         Map.get(message, :metadata)
-    #         |> Map.put(:key, "")
-
-    #       message = Map.put(message, :metadata, metadata)
-
-    #       acc ++ [message]
-    #     else
-    #       acc
-    #     end
-    #   end)
-
-    # key =
-    #   if is_nil(event_definition_hash_id) do
-    #     "fem:"
-    #   else
-    #     "fem:#{event_definition_hash_id}"
-    #   end
-
-    # case Redis.list_length(key) do
-    #   {:ok, length} when length >= 50_000 ->
-    #     CogyntLogger.error(
-    #       "#{__MODULE__}",
-    #       "Failed Event messages for key #{key} have reached the limit of 50_000 in Redis. Dropping future messages from getting queued"
-    #     )
-
-    #   _ ->
-    #     Redis.list_append_pipeline(key, failed_messages)
-    #     # 30 min TTL
-    #     Redis.key_pexpire(key, 1_800_000)
-    # end
-
     CogyntLogger.warn(
       "#{__MODULE__}",
       "handle_failed/2 #{Enum.count(messages)} Failed for EventPipeline. Check logs to for error."
@@ -252,275 +228,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     messages
   end
 
-  # handle_message/3 method for when we know the type of data for this pipeline will have
-  # `crud` data and only needs the `crud` batcher
-  @impl true
-  def handle_message(
-        _processor_name,
-        message,
-        event_definition_hash_id: _event_definition_hash_id,
-        event_type: _,
-        crud: true
-      ) do
-    # Start timer for telemetry metrics
-    start = System.monotonic_time()
-    telemetry_metadata = %{}
-
-    data =
-      case message.data.pipeline_state do
-        :process_event_history ->
-          message.data
-          |> LinkEventProcessor.validate_link_event()
-          |> LinkEventProcessor.process_entities()
-          |> EventProcessor.process_elasticsearch_documents()
-          |> EventProcessor.process_notifications()
-
-        :validate_link_event ->
-          message.data
-          |> LinkEventProcessor.process_entities()
-          |> EventProcessor.process_elasticsearch_documents()
-          |> EventProcessor.process_notifications()
-
-        :process_entities ->
-          message.data
-          |> EventProcessor.process_elasticsearch_documents()
-          |> EventProcessor.process_notifications()
-
-        :process_event_details_and_elasticsearch_docs ->
-          message.data
-          |> EventProcessor.process_notifications()
-
-        _ ->
-          message.data
-          |> EventProcessor.process_event_history()
-          |> LinkEventProcessor.validate_link_event()
-          |> LinkEventProcessor.process_entities()
-          |> EventProcessor.process_elasticsearch_documents()
-          |> EventProcessor.process_notifications()
-      end
-
-    # Execute telemtry for metrics
-    :telemetry.execute(
-      [:broadway, :event_processor_all_crud_processing_stages],
-      %{duration: System.monotonic_time() - start},
-      telemetry_metadata
-    )
-
-    Map.put(message, :data, data)
-    # |> Message.put_batch_key(event_definition_hash_id)
-    |> Message.put_batcher(:crud)
-  end
-
-  # handle_message/3 method for when we know the type of data for this pipeline will not have
-  # `crud` data and only needs the `default` batcher
-  @impl true
-  def handle_message(
-        _processor_name,
-        message,
-        event_definition_hash_id: _event_definition_hash_id,
-        event_type: _,
-        crud: false
-      ) do
-    # Start timer for telemetry metrics
-    start = System.monotonic_time()
-    telemetry_metadata = %{}
-
-    data =
-      case message.data.pipeline_state do
-        :process_event ->
-          message.data
-          |> LinkEventProcessor.validate_link_event()
-          |> LinkEventProcessor.process_entities()
-          |> EventProcessor.process_elasticsearch_documents()
-          |> EventProcessor.process_notifications()
-
-        :validate_link_event ->
-          message.data
-          |> LinkEventProcessor.process_entities()
-          |> EventProcessor.process_elasticsearch_documents()
-          |> EventProcessor.process_notifications()
-
-        :process_entities ->
-          message.data
-          |> EventProcessor.process_elasticsearch_documents()
-          |> EventProcessor.process_notifications()
-
-        :process_event_details_and_elasticsearch_docs ->
-          message.data
-          |> EventProcessor.process_notifications()
-
-        _ ->
-          message.data
-          |> EventProcessor.process_event()
-          |> LinkEventProcessor.validate_link_event()
-          |> LinkEventProcessor.process_entities()
-          |> EventProcessor.process_elasticsearch_documents()
-          |> EventProcessor.process_notifications()
-      end
-
-    # Execute telemtry for metrics
-    :telemetry.execute(
-      [:broadway, :event_processor_all_processing_stages],
-      %{duration: System.monotonic_time() - start},
-      telemetry_metadata
-    )
-
-    Map.put(message, :data, data)
-    # |> Message.put_batch_key(event_definition_hash_id)
-    |> Message.put_batcher(:default)
-  end
-
-  # handle_message/3 method for when we have to start a pipeline with both the `crud` and `default` batchers.
-  # A scenario when we are unsure about the type of data that exists on the topic when the pipeline is started
-  @impl true
-  def handle_message(
-        _processor_name,
-        message,
-        event_definition_hash_id: _event_definition_hash_id,
-        event_type: _,
-        crud: nil
-      ) do
-    # Start timer for telemetry metrics
-    start = System.monotonic_time()
-    telemetry_metadata = %{}
-
-    message
-    |> case do
-      %Message{data: %{event: event}} ->
-        case Map.get(event, Config.crud_key(), nil) do
-          nil ->
-            data =
-              case message.data.pipeline_state do
-                :process_event ->
-                  message.data
-                  |> LinkEventProcessor.validate_link_event()
-                  |> LinkEventProcessor.process_entities()
-                  |> EventProcessor.process_elasticsearch_documents()
-                  |> EventProcessor.process_notifications()
-
-                :validate_link_event ->
-                  message.data
-                  |> LinkEventProcessor.process_entities()
-                  |> EventProcessor.process_elasticsearch_documents()
-                  |> EventProcessor.process_notifications()
-
-                :process_entities ->
-                  message.data
-                  |> EventProcessor.process_elasticsearch_documents()
-                  |> EventProcessor.process_notifications()
-
-                :process_event_details_and_elasticsearch_docs ->
-                  message.data
-                  |> EventProcessor.process_notifications()
-
-                _ ->
-                  message.data
-                  |> EventProcessor.process_event()
-                  |> LinkEventProcessor.validate_link_event()
-                  |> LinkEventProcessor.process_entities()
-                  |> EventProcessor.process_elasticsearch_documents()
-                  |> EventProcessor.process_notifications()
-              end
-
-            # Execute telemtry for metrics
-            :telemetry.execute(
-              [:broadway, :event_processor_all_processing_stages],
-              %{duration: System.monotonic_time() - start},
-              telemetry_metadata
-            )
-
-            Map.put(message, :data, data)
-            # |> Message.put_batch_key(event_definition_hash_id)
-            |> Message.put_batcher(:default)
-
-          _ ->
-            data =
-              case message.data.pipeline_state do
-                :process_event_history ->
-                  message.data
-                  |> LinkEventProcessor.validate_link_event()
-                  |> LinkEventProcessor.process_entities()
-                  |> EventProcessor.process_elasticsearch_documents()
-                  |> EventProcessor.process_notifications()
-
-                :validate_link_event ->
-                  message.data
-                  |> LinkEventProcessor.process_entities()
-                  |> EventProcessor.process_elasticsearch_documents()
-                  |> EventProcessor.process_notifications()
-
-                :process_entities ->
-                  message.data
-                  |> EventProcessor.process_elasticsearch_documents()
-                  |> EventProcessor.process_notifications()
-
-                :process_event_details_and_elasticsearch_docs ->
-                  message.data
-                  |> EventProcessor.process_notifications()
-
-                _ ->
-                  message.data
-                  |> EventProcessor.process_event_history()
-                  |> LinkEventProcessor.validate_link_event()
-                  |> LinkEventProcessor.process_entities()
-                  |> EventProcessor.process_elasticsearch_documents()
-                  |> EventProcessor.process_notifications()
-              end
-
-            # Execute telemtry for metrics
-            :telemetry.execute(
-              [:broadway, :event_processor_all_crud_processing_stages],
-              %{duration: System.monotonic_time() - start},
-              telemetry_metadata
-            )
-
-            Map.put(message, :data, data)
-            # |> Message.put_batch_key(event_definition_hash_id)
-            |> Message.put_batcher(:crud)
-        end
-    end
-  end
-
-  @impl true
-  def handle_batch(:default, messages, _batch_info, context) do
-    event_definition_hash_id = Keyword.get(context, :event_definition_hash_id, nil)
-    event_type = Keyword.get(context, :event_type, nil)
-
-    messages
-    |> Enum.map(fn message -> message.data end)
-    |> EventProcessor.execute_batch_transaction(event_type)
-
-    incr_total_processed_message_count(event_definition_hash_id, Enum.count(messages))
-    messages
-  end
-
-  @impl true
-  def handle_batch(:crud, messages, _batch_info, context) do
-    event_definition_hash_id = Keyword.get(context, :event_definition_hash_id, nil)
-    event_type = Keyword.get(context, :event_type, nil)
-
-    IO.puts("------------------------------------------------")
-    IO.inspect(Enum.count(messages), label: "CRUD BATCH COUNT")
-
-    pg_event_history =
-      messages
-      |> Enum.map(fn message -> message.data.pg_event_history end)
-      |> List.flatten()
-
-    messages
-    |> Enum.group_by(fn message -> message.data.core_id end)
-    |> Enum.reduce([], fn {_core_id, core_id_records}, acc ->
-      # We only need to process the last action that occurred for the
-      # core_id within the batch of events that were sent to handle_batch
-      # ex: create, update, update, update, delete, create (only need the last create)
-      last_crud_action_message = List.last(core_id_records)
-
-      acc ++ [last_crud_action_message.data]
-    end)
-    |> EventProcessor.execute_batch_transaction(event_type, pg_event_history)
-
-    incr_total_processed_message_count(event_definition_hash_id, Enum.count(messages))
-    messages
+  @doc """
+  Acknowledgment callback only triggered for when failed messages are republished
+  through the pipeline
+  """
+  def ack(:ack_id, _successful, _failed) do
+    :ok
   end
 
   @doc false
@@ -661,54 +374,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       if tmp >= String.to_integer(tmc) do
         finished_processing(event_definition_hash_id)
       end
-    end
-  end
-
-  defp use_crud_pipeline?(topics, hosts) do
-    topic = List.first(topics)
-
-    case Topic.get_offset_meta(topic, hosts) do
-      {:ok, partition_results} ->
-        Enum.reduce_while(partition_results, {:error, :failed}, fn %{
-                                                                     partition_index: p_index,
-                                                                     offset_metadata: %{
-                                                                       min_offset: min_offset,
-                                                                       max_offset: max_offset
-                                                                     }
-                                                                   },
-                                                                   {acc_status, acc_message} ->
-          total = max_offset - min_offset
-          last_offset = max_offset - 1
-
-          if total <= 0 do
-            {:cont, {acc_status, acc_message}}
-          else
-            case Topic.fetch_message(topic, p_index, last_offset, hosts) do
-              {:ok, %{payload: payload}} ->
-                if payload != nil and is_binary(payload) and byte_size(payload) > 0 do
-                  case Jason.decode(payload, keys: :atoms) do
-                    {:ok, decoded_payload} ->
-                      if Map.has_key?(decoded_payload, :COG_crud) do
-                        {:halt, {:ok, true}}
-                      else
-                        {:halt, {:ok, false}}
-                      end
-
-                    _error ->
-                      {:halt, {:error, :failed}}
-                  end
-                else
-                  {:halt, {:error, :failed}}
-                end
-
-              _error ->
-                {:halt, {:error, :failed}}
-            end
-          end
-        end)
-
-      {:error, _error} ->
-        {:error, :failed}
     end
   end
 

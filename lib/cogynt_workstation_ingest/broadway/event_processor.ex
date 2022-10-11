@@ -1,14 +1,9 @@
 defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
-  @moduledoc """
-  Module that acts as the Broadway Processor for the EventPipeline.
-  """
-  # alias Ecto.Multi
-  alias CogyntWorkstationIngest.Events.EventsContext
-  alias CogyntWorkstationIngest.Notifications.NotificationsContext
   alias CogyntWorkstationIngest.Config
-  # alias CogyntWorkstationIngest.System.SystemNotificationContext
   alias CogyntWorkstationIngest.Elasticsearch.ElasticApi
   alias CogyntWorkstationIngest.Elasticsearch.EventDocumentBuilder
+  alias CogyntWorkstationIngest.Events.EventsContext
+  alias CogyntWorkstationIngest.Notifications.NotificationsContext
 
   @defaults %{
     crud_action: nil,
@@ -17,191 +12,134 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   }
 
   @doc """
-  process_event/1 for a CRUD: delete event. We just store the core_id of the event that needs
+  process_event/1 for a CRUD: delete event we just store the core_id of the event that needs
   to be deleted as part of the payload. When it hits the transactional step of the pipeline the
-  event and its associated data will be removed otherwise it will build an event map that
-  will be processed in bulk in the transactional step of the pipeline
+  event and its associated data will be removed, otherwise it will build an event map and SQL upsert
+  that will be processed in bulk in the transactional step of the pipeline
   """
   def process_event(
-        %{event: event, event_definition_hash_id: event_definition_hash_id, core_id: core_id} =
+        %{core_id: core_id, event_definition: %{id: event_definition_hash_id}, kafka_event: event} =
           data
       ) do
     # Start timer for telemetry metrics
     start = System.monotonic_time()
     telemetry_metadata = %{}
-
     action = Map.get(event, Config.crud_key(), nil)
 
-    cond do
-      action == Config.crud_delete_value() ->
-        Map.put(data, :crud_action, action)
-        |> Map.put(:delete_core_id, core_id)
-        |> Map.put(:pipeline_state, :process_event)
+    if action == Config.crud_delete_value() do
+      data
+      |> Map.put(:pipeline_state, :process_event)
+      |> Map.put(:crud_action, action)
+      |> Map.put(:delete_core_id, core_id)
+    else
+      now = DateTime.truncate(DateTime.utc_now(), :second)
 
-      true ->
-        now = DateTime.truncate(DateTime.utc_now(), :second)
+      risk_score =
+        format_risk_score(get_in(data, [:kafka_event, String.to_atom(Config.confidence_key())]))
 
-        occurred_at =
-          case event[Config.timestamp_key()] do
-            nil ->
-              nil
+      event_details = format_lexicon_data(Map.get(data, :kafka_event))
 
-            date_string ->
-              {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
+      occurred_at =
+        case get_in(data, [:kafka_event, String.to_atom(Config.timestamp_key())]) do
+          nil ->
+            nil
 
-              dt_struct
-              |> DateTime.truncate(:second)
-          end
+          date_string ->
+            {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
 
-        risk_score = format_risk_score(event[Config.confidence_key()])
+            dt_struct
+            |> DateTime.truncate(:second)
+        end
 
-        event_details = format_lexicon_data(event)
+      # Execute telemtry for metrics
+      :telemetry.execute(
+        [:broadway, :process_event],
+        %{duration: System.monotonic_time() - start},
+        telemetry_metadata
+      )
 
-        pg_event_list = [
-          "#{core_id}\t#{occurred_at}\t#{risk_score}\t#{Jason.encode!(event_details)}\t#{now}\t#{now}\t#{event_definition_hash_id}\n"
-        ]
-
-        pg_event_map = %{
-          core_id: core_id,
-          occurred_at: occurred_at,
-          risk_score: risk_score,
-          event_details: event_details,
-          created_at: now,
-          updated_at: now,
-          event_definition_hash_id: event_definition_hash_id
-        }
-
-        # Execute telemtry for metrics
-        :telemetry.execute(
-          [:broadway, :process_event],
-          %{duration: System.monotonic_time() - start},
-          telemetry_metadata
-        )
-
-        Map.put(data, :pg_event_list, pg_event_list)
-        |> Map.put(:pg_event_map, pg_event_map)
-        |> Map.put(:crud_action, action)
-        |> Map.put(:pipeline_state, :process_event)
+      data
+      |> Map.put(:pipeline_state, :process_event)
+      |> Map.put(:crud_action, Map.get(event, String.to_atom(Config.crud_key())))
+      |> Map.put(
+        :pg_event_list,
+        "#{core_id}\t#{occurred_at}\t#{risk_score}\t#{Jason.encode!(event_details)}\t#{now}\t#{now}\t#{event_definition_hash_id}\n"
+      )
+      |> Map.put(:pg_event_map, %{
+        core_id: core_id,
+        occurred_at: occurred_at,
+        risk_score: risk_score,
+        event_details: event_details,
+        created_at: now,
+        updated_at: now,
+        event_definition_hash_id: event_definition_hash_id
+      })
     end
   end
 
   def process_event_history(
-        %{event: event, event_definition_hash_id: event_definition_hash_id, core_id: core_id} =
-          data
+        %{
+          core_id: core_id,
+          crud_action: action,
+          event_definition: %{id: event_definition_hash_id},
+          kafka_event: k_event
+        } = data
       ) do
     # Start timer for telemetry metrics
     start = System.monotonic_time()
     telemetry_metadata = %{}
+    crud_delete_value = Config.crud_delete_value()
+    crud_create_value = Config.crud_create_value()
+    crud_update_value = Config.crud_update_value()
 
-    action = Map.get(event, Config.crud_key(), nil)
+    # If we have a crud action we need to add an entry for pg_event_history
+    if action in [crud_create_value, crud_update_value, crud_delete_value] do
+      event_details = format_lexicon_data(k_event)
+      risk_score = format_risk_score(Map.get(k_event, String.to_atom(Config.confidence_key())))
+      version = Map.get(k_event, String.to_atom(Config.version_key()))
 
-    now = DateTime.truncate(DateTime.utc_now(), :second)
+      occurred_at =
+        case Map.get(k_event, String.to_atom(Config.timestamp_key())) do
+          nil ->
+            nil
 
-    occurred_at =
-      case event[Config.timestamp_key()] do
-        nil ->
-          nil
+          date_string ->
+            {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
 
-        date_string ->
-          {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
+            dt_struct
+            |> DateTime.truncate(:second)
+        end
 
-          dt_struct
-          |> DateTime.truncate(:second)
-      end
+      published_at =
+        case Map.get(k_event, String.to_atom(Config.published_at_key())) do
+          nil ->
+            nil
 
-    published_at =
-      case event[Config.published_at_key()] do
-        nil ->
-          nil
+          date_string ->
+            {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
 
-        date_string ->
-          {:ok, dt_struct, _utc_offset} = DateTime.from_iso8601(date_string)
+            dt_struct
+            |> DateTime.truncate(:second)
+        end
 
-          dt_struct
-          |> DateTime.truncate(:second)
-      end
+      # Execute telemtry for metrics
+      :telemetry.execute(
+        [:broadway, :process_event_history],
+        %{duration: System.monotonic_time() - start},
+        telemetry_metadata
+      )
 
-    risk_score = format_risk_score(event[Config.confidence_key()])
+      data
+      |> Map.put(:pipeline_state, :process_event_history)
+      |> Map.put(
+        :pg_event_history,
+        "#{Ecto.UUID.generate()}\t#{core_id}\t#{event_definition_hash_id}\t#{action}\t#{risk_score}\t#{version}\t#{Jason.encode!(event_details)}\t#{occurred_at}\t#{published_at}\n"
+      )
 
-    version = event[Config.version_key()]
-    event_details = format_lexicon_data(event)
-
-    cond do
-      action == Config.crud_delete_value() ->
-        pg_event_history = [
-          "#{Ecto.UUID.generate()}\t#{core_id}\t#{event_definition_hash_id}\t#{action}\t#{risk_score}\t#{version}\t#{Jason.encode!(event_details)}\t#{occurred_at}\t#{published_at}\n"
-        ]
-
-        # Execute telemtry for metrics
-        :telemetry.execute(
-          [:broadway, :process_event_history],
-          %{duration: System.monotonic_time() - start},
-          telemetry_metadata
-        )
-
-        Map.put(data, :crud_action, action)
-        |> Map.put(:pg_event_history, pg_event_history)
-        |> Map.put(:delete_core_id, core_id)
-        |> Map.put(:pipeline_state, :process_event_history)
-
-      action == Config.crud_create_value() or action == Config.crud_update_value() ->
-        pg_event_history = [
-          "#{Ecto.UUID.generate()}\t#{core_id}\t#{event_definition_hash_id}\t#{action}\t#{risk_score}\t#{version}\t#{Jason.encode!(event_details)}\t#{occurred_at}\t#{published_at}\n"
-        ]
-
-        pg_event_list = [
-          "#{core_id}\t#{occurred_at}\t#{risk_score}\t#{Jason.encode!(event_details)}\t#{now}\t#{now}\t#{event_definition_hash_id}\n"
-        ]
-
-        pg_event_map = %{
-          core_id: core_id,
-          occurred_at: occurred_at,
-          risk_score: risk_score,
-          event_details: event_details,
-          created_at: now,
-          updated_at: now,
-          event_definition_hash_id: event_definition_hash_id
-        }
-
-        # Execute telemtry for metrics
-        :telemetry.execute(
-          [:broadway, :process_event_history],
-          %{duration: System.monotonic_time() - start},
-          telemetry_metadata
-        )
-
-        Map.put(data, :pg_event_list, pg_event_list)
-        |> Map.put(:pg_event_map, pg_event_map)
-        |> Map.put(:pg_event_history, pg_event_history)
-        |> Map.put(:crud_action, action)
-        |> Map.put(:pipeline_state, :process_event_history)
-
-      true ->
-        pg_event_list = [
-          "#{core_id}\t#{occurred_at}\t#{risk_score}\t#{Jason.encode!(event_details)}\t#{now}\t#{now}\t#{event_definition_hash_id}\n"
-        ]
-
-        pg_event_map = %{
-          core_id: core_id,
-          occurred_at: occurred_at,
-          risk_score: risk_score,
-          event_details: event_details,
-          created_at: now,
-          updated_at: now,
-          event_definition_hash_id: event_definition_hash_id
-        }
-
-        # Execute telemtry for metrics
-        :telemetry.execute(
-          [:broadway, :process_event_history],
-          %{duration: System.monotonic_time() - start},
-          telemetry_metadata
-        )
-
-        Map.put(data, :pg_event_list, pg_event_list)
-        |> Map.put(:pg_event_map, pg_event_map)
-        |> Map.put(:crud_action, action)
-        |> Map.put(:pipeline_state, :process_event_history)
+      # If there is no crud action we ignore pg_event_history.
+    else
+      data
+      |> Map.put(:pipeline_state, :process_event_history)
     end
   end
 
@@ -216,70 +154,79 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   def process_elasticsearch_documents(
         %{
-          pg_event_map: pg_event_map,
           core_id: core_id,
-          event_definition: event_definition,
-          event_definition_hash_id: event_definition_hash_id,
-          event_type: event_type,
           crud_action: action,
-          elastic_event_links: elastic_event_links
+          event_definition: %{
+            id: event_definition_hash_id,
+            event_definition_id: event_definition_id,
+            title: title,
+            event_type: event_type,
+            event_definition_details: event_definition_details
+          },
+          elastic_event_links: elastic_event_links,
+          pg_event_map: pg_event_map
         } = data
       ) do
     # Start timer for telemetry metrics
     start = System.monotonic_time()
     telemetry_metadata = %{}
+    crud_delete_value = Config.crud_delete_value()
 
-    cond do
-      action == Config.crud_delete_value() ->
-        data
+    if action == crud_delete_value do
+      # Execute telemetry for metrics
+      :telemetry.execute(
+        [:broadway, :process_elasticsearch_documents],
+        %{duration: System.monotonic_time() - start},
+        telemetry_metadata
+      )
 
-      true ->
-        event_definition_details = event_definition.event_definition_details
-
-        # Iterate over each event key value pair and build the pg and elastic search event
-        # details.
-        elasticsearch_event_details =
-          Enum.filter(
-            event_definition_details,
-            &(not String.starts_with?(Map.get(&1, :field_name), "COG_"))
-          )
-          |> Stream.unfold(fn
-            [] -> nil
-            [detail] -> {determine_event_detail(detail, pg_event_map.event_details), []}
-            [detail | tail] -> {determine_event_detail(detail, pg_event_map.event_details), tail}
-          end)
-          |> Enum.to_list()
-
-        # Build elasticsearch documents
-        elasticsearch_event_doc =
-          case EventDocumentBuilder.build_document(%{
-                 id: core_id,
-                 title: event_definition.title,
-                 event_definition_id: event_definition.event_definition_id,
-                 event_definition_hash_id: event_definition_hash_id,
-                 event_details: elasticsearch_event_details,
-                 core_event_id: core_id,
-                 event_type: event_type,
-                 occurred_at: pg_event_map.occurred_at,
-                 risk_score: pg_event_map.risk_score,
-                 event_links: elastic_event_links
-               }) do
-            {:ok, event_doc} ->
-              event_doc
-
-            _ ->
-              @defaults.event_document
-          end
-
-        # Execute telemtry for metrics
-        :telemetry.execute(
-          [:broadway, :process_elasticsearch_documents],
-          %{duration: System.monotonic_time() - start},
-          telemetry_metadata
+      data
+      |> Map.put(:pipeline_state, :process_elasticsearch_documents)
+    else
+      # Iterate over each event key value pair and build the pg and elastic search event
+      # details.
+      elasticsearch_event_details =
+        Enum.filter(
+          event_definition_details,
+          &(not String.starts_with?(Map.get(&1, :field_name), "COG_"))
         )
+        |> Stream.unfold(fn
+          [] -> nil
+          [detail] -> {determine_event_detail(detail, pg_event_map.event_details), []}
+          [detail | tail] -> {determine_event_detail(detail, pg_event_map.event_details), tail}
+        end)
+        |> Enum.to_list()
 
-        Map.put(data, :event_doc, elasticsearch_event_doc)
-        |> Map.put(:pipeline_state, :process_elasticsearch_documents)
+      # Build elasticsearch documents
+      elasticsearch_event_doc =
+        case EventDocumentBuilder.build_document(%{
+               id: core_id,
+               title: title,
+               event_definition_id: event_definition_id,
+               event_definition_hash_id: event_definition_hash_id,
+               event_details: elasticsearch_event_details,
+               core_event_id: core_id,
+               event_type: Atom.to_string(event_type),
+               occurred_at: pg_event_map.occurred_at,
+               risk_score: pg_event_map.risk_score,
+               event_links: elastic_event_links
+             }) do
+          {:ok, event_doc} ->
+            event_doc
+
+          _ ->
+            @defaults.event_document
+        end
+
+      # Execute telemtry for metrics
+      :telemetry.execute(
+        [:broadway, :process_elasticsearch_documents],
+        %{duration: System.monotonic_time() - start},
+        telemetry_metadata
+      )
+
+      Map.put(data, :event_doc, elasticsearch_event_doc)
+      |> Map.put(:pipeline_state, :process_elasticsearch_documents)
     end
   end
 
@@ -295,11 +242,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     |> Map.put(:pipeline_state, :process_notifications)
   end
 
+  def process_notifications(%{event_definition: %{notification_settings: []}} = data) do
+    data
+    |> Map.put(:pipeline_state, :process_notifications)
+  end
+
   def process_notifications(
         %{
           pg_event_map: pg_event_map,
           core_id: core_id,
-          event_definition: event_definition,
+          event_definition: %{
+            notification_settings: notification_settings,
+            event_definition_details: event_definition_details
+          },
           crud_action: action
         } = data
       ) do
@@ -307,80 +262,59 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     start = System.monotonic_time()
     telemetry_metadata = %{}
 
-    cond do
-      action == Config.crud_delete_value() ->
-        Map.put(data, :pipeline_state, :process_notifications)
+    if action == Config.crud_delete_value() do
+      Map.put(data, :pipeline_state, :process_notifications)
+    else
+      grouped_notification_settings =
+        notification_settings
+        |> Enum.group_by(fn
+          ns ->
+            if ns.active and in_risk_range?(pg_event_map.risk_score, ns.risk_range) and
+                 Enum.any?(event_definition_details, &(Map.get(&1, :path) == ns.title)) do
+              :upsert
+            else
+              :delete
+            end
+        end)
 
-      true ->
-        case NotificationsContext.query_notification_settings(%{
-               filter: %{
-                 event_definition_hash_id: event_definition.id
-               }
-             }) do
-          [] ->
-            # Execute telemtry for metrics
-            :telemetry.execute(
-              [:broadway, :process_notifications],
-              %{duration: System.monotonic_time() - start},
-              telemetry_metadata
-            )
+      pg_notifications =
+        Map.get(grouped_notification_settings, :upsert, [])
+        |> Enum.map(fn ns ->
+          now = DateTime.truncate(DateTime.utc_now(), :second)
 
-            Map.put(data, :pipeline_state, :process_notifications)
+          "#{Ecto.UUID.generate()}\t#{core_id}\t#{nil}\t#{@defaults.notification_priority}\t#{ns.assigned_to}\t#{nil}\t#{ns.id}\t#{ns.tag_id}\t#{now}\t#{now}\n"
+        end)
 
-          _ ->
-            pg_notifications =
-              NotificationsContext.fetch_valid_notification_settings(
-                %{
-                  event_definition_hash_id: event_definition.id,
-                  active: true
-                },
-                pg_event_map.risk_score,
-                event_definition
-              )
-              |> Enum.reduce([], fn ns, acc ->
-                now = DateTime.truncate(DateTime.utc_now(), :second)
-
-                acc ++
-                  [
-                    "#{Ecto.UUID.generate()}\t#{core_id}\t#{nil}\t#{@defaults.notification_priority}\t#{ns.assigned_to}\t#{nil}\t#{ns.id}\t#{ns.tag_id}\t#{now}\t#{now}\n"
-                  ]
-              end)
-
-            invalid_notification_settings =
-              NotificationsContext.fetch_invalid_notification_settings(
-                %{
-                  event_definition_hash_id: event_definition.id,
-                  active: true
-                },
-                pg_event_map.risk_score,
-                event_definition
-              )
-
-            pg_notifications_delete =
-              if Enum.empty?(invalid_notification_settings) do
-                []
-              else
-                NotificationsContext.query_notifications(%{
-                  filter: %{
-                    notification_setting_ids:
-                      Enum.map(invalid_notification_settings, fn invalid_ns -> invalid_ns.id end),
-                    core_id: core_id
-                  }
-                })
-                |> Enum.map(fn notifications -> notifications.core_id end)
-              end
-
-            # Execute telemtry for metrics
-            :telemetry.execute(
-              [:broadway, :process_notifications],
-              %{duration: System.monotonic_time() - start},
-              telemetry_metadata
-            )
-
-            Map.put(data, :pg_notifications, pg_notifications)
-            |> Map.put(:pg_notifications_delete, pg_notifications_delete)
-            |> Map.put(:pipeline_state, :process_notifications)
+      pg_notifications_delete =
+        if is_nil(Map.get(grouped_notification_settings, :delete)) do
+          []
+        else
+          # TODO: HOW CAN WE MOVE THIS TO A SINGLE QUERY FOR ALL MESSAGES
+          # Also should ingest be responsible for the deletion
+          # of notifications? If a notification has changed the notification
+          # should be deleted by the notification worker if it no
+          # longer meets the criteria?
+          NotificationsContext.query_notifications(%{
+            filter: %{
+              notification_setting_ids:
+                Enum.map(Map.get(grouped_notification_settings, :delete), &Map.get(&1, :id)),
+              core_id: core_id
+            }
+          })
+          |> Enum.map(fn notifications -> notifications.core_id end)
         end
+
+      # Execute telemtry for metrics
+      :telemetry.execute(
+        [:broadway, :process_notifications],
+        %{duration: System.monotonic_time() - start},
+        telemetry_metadata
+      )
+
+      data
+      |> Map.put(:pg_notifications, pg_notifications)
+      |> Map.put(:pg_notifications_delete, pg_notifications_delete)
+      |> Map.put(:pipeline_state, :process_notifications)
     end
   end
 
@@ -388,7 +322,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   Takes all the messages that have gone through the processing steps in the pipeline up to the batch limit
   configured. Will execute one multi transaction to delete and upsert all objects
   """
-  def execute_batch_transaction(messages, event_type, pg_event_history \\ []) do
+  def execute_batch_transaction(messages, is_crud? \\ false) do
     # build transactional data
     default_map = %{
       pg_event_list: [],
@@ -398,59 +332,64 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       pg_event_links: [],
       delete_core_id: [],
       pg_notifications_delete: [],
-      pg_event_links_delete: []
+      pg_event_links_delete: [],
+      pg_event_history:
+        if(is_crud?, do: Enum.map(messages, &Map.get(&1, :pg_event_history)), else: [])
     }
 
     bulk_transactional_data =
-      Enum.reduce(messages, default_map, fn data, acc ->
-        data =
-          Map.drop(data, [
-            :crud_action,
-            :event,
-            :event_definition,
-            :event_definition_hash_id,
-            :retry_count,
-            :pipeline_state,
-            :elastic_event_links,
-            :pg_event_history
-          ])
-
-        Map.merge(acc, data, fn k, v1, v2 ->
-          case k do
-            :event_doc ->
-              if v2 == @defaults.event_document do
-                v1
-              else
-                v1 ++ [v2]
-              end
-
-            :pg_event_map ->
-              v1 ++ [v2]
-
-            :pg_event_list ->
-              v1 ++ v2
-
-            :pg_notifications ->
-              v1 ++ List.flatten(v2)
-
-            :pg_event_links ->
-              v1 ++ List.flatten(v2)
-
-            :delete_core_id ->
-              v1 ++ [v2]
-
-            :pg_notifications_delete ->
-              v1 ++ List.flatten(v2)
-
-            :pg_event_links_delete ->
-              v1 ++ List.flatten(v2)
-
-            _ ->
-              v2
-          end
-        end)
+      if(is_crud?, do: filter_messages_by_core_id(messages), else: messages)
+      |> Enum.reduce(default_map, fn
+        data, default_map ->
+          default_map
+          |> Map.update!(
+            :event_doc,
+            &if(Map.get(data, :event_doc) != @defaults.event_document,
+              do: &1 ++ [Map.get(data, :event_doc)],
+              else: &1
+            )
+          )
+          |> Map.update!(
+            :pg_event_map,
+            &if(Map.get(data, :pg_event_map), do: &1 ++ [Map.get(data, :pg_event_map)], else: &1)
+          )
+          |> Map.update!(
+            :pg_event_list,
+            &if(Map.get(data, :pg_event_list), do: &1 ++ [Map.get(data, :pg_event_list)], else: &1)
+          )
+          |> Map.update!(
+            :pg_notifications,
+            &if(Map.get(data, :pg_notifications),
+              do: &1 ++ Map.get(data, :pg_notifications),
+              else: &1
+            )
+          )
+          |> Map.update!(
+            :pg_event_links,
+            &if(Map.get(data, :pg_event_links), do: &1 ++ Map.get(data, :pg_event_links), else: &1)
+          )
+          |> Map.update!(
+            :delete_core_id,
+            &if(Map.get(data, :delete_core_id),
+              do: &1 ++ [Map.get(data, :delete_core_id)],
+              else: &1
+            )
+          )
+          |> Map.update!(
+            :pg_notifications_delete,
+            &if(Map.get(data, :pg_notifications_delete),
+              do: &1 ++ Map.get(data, :pg_notifications_delete),
+              else: &1
+            )
+          )
+          |> Map.update!(
+            :pg_event_links_delete,
+            &if(Map.get(data, :pg_event_links_delete),
+              do: &1 ++ Map.get(data, :pg_event_links_delete),
+              else: &1
+            )
+          )
       end)
-      |> Map.put(:pg_event_history, pg_event_history)
 
     case bulk_upsert_event_documents(bulk_transactional_data) do
       {:ok, :success} ->
@@ -458,14 +397,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           {:ok, _} ->
             bulk_delete_event_documents(bulk_transactional_data)
 
-            Redis.publish_async(
-              "events_changed_listener",
-              %{
-                event_type: event_type,
-                deleted: bulk_transactional_data.delete_core_id,
-                upserted: bulk_transactional_data.pg_event_map
-              }
-            )
+          # Redis.publish_async(
+          #   "events_changed_listener",
+          #   %{
+          #     event_type: event_type,
+          #     deleted: bulk_transactional_data.delete_core_id,
+          #     upserted: bulk_transactional_data.pg_event_map
+          #   }
+          # )
 
           {:error, reason} ->
             CogyntLogger.error(
@@ -497,14 +436,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           {:ok, _} ->
             bulk_delete_event_documents(bulk_transactional_data)
 
-            Redis.publish_async(
-              "events_changed_listener",
-              %{
-                event_type: event_type,
-                deleted: bulk_transactional_data.delete_core_id,
-                upserted: bulk_transactional_data.pg_event_map
-              }
-            )
+          # Redis.publish_async(
+          #   "events_changed_listener",
+          #   %{
+          #     event_type: event_type,
+          #     deleted: bulk_transactional_data.delete_core_id,
+          #     upserted: bulk_transactional_data.pg_event_map
+          #   }
+          # )
 
           {:error, reason} ->
             CogyntLogger.error(
@@ -521,9 +460,6 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     nil
   end
 
-  # ----------------------- #
-  # --- private methods --- #
-  # ----------------------- #
   defp determine_event_detail(
          %{path: path, field_name: field_name, field_type: "geo"},
          event_details
@@ -561,6 +497,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
   defp determine_event_detail(
          %{path: path, field_name: field_name, field_type: field_type},
          event_details
@@ -646,6 +585,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       Config.event_index_alias(),
       event_doc_ids
     )
+  end
+
+  defp filter_messages_by_core_id(messages) do
+    messages
+    |> Enum.group_by(fn data -> data.core_id end)
+    |> Enum.reduce([], fn {_core_id, core_id_records}, acc ->
+      # We only need to process the last action that occurred for the
+      # core_id within the batch of events that were sent to handle_batch
+      # ex: create, update, update, update, delete, create (only need the last create)
+      last_crud_action_message = List.last(core_id_records)
+
+      acc ++ [last_crud_action_message]
+    end)
   end
 
   defp format_lexicon_data(event) do
@@ -761,4 +713,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   defp filter_failed_pg_events(bulk_transactional_data, _), do: bulk_transactional_data
+
+  defp in_risk_range?(risk_score, risk_range) do
+    risk_score = risk_score || 0
+    risk_score >= Enum.min(risk_range) and risk_score <= Enum.max(risk_range)
+  end
 end
