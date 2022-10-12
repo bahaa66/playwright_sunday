@@ -145,18 +145,22 @@ defmodule LivenessCheck do
   end
 
   defp pinot_healthy?() do
-    Pinot.get_health()
-    |> case do
-      {:ok, "OK"} ->
-        true
+    if Config.drilldown_enabled?() do
+      Pinot.get_health()
+      |> case do
+        {:ok, "OK"} ->
+          true
 
-      {:error, error} ->
-        CogyntLogger.error(
-          "#{__MODULE__}",
-          "LivenessCheck for Pinot failed. Error: #{inspect(error)}"
-        )
+        {:error, error} ->
+          CogyntLogger.error(
+            "#{__MODULE__}",
+            "LivenessCheck for Pinot failed. Error: #{inspect(error)}"
+          )
 
-        false
+          false
+      end
+    else
+      true
     end
   end
 end
