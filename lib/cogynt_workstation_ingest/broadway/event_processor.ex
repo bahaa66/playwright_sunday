@@ -24,7 +24,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     # Start timer for telemetry metrics
     start = System.monotonic_time()
     telemetry_metadata = %{}
-    action = Map.get(event, Config.crud_key(), nil)
+    action = Map.get(event, String.to_atom(Config.crud_key()), nil)
 
     if action == Config.crud_delete_value() do
       data
@@ -60,7 +60,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
       data
       |> Map.put(:pipeline_state, :process_event)
-      |> Map.put(:crud_action, Map.get(event, String.to_atom(Config.crud_key())))
+      |> Map.put(:crud_action, action)
       |> Map.put(
         :pg_event_list,
         "#{core_id}\t#{occurred_at}\t#{risk_score}\t#{Jason.encode!(event_details)}\t#{now}\t#{now}\t#{event_definition_hash_id}\n"
@@ -601,7 +601,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   defp format_lexicon_data(event) do
-    case Map.get(event, Config.matches_key()) do
+    matches = String.to_atom(Config.matches_key())
+    case Map.get(event, matches) do
       nil ->
         event
 
@@ -609,13 +610,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         try do
           Map.put(
             event,
-            Config.matches_key(),
+            matches,
             List.flatten(lexicon_val) |> Enum.filter(&is_binary(&1))
           )
         rescue
           _ ->
             CogyntLogger.error("#{__MODULE__}", "Lexicon value incorrect format #{lexicon_val}")
-            Map.delete(event, Config.matches_key())
+            Map.delete(event, matches)
         end
     end
   end
