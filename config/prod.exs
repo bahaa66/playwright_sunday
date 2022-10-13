@@ -37,6 +37,3 @@ config :elasticsearch, :common,
   ]
 
 config :cogynt_graphql, :common, mock_license: false
-
-config :cogynt_workstation_ingest,
-  drilldown_enabled: false
