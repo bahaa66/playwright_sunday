@@ -321,14 +321,18 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
        nil
   """
   def get_event_definition(id, opts \\ []) do
-    preload_details = Keyword.get(opts, :preload_details, false)
+    Enum.reduce(opts, from(e in EventDefinition), fn
+      {:preload_details, true}, acc ->
+        acc |> preload(:event_definition_details)
 
-    if preload_details do
-      Repo.get(EventDefinition, id)
-      |> Repo.preload(:event_definition_details)
-    else
-      Repo.get(EventDefinition, id)
-    end
+      {:preload_notification_settings, true}, acc ->
+        acc |> preload(:notification_settings)
+
+      _, acc ->
+        acc
+    end)
+    |> Repo.get(id)
+    |> Repo.preload(:event_definition_details)
   end
 
   @spec get_event_definition_by(any) :: any
@@ -816,6 +820,8 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
       remove_event_core_ids = bulk_transactional_data.delete_core_id
 
       IO.inspect(Enum.count(bulk_transactional_data.pg_event_list), label: "EVENT COUNT")
+
+      IO.inspect(Enum.count(bulk_transactional_data.event_doc), label: "EVENT DOCUMENT COUNT")
 
       IO.inspect(Enum.count(bulk_transactional_data.pg_event_history),
         label: "EVENT HISTORY COUNT"

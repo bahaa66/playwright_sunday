@@ -6,7 +6,6 @@ config :cogynt_workstation_ingest,
   session_key: "_cogynt_auth_key",
   signing_salt: "I45Kpw9a",
   enable_dev_tools: true,
-  event_pipeline_batch_size: 10000,
   drilldown_enabled: true
 
 # Configures the endpoint
@@ -146,8 +145,11 @@ config :exq,
 
 # Broadway Pipelines configurations
 config :cogynt_workstation_ingest, :event_pipeline,
-  processor_stages: 20,
-  producer_stages: 10
+  # 1 mib
+  max_bytes: 1_048_576,
+  batch_size: 100,
+  # 10 sec
+  batch_timeout: 10000
 
 config :cogynt_workstation_ingest, :deployment_pipeline,
   processor_stages: 10,

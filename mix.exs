@@ -73,7 +73,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:hackney, "~> 1.17"},
       {
         :kafka,
-        tag: "v1.31.0",
+        tag: "v1.33.0",
         git: "git@github.com:cogility/cogynt-common.git",
         sparse: "kafka",
         override: true
