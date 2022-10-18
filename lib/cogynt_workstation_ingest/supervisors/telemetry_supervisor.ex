@@ -119,7 +119,10 @@ defmodule CogyntWorkstationIngest.Supervisors.TelemetrySupervisor do
         "broadway.process_entities.duration",
         unit: {:native, :millisecond}
       ),
-
+      summary(
+        "broadway.prepare_messages.duration",
+        unit: {:native, :millisecond}
+      ),
       # Redis Metrics
       summary(
         "redix.hash_set.duration",
