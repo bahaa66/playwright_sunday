@@ -228,11 +228,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
       label: "#{String.upcase(Atom.to_string(batch_type))} BATCH COUNT"
     )
 
-    # Enum.map(messages, fn message -> message.data end)
-    # |> EventProcessor.execute_batch_transaction(
-    #   batch_type == :crud,
-    #   Keyword.get(context, :event_type)
-    # )
+    Enum.map(messages, fn message -> message.data end)
+    |> EventProcessor.execute_batch_transaction(
+      batch_type == :crud,
+      Keyword.get(context, :event_type)
+    )
 
     # increases the total message counter for messages processed
     incr_total_processed_message_count(
