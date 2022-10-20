@@ -24,7 +24,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     # Start timer for telemetry metrics
     start = System.monotonic_time()
     telemetry_metadata = %{}
-    action = Map.get(event, String.to_atom(Config.crud_key()), nil)
+    action = Map.get(event, Config.crud_key(), nil)
 
     if action == Config.crud_delete_value() do
       data
@@ -35,12 +35,12 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
       now = DateTime.truncate(DateTime.utc_now(), :second)
 
       risk_score =
-        format_risk_score(get_in(data, [:kafka_event, String.to_atom(Config.confidence_key())]))
+        format_risk_score(get_in(data, [:kafka_event, Config.confidence_key()]))
 
       event_details = format_lexicon_data(Map.get(data, :kafka_event))
 
       occurred_at =
-        case get_in(data, [:kafka_event, String.to_atom(Config.timestamp_key())]) do
+        case get_in(data, [:kafka_event, Config.timestamp_key()]) do
           nil ->
             nil
 
@@ -95,11 +95,11 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     # If we have a crud action we need to add an entry for pg_event_history
     if action in [crud_create_value, crud_update_value, crud_delete_value] do
       event_details = format_lexicon_data(k_event)
-      risk_score = format_risk_score(Map.get(k_event, String.to_atom(Config.confidence_key())))
-      version = Map.get(k_event, String.to_atom(Config.version_key()))
+      risk_score = format_risk_score(Map.get(k_event, Config.confidence_key()))
+      version = Map.get(k_event, Config.version_key())
 
       occurred_at =
-        case Map.get(k_event, String.to_atom(Config.timestamp_key())) do
+        case Map.get(k_event, Config.timestamp_key()) do
           nil ->
             nil
 
@@ -111,7 +111,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
         end
 
       published_at =
-        case Map.get(k_event, String.to_atom(Config.published_at_key())) do
+        case Map.get(k_event, Config.published_at_key()) do
           nil ->
             nil
 
@@ -460,6 +460,9 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     nil
   end
 
+  # ----------------------- #
+  # --- private methods --- #
+  # ----------------------- #
   defp determine_event_detail(
          %{path: path, field_name: field_name, field_type: "geo"},
          event_details
@@ -497,15 +500,10 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
-  # ----------------------- #
-  # --- private methods --- #
-  # ----------------------- #
   defp determine_event_detail(
          %{path: path, field_name: field_name, field_type: field_type},
          event_details
        ) do
-    if(field_type == "array", do: get_in(event_details, String.split(path, "|")))
-
     %{field_name: field_name, field_type: field_type, path: path}
     |> Map.put(field_type, get_in(event_details, String.split(path, "|")))
   end
@@ -601,7 +599,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
   end
 
   defp format_lexicon_data(event) do
-    matches = String.to_atom(Config.matches_key())
+    matches = Config.matches_key()
     case Map.get(event, matches) do
       nil ->
         event

@@ -84,7 +84,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     start = System.monotonic_time()
     telemetry_metadata = %{}
 
-    case Jason.decode(encoded_data, keys: :atoms) do
+    case Jason.decode(encoded_data) do
       {:ok, decoded_data} ->
         # Execute telemtry for metrics
         :telemetry.execute(
@@ -148,8 +148,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     # Start timer for telemetry metrics
     start = System.monotonic_time()
     telemetry_metadata = %{}
-    crud = not is_nil(Map.get(k_event, String.to_atom(Config.crud_key())))
-    core_id = Map.get(k_event, String.to_atom(Config.id_key()), Ecto.UUID.generate())
+    crud = not is_nil(Map.get(k_event, Config.crud_key()))
+    core_id = Map.get(k_event, Config.id_key(), Ecto.UUID.generate())
 
     if(
       crud,
