@@ -236,7 +236,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
 
   # Private functions #
 
-  defp build_drilldown(solution_ids, loader, callback, level \\ 1) do
+  defp build_drilldown(solution_ids, loader, callback) do
     get_events(solution_ids, loader, fn
       [data_loader_error: original_error], _loader ->
         {:error,
@@ -305,13 +305,6 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
 
               {MapSet.put(events, event), MapSet.put(solutions, solution), edges, producer_ids}
           end)
-
-        IO.inspect(%{
-          events: MapSet.size(events),
-          producer_ids: MapSet.size(producer_ids),
-          solutions: MapSet.size(solutions),
-          edges: MapSet.size(new_edges)
-        }, label: "COUNTS LEVEL #{level}:")
 
         build_drilldown(producer_ids |> MapSet.to_list(), events_loader, fn
           {:ok, %{nodes: nodes, edges: edges}}, final_loader ->
