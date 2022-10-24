@@ -23,72 +23,94 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
   def drilldown(_, %{id: solution_id}, %{
         context: %{loader: loader}
       }) do
-    get_outcomes(solution_id, loader, fn
-      [], _ ->
-        {:error,
-         Error.new(%{
-           message: "Outcome event not found.",
-           code: :internal_server_error,
-           details: "There weren't any outcome events found for solutionid #{solution_id}.",
-           module: "#{__MODULE__} line: #{__ENV__.line}"
-         })}
+    if Config.drilldown_enabled?() do
+      get_outcomes(solution_id, loader, fn
+        [], _ ->
+          {:error,
+           Error.new(%{
+             message: "Outcome event not found.",
+             code: :internal_server_error,
+             details: "There weren't any outcome events found for solutionid #{solution_id}.",
+             module: "#{__MODULE__} line: #{__ENV__.line}"
+           })}
 
-      result, outcome_loader ->
-        build_drilldown([solution_id], outcome_loader, fn
-          {:ok, %{nodes: nodes, edges: edges} = drilldown}, _loader ->
-            outcomes = result |> Enum.map(&Map.get(&1, "event"))
+        result, outcome_loader ->
+          build_drilldown([solution_id], outcome_loader, fn
+            {:ok, %{nodes: nodes, edges: edges} = drilldown}, _loader ->
+              outcomes = result |> Enum.map(&Map.get(&1, "event"))
 
-            edges =
-              Enum.reduce(outcomes, edges, fn
-                o, acc ->
-                  producer_id = Map.get(o, Config.published_by_key())
-                  id = Map.get(o, Config.id_key())
+              edges =
+                Enum.reduce(outcomes, edges, fn
+                  o, acc ->
+                    producer_id = Map.get(o, Config.published_by_key())
+                    id = Map.get(o, Config.id_key())
 
-                  if producer_id do
-                    # Note: The ids have to be in this order in order for the halo on the front end
-                    # to work correctly.
-                    MapSet.put(acc, %{id: "#{producer_id}:#{id}", from: producer_id, to: id})
-                  else
-                    acc
-                  end
-              end)
+                    if producer_id do
+                      # Note: The ids have to be in this order in order for the halo on the front end
+                      # to work correctly.
+                      MapSet.put(acc, %{id: "#{producer_id}:#{id}", from: producer_id, to: id})
+                    else
+                      acc
+                    end
+                end)
 
-            {:ok,
-             Map.put(drilldown, :id, solution_id)
-             |> Map.put(:nodes, MapSet.union(MapSet.new(outcomes), nodes) |> MapSet.to_list())
-             |> Map.put(:edges, edges |> MapSet.to_list())}
-        end)
-    end)
+              {:ok,
+               Map.put(drilldown, :id, solution_id)
+               |> Map.put(:nodes, MapSet.union(MapSet.new(outcomes), nodes) |> MapSet.to_list())
+               |> Map.put(:edges, edges |> MapSet.to_list())}
+          end)
+      end)
+    else
+      {:error,
+       Error.new(%{
+         message: "Drilldown not enabled.",
+         code: :not_found,
+         details:
+           "Drilldown is not enabled for this environment. You will need to enable the drilldown config and make sure all dependencies are running and reachable.",
+         module: "#{__MODULE__} line: #{__ENV__.line}"
+       })}
+    end
   end
 
   def drilldown_solution(_, %{id: solution_id}, %{
         context: %{loader: loader}
       }) do
-    get_solution(solution_id, loader, fn
-      {:data_loader_error, error}, _loader ->
-        {:error,
-         Error.new(%{
-           message: "An internal server occurred while querying for the drilldown solution.",
-           code: :internal_server_error,
-           details:
-             "There was an error when querying for template solution #{solution_id}. Pinot may be down or the table may not exist.",
-           original_error: error,
-           module: "#{__MODULE__} line: #{__ENV__.line}"
-         })}
+    if Config.drilldown_enabled?() do
+      get_solution(solution_id, loader, fn
+        [data_loader_error: original_error], _loader ->
+          {:error,
+           Error.new(%{
+             message: "An internal server occurred while querying for the drilldown solution.",
+             code: :internal_server_error,
+             details:
+               "There was an error when querying for template solution #{solution_id}. Pinot may be down or the table may not exist.",
+             original_error: original_error,
+             module: "#{__MODULE__} line: #{__ENV__.line}"
+           })}
 
-      nil, _loader ->
-        {:error,
-         Error.new(%{
-           message: "Drilldown solution not found.",
-           code: :not_found,
-           details:
-             "The template solutions datasource did not return a template solution for id: #{solution_id}",
-           module: "#{__MODULE__} line: #{__ENV__.line}"
-         })}
+        nil, _loader ->
+          {:error,
+           Error.new(%{
+             message: "Drilldown solution not found.",
+             code: :not_found,
+             details:
+               "The template solutions datasource did not return a template solution for id: #{solution_id}",
+             module: "#{__MODULE__} line: #{__ENV__.line}"
+           })}
 
-      template_solution, _loader ->
-        {:ok, template_solution}
-    end)
+        template_solution, _loader ->
+          {:ok, template_solution}
+      end)
+    else
+      {:error,
+       Error.new(%{
+         message: "Drilldown not enabled.",
+         code: :not_found,
+         details:
+           "Drilldown is not enabled for this environment. You will need to enable the drilldown config and make sure all dependencies are running and reachable.",
+         module: "#{__MODULE__} line: #{__ENV__.line}"
+       })}
+    end
   end
 
   defp get_solution(solution_id, loader, callback) do
@@ -115,7 +137,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         context: %{loader: loader}
       }) do
     get_events(solution_id, loader, fn
-      {:data_loader_error, original_error}, _loader ->
+      [data_loader_error: original_error], _loader ->
         {:error,
          Error.new(%{
            message: "An internal server occurred while querying for child solutions.",
@@ -140,7 +162,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         context: %{loader: loader}
       }) do
     get_events(solution_id, loader, fn
-      {:data_loader_error, original_error}, _loader ->
+      [data_loader_error: original_error], _loader ->
         {:error,
          Error.new(%{
            message:
@@ -161,7 +183,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
         context: %{loader: loader}
       }) do
     get_outcomes(solution_id, loader, fn
-      {:data_loader_error, original_error}, _loader ->
+      [data_loader_error: original_error], _loader ->
         {:error,
          Error.new(%{
            message:
@@ -216,7 +238,7 @@ defmodule CogyntWorkstationIngestWeb.Resolvers.Drilldown do
 
   defp build_drilldown(solution_ids, loader, callback) do
     get_events(solution_ids, loader, fn
-      {:data_loader_error, original_error}, _loader ->
+      [data_loader_error: original_error], _loader ->
         {:error,
          Error.new(%{
            message: "An internal server occurred while querying for child solutions.",

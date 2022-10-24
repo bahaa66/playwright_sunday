@@ -79,16 +79,13 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
   Transformation callback. Will transform the message that is returned
   by the Producer into a Broadway.Message.t() to be handled by the processor
   """
-  def transform(%Message{data: encoded_data} = message, context) do
+  def transform(%Message{data: encoded_data} = message, _context) do
     # Start timer for telemetry metrics
     start = System.monotonic_time()
     telemetry_metadata = %{}
 
-    case Jason.decode(encoded_data, keys: :atoms) do
+    case Jason.decode(encoded_data) do
       {:ok, decoded_data} ->
-        # Can this be moved to the batcher before we make the postgres and other calls?
-        incr_total_fetched_message_count(Keyword.get(context, :event_definition_hash_id))
-
         # Execute telemtry for metrics
         :telemetry.execute(
           [:broadway, :transform],
@@ -110,6 +107,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
 
   @impl true
   def prepare_messages(messages, context) do
+    # Start timer for telemetry metrics
+    start = System.monotonic_time()
+    telemetry_metadata = %{}
+
+    # updates the total message counter fetched from kafka
+    incr_total_fetched_message_count(
+      Keyword.get(context, :event_definition_hash_id),
+      Enum.count(messages)
+    )
+
     event_definition =
       EventsContext.get_event_definition(
         Keyword.get(context, :event_definition_hash_id),
@@ -117,9 +124,19 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
         preload_notification_settings: true
       )
 
-    Enum.map(messages, fn m ->
-      Message.update_data(m, &Map.put(&1, :event_definition, event_definition))
-    end)
+    messages =
+      Enum.map(messages, fn m ->
+        Message.update_data(m, &Map.put(&1, :event_definition, event_definition))
+      end)
+
+    # Execute telemtry for metrics
+    :telemetry.execute(
+      [:broadway, :prepare_messages],
+      %{duration: System.monotonic_time() - start},
+      telemetry_metadata
+    )
+
+    messages
   end
 
   @impl true
@@ -131,8 +148,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     # Start timer for telemetry metrics
     start = System.monotonic_time()
     telemetry_metadata = %{}
-    crud = not is_nil(Map.get(k_event, String.to_atom(Config.crud_key())))
-    core_id = Map.get(k_event, String.to_atom(Config.id_key()), Ecto.UUID.generate())
+    crud = not is_nil(Map.get(k_event, Config.crud_key()))
+    core_id = Map.get(k_event, Config.id_key(), Ecto.UUID.generate())
 
     if(
       crud,
@@ -212,7 +229,16 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     )
 
     Enum.map(messages, fn message -> message.data end)
-    |> EventProcessor.execute_batch_transaction(batch_type == :crud, Keyword.get(context, :event_type))
+    |> EventProcessor.execute_batch_transaction(
+      batch_type == :crud,
+      Keyword.get(context, :event_type)
+    )
+
+    # increases the total message counter for messages processed
+    incr_total_processed_message_count(
+      Keyword.get(context, :event_definition_hash_id),
+      Enum.count(messages)
+    )
 
     messages
   end
@@ -359,8 +385,8 @@ defmodule CogyntWorkstationIngest.Broadway.EventPipeline do
     )
   end
 
-  defp incr_total_fetched_message_count(event_definition_hash_id) do
-    Redis.hash_increment_by("emi:#{event_definition_hash_id}", "tmc", 1)
+  defp incr_total_fetched_message_count(event_definition_hash_id, count) do
+    Redis.hash_increment_by("emi:#{event_definition_hash_id}", "tmc", count)
     Redis.key_pexpire("emi:#{event_definition_hash_id}", 60000)
   end
 
