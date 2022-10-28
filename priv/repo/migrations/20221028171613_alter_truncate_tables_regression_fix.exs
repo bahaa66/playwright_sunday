@@ -1,0 +1,3 @@
+defmodule CogyntWorkstationIngest.Repo.Migrations.AlterTruncateTablesRegressionFix do
+  use Migrations.AlterTruncateTablesRegressionFix
+end

@@ -50,7 +50,7 @@
   "map_diff": {:hex, :map_diff, "1.3.4", "4fa013ad4fff7b21694f3aa5890dad5a0679f11812fdd89a0ad06276a431faf8", [:mix], [], "hexpm", "32fc0b8fc158683a00a58298440b8cb884e7e779f9459e598df61d022b5412e9"},
   "merkle_map": {:hex, :merkle_map, "0.2.1", "01a88c87a6b9fb594c67c17ebaf047ee55ffa34e74297aa583ed87148006c4c8", [:mix], [], "hexpm", "fed4d143a5c8166eee4fa2b49564f3c4eace9cb252f0a82c1613bba905b2d04d"},
   "metrics": {:hex, :metrics, "1.0.1", "25f094dea2cda98213cecc3aeff09e940299d950904393b2a29d191c346a8486", [:rebar3], [], "hexpm", "69b09adddc4f74a40716ae54d140f93beb0fb8978d8636eaded0c31b6f099f16"},
-  "migrations": {:git, "git@github.com:cogility/cogynt-common.git", "3875c546f3d70dcbac834cb23c4c1f3603b9d644", [tag: "v1.31.0", sparse: "migrations"]},
+  "migrations": {:git, "git@github.com:cogility/cogynt-common.git", "983528e5b765508434e4dbd51819604f6c711649", [tag: "v1.35.0-beta", sparse: "migrations"]},
   "mime": {:hex, :mime, "2.0.3", "3676436d3d1f7b81b5a2d2bd8405f412c677558c81b1c92be58c00562bb59095", [:mix], [], "hexpm", "27a30bf0db44d25eecba73755acf4068cbfe26a4372f9eb3e4ea3a45956bff6b"},
   "mimerl": {:hex, :mimerl, "1.2.0", "67e2d3f571088d5cfd3e550c383094b47159f3eee8ffa08e64106cdf5e981be3", [:rebar3], [], "hexpm", "f278585650aa581986264638ebf698f8bb19df297f66ad91b18910dfc6e19323"},
   "models": {:git, "git@github.com:cogility/cogynt-common.git", "3875c546f3d70dcbac834cb23c4c1f3603b9d644", [tag: "v1.31.0", sparse: "models"]},
