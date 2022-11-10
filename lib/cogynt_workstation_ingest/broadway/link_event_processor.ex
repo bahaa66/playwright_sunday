@@ -24,7 +24,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
         |> Map.put(:pipeline_state, :validate_link_event)
 
       true ->
-        case Map.get(event, String.to_atom(Config.entities_key())) do
+        case Map.get(event, Config.entities_key()) do
           nil ->
             CogyntLogger.warn(
               "#{__MODULE__}",
@@ -73,7 +73,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
       |> Map.put(:elastic_event_links, nil)
       |> Map.put(:pipeline_state, :process_entities)
     else
-      entities = Map.get(event, String.to_atom(Config.entities_key()))
+      entities = Map.get(event, Config.entities_key())
 
       {pg_event_link_list, pg_event_link_map} =
         Enum.reduce(entities, {[], []}, fn
@@ -81,7 +81,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
             {pg_list, pg_map} =
               Enum.reduce(link_data_list, {[], []}, fn
                 link_object, {pg_list_acc_0, pg_map_acc_0} ->
-                  case link_object[String.to_atom(Config.id_key())] do
+                  case link_object[Config.id_key()] do
                     nil ->
                       CogyntLogger.warn(
                         "#{__MODULE__}",
@@ -105,7 +105,7 @@ defmodule CogyntWorkstationIngest.Broadway.LinkEventProcessor do
                             %{
                               link_core_id: core_id,
                               entity_core_id: entity_core_id,
-                              label: Atom.to_string(edge_label),
+                              label: edge_label,
                               created_at: now,
                               updated_at: now
                             }
