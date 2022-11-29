@@ -672,13 +672,9 @@ defmodule CogyntWorkstationIngest.Events.EventsContext do
           details.dataType == "poly" ->
             "geo"
 
-          String.contains?(details.dataType, "array") == true ->
-            "array"
-
-          # TODO: ADD THIS BACK IN FOR Q1_2023
-          # details.dataType == "poly-array" or
-          #     details.dataType == "geo-array" ->
-          #   "geo-array"
+          details.dataType == "poly-array" or
+              details.dataType == "geo-array" ->
+            "geo-array"
 
           true ->
             details.dataType
