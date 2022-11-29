@@ -34,8 +34,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     else
       now = DateTime.truncate(DateTime.utc_now(), :second)
 
-      risk_score =
-        format_risk_score(get_in(data, [:kafka_event, Config.confidence_key()]))
+      risk_score = format_risk_score(get_in(data, [:kafka_event, Config.confidence_key()]))
 
       event_details = format_lexicon_data(Map.get(data, :kafka_event))
 
@@ -397,14 +396,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           {:ok, _} ->
             bulk_delete_event_documents(bulk_transactional_data)
 
-          Redis.publish_async(
-            "events_changed_listener",
-            %{
-              event_type: event_type,
-              deleted: bulk_transactional_data.delete_core_id,
-              upserted: bulk_transactional_data.pg_event_map
-            }
-          )
+            Redis.publish_async(
+              "events_changed_listener",
+              %{
+                event_type: event_type,
+                deleted: bulk_transactional_data.delete_core_id,
+                upserted: bulk_transactional_data.pg_event_map
+              }
+            )
 
           {:error, reason} ->
             CogyntLogger.error(
@@ -436,14 +435,14 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
           {:ok, _} ->
             bulk_delete_event_documents(bulk_transactional_data)
 
-          Redis.publish_async(
-            "events_changed_listener",
-            %{
-              event_type: event_type,
-              deleted: bulk_transactional_data.delete_core_id,
-              upserted: bulk_transactional_data.pg_event_map
-            }
-          )
+            Redis.publish_async(
+              "events_changed_listener",
+              %{
+                event_type: event_type,
+                deleted: bulk_transactional_data.delete_core_id,
+                upserted: bulk_transactional_data.pg_event_map
+              }
+            )
 
           {:error, reason} ->
             CogyntLogger.error(
@@ -477,35 +476,57 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
     end
   end
 
-  defp determine_event_detail(
-         %{path: path, field_name: field_name, field_type: "array"},
-         event_details
-       ) do
-    get_in(event_details, String.split(path, "|"))
-    |> case do
-      value when is_list(value) ->
-        Jason.encode(value)
-        |> case do
-          {:ok, value} ->
-            %{field_name: field_name, field_type: "array", path: path} |> Map.put("array", value)
+  # TODO: Add this back in in Q1_2023
+  # defp determine_event_detail(
+  #        %{path: path, field_name: field_name, field_type: "array"},
+  #        event_details
+  #      ) do
+  #   get_in(event_details, String.split(path, "|"))
+  #   |> case do
+  #     value when is_list(value) ->
+  #       Jason.encode(value)
+  #       |> case do
+  #         {:ok, value} ->
+  #           %{field_name: field_name, field_type: "array", path: path} |> Map.put("array", value)
 
-          _ ->
-            %{field_name: field_name, field_type: "array", path: path}
-            |> Map.put("array", inspect(value))
-        end
+  #         _ ->
+  #           %{field_name: field_name, field_type: "array", path: path}
+  #           |> Map.put("array", inspect(value))
+  #       end
 
-      value ->
-        %{field_name: field_name, field_type: "array", path: path}
-        |> Map.put("array", inspect(value))
-    end
-  end
+  #     value ->
+  #       %{field_name: field_name, field_type: "array", path: path}
+  #       |> Map.put("array", inspect(value))
+  #   end
+  # end
 
   defp determine_event_detail(
          %{path: path, field_name: field_name, field_type: field_type},
          event_details
        ) do
-    %{field_name: field_name, field_type: field_type, path: path}
-    |> Map.put(field_type, get_in(event_details, String.split(path, "|")))
+    if String.contains?(field_type, "array") do
+      get_in(event_details, String.split(path, "|"))
+      |> case do
+        value when is_list(value) ->
+          Jason.encode(value)
+          |> case do
+            {:ok, value} ->
+              %{field_name: field_name, field_type: "array", path: path}
+              |> Map.put("array", value)
+
+            _ ->
+              %{field_name: field_name, field_type: "array", path: path}
+              |> Map.put("array", inspect(value))
+          end
+
+        value ->
+          %{field_name: field_name, field_type: "array", path: path}
+          |> Map.put("array", inspect(value))
+      end
+    else
+      %{field_name: field_name, field_type: field_type, path: path}
+      |> Map.put(field_type, get_in(event_details, String.split(path, "|")))
+    end
   end
 
   defp bulk_delete_event_documents(bulk_transactional_data) do
@@ -600,6 +621,7 @@ defmodule CogyntWorkstationIngest.Broadway.EventProcessor do
 
   defp format_lexicon_data(event) do
     matches = Config.matches_key()
+
     case Map.get(event, matches) do
       nil ->
         event
