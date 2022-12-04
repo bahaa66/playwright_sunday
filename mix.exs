@@ -39,7 +39,7 @@ defmodule CogyntWorkstationIngest.MixProject do
       {:distillery, "~> 2.1"},
       {:phoenix_ecto, "~> 4.0"},
       {:ecto_sql, "~> 3.7.1"},
-      {:postgrex, "~> 0.15.8"},
+      {:postgrex, "~> 0.16.5"},
       {:gettext, "~> 0.11"},
       {:jason, "~> 1.0"},
       {:ja_serializer, "~> 0.17.0"},
